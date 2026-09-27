@@ -23,30 +23,42 @@ use Inertia\Response;
 class TransactionController extends Controller
 {
     public const STATUS_GROUPS = [
-        'open' => ['created', 'awaiting_payment'],
-        'pending' => ['payment_submitted', 'payment_detected'],
-        'hold' => ['under_review'],
-        'success' => ['success'],
-        'rejected' => ['rejected'],
-        'closed' => ['expired', 'cancelled'],
+        'payin' => [
+            'open' => ['created', 'awaiting_payment'],
+            'pending' => ['payment_submitted', 'payment_detected'],
+            'hold' => ['under_review'],
+            'success' => ['success'],
+            'rejected' => ['rejected'],
+            'closed' => ['expired', 'cancelled'],
+        ],
+        'payout' => [
+            'pending' => ['assigned'],
+            'hold' => ['processing'],
+            'success' => ['success'],
+            'rejected' => ['failed', 'rejected', 'returned'],
+            'closed' => ['cancelled'],
+        ],
     ];
 
     public function __construct(private TransactionPresenter $presenter) {}
 
     public function index(Request $request): Response
     {
-        Gate::authorize('payins.view');
+        $direction = $request->route()?->defaults['direction'] ?? 'payin';
+        $direction = $direction === 'payout' ? 'payout' : 'payin';
+        Gate::authorize($direction === 'payout' ? 'payouts.view' : 'payins.view');
 
         $actor = $this->actor($request);
-        $group = array_key_exists((string) $request->query('status'), self::STATUS_GROUPS) ? (string) $request->query('status') : null;
+        $groups = self::STATUS_GROUPS[$direction];
+        $group = array_key_exists((string) $request->query('status'), $groups) ? (string) $request->query('status') : null;
         $search = trim((string) $request->query('search'));
         $selected = $request->query('txn');
 
-        $base = fn () => self::scoped($actor)->where('direction', 'payin');
+        $base = fn () => self::scoped($actor)->where('direction', $direction);
 
         $transactions = $base()
-            ->with(['partner', 'branch', 'paymentAccount', 'customer'])
-            ->when($group !== null, fn (Builder $query) => $query->whereIn('status', self::STATUS_GROUPS[(string) $group] ?? []))
+            ->with(['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary'])
+            ->when($group !== null, fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
             ->when($search !== '', fn (Builder $query) => self::search($query, $search))
             ->latest('created_at')
             ->paginate(25)
@@ -56,12 +68,13 @@ class TransactionController extends Controller
 
         return Inertia::render('transactions/index', [
             'portal' => $actor->type->value,
+            'direction' => $direction,
             'transactions' => [
                 ...$transactions->toArray(),
                 'data' => $transactions->getCollection()->map(fn (Transaction $txn) => $this->presenter->row($txn, $actor))->values(),
             ],
             'filters' => ['status' => $group, 'search' => $search],
-            'summary' => collect(self::STATUS_GROUPS)->map(fn (array $statuses) => [
+            'summary' => collect($groups)->map(fn (array $statuses) => [
                 'count' => (int) $counts->whereIn('status', $statuses)->sum('total'),
                 'amount' => (int) $counts->whereIn('status', $statuses)->sum('amount'),
             ]),

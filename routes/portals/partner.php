@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Partner\Balance\BalanceController;
 use App\Http\Partner\Developers\ApiLogController;
 use App\Http\Partner\Developers\DeveloperController;
 use App\Http\Partner\Profile\BusinessProfileController;
@@ -17,6 +18,8 @@ Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile
 
 // The partner's pay-ins (status, timeline, webhooks + resend).
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
+Route::get('payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.index');
+Route::get('balance', [BalanceController::class, 'show'])->name('balance');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
 
 // API documentation and the partner's own API call log.

@@ -29,6 +29,7 @@ export type TxnRow = {
         upi: string | null;
     } | null;
     customer: { id: string; name: string | null; mobile: string | null } | null;
+    beneficiary?: { type: string; name: string; masked: string } | null;
     amount: number;
     net: number | null;
     method: string | null;
@@ -41,7 +42,7 @@ export type TxnRow = {
     submitted_at: string | null;
     decided_at: string | null;
     expires_at: string | null;
-    can: { decide: boolean };
+    can: { decide: boolean; process?: boolean };
 };
 
 export type TxnDetail = {
@@ -123,6 +124,15 @@ const EVENT_LABELS: Record<string, string> = {
     declined: 'Declined',
     expired: 'Expired',
     cancelled: 'Cancelled',
+    // payouts
+    assigned: 'Sent to a branch (balance held)',
+    reassigned: 'Moved to another branch',
+    processing: 'Branch started paying',
+    paid: 'Paid',
+    failed: 'Could not be paid',
+    reservation_released: 'Balance hold released',
+    reservation_confirmed: 'Balance hold settled',
+    session_closed: 'Customer left the payment page',
 };
 
 /** A timeline value as text (event data is loosely typed JSON). */
@@ -130,8 +140,8 @@ const text = (value: unknown) =>
     typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 
 const LEDGER_LABELS: Record<string, string> = {
-    partner_position: 'Owed to partner',
-    branch_position: 'Owed by branch',
+    partner_position: 'Partner position',
+    branch_position: 'Branch position',
     platform_margin: 'Platform margin',
     platform_adjustments: 'Adjustments',
     settlement_clearing: 'Settlement clearing',
@@ -159,7 +169,9 @@ export function TransactionDrawer({
     const tabs = [
         { key: 'overview', label: 'Overview' },
         { key: 'timeline', label: 'Timeline' },
-        ...(portal !== 'partner' ? [{ key: 'proof', label: 'Proof' }] : []),
+        ...(portal !== 'partner' && txn.direction === 'payin'
+            ? [{ key: 'proof', label: 'Proof' }]
+            : []),
         ...(portal === 'admin' ? [{ key: 'ledger', label: 'Ledger' }] : []),
         ...(portal !== 'branch'
             ? [{ key: 'webhooks', label: 'Webhooks' }]
@@ -178,7 +190,13 @@ export function TransactionDrawer({
         <Drawer
             open
             onOpenChange={(open) => !open && onClose()}
-            kind={portal === 'branch' ? 'Deposit' : 'Pay-in'}
+            kind={
+                txn.direction === 'payout'
+                    ? 'Payout'
+                    : portal === 'branch'
+                      ? 'Deposit'
+                      : 'Pay-in'
+            }
             title={txn.reference}
             status={<StatusBadge status={txn.status} />}
             subtitle={[
@@ -193,7 +211,14 @@ export function TransactionDrawer({
             summaries={[
                 { label: 'Amount', value: formatPaise(txn.amount) },
                 {
-                    label: portal === 'branch' ? 'Owed to platform' : 'Net',
+                    label:
+                        txn.direction === 'payout'
+                            ? portal === 'branch'
+                                ? 'Owed to you'
+                                : 'Charged'
+                            : portal === 'branch'
+                              ? 'Owed to platform'
+                              : 'Net',
                     value: txn.net === null ? '—' : formatPaise(txn.net),
                 },
                 {
@@ -293,6 +318,23 @@ function Overview({
                     ]}
                 />
             </Section>
+            {txn.beneficiary && (
+                <Section title="Paid to">
+                    <KeyValues
+                        items={[
+                            { label: 'Name', value: txn.beneficiary.name },
+                            {
+                                label:
+                                    txn.beneficiary.type === 'upi'
+                                        ? 'UPI'
+                                        : 'Bank account',
+                                value: txn.beneficiary.masked,
+                                mono: true,
+                            },
+                        ]}
+                    />
+                </Section>
+            )}
             <Section title="Customer">
                 <KeyValues
                     items={[

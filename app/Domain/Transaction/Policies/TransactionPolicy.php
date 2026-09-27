@@ -30,6 +30,17 @@ class TransactionPolicy
             && $user->type !== UserType::Partner;
     }
 
+    /**
+     * Pay, fail or (Admin) reassign a payout: the assigned branch or Admin.
+     */
+    public function process(User $user, Transaction $transaction): bool
+    {
+        return $transaction->direction === 'payout'
+            && $user->hasPermission(Permission::PayoutsProcess)
+            && $this->inScope($user, $transaction)
+            && $user->type !== UserType::Partner;
+    }
+
     private function inScope(User $user, Transaction $transaction): bool
     {
         return match ($user->type) {

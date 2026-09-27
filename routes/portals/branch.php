@@ -2,6 +2,7 @@
 
 use App\Http\Branch\Accounts\AccountController;
 use App\Http\Shared\Transactions\DepositQueueController;
+use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,15 @@ Route::controller(DepositQueueController::class)->prefix('deposits')->name('depo
     Route::post('{transaction}/decline', 'decline')->name('decline');
 });
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
+Route::get('payout-history', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.history');
+
+// Manual Payout: withdrawals waiting to be paid (pay with UTR / fail).
+Route::controller(PayoutQueueController::class)->prefix('payouts')->name('payouts.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('{transaction}/start', 'start')->name('start');
+    Route::post('{transaction}/complete', 'complete')->name('complete');
+    Route::post('{transaction}/fail', 'fail')->name('fail');
+});
 
 // The branch's own bank & UPI accounts.
 Route::controller(AccountController::class)->prefix('accounts')->name('accounts.')->group(function () {

@@ -6,7 +6,6 @@ export default function PartnerDashboard() {
             title="Partner dashboard"
             description="Your customers' pay-ins and pay-outs, balance and settlements."
             upcoming={[
-                { phase: 8, label: 'Pay-out & balance' },
                 { phase: 10, label: 'Settlements' },
                 { phase: 11, label: 'Reports' },
             ]}

@@ -47,6 +47,17 @@ const ERRORS: [string, number, string][] = [
     ],
     ['partner_inactive', 403, 'Your account is not active.'],
     ['payin_disabled', 403, 'Pay-ins are not enabled for your account.'],
+    ['payout_disabled', 403, 'Payouts are not enabled for your account.'],
+    [
+        'insufficient_balance',
+        422,
+        'Balance is low: no branch holds enough of your balance for amount + fee.',
+    ],
+    [
+        'daily_limit_reached',
+        422,
+        'The payout would exceed your daily withdrawal limit.',
+    ],
     ['customer_blocked', 403, 'This customer is blocked.'],
     [
         'validation_failed',
@@ -294,7 +305,54 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                 />
             </Doc>
 
-            <Doc title="6. Webhooks">
+            <Doc title="6. Payouts (withdrawals) and balance">
+                <p>
+                    <Code>POST /v1/payouts</Code> asks us to pay your customer.
+                    The <b>fee is charged on top</b>: the amount plus your
+                    withdrawal fee comes out of your balance. A payout is paid
+                    by one branch, so it must fit the balance held at one
+                    branch; otherwise you get{' '}
+                    <Code>422 insufficient_balance</Code> (“balance is low”) and
+                    nothing is created.
+                </p>
+                <Pre>{`{
+  "order_id": "WD-55120",
+  "amount": 900000,                         // paise (₹9,000)
+  "customer": { "id": "user-5521" },
+  "beneficiary": {
+    "type": "bank",                         // or "upi" with "upi_id": "name@bank"
+    "name": "Ravi Kumar",
+    "account_number": "50100482716640",
+    "ifsc": "HDFC0001203",
+    "bank_name": "HDFC Bank"                // optional
+  },
+  "metadata": { "wallet": "main" }          // optional
+}`}</Pre>
+                <p>
+                    Statuses: <Code>assigned</Code> (a branch will pay it),{' '}
+                    <Code>processing</Code> (being paid), <Code>success</Code>{' '}
+                    (paid; the response carries the transfer UTR),{' '}
+                    <Code>failed</Code> (couldn’t be paid; the held amount is
+                    back in your balance — send a new request to retry),{' '}
+                    <Code>cancelled</Code>. Cancel with{' '}
+                    <Code>POST /v1/payouts/{'{id}'}/cancel</Code> while it is
+                    still assigned. Look up with{' '}
+                    <Code>GET /v1/payouts/{'{id}'}</Code>,{' '}
+                    <Code>GET /v1/payouts?order_id=…</Code> or{' '}
+                    <Code>POST /v1/payouts/status</Code>. Repeating the same
+                    order_id is safe, as for pay-ins. Webhooks:{' '}
+                    <Code>payout.success</Code>, <Code>payout.failed</Code> to
+                    your payout webhook URL.
+                </p>
+                <p>
+                    <Code>GET /v1/balance</Code> returns <Code>balance</Code>,{' '}
+                    <Code>reserved</Code> (held by payouts in progress),{' '}
+                    <Code>available</Code> and <Code>max_payout</Code> — the
+                    largest single payout possible right now, fee included.
+                </p>
+            </Doc>
+
+            <Doc title="7. Webhooks">
                 <p>
                     We POST to your pay-in webhook URL (API & Webhooks ›
                     Endpoints) when a pay-in changes. Events:{' '}
@@ -326,7 +384,7 @@ $ok = hash_equals(hash_hmac('sha256', $sig['t'] . '.' . $rawBody, $secret), $sig
                 </p>
             </Doc>
 
-            <Doc title="7. Errors">
+            <Doc title="8. Errors">
                 <p>
                     Errors always look like this; use the code, not the message,
                     in your program:

@@ -6,20 +6,24 @@ import adminTransactions from '@/routes/admin/transactions';
 import adminBranches from '@/routes/admin/branches';
 import adminMappings from '@/routes/admin/mappings';
 import adminPartners from '@/routes/admin/partners';
+import adminPayouts from '@/routes/admin/payouts';
 import adminRoles from '@/routes/admin/roles';
 import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
 import branchAccounts from '@/routes/branch/accounts';
 import branchDeposits from '@/routes/branch/deposits';
 import branchPayins from '@/routes/branch/payins';
+import branchPayouts from '@/routes/branch/payouts';
 import branchUsers from '@/routes/branch/users';
 import partner, {
+    balance as partnerBalance,
     apiDocs as partnerApiDocs,
     apiLogs as partnerApiLogs,
     profile as partnerProfile,
 } from '@/routes/partner';
 import partnerDevelopers from '@/routes/partner/developers';
 import partnerPayins from '@/routes/partner/payins';
+import partnerPayouts from '@/routes/partner/payouts';
 import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
 import type { UserType } from '@/types';
@@ -70,7 +74,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: adminDeposits.index(),
                     permission: 'payins.view',
                 },
-                { label: 'Manual Payout', soon: 8 },
+                {
+                    label: 'Manual Payout',
+                    href: adminPayouts.index(),
+                    permission: 'payouts.view',
+                },
                 { label: 'Refunds', soon: 12 },
                 { label: 'Chargebacks', soon: 12 },
             ],
@@ -160,7 +168,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: branchDeposits.index(),
                     permission: 'payins.view',
                 },
-                { label: 'Manual Payout', soon: 8 },
+                {
+                    label: 'Manual Payout',
+                    href: branchPayouts.index(),
+                    permission: 'payouts.view',
+                },
                 { label: 'Deposit Unsettled', soon: 9 },
             ],
         },
@@ -180,7 +192,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: branchPayins.index(),
                     permission: 'payins.view',
                 },
-                { label: 'Pay-out History', soon: 8 },
+                {
+                    label: 'Pay-out History',
+                    href: branchPayouts.history(),
+                    permission: 'payouts.view',
+                },
                 { label: 'UTR Reconciliation', soon: 9 },
             ],
         },
@@ -219,14 +235,22 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: partnerPayins.index(),
                     permission: 'payins.view',
                 },
-                { label: 'Pay-out', soon: 8 },
+                {
+                    label: 'Pay-out',
+                    href: partnerPayouts.index(),
+                    permission: 'payouts.view',
+                },
             ],
         },
         {
             label: 'Finance',
             items: [
                 { label: 'Settlements', soon: 10 },
-                { label: 'Balance', soon: 8 },
+                {
+                    label: 'Balance',
+                    href: partnerBalance(),
+                    permission: 'balances.view',
+                },
                 { label: 'Reports', soon: 11 },
             ],
         },

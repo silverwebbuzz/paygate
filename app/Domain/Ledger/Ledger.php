@@ -108,6 +108,43 @@ class Ledger
     }
 
     /**
+     * Holds `$amount` of a position for an open payout, only if what is left
+     * (balance − reserved) covers it. A conditional update, so concurrent
+     * payouts wait for each other instead of overdrawing (Database.md §4).
+     */
+    public function reserve(string $accountId, int $amount): bool
+    {
+        return DB::update(
+            'UPDATE ledger_balances SET reserved = reserved + ?, updated_at = now() WHERE ledger_account_id = ? AND balance - reserved >= ?',
+            [$amount, $accountId, $amount],
+        ) === 1;
+    }
+
+    /**
+     * Gives a payout hold back (paid, failed, cancelled or moved).
+     */
+    public function release(string $accountId, int $amount): void
+    {
+        DB::update('UPDATE ledger_balances SET reserved = GREATEST(reserved - ?, 0), updated_at = now() WHERE ledger_account_id = ?', [$amount, $accountId]);
+    }
+
+    /**
+     * Balance, reserved and available for each pair position of a partner.
+     *
+     * @return array<string, array{balance: int, reserved: int}> branch id => figures
+     */
+    public function partnerPositions(string $partnerId): array
+    {
+        return DB::table('ledger_balances as b')
+            ->join('ledger_accounts as a', 'a.id', '=', 'b.ledger_account_id')
+            ->where('a.kind', self::PARTNER_POSITION)
+            ->where('a.partner_id', $partnerId)
+            ->get(['a.branch_id', 'b.balance', 'b.reserved'])
+            ->mapWithKeys(fn (object $row) => [(string) $row->branch_id => ['balance' => (int) $row->balance, 'reserved' => (int) $row->reserved]])
+            ->all();
+    }
+
+    /**
      * Current balance of an account (0 when it has none yet).
      */
     public function balance(string $kind, ?string $partnerId = null, ?string $branchId = null): int

@@ -7,6 +7,7 @@ use App\Domain\Customer\Models\PartnerCustomer;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\PaymentSession\Models\PaymentSession;
+use App\Domain\Payout\Models\PayoutBeneficiary;
 use App\Domain\Transaction\Enums\PayinStatus;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -58,6 +59,7 @@ use Illuminate\Support\Str;
  * @property-read Partner $partner
  * @property-read PaymentAccount|null $paymentAccount
  * @property-read PaymentSession|null $session
+ * @property-read PayoutBeneficiary|null $beneficiary
  */
 class Transaction extends Model
 {
@@ -145,6 +147,24 @@ class Transaction extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(PartnerCustomer::class, 'partner_customer_id');
+    }
+
+    /**
+     * Where a payout goes.
+     *
+     * @return HasOne<PayoutBeneficiary, $this>
+     */
+    public function beneficiary(): HasOne
+    {
+        return $this->hasOne(PayoutBeneficiary::class);
+    }
+
+    /**
+     * A new payout reference, e.g. PO260927K7QX4MZD (see newPayinReference).
+     */
+    public static function newPayoutReference(): string
+    {
+        return 'PO'.substr(self::newPayinReference(), 2);
     }
 
     /**

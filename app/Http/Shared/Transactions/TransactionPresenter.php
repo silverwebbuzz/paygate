@@ -6,6 +6,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
+use App\Domain\Payout\PayoutReservation;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
@@ -28,10 +29,13 @@ class TransactionPresenter
     public function row(Transaction $txn, User $viewer): array
     {
         $type = $viewer->type;
+        $payout = $txn->direction === 'payout';
+        $partnerFee = $payout ? PayoutReservation::fee($txn) : $txn->partner_commission;
+        // Pay-in: what the partner is credited (amount − fee). Payout: what
+        // the partner is charged (amount + fee). Branches see their side.
         $net = match ($type) {
-            UserType::Partner => $txn->partner_commission === null ? null : $txn->amount - $txn->partner_commission,
-            UserType::Branch => $txn->branch_commission === null ? null : $txn->amount - $txn->branch_commission,
-            UserType::Admin => $txn->partner_commission === null ? null : $txn->amount - $txn->partner_commission,
+            UserType::Branch => $txn->branch_commission === null ? null : ($payout ? $txn->amount + $txn->branch_commission : $txn->amount - $txn->branch_commission),
+            default => $partnerFee === null ? null : ($payout ? $txn->amount + $partnerFee : $txn->amount - $partnerFee),
         };
 
         return [
@@ -47,6 +51,11 @@ class TransactionPresenter
                 'number' => $txn->paymentAccount->maskedAccountNumber(),
                 'upi' => $txn->paymentAccount->maskedUpiId(),
             ],
+            'beneficiary' => $payout && $txn->beneficiary ? [
+                'type' => $txn->beneficiary->type,
+                'name' => $txn->beneficiary->account_holder_name,
+                'masked' => $txn->beneficiary->masked(),
+            ] : null,
             'customer' => $txn->customer ? [
                 'id' => $txn->customer->external_id,
                 'name' => $txn->customer->name,
@@ -66,6 +75,7 @@ class TransactionPresenter
             'expires_at' => $txn->expires_at?->toIso8601String(),
             'can' => [
                 'decide' => $viewer->can('decide', $txn),
+                'process' => $viewer->can('process', $txn),
             ],
         ];
     }

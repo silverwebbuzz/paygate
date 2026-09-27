@@ -6,7 +6,6 @@ export default function BranchDashboard() {
             title="Branch dashboard"
             description="Deposits to approve, payouts to process and your bank accounts at a glance."
             upcoming={[
-                { phase: 8, label: 'Manual payouts' },
                 { phase: 9, label: 'A/C statements & unsettled UTR' },
                 { phase: 10, label: 'Branch balance & settlement' },
                 { phase: 11, label: 'Reports' },

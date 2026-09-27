@@ -7,6 +7,7 @@ use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Shared\Transactions\DepositQueueController;
+use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -19,12 +20,22 @@ Route::inertia('/', 'admin/dashboard')->name('dashboard');
 
 // Transactions (all pay-ins) and the Manual Deposit queue of every branch.
 Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
+Route::get('transactions/payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('transactions.payouts');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
 Route::controller(DepositQueueController::class)->prefix('deposits')->name('deposits.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('{transaction}/approve', 'approve')->name('approve');
     Route::post('{transaction}/hold', 'hold')->name('hold');
     Route::post('{transaction}/decline', 'decline')->name('decline');
+});
+
+// Manual Payout: withdrawals waiting to be paid (pay with UTR / fail, reassign).
+Route::controller(PayoutQueueController::class)->prefix('payouts')->name('payouts.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('{transaction}/start', 'start')->name('start');
+    Route::post('{transaction}/complete', 'complete')->name('complete');
+    Route::post('{transaction}/fail', 'fail')->name('fail');
+    Route::post('{transaction}/reassign', 'reassign')->name('reassign');
 });
 
 // Partners (wizard, detail drawer, status, API keys).

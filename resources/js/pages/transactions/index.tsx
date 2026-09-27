@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/pg/empty-state';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
+import { Segmented } from '@/components/pg/segmented';
 import { StatusBadge } from '@/components/pg/status-badge';
 import {
     METHOD_LABELS,
@@ -25,6 +26,7 @@ type Group = 'open' | 'pending' | 'hold' | 'success' | 'rejected' | 'closed';
 
 type Props = {
     portal: UserType;
+    direction: 'payin' | 'payout';
     transactions: {
         data: TxnRow[];
         total: number;
@@ -34,44 +36,93 @@ type Props = {
         next_page_url: string | null;
     };
     filters: { status: Group | null; search: string };
-    summary: Record<Group, { count: number; amount: number }>;
+    summary: Partial<Record<Group, { count: number; amount: number }>>;
     selected: string | null;
     detail?: TxnDetail | null;
 };
 
 const LIST_ROUTE = {
-    admin: admin.transactions.index,
-    partner: partner.payins.index,
-    branch: branch.payins.index,
+    payin: {
+        admin: admin.transactions.index,
+        partner: partner.payins.index,
+        branch: branch.payins.index,
+    },
+    payout: {
+        admin: admin.transactions.payouts,
+        partner: partner.payouts.index,
+        branch: branch.payouts.history,
+    },
 };
 
-const TITLES: Record<UserType, [string, string]> = {
-    admin: [
-        'Transactions',
-        'Every pay-in across partners and branches. Search by our id, order id, UTR or customer.',
+const TITLES: Record<'payin' | 'payout', Record<UserType, [string, string]>> = {
+    payin: {
+        admin: [
+            'Transactions',
+            'Every pay-in across partners and branches. Search by our id, order id, UTR or customer.',
+        ],
+        partner: [
+            'Pay-in',
+            'Your customers’ deposits. Credit a customer only when the status is Success.',
+        ],
+        branch: [
+            'Pay-in history',
+            'Deposits paid into your accounts, newest first.',
+        ],
+    },
+    payout: {
+        admin: ['Transactions', 'Every payout across partners and branches.'],
+        partner: [
+            'Pay-out',
+            'Withdrawals to your customers. The amount plus the fee is charged to your balance.',
+        ],
+        branch: [
+            'Pay-out history',
+            'Withdrawals your branch paid or couldn’t pay.',
+        ],
+    },
+};
+
+const TABS: Record<'payin' | 'payout', [Group | 'all', string][]> = {
+    payin: [
+        ['all', 'All'],
+        ['pending', 'Pending'],
+        ['hold', 'On hold'],
+        ['success', 'Success'],
+        ['rejected', 'Declined'],
+        ['open', 'Not paid yet'],
+        ['closed', 'Expired / cancelled'],
     ],
-    partner: [
-        'Pay-in',
-        'Your customers’ deposits. Credit a customer only when the status is Success.',
-    ],
-    branch: [
-        'Pay-in history',
-        'Deposits paid into your accounts, newest first.',
+    payout: [
+        ['all', 'All'],
+        ['pending', 'Waiting for branch'],
+        ['hold', 'Being paid'],
+        ['success', 'Paid'],
+        ['rejected', 'Failed'],
+        ['closed', 'Cancelled'],
     ],
 };
 
-const TABS: [Group | 'all', string][] = [
-    ['all', 'All'],
-    ['pending', 'Pending'],
-    ['hold', 'On hold'],
-    ['success', 'Success'],
-    ['rejected', 'Declined'],
-    ['open', 'Not paid yet'],
-    ['closed', 'Expired / cancelled'],
-];
+const KPIS: Record<
+    'payin' | 'payout',
+    [Group, string, string, 'ok' | 'wn' | 'hd' | 'er'][]
+> = {
+    payin: [
+        ['success', 'Success', '✓', 'ok'],
+        ['pending', 'Pending', '◷', 'wn'],
+        ['hold', 'On hold', '‖', 'hd'],
+        ['rejected', 'Declined', '✕', 'er'],
+    ],
+    payout: [
+        ['success', 'Paid', '✓', 'ok'],
+        ['pending', 'Waiting for branch', '◷', 'wn'],
+        ['hold', 'Being paid', '‖', 'hd'],
+        ['rejected', 'Failed', '✕', 'er'],
+    ],
+};
 
 export default function Transactions({
     portal,
+    direction,
     transactions,
     filters,
     summary,
@@ -81,11 +132,11 @@ export default function Transactions({
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(selected);
     const open = transactions.data.find((txn) => txn.id === openId) ?? null;
-    const [title, description] = TITLES[portal];
+    const [title, description] = TITLES[direction][portal];
 
     const visit = (next: Partial<Props['filters']>) =>
         router.get(
-            LIST_ROUTE[portal]({
+            LIST_ROUTE[direction][portal]({
                 query: Object.fromEntries(
                     Object.entries({ ...filters, search, ...next }).filter(
                         ([, v]) => v,
@@ -117,6 +168,8 @@ export default function Transactions({
     const total = (
         Object.values(summary) as { count: number; amount: number }[]
     ).reduce((sum, group) => sum + group.count, 0);
+
+    const figure = (group: Group) => summary[group] ?? { count: 0, amount: 0 };
 
     const columns: Column<TxnRow>[] = [
         {
@@ -168,7 +221,9 @@ export default function Transactions({
                 <div>
                     <div className="font-medium">{formatPaise(t.amount)}</div>
                     <div className="text-xs text-tx3">
-                        {t.net === null ? '—' : `Net ${formatPaise(t.net)}`}
+                        {t.net === null
+                            ? '—'
+                            : `${direction === 'payout' ? 'Charged' : 'Net'} ${formatPaise(t.net)}`}
                     </div>
                 </div>
             ),
@@ -244,45 +299,44 @@ export default function Transactions({
                 title={title}
                 description={description}
                 actions={
-                    <PgButton onClick={() => router.reload()}>
-                        <RefreshCw className="size-3.5" /> Refresh
-                    </PgButton>
+                    <>
+                        {portal === 'admin' && (
+                            <Segmented
+                                options={[
+                                    { value: 'payin', label: 'Pay-ins' },
+                                    { value: 'payout', label: 'Payouts' },
+                                ]}
+                                value={direction}
+                                onChange={(value) =>
+                                    router.get(LIST_ROUTE[value].admin().url)
+                                }
+                            />
+                        )}
+                        <PgButton onClick={() => router.reload()}>
+                            <RefreshCw className="size-3.5" /> Refresh
+                        </PgButton>
+                    </>
                 }
             />
 
             <KpiGrid>
-                <StatTile
-                    label="Success"
-                    value={`${formatPaise(summary.success.amount, 0)} · ${summary.success.count}`}
-                    icon="✓"
-                    tone="ok"
-                />
-                <StatTile
-                    label="Pending"
-                    value={`${formatPaise(summary.pending.amount, 0)} · ${summary.pending.count}`}
-                    icon="◷"
-                    tone="wn"
-                />
-                <StatTile
-                    label="On hold"
-                    value={`${formatPaise(summary.hold.amount, 0)} · ${summary.hold.count}`}
-                    icon="‖"
-                    tone="hd"
-                />
-                <StatTile
-                    label="Declined"
-                    value={`${formatPaise(summary.rejected.amount, 0)} · ${summary.rejected.count}`}
-                    icon="✕"
-                    tone="er"
-                />
+                {KPIS[direction].map(([group, label, icon, tone]) => (
+                    <StatTile
+                        key={group}
+                        label={label}
+                        value={`${formatPaise(figure(group).amount, 0)} · ${figure(group).count}`}
+                        icon={icon}
+                        tone={tone}
+                    />
+                ))}
             </KpiGrid>
 
             <Panel className="overflow-hidden">
                 <ViewTabs
-                    views={TABS.map(([key, label]) => ({
+                    views={TABS[direction].map(([key, label]) => ({
                         key,
                         label,
-                        count: key === 'all' ? total : summary[key].count,
+                        count: key === 'all' ? total : figure(key).count,
                     }))}
                     active={filters.status ?? 'all'}
                     onChange={(key) =>
