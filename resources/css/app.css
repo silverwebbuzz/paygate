@@ -9,9 +9,10 @@
 
 @theme {
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-        'Noto Color Emoji';
+        'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-mono:
+        'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -61,75 +62,177 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/*
+ * PayGate design tokens (Document/PayGate UI redesign). Use them as Tailwind
+ * utilities: bg-sf, text-tx2, border-ln, bg-ac, text-ok, bg-okb, …
+ */
+@theme inline {
+    --color-bg: var(--pg-bg);
+    --color-sf: var(--pg-sf);
+    --color-sf2: var(--pg-sf2);
+    --color-ln: var(--pg-ln);
+    --color-ln2: var(--pg-ln2);
+    --color-tx: var(--pg-tx);
+    --color-tx2: var(--pg-tx2);
+    --color-tx3: var(--pg-tx3);
+    --color-ac: var(--pg-ac);
+    --color-acs: var(--pg-acs);
+    --color-act: var(--pg-act);
+    --color-ok: var(--pg-ok);
+    --color-okb: var(--pg-okb);
+    --color-wn: var(--pg-wn);
+    --color-wnb: var(--pg-wnb);
+    --color-er: var(--pg-er);
+    --color-erb: var(--pg-erb);
+    --color-in: var(--pg-in);
+    --color-inb: var(--pg-inb);
+    --color-hd: var(--pg-hd);
+    --color-hdb: var(--pg-hdb);
+    --color-rv: var(--pg-rv);
+    --color-rvb: var(--pg-rvb);
+    --color-nt: var(--pg-nt);
+    --color-ntb: var(--pg-ntb);
+    --color-nav: #0b1220;
+    --spacing-rp: var(--pg-rp);
+}
+
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.87 0 0);
-    --chart-1: oklch(0.646 0.222 41.116);
-    --chart-2: oklch(0.6 0.118 184.704);
-    --chart-3: oklch(0.398 0.07 227.392);
-    --chart-4: oklch(0.828 0.189 84.429);
-    --chart-5: oklch(0.769 0.188 70.08);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.87 0 0);
+    /* PayGate palette: light */
+    --pg-bg: #f5f6f8;
+    --pg-sf: #ffffff;
+    --pg-sf2: #f8fafc;
+    --pg-ln: #e4e7ec;
+    --pg-ln2: #eef0f3;
+    --pg-tx: #0f172a;
+    --pg-tx2: #475569;
+    --pg-tx3: #64748b;
+    --pg-ok: #047857;
+    --pg-okb: #ecfdf5;
+    --pg-wn: #b45309;
+    --pg-wnb: #fffbeb;
+    --pg-er: #b91c1c;
+    --pg-erb: #fef2f2;
+    --pg-in: #1d4ed8;
+    --pg-inb: #eff6ff;
+    --pg-hd: #c2410c;
+    --pg-hdb: #fff7ed;
+    --pg-rv: #6d28d9;
+    --pg-rvb: #f5f3ff;
+    --pg-nt: #475569;
+    --pg-ntb: #f1f5f9;
+    /* Row padding: compact 9px / comfortable 13px */
+    --pg-rp: 9px;
+    /* Accent: admin indigo by default; each portal overrides below */
+    --pg-ac: #4f46e5;
+    --pg-acs: #eef2ff;
+    --pg-act: #3730a3;
+
+    /* shadcn/ui variables mapped onto the PayGate palette */
+    --background: var(--pg-bg);
+    --foreground: var(--pg-tx);
+    --card: var(--pg-sf);
+    --card-foreground: var(--pg-tx);
+    --popover: var(--pg-sf);
+    --popover-foreground: var(--pg-tx);
+    --primary: var(--pg-ac);
+    --primary-foreground: #ffffff;
+    --secondary: var(--pg-sf2);
+    --secondary-foreground: var(--pg-tx);
+    --muted: var(--pg-sf2);
+    --muted-foreground: var(--pg-tx3);
+    --accent: var(--pg-acs);
+    --accent-foreground: var(--pg-act);
+    --destructive: var(--pg-er);
+    --destructive-foreground: var(--pg-er);
+    --border: var(--pg-ln);
+    --input: var(--pg-ln);
+    --ring: var(--pg-ac);
+    --chart-1: var(--pg-ac);
+    --chart-2: var(--pg-ok);
+    --chart-3: var(--pg-wn);
+    --chart-4: var(--pg-rv);
+    --chart-5: var(--pg-hd);
+    --radius: 0.5rem;
+    --sidebar: #0b1220;
+    --sidebar-foreground: #c8d1df;
+    --sidebar-primary: var(--pg-ac);
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: rgba(255, 255, 255, 0.06);
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgba(255, 255, 255, 0.06);
+    --sidebar-ring: var(--pg-ac);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.637 0.237 25.331);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.985 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(0.269 0 0);
-    --sidebar-ring: oklch(0.439 0 0);
+    --pg-bg: #0a0f1c;
+    --pg-sf: #0f1728;
+    --pg-sf2: #131d31;
+    --pg-ln: #1f2a3f;
+    --pg-ln2: #18233a;
+    --pg-tx: #e6eaf2;
+    --pg-tx2: #a7b1c4;
+    --pg-tx3: #8391a8;
+    --pg-ok: #34d399;
+    --pg-okb: rgba(16, 185, 129, 0.13);
+    --pg-wn: #fbbf24;
+    --pg-wnb: rgba(245, 158, 11, 0.13);
+    --pg-er: #f87171;
+    --pg-erb: rgba(239, 68, 68, 0.13);
+    --pg-in: #60a5fa;
+    --pg-inb: rgba(59, 130, 246, 0.13);
+    --pg-hd: #fb923c;
+    --pg-hdb: rgba(249, 115, 22, 0.13);
+    --pg-rv: #a78bfa;
+    --pg-rvb: rgba(139, 92, 246, 0.15);
+    --pg-nt: #a7b1c4;
+    --pg-ntb: rgba(148, 163, 184, 0.12);
+    --pg-acs: rgba(99, 102, 241, 0.16);
+    --pg-act: #a5b4fc;
+}
+
+/* Portal accents (Admin indigo · Branch emerald · Partner & checkout violet) */
+[data-portal='admin'] {
+    --pg-ac: #4f46e5;
+    --pg-acs: #eef2ff;
+    --pg-act: #3730a3;
+}
+[data-portal='branch'] {
+    --pg-ac: #059669;
+    --pg-acs: #ecfdf5;
+    --pg-act: #065f46;
+}
+[data-portal='partner'],
+[data-portal='checkout'] {
+    --pg-ac: #7c3aed;
+    --pg-acs: #f5f3ff;
+    --pg-act: #5b21b6;
+}
+.dark [data-portal='admin'] {
+    --pg-acs: rgba(99, 102, 241, 0.16);
+    --pg-act: #a5b4fc;
+}
+.dark [data-portal='branch'] {
+    --pg-acs: rgba(16, 185, 129, 0.14);
+    --pg-act: #6ee7b7;
+}
+.dark [data-portal='partner'],
+.dark [data-portal='checkout'] {
+    --pg-acs: rgba(139, 92, 246, 0.16);
+    --pg-act: #c4b5fd;
+}
+
+[data-density='comfortable'] {
+    --pg-rp: 13px;
+}
+
+@keyframes pg-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.35;
+    }
 }
 
 @layer base {
@@ -139,5 +242,9 @@
 
     body {
         @apply bg-background text-foreground;
+        font-size: 13px;
+        font-feature-settings:
+            'tnum' 1,
+            'cv11' 1;
     }
 }

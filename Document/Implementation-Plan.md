@@ -14,13 +14,15 @@ This replaces the old roadmap in Architecture.md §19.
 
 ## 1. Where we are
 
-| Phase                 | Result                                        | Commit    |
-| --------------------- | --------------------------------------------- | --------- |
-| 0 — Local environment | Docker stack, Laravel 13, host routing, CI    | `d57c15d` |
-| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs | `d57c15d` |
-| Requirements v1.4     | Business model, flows, financial model, gaps  | `d57c15d` |
-| Database              | 47 tables, safety rules, Deployment.md        | `d57c15d` |
-| Design                | UI export added                               | `09f83ff` |
+| Phase                 | Result                                                                | Commit        |
+| --------------------- | --------------------------------------------------------------------- | ------------- |
+| 0 — Local environment | Docker stack, Laravel 13, host routing, CI                            | `d57c15d`     |
+| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs                         | `d57c15d`     |
+| Requirements v1.4     | Business model, flows, financial model, gaps                          | `d57c15d`     |
+| Database              | 47 tables, safety rules, Deployment.md                                | `d57c15d`     |
+| Design                | UI export added                                                       | `09f83ff`     |
+| 2a — Modules + schema | Domain module structure, schema fixes D-1…D-5                         | `3264531`     |
+| 2b — UI foundation    | Design tokens, portal shells, shared components, auth screens, UI kit | (this commit) |
 
 ---
 

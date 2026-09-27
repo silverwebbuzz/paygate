@@ -1,33 +1,18 @@
-import { Building2, Landmark, ReceiptText } from 'lucide-react';
-import { PortalOverview } from '@/components/portal-overview';
-import { dashboard } from '@/routes/admin';
+import { PortalDashboard } from '@/components/pg/portal-dashboard';
 
 export default function AdminDashboard() {
     return (
-        <PortalOverview
+        <PortalDashboard
             title="Admin dashboard"
-            cards={[
-                {
-                    title: 'Partners',
-                    description: 'Create partners and manage their settings.',
-                    icon: Building2,
-                },
-                {
-                    title: 'Branches & accounts',
-                    description:
-                        'Verify bank/UPI accounts and assign them to partners.',
-                    icon: Landmark,
-                },
-                {
-                    title: 'Transactions',
-                    description: 'Every payment across all partners.',
-                    icon: ReceiptText,
-                },
+            description="Collections, payouts and reconciliation across every partner and branch."
+            upcoming={[
+                { phase: 3, label: 'Users, roles & permissions' },
+                { phase: 4, label: 'Partners & API credentials' },
+                { phase: 5, label: 'Branches, mapping & bank accounts' },
+                { phase: 7, label: 'Transactions & manual deposits' },
+                { phase: 9, label: 'Statements & reconciliation' },
+                { phase: 10, label: 'Settlement & commissions' },
             ]}
         />
     );
 }
-
-AdminDashboard.layout = {
-    breadcrumbs: [{ title: 'Dashboard', href: dashboard() }],
-};

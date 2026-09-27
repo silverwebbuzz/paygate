@@ -69,12 +69,13 @@ Open **http://paygate.local** and log in with `admin@paygate.local` / `password`
 
 ### Application
 
-| URL                              | What                                                         |
-| -------------------------------- | ------------------------------------------------------------ |
-| http://paygate.local             | Portals: login, `/admin`, `/partner`, `/branch`              |
-| http://paygate.local/horizon     | Queue dashboard (open locally; super admins only on servers) |
-| http://api.paygate.local/v1/ping | Partner API health check                                     |
-| http://pay.paygate.local         | Payer pages (from Phase 5)                                   |
+| URL                               | What                                                                          |
+| --------------------------------- | ----------------------------------------------------------------------------- |
+| http://paygate.local              | Portals: login, `/admin`, `/partner`, `/branch`                               |
+| http://paygate.local/horizon      | Queue dashboard (open locally; super admins only on servers)                  |
+| http://paygate.local/admin/ui-kit | UI kit: every shared component with sample data (local only, log in as admin) |
+| http://api.paygate.local/v1/ping  | Partner API health check                                                      |
+| http://pay.paygate.local          | Payer pages (from Phase 5)                                                    |
 
 ### Demo users (created by `make setup` / `make fresh`, password for all: `password`)
 
@@ -183,7 +184,15 @@ routes/
   pay.php                     payer pages (pay.paygate.local)
 resources/js/
   pages/                      Inertia pages (admin/, partner/, branch/, auth/, settings/)
-  components/                 shared React components (ui/ = shadcn components)
+  layouts/                    portal-layout (sidebar + top bar, all portals), auth-layout, settings/
+  components/pg/              PayGate components from the design: sidebar, topbar, page header,
+                              KPI card, data table, filters, status badge, drawer, confirm dialog,
+                              wizard steps, empty state (see /admin/ui-kit)
+  components/ui/              shadcn base components
+  lib/money.ts                formatPaise(): paise -> "₹1,23,456.00" (never format money by hand)
+  lib/status.ts               database status -> label + colour (e.g. under_review -> "Payment hold")
+  lib/portal-nav.ts           sidebar menus per portal; `soon: n` = planned for phase n (shown dimmed)
+resources/css/app.css         design tokens: --pg-* colours, dark mode, portal accents, density
 database/
   migrations/                 schema (2026_09_27_1000xx = the PayGate business tables)
   sql/                        app-privileges.sql (production database-user privileges)
@@ -222,7 +231,7 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 ## 9. Rules of the codebase
 
 - **Three hostnames, one app.** `paygate.local` serves the portals, `api.` the Partner API, and `pay.` the payer pages. A route only answers on its own host.
-- **Roles and permissions live in code** (`app/Enums/Role.php`, `Permission.php`). Check permissions with `$user->can('accounts.verify')` or `Gate::authorize(...)`. Portal routes are guarded by `user.type:<type>`.
+- **Roles live in the database** (Admin edits them), **permissions in code** (`app/Domain/Core/Rbac/Enums/Permission.php`); the 9 built-in roles are in `SystemRoles.php`. Check permissions with `$user->can('accounts.verify')` or `Gate::authorize(...)`. Portal routes are guarded by `user.type:<type>`.
 - **Money:** integer paise (`bigint`), never float.
 - **IDs:** UUIDv7 primary keys (`HasUuids`).
 - **Times:** stored in UTC. A business "day" uses `Asia/Kolkata` (`config('app.business_timezone')`).
@@ -231,6 +240,7 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 - **Users are suspended, never deleted.**
 - **Queued jobs** wait for the DB transaction to commit (`after_commit`), and each job must be safe to run twice.
 - **Tests use real PostgreSQL** (`paygate_testing`), not SQLite.
+- **UI:** build screens from `components/pg/*` and the design tokens (`bg-sf`, `text-tx2`, `border-ln`, `text-ac`, …), not raw colours. Show money with `formatPaise()` and statuses with `<StatusBadge>`. Each portal's accent colour comes from `data-portal` automatically. Check new components on `/admin/ui-kit`.
 - **Before pushing,** `make check` must pass. GitHub Actions runs the same checks.
 
 ---

@@ -45,6 +45,8 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $request->user()?->permissionNames() ?? [],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Environment label for the top-bar pill ("Admin · Production").
+            'environment' => app()->environment(),
         ];
     }
 }

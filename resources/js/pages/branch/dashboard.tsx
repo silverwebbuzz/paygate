@@ -1,32 +1,18 @@
-import { CircleCheck, Landmark, QrCode } from 'lucide-react';
-import { PortalOverview } from '@/components/portal-overview';
-import { dashboard } from '@/routes/branch';
+import { PortalDashboard } from '@/components/pg/portal-dashboard';
 
 export default function BranchDashboard() {
     return (
-        <PortalOverview
+        <PortalDashboard
             title="Branch dashboard"
-            cards={[
-                {
-                    title: 'Bank accounts',
-                    description: 'Add bank accounts for admin verification.',
-                    icon: Landmark,
-                },
-                {
-                    title: 'UPI IDs',
-                    description: 'Add UPI IDs shown to paying users.',
-                    icon: QrCode,
-                },
-                {
-                    title: 'Deposits',
-                    description: 'Confirm or reject payments made to you.',
-                    icon: CircleCheck,
-                },
+            description="Deposits to approve, payouts to process and your bank accounts at a glance."
+            upcoming={[
+                { phase: 5, label: 'Bank & UPI accounts' },
+                { phase: 7, label: 'Manual deposit approvals' },
+                { phase: 8, label: 'Manual payouts' },
+                { phase: 9, label: 'A/C statements & unsettled UTR' },
+                { phase: 10, label: 'Branch balance & settlement' },
+                { phase: 11, label: 'Reports' },
             ]}
         />
     );
 }
-
-BranchDashboard.layout = {
-    breadcrumbs: [{ title: 'Dashboard', href: dashboard() }],
-};

@@ -1,32 +1,18 @@
-import { KeyRound, ReceiptText, Webhook } from 'lucide-react';
-import { PortalOverview } from '@/components/portal-overview';
-import { dashboard } from '@/routes/partner';
+import { PortalDashboard } from '@/components/pg/portal-dashboard';
 
 export default function PartnerDashboard() {
     return (
-        <PortalOverview
+        <PortalDashboard
             title="Partner dashboard"
-            cards={[
-                {
-                    title: 'Transactions',
-                    description: 'Payments made by your users.',
-                    icon: ReceiptText,
-                },
-                {
-                    title: 'API keys',
-                    description: 'Credentials for creating payment sessions.',
-                    icon: KeyRound,
-                },
-                {
-                    title: 'Webhooks',
-                    description: 'Where we notify you about payment results.',
-                    icon: Webhook,
-                },
+            description="Your customers' pay-ins and pay-outs, balance and settlements."
+            upcoming={[
+                { phase: 4, label: 'API keys, webhooks & IP whitelist' },
+                { phase: 6, label: 'Create payment & API logs' },
+                { phase: 7, label: 'Pay-in history' },
+                { phase: 8, label: 'Pay-out & balance' },
+                { phase: 10, label: 'Settlements' },
+                { phase: 11, label: 'Reports' },
             ]}
         />
     );
 }
-
-PartnerDashboard.layout = {
-    breadcrumbs: [{ title: 'Dashboard', href: dashboard() }],
-};
