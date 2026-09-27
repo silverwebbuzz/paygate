@@ -6,6 +6,8 @@ use App\Http\Admin\Mappings\MappingController;
 use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Roles\RoleController;
+use App\Http\Shared\Transactions\DepositQueueController;
+use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +16,16 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::inertia('/', 'admin/dashboard')->name('dashboard');
+
+// Transactions (all pay-ins) and the Manual Deposit queue of every branch.
+Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
+Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
+Route::controller(DepositQueueController::class)->prefix('deposits')->name('deposits.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('{transaction}/approve', 'approve')->name('approve');
+    Route::post('{transaction}/hold', 'hold')->name('hold');
+    Route::post('{transaction}/decline', 'decline')->name('decline');
+});
 
 // Partners (wizard, detail drawer, status, API keys).
 Route::controller(PartnerController::class)->prefix('partners')->name('partners.')->group(function () {

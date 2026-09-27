@@ -190,7 +190,8 @@
     --pg-act: #a5b4fc;
 }
 
-/* Portal accents (Admin indigo · Branch emerald · Partner & checkout violet) */
+/* Portal accents (Admin indigo · Branch emerald · Partner & checkout violet).
+   Set on the layout and on <html> (so dialogs portalled to <body> match). */
 [data-portal='admin'] {
     --pg-ac: #4f46e5;
     --pg-acs: #eef2ff;
@@ -207,15 +208,18 @@
     --pg-acs: #f5f3ff;
     --pg-act: #5b21b6;
 }
-.dark [data-portal='admin'] {
+.dark [data-portal='admin'],
+.dark[data-portal='admin'] {
     --pg-acs: rgba(99, 102, 241, 0.16);
     --pg-act: #a5b4fc;
 }
-.dark [data-portal='branch'] {
+.dark [data-portal='branch'],
+.dark[data-portal='branch'] {
     --pg-acs: rgba(16, 185, 129, 0.14);
     --pg-act: #6ee7b7;
 }
 .dark [data-portal='partner'],
+.dark[data-portal='partner'],
 .dark [data-portal='checkout'] {
     --pg-acs: rgba(139, 92, 246, 0.16);
     --pg-act: #c4b5fd;

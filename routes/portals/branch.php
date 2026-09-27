@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Branch\Accounts\AccountController;
+use App\Http\Shared\Transactions\DepositQueueController;
+use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,6 +11,15 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::inertia('/', 'branch/dashboard')->name('dashboard');
+
+// Manual Deposit: approve / hold / decline pay-ins paid into this branch.
+Route::controller(DepositQueueController::class)->prefix('deposits')->name('deposits.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('{transaction}/approve', 'approve')->name('approve');
+    Route::post('{transaction}/hold', 'hold')->name('hold');
+    Route::post('{transaction}/decline', 'decline')->name('decline');
+});
+Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
 
 // The branch's own bank & UPI accounts.
 Route::controller(AccountController::class)->prefix('accounts')->name('accounts.')->group(function () {

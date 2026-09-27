@@ -23,6 +23,12 @@ return [
         'rate_limit' => (int) env('PAYGATE_API_RATE_LIMIT', 300),
     ],
 
+    'webhooks' => [
+        // Allow webhook URLs on private networks / plain http. Only for your
+        // own machine; on servers private targets are refused (SSRF).
+        'allow_private_targets' => (bool) env('PAYGATE_WEBHOOKS_ALLOW_PRIVATE', false),
+    ],
+
     'payin' => [
         // Photo proof uploads (KB) and accepted types.
         'proof_max_kb' => 5120,

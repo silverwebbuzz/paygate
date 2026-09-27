@@ -6,6 +6,7 @@ use App\Domain\Allocation\Actions\ReleaseAllocation;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
+use App\Domain\Webhook\Actions\QueueWebhook;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  */
 class ClosePayin
 {
-    public function __construct(private ReleaseAllocation $release) {}
+    public function __construct(private ReleaseAllocation $release, private QueueWebhook $webhooks) {}
 
     /**
      * @return bool false when the pay-in had already moved on
@@ -38,6 +39,11 @@ class ClosePayin
             $locked->session()->update(['status' => 'expired']);
 
             TransactionEvent::record($locked, $to === PayinStatus::Expired ? 'expired' : 'cancelled', $from, $locked->status, $actorType, $actorId, $reason);
+
+            // The partner cancelled it themselves, so only expiry is reported.
+            if ($to === PayinStatus::Expired) {
+                $this->webhooks->forPayin($locked->load('partner'), 'payin.expired');
+            }
 
             $payin->setRawAttributes($locked->getAttributes(), true);
 

@@ -2,10 +2,12 @@
 
 namespace App\Domain\Transaction\Actions;
 
+use App\Domain\Allocation\Actions\ReleaseAllocation;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
+use App\Domain\Webhook\Actions\QueueWebhook;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,6 +25,8 @@ use Illuminate\Validation\ValidationException;
 class SubmitPayinProof
 {
     public const UTR_PATTERN = '/^[A-Z0-9]{6,22}$/';
+
+    public function __construct(private QueueWebhook $webhooks, private ReleaseAllocation $allocation) {}
 
     public function handle(Transaction $payin, ?string $utr, ?UploadedFile $photo): Transaction
     {
@@ -64,12 +68,15 @@ class SubmitPayinProof
             ])->save();
 
             $locked->session()->update(['status' => 'completed']);
+            $this->allocation->closeSession($locked);
 
             TransactionEvent::record($locked, 'proof_submitted', $from, $locked->status, 'customer', null, null, array_filter([
                 'utr' => $normalised,
                 'proof_file_id' => $file?->id,
                 'possible_duplicate_of' => $duplicate,
             ]));
+
+            $this->webhooks->forPayin($locked->load('partner'), 'payin.submitted');
 
             return $locked;
         });

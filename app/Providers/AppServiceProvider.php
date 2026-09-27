@@ -15,6 +15,8 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Policies\TransactionPolicy;
+use App\Domain\Webhook\Models\WebhookEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -76,6 +78,7 @@ class AppServiceProvider extends ServiceProvider
             'payment_account' => PaymentAccount::class,
             'transaction' => Transaction::class,
             'file' => StoredFile::class,
+            'webhook_event' => WebhookEvent::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);
@@ -96,6 +99,7 @@ class AppServiceProvider extends ServiceProvider
         // Record-level rules (scope, escalation, locked roles) on top of permissions.
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Transaction::class, TransactionPolicy::class);
     }
 
     /**

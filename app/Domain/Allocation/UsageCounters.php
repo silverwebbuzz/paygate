@@ -82,4 +82,35 @@ class UsageCounters
             [$amount, $hadSession ? 1 : 0, $scopeType, $scopeId, $date, $direction->value],
         );
     }
+
+    /**
+     * Turns a reservation into confirmed usage (the payment succeeded).
+     */
+    public function confirm(string $scopeType, string $scopeId, string $date, Direction $direction, int $amount, bool $hadSession = false): void
+    {
+        DB::update(
+            'UPDATE usage_counters
+             SET reserved_amount = GREATEST(reserved_amount - ?, 0),
+                 reserved_count = GREATEST(reserved_count - 1, 0),
+                 confirmed_amount = confirmed_amount + ?,
+                 confirmed_count = confirmed_count + 1,
+                 open_sessions = GREATEST(open_sessions - ?, 0),
+                 updated_at = now()
+             WHERE scope_type = ? AND scope_id = ? AND business_date = ? AND direction = ?',
+            [$amount, $amount, $hadSession ? 1 : 0, $scopeType, $scopeId, $date, $direction->value],
+        );
+    }
+
+    /**
+     * Frees one "customer on the payment page" slot of an account (the
+     * customer submitted their proof; the amount stays reserved).
+     */
+    public function closeSession(string $scopeId, string $date, Direction $direction): void
+    {
+        DB::update(
+            "UPDATE usage_counters SET open_sessions = GREATEST(open_sessions - 1, 0), updated_at = now()
+             WHERE scope_type = 'account' AND scope_id = ? AND business_date = ? AND direction = ?",
+            [$scopeId, $date, $direction->value],
+        );
+    }
 }

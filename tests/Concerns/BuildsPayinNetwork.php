@@ -3,6 +3,7 @@
 namespace Tests\Concerns;
 
 use App\Domain\Branch\Models\Branch;
+use App\Domain\Commission\Models\CommissionRate;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Actions\IssueApiKey;
@@ -13,6 +14,7 @@ use App\Domain\PaymentAccount\Actions\ReviewPaymentAccount;
 use App\Domain\PaymentAccount\Actions\SavePaymentAccount;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Testing\TestResponse;
 
 /**
@@ -144,5 +146,31 @@ trait BuildsPayinNetwork
         $data = $this->api('POST', '/v1/payins', $this->payinBody($overrides))->assertCreated()->json('data');
 
         return [$data['id'], basename((string) parse_url($data['payment_url'], PHP_URL_PATH))];
+    }
+
+    /**
+     * Sets a rate in force since yesterday (type partner / branch / mapping).
+     */
+    protected function rate(string $type, string $id, string $direction, string $rate, ?string $side = null): void
+    {
+        CommissionRate::create([
+            'subject_type' => $type, 'subject_id' => $id, 'side' => $side ?? $type, 'direction' => $direction,
+            'rate_percent' => $rate, 'effective_from' => now()->subDay(),
+        ]);
+    }
+
+    /**
+     * A pay-in the customer says they paid (UTR submitted), allocated to an
+     * account of $this->branch. Returns the transaction.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    protected function submittedPayin(array $overrides = [], string $utr = '626812820491'): Transaction
+    {
+        [$reference, $token] = $this->createPayin($overrides);
+        $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi'])->assertSessionHasNoErrors();
+        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => $utr])->assertSessionHasNoErrors();
+
+        return Transaction::where('reference', $reference)->firstOrFail();
     }
 }

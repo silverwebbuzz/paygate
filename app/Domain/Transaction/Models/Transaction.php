@@ -40,6 +40,13 @@ use Illuminate\Support\Str;
  * @property string|null $customer_utr
  * @property string|null $customer_utr_normalized
  * @property string|null $bank_utr
+ * @property string|null $bank_utr_normalized
+ * @property string|null $partner_rate_percent
+ * @property string|null $branch_rate_percent
+ * @property int|null $partner_commission
+ * @property int|null $branch_commission
+ * @property int|null $platform_margin
+ * @property string|null $decided_by
  * @property string|null $return_url
  * @property array<string, mixed>|null $metadata
  * @property CarbonInterface|null $expires_at
@@ -63,6 +70,9 @@ class Transaction extends Model
         return [
             'amount' => 'integer',
             'received_amount' => 'integer',
+            'partner_commission' => 'integer',
+            'branch_commission' => 'integer',
+            'platform_margin' => 'integer',
             'metadata' => 'array',
             'expires_at' => 'datetime',
             'submitted_at' => 'datetime',

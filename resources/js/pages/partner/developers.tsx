@@ -242,8 +242,8 @@ export default function Developers({
                 description="Every webhook we send you, with its response."
             >
                 <EmptyState
-                    title="No webhooks sent yet"
-                    description="Delivery logs, retries and a test-webhook button arrive with payments (Phase 7)."
+                    title="Webhook deliveries are shown per pay-in"
+                    description="Open a pay-in under Payments › Pay-in and choose its Webhooks tab to see every attempt and resend it."
                 />
             </Card>
 

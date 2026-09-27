@@ -3,6 +3,7 @@
 use App\Http\Partner\Developers\ApiLogController;
 use App\Http\Partner\Developers\DeveloperController;
 use App\Http\Partner\Profile\BusinessProfileController;
+use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,10 @@ use Illuminate\Support\Facades\Route;
 Route::inertia('/', 'partner/dashboard')->name('dashboard');
 
 Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile');
+
+// The partner's pay-ins (status, timeline, webhooks + resend).
+Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
+Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
 
 // API documentation and the partner's own API call log.
 Route::get('api-docs', [ApiLogController::class, 'docs'])->name('api-docs');

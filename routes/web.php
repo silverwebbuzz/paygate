@@ -2,6 +2,7 @@
 
 use App\Domain\Core\Identity\Models\User;
 use App\Http\Shared\Auth\InvitationController;
+use App\Http\Shared\Files\FileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         return redirect()->route($user->type->homeRoute());
     })->name('dashboard');
+
+    // Private files (payment proofs), after an access check.
+    Route::get('files/{file}', [FileController::class, 'show'])->name('files.show');
 });
 
 Route::middleware(['auth', 'verified', 'user.type:admin', 'two-factor.required'])

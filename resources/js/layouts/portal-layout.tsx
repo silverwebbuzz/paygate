@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PortalSidebar } from '@/components/pg/portal-sidebar';
 import { PortalTopbar } from '@/components/pg/portal-topbar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
@@ -65,6 +65,14 @@ export default function PortalLayout({
                 ),
             )
             .sort((a, b) => b.url.length - a.url.length)[0];
+
+    // Dialogs and drawers render in a portal at the end of <body>, outside
+    // this layout; put the portal accent and density on <html> as well so
+    // they match the page.
+    useEffect(() => {
+        document.documentElement.dataset.portal = portal;
+        document.documentElement.dataset.density = density;
+    }, [portal, density]);
 
     const toggleSidebar = () => {
         const next = !collapsed;

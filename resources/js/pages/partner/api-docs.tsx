@@ -109,8 +109,9 @@ export default function ApiDocs(props: Props) {
                         status becomes <Code>success</Code>.
                     </li>
                     <li>
-                        Check the status with <Code>GET /payins/{'{id}'}</Code>{' '}
-                        (webhooks arrive in a later release). Only credit your
+                        We send a signed webhook when the status changes, and
+                        you can always check with{' '}
+                        <Code>GET /payins/{'{id}'}</Code>. Only credit your
                         customer on <Code>success</Code> — never because the
                         customer came back to your return URL.
                     </li>
@@ -293,7 +294,39 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                 />
             </Doc>
 
-            <Doc title="6. Errors">
+            <Doc title="6. Webhooks">
+                <p>
+                    We POST to your pay-in webhook URL (API & Webhooks ›
+                    Endpoints) when a pay-in changes. Events:{' '}
+                    <Code>payin.submitted</Code> (the customer says they paid),{' '}
+                    <Code>payin.success</Code>, <Code>payin.rejected</Code>,{' '}
+                    <Code>payin.expired</Code>. The body holds the same pay-in
+                    object the API returns:
+                </p>
+                <Pre>{`POST https://your-site/…/webhook
+X-PayGate-Event-Id: 01J…            (unique per webhook — ignore ones you already processed)
+X-PayGate-Event: payin.success
+X-PayGate-Signature: t=1790521203,v1=5f2c…
+
+{ "id": "01J…", "type": "payin.success", "created_at": "…", "data": { "id": "PI260927K7QX4MZD", "status": "success", … } }`}</Pre>
+                <p>
+                    Verify every webhook before trusting it: the HMAC-SHA256 of{' '}
+                    <Code>{'<t>.<raw body>'}</Code> with your API secret must
+                    equal v1.
+                </p>
+                <Pre>{`// PHP
+parse_str(str_replace(',', '&', $_SERVER['HTTP_X_PAYGATE_SIGNATURE']), $sig);
+$ok = hash_equals(hash_hmac('sha256', $sig['t'] . '.' . $rawBody, $secret), $sig['v1'])
+      && abs(time() - (int) $sig['t']) < 300;`}</Pre>
+                <p>
+                    Answer with any 2xx within 10 seconds. Otherwise we retry
+                    after 1 min, 5 min, 15 min, 1 h, 6 h and 24 h; you can also
+                    resend from the Webhooks tab of the pay-in. After you rotate
+                    your secret, webhooks are signed with the new one.
+                </p>
+            </Doc>
+
+            <Doc title="7. Errors">
                 <p>
                     Errors always look like this; use the code, not the message,
                     in your program:

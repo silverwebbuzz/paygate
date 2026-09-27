@@ -1,6 +1,8 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import admin from '@/routes/admin';
 import adminAccounts from '@/routes/admin/accounts';
+import adminDeposits from '@/routes/admin/deposits';
+import adminTransactions from '@/routes/admin/transactions';
 import adminBranches from '@/routes/admin/branches';
 import adminMappings from '@/routes/admin/mappings';
 import adminPartners from '@/routes/admin/partners';
@@ -8,6 +10,8 @@ import adminRoles from '@/routes/admin/roles';
 import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
 import branchAccounts from '@/routes/branch/accounts';
+import branchDeposits from '@/routes/branch/deposits';
+import branchPayins from '@/routes/branch/payins';
 import branchUsers from '@/routes/branch/users';
 import partner, {
     apiDocs as partnerApiDocs,
@@ -15,6 +19,7 @@ import partner, {
     profile as partnerProfile,
 } from '@/routes/partner';
 import partnerDevelopers from '@/routes/partner/developers';
+import partnerPayins from '@/routes/partner/payins';
 import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
 import type { UserType } from '@/types';
@@ -55,8 +60,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Payments',
             items: [
-                { label: 'Transactions', soon: 7 },
-                { label: 'Manual Deposit', soon: 7 },
+                {
+                    label: 'Transactions',
+                    href: adminTransactions.index(),
+                    permission: 'payins.view',
+                },
+                {
+                    label: 'Manual Deposit',
+                    href: adminDeposits.index(),
+                    permission: 'payins.view',
+                },
                 { label: 'Manual Payout', soon: 8 },
                 { label: 'Refunds', soon: 12 },
                 { label: 'Chargebacks', soon: 12 },
@@ -142,7 +155,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Operations',
             items: [
-                { label: 'Manual Deposit', soon: 7 },
+                {
+                    label: 'Manual Deposit',
+                    href: branchDeposits.index(),
+                    permission: 'payins.view',
+                },
                 { label: 'Manual Payout', soon: 8 },
                 { label: 'Deposit Unsettled', soon: 9 },
             ],
@@ -158,7 +175,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'History',
             items: [
-                { label: 'Pay-in History', soon: 7 },
+                {
+                    label: 'Pay-in History',
+                    href: branchPayins.index(),
+                    permission: 'payins.view',
+                },
                 { label: 'Pay-out History', soon: 8 },
                 { label: 'UTR Reconciliation', soon: 9 },
             ],
@@ -193,7 +214,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Payments',
             items: [
                 { label: 'Create Payment', soon: 6 },
-                { label: 'Pay-in', soon: 7 },
+                {
+                    label: 'Pay-in',
+                    href: partnerPayins.index(),
+                    permission: 'payins.view',
+                },
                 { label: 'Pay-out', soon: 8 },
             ],
         },

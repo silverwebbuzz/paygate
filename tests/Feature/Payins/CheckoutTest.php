@@ -280,4 +280,25 @@ class CheckoutTest extends TestCase
         $this->post($this->page($token).'/proof', ['utr' => '626812820491'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('payment_submitted', $this->payin($reference)->status);
     }
+
+    public function test_a_customer_who_submitted_proof_frees_their_account_slot()
+    {
+        $account = $this->activeAccount(overrides: ['max_open_sessions' => 1]);
+
+        [$first, $tokenA] = $this->createPayin(['amount' => 100000]);
+        $this->choose($tokenA, 'upi')->assertSessionHasNoErrors();
+
+        // The only slot is taken by a customer still on the page.
+        [, $tokenB] = $this->createPayin(['amount' => 100000]);
+        $this->choose($tokenB, 'upi')->assertSessionHasErrors('method');
+
+        // Once the first customer submits their UTR the slot frees up,
+        // while their amount stays reserved.
+        $this->post($this->page($tokenA).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        $this->choose($tokenB, 'upi')->assertSessionHasNoErrors();
+
+        $this->assertSame(200000, $this->reserved('account', $account->id));
+        $this->assertSame(1, (int) DB::table('usage_counters')->where(['scope_type' => 'account', 'scope_id' => $account->id])->value('open_sessions'));
+        $this->assertSame('payment_submitted', $this->payin($first)->status);
+    }
 }

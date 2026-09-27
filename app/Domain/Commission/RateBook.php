@@ -15,6 +15,14 @@ use App\Domain\Partner\Models\Partner;
  */
 class RateBook
 {
+    public function currentRow(string $subjectType, string $subjectId, string $side, Direction $direction): ?CommissionRate
+    {
+        return CommissionRate::query()
+            ->for($subjectType, $subjectId, $side, $direction)
+            ->inForceAt()
+            ->first();
+    }
+
     public function current(string $subjectType, string $subjectId, string $side, Direction $direction): ?string
     {
         return CommissionRate::query()
