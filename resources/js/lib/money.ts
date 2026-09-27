@@ -19,7 +19,7 @@ export function formatPaise(
     );
 }
 
-/** Limits: null means unlimited (the UI accepts −1 as "unlimited" on input). */
+/** Limits: null means unlimited (an empty limit field on input). */
 export function formatLimit(paise: number | null | undefined): string {
     return paise === null || paise === undefined
         ? 'Unlimited'

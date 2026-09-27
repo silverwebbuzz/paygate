@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Admin\Partners\PartnerController;
+use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -9,6 +11,18 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::inertia('/', 'admin/dashboard')->name('dashboard');
+
+// Partners (wizard, detail drawer, status, API keys).
+Route::controller(PartnerController::class)->prefix('partners')->name('partners.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('create', 'create')->name('create');
+    Route::post('/', 'store')->name('store');
+    Route::get('{partner}/edit', 'edit')->name('edit');
+    Route::put('{partner}', 'update')->name('update');
+    Route::put('{partner}/status', 'status')->name('status');
+});
+Route::post('partners/{partner}/api-keys', [PartnerKeyController::class, 'store'])->middleware('throttle:10,1')->name('partners.api-keys.store');
+Route::delete('partners/{partner}/api-keys/{key}', [PartnerKeyController::class, 'destroy'])->middleware('throttle:10,1')->name('partners.api-keys.destroy');
 
 // Roles & permissions.
 Route::controller(RoleController::class)->prefix('roles')->name('roles.')->group(function () {

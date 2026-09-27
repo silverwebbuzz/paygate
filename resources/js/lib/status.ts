@@ -46,6 +46,9 @@ const STATUSES: Record<string, StatusStyle> = {
     disabled: { label: 'Disabled', tone: 'nt', icon: '–' },
     suspended: { label: 'Suspended', tone: 'er', icon: '✕' },
     invited: { label: 'Invited', tone: 'in', icon: '✉' },
+    // API keys
+    rotating: { label: 'Rotating out', tone: 'wn', icon: '↻' },
+    revoked: { label: 'Revoked', tone: 'er', icon: '✕' },
     offboarded: { label: 'Offboarded', tone: 'nt', icon: '–' },
     // reconciliation & settlement
     matched: { label: 'Matched', tone: 'ok', icon: '✓' },

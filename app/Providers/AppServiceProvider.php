@@ -10,6 +10,7 @@ use App\Domain\Core\Identity\Policies\UserPolicy;
 use App\Domain\Core\Rbac\Enums\Permission;
 use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Core\Rbac\Policies\RolePolicy;
+use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -51,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
             'role' => Role::class,
             'partner' => Partner::class,
             'branch' => Branch::class,
+            'mapping' => PartnerBranchMapping::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);

@@ -5,6 +5,7 @@ import { PortalTopbar } from '@/components/pg/portal-topbar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useDensity } from '@/hooks/use-density';
 import { PORTAL_LABELS, PORTAL_NAV } from '@/lib/portal-nav';
+import { toUrl } from '@/lib/utils';
 
 /**
  * Shell for the admin, branch and partner portals (design: dark sidebar,
@@ -41,11 +42,29 @@ export default function PortalLayout({
             ),
         }))
         .filter((group) => group.items.length > 0);
-    const current = groups
-        .flatMap((group) =>
-            group.items.map((item) => ({ group: group.label, item })),
-        )
-        .find(({ item }) => item.href !== undefined && isCurrentUrl(item.href));
+    // The menu item for this page: an exact match, otherwise the item whose
+    // URL is the longest parent of this one (e.g. /admin/partners/create
+    // belongs to Partners).
+    const links = groups.flatMap((group) =>
+        group.items
+            .filter((item) => item.href !== undefined)
+            .map((item) => ({
+                group: group.label,
+                item,
+                url: toUrl(item.href!),
+            })),
+    );
+    const current =
+        links.find(({ item }) => isCurrentUrl(item.href!)) ??
+        links
+            .filter(({ url }) =>
+                isCurrentUrl(
+                    `${url.replace(/^(https?:)?\/\/[^/]+/, '')}/`,
+                    undefined,
+                    true,
+                ),
+            )
+            .sort((a, b) => b.url.length - a.url.length)[0];
 
     const toggleSidebar = () => {
         const next = !collapsed;
@@ -61,6 +80,9 @@ export default function PortalLayout({
         >
             <PortalSidebar
                 groups={groups}
+                activeKey={
+                    current ? `${current.group}/${current.item.label}` : null
+                }
                 portalLabel={PORTAL_LABELS[portal]}
                 collapsed={collapsed}
             />

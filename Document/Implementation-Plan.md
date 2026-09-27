@@ -14,16 +14,17 @@ This replaces the old roadmap in Architecture.md §19.
 
 ## 1. Where we are
 
-| Phase                 | Result                                                                                 | Commit        |
-| --------------------- | -------------------------------------------------------------------------------------- | ------------- |
-| 0 — Local environment | Docker stack, Laravel 13, host routing, CI                                             | `d57c15d`     |
-| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs                                          | `d57c15d`     |
-| Requirements v1.4     | Business model, flows, financial model, gaps                                           | `d57c15d`     |
-| Database              | 47 tables, safety rules, Deployment.md                                                 | `d57c15d`     |
-| Design                | UI export added                                                                        | `09f83ff`     |
-| 2a — Modules + schema | Domain module structure, schema fixes D-1…D-5                                          | `3264531`     |
-| 2b — UI foundation    | Design tokens, portal shells, shared components, auth screens, UI kit                  | `c699d3b`     |
-| 3 — Roles & users     | `menu.action` permission grid, roles screen, users screen for all portals, invitations | (this commit) |
+| Phase                 | Result                                                                                                                           | Commit        |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| 0 — Local environment | Docker stack, Laravel 13, host routing, CI                                                                                       | `d57c15d`     |
+| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs                                                                                    | `d57c15d`     |
+| Requirements v1.4     | Business model, flows, financial model, gaps                                                                                     | `d57c15d`     |
+| Database              | 47 tables, safety rules, Deployment.md                                                                                           | `d57c15d`     |
+| Design                | UI export added                                                                                                                  | `09f83ff`     |
+| 2a — Modules + schema | Domain module structure, schema fixes D-1…D-5                                                                                    | `3264531`     |
+| 2b — UI foundation    | Design tokens, portal shells, shared components, auth screens, UI kit                                                            | `c699d3b`     |
+| 3 — Roles & users     | `menu.action` permission grid, roles screen, users screen for all portals, invitations                                           | `85ae1ca`     |
+| 4 — Partners          | Partner list, 7-step wizard, API keys (shown once, rotate, revoke), IP rules, effective-dated rates, partner API & Webhooks page | (this commit) |
 
 ---
 
@@ -125,12 +126,14 @@ Rules that apply to every phase:
 
 ## 5. Open items to settle along the way (Requirements §9, Priority 2)
 
-| Before phase | Items                                                                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| 2            | Meaning of "Deposit limit · top-up" vs "Master limit · daily reset" (D-3): the design suggests running capacity vs daily cap; confirm |
-| 4            | H2H meaning (G-41), payout group / auto / partial withdrawal meaning (G-19)                                                           |
-| 6            | Photo-only submissions (G-61), per-request return URLs (G-41), customer data retention (G-43)                                         |
-| 9            | Bank statement formats per bank (G-27), matching tolerances (G-24), unmatched credit handling (G-26)                                  |
-| 10           | Settlement cut-off time (G-09 / A-7), second approval for large settlements (G-10), chargeback responsibility (G-20)                  |
-| 12           | Alert events and channels (G-47), CMS pages and global settings list (G-48)                                                           |
-| 13           | Legal/compliance review (G-51)                                                                                                        |
+| Before phase | Items                                                                                                                                                                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2            | Meaning of "Deposit limit · top-up" vs "Master limit · daily reset" (D-3): the design suggests running capacity vs daily cap; confirm                                                                                               |
+| 4 → 8        | H2H meaning (G-41), payout group / auto / partial withdrawal meaning (G-19). **Phase 4 stores these settings only**; what they do is decided when payouts are built (Phase 8)                                                       |
+| 6            | **IP whitelist enforcement**: should a partner with no allowed IPs be able to call the API at all? (Phase 4 records the list; Phase 6 enforces it.) Partner logo and checkout theme (deferred from the wizard to the checkout page) |
+| 6            | Should users of a **suspended partner** still log in to see their history? (Phase 4 only stops the partner; logins are unaffected)                                                                                                  |
+| 6            | Photo-only submissions (G-61), per-request return URLs (G-41), customer data retention (G-43)                                                                                                                                       |
+| 9            | Bank statement formats per bank (G-27), matching tolerances (G-24), unmatched credit handling (G-26)                                                                                                                                |
+| 10           | Settlement cut-off time (G-09 / A-7), second approval for large settlements (G-10), chargeback responsibility (G-20)                                                                                                                |
+| 12           | Alert events and channels (G-47), CMS pages and global settings list (G-48)                                                                                                                                                         |
+| 13           | Legal/compliance review (G-51)                                                                                                                                                                                                      |

@@ -1,5 +1,4 @@
 import { Link, usePage } from '@inertiajs/react';
-import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import type { NavGroup } from '@/lib/portal-nav';
@@ -11,15 +10,16 @@ import { logout } from '@/routes';
  */
 export function PortalSidebar({
     groups,
+    activeKey,
     portalLabel,
     collapsed,
 }: {
     groups: NavGroup[];
+    activeKey: string | null;
     portalLabel: string;
     collapsed: boolean;
 }) {
     const { auth } = usePage().props;
-    const { isCurrentUrl } = useCurrentUrl();
     const initials = useInitials();
 
     return (
@@ -55,8 +55,7 @@ export function PortalSidebar({
                         )}
                         {group.items.map((item) => {
                             const active =
-                                item.href !== undefined &&
-                                isCurrentUrl(item.href);
+                                `${group.label}/${item.label}` === activeKey;
                             const content = (
                                 <>
                                     <span

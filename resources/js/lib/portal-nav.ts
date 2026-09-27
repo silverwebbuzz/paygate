@@ -1,10 +1,12 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import admin from '@/routes/admin';
+import adminPartners from '@/routes/admin/partners';
 import adminRoles from '@/routes/admin/roles';
 import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
 import branchUsers from '@/routes/branch/users';
-import partner from '@/routes/partner';
+import partner, { profile as partnerProfile } from '@/routes/partner';
+import partnerDevelopers from '@/routes/partner/developers';
 import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
 import type { UserType } from '@/types';
@@ -64,7 +66,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Network',
             items: [
-                { label: 'Partners', soon: 4 },
+                {
+                    label: 'Partners',
+                    href: adminPartners.index(),
+                    permission: 'partners.view',
+                },
                 { label: 'Branches', soon: 5 },
                 { label: 'Bank & UPI Accounts', soon: 5 },
             ],
@@ -175,8 +181,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Developers',
             items: [
-                { label: 'API & Webhooks', soon: 4 },
-                { label: 'IP Whitelist', soon: 4 },
+                {
+                    label: 'API & Webhooks',
+                    href: partnerDevelopers.show(),
+                    permission: 'api_keys.view',
+                },
                 { label: 'API Logs', soon: 6 },
             ],
         },
@@ -190,6 +199,12 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 },
             ],
         },
-        account,
+        {
+            label: 'Account',
+            items: [
+                { label: 'Business profile', href: partnerProfile() },
+                ...account.items,
+            ],
+        },
     ],
 };

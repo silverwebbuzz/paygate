@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Domain\Branch\Models\Branch;
+use App\Domain\Commission\Models\CommissionRate;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Core\Rbac\SystemRoles;
@@ -15,7 +16,8 @@ use RuntimeException;
 
 /**
  * Local development data: one demo partner, one demo branch mapped to it,
- * and one user per built-in role. Password for all users: "password".
+ * sample commission rates (partner pays 6% / 2.5%, branch earns 4% / 1.5%;
+ * made-up values for trying the screens), and one user per built-in role. Password for all users: "password".
  * Never runs outside APP_ENV=local.
  */
 class LocalDemoUserSeeder extends Seeder
@@ -51,6 +53,20 @@ class LocalDemoUserSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+        }
+
+        $rates = [
+            ['partner', $partner->id, 'deposit', '6'],
+            ['partner', $partner->id, 'withdrawal', '2.5'],
+            ['branch', $branch->id, 'deposit', '4'],
+            ['branch', $branch->id, 'withdrawal', '1.5'],
+        ];
+
+        foreach ($rates as [$type, $id, $direction, $rate]) {
+            CommissionRate::query()->firstOrCreate(
+                ['subject_type' => $type, 'subject_id' => $id, 'side' => $type, 'direction' => $direction, 'effective_to' => null],
+                ['fee_type' => 'percent', 'rate_percent' => $rate, 'effective_from' => now()],
+            );
         }
 
         $users = [

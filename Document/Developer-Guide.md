@@ -69,13 +69,15 @@ Open **http://paygate.local** and log in with `admin@paygate.local` / `password`
 
 ### Application
 
-| URL                               | What                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------- |
-| http://paygate.local              | Portals: login, `/admin`, `/partner`, `/branch`                               |
-| http://paygate.local/horizon      | Queue dashboard (open locally; super admins only on servers)                  |
-| http://paygate.local/admin/ui-kit | UI kit: every shared component with sample data (local only, log in as admin) |
-| http://api.paygate.local/v1/ping  | Partner API health check                                                      |
-| http://pay.paygate.local          | Payer pages (from Phase 5)                                                    |
+| URL                                     | What                                                                                |
+| --------------------------------------- | ----------------------------------------------------------------------------------- |
+| http://paygate.local                    | Portals: login, `/admin`, `/partner`, `/branch`                                     |
+| http://paygate.local/horizon            | Queue dashboard (open locally; super admins only on servers)                        |
+| http://paygate.local/admin/partners     | Partners: list, create wizard, drawer (keys, rates, branches, activity)             |
+| http://paygate.local/partner/developers | Partner portal: API keys, endpoints, allowed IPs (log in as partner@ or developer@) |
+| http://paygate.local/admin/ui-kit       | UI kit: every shared component with sample data (local only, log in as admin)       |
+| http://api.paygate.local/v1/ping        | Partner API health check                                                            |
+| http://pay.paygate.local                | Payer pages (from Phase 5)                                                          |
 
 ### Demo users (created by `make setup` / `make fresh`, password for all: `password`)
 
@@ -235,6 +237,10 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 - **Roles live in the database** (Admin edits them on _Roles & Permissions_), **permissions in code**: `app/Domain/Core/Rbac/Enums/Permission.php`, named `menu.action` (`payins.approve`, `users.create`, …), one grid row per `Menu` enum case. The 9 built-in roles are in `SystemRoles.php`. Check with `$user->can('payins.approve')` or `Gate::authorize(...)`; record-level rules (own organisation only, can't manage yourself) are in `UserPolicy` / `RolePolicy`. Portal routes are guarded by `user.type:<type>`.
 - **No privilege escalation:** nobody can grant a permission, assign a role or manage a user holding more than they hold themselves. The super admin role is locked and always has every admin permission. The last active super admin can't be suspended or demoted.
 - **Adding a permission:** add the case to `Permission` (and a `Menu` case if it's a new menu), grant it in `SystemRoles` if built-in roles need it, then add a migration that inserts it into `role_permissions` for existing roles on servers. Super admin gets it automatically.
+- **Money in forms:** people type rupees ("1500.50"); `App\Support\Money::toPaise()` converts to paise in the form request. Empty limit = no limit (null). Never use floats for money or rates.
+- **Commission rates are never edited:** `SetCommissionRate` closes the current rate (`effective_to = now`) and starts a new one, so history stays and past transactions keep their rate. Rates are strings with up to 4 decimals (`RatePercent`); a rate below a mapped branch's rate is allowed but flagged in the audit log (`negative_margin_branches`).
+- **API secrets are shown once:** `IssueApiKey` returns the plain secret a single time (flashed to the page as `credentials`); it is stored encrypted because we need it for HMAC checks and webhook signing. Rotation keeps the old key valid for 24 hours. Generating, rotating and revoking require the person's password.
+- **Partner status:** draft → active (needs rates for enabled directions and an API key) → suspended / offboarded (`PartnerStatus::transitions()`). The partner code can't change after it goes live.
 - **Users are invited, never created with a password:** Admin (any portal) or a partner/branch owner (own organisation) sends an invitation; the emailed link is valid 72 hours (`invites` password broker) and setting the password verifies the email. Locally the emails land in Mailpit.
 - **Money:** integer paise (`bigint`), never float.
 - **IDs:** UUIDv7 primary keys (`HasUuids`).
