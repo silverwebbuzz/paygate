@@ -14,6 +14,8 @@ void createInertiaApp({
         switch (true) {
             case name.startsWith('auth/'):
                 return AuthLayout;
+            case name.startsWith('checkout/'):
+                return null; // the payer page draws its own frame
             case name.startsWith('settings/'):
                 return [PortalLayout, SettingsLayout];
             default:

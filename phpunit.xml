@@ -19,6 +19,7 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <env name="PAYGATE_API_ENFORCE_IP" value="true"/>
         <env name="PAYGATE_HASH_KEY" value="testing-blind-index-key"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

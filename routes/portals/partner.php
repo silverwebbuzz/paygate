@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Partner\Developers\ApiLogController;
 use App\Http\Partner\Developers\DeveloperController;
 use App\Http\Partner\Profile\BusinessProfileController;
 use App\Http\Shared\Users\UserController;
@@ -12,6 +13,10 @@ use Illuminate\Support\Facades\Route;
 Route::inertia('/', 'partner/dashboard')->name('dashboard');
 
 Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile');
+
+// API documentation and the partner's own API call log.
+Route::get('api-docs', [ApiLogController::class, 'docs'])->name('api-docs');
+Route::get('api-logs', [ApiLogController::class, 'index'])->name('api-logs');
 
 // API & Webhooks: credentials, endpoints, allowed IPs.
 Route::controller(DeveloperController::class)->prefix('developers')->name('developers.')->group(function () {

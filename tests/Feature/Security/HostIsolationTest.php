@@ -25,7 +25,7 @@ class HostIsolationTest extends TestCase
     public function test_api_host_serves_json()
     {
         $this->get('http://api.paygate.local/v1/ping')->assertOk()->assertJson(['status' => 'ok']);
-        $this->get('http://api.paygate.local/v1/missing')->assertNotFound()->assertJsonStructure(['message']);
+        $this->get('http://api.paygate.local/v1/missing')->assertNotFound()->assertJsonPath('error.code', 'not_found')->assertJsonStructure(['error' => ['code', 'message', 'request_id']]);
     }
 
     public function test_every_response_has_a_request_id()

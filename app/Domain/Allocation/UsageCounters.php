@@ -7,9 +7,12 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Reads today's usage (business day in India time) from usage_counters:
- * what is confirmed plus what is reserved by open payment sessions and
- * assigned payouts. The counters are written by allocation (Phase 6+).
+ * Daily usage per account / branch / partner / pair (business day in India
+ * time): what is confirmed plus what is reserved by open payment sessions
+ * and assigned payouts.
+ *
+ * Reservations use conditional UPDATEs, so a limit can never be exceeded
+ * even when many customers are allocated at the same moment (Database.md §4).
  */
 class UsageCounters
 {
@@ -37,5 +40,46 @@ class UsageCounters
                 'count' => (int) $row->reserved_count + (int) $row->confirmed_count,
             ]])
             ->all();
+    }
+
+    /**
+     * Reserves `$amount` (and one payment) on a scope for the business day,
+     * only if it stays within the limits given (null = no limit). Returns
+     * false, changing nothing, when a limit would be exceeded.
+     */
+    public function reserve(string $scopeType, string $scopeId, string $date, Direction $direction, int $amount, ?int $amountLimit = null, ?int $countLimit = null, ?int $sessionLimit = null): bool
+    {
+        $key = ['scope_type' => $scopeType, 'scope_id' => $scopeId, 'business_date' => $date, 'direction' => $direction->value];
+
+        DB::table('usage_counters')->insertOrIgnore($key);
+
+        $sessions = $sessionLimit === null ? 0 : 1;
+
+        return DB::table('usage_counters')
+            ->where($key)
+            ->when($amountLimit !== null, fn ($query) => $query->whereRaw('reserved_amount + confirmed_amount + ? <= ?', [$amount, $amountLimit]))
+            ->when($countLimit !== null, fn ($query) => $query->whereRaw('reserved_count + confirmed_count + 1 <= ?', [$countLimit]))
+            ->when($sessionLimit !== null, fn ($query) => $query->whereRaw('open_sessions + 1 <= ?', [$sessionLimit]))
+            ->incrementEach(
+                ['reserved_amount' => $amount, 'reserved_count' => 1, 'open_sessions' => $sessions],
+                ['updated_at' => now()],
+            ) === 1;
+    }
+
+    /**
+     * Gives back a reservation (session expired, cancelled, rejected, or the
+     * customer switched to another account). Never goes below zero.
+     */
+    public function release(string $scopeType, string $scopeId, string $date, Direction $direction, int $amount, bool $hadSession = false): void
+    {
+        DB::update(
+            'UPDATE usage_counters
+             SET reserved_amount = GREATEST(reserved_amount - ?, 0),
+                 reserved_count = GREATEST(reserved_count - 1, 0),
+                 open_sessions = GREATEST(open_sessions - ?, 0),
+                 updated_at = now()
+             WHERE scope_type = ? AND scope_id = ? AND business_date = ? AND direction = ?',
+            [$amount, $hadSession ? 1 : 0, $scopeType, $scopeId, $date, $direction->value],
+        );
     }
 }

@@ -9,7 +9,11 @@ import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
 import branchAccounts from '@/routes/branch/accounts';
 import branchUsers from '@/routes/branch/users';
-import partner, { profile as partnerProfile } from '@/routes/partner';
+import partner, {
+    apiDocs as partnerApiDocs,
+    apiLogs as partnerApiLogs,
+    profile as partnerProfile,
+} from '@/routes/partner';
 import partnerDevelopers from '@/routes/partner/developers';
 import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
@@ -209,7 +213,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: partnerDevelopers.show(),
                     permission: 'api_keys.view',
                 },
-                { label: 'API Logs', soon: 6 },
+                {
+                    label: 'API documentation',
+                    href: partnerApiDocs(),
+                    permission: 'api_keys.view',
+                },
+                {
+                    label: 'API Logs',
+                    href: partnerApiLogs(),
+                    permission: 'api_logs.view',
+                },
             ],
         },
         {

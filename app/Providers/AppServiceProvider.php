@@ -13,11 +13,16 @@ use App\Domain\Core\Rbac\Policies\RolePolicy;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Transaction\Models\Transaction;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -39,6 +44,20 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureMorphMap();
         $this->configureAuthorization();
+        $this->configureRateLimits();
+    }
+
+    /**
+     * Payer page limits, counted separately per page and per action (a
+     * plain throttle:N,1 shares one counter per IP across all routes).
+     */
+    protected function configureRateLimits(): void
+    {
+        $key = fn (Request $request, string $action) => $action.'|'.$request->ip().'|'.$request->route('token');
+
+        RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(60)->by($key($request, 'view')));
+        RateLimiter::for('checkout-method', fn (Request $request) => Limit::perMinute(20)->by($key($request, 'method')));
+        RateLimiter::for('checkout-proof', fn (Request $request) => Limit::perMinute(10)->by($key($request, 'proof')));
     }
 
     /**
@@ -55,6 +74,8 @@ class AppServiceProvider extends ServiceProvider
             'branch' => Branch::class,
             'mapping' => PartnerBranchMapping::class,
             'payment_account' => PaymentAccount::class,
+            'transaction' => Transaction::class,
+            'file' => StoredFile::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);
