@@ -3,7 +3,7 @@
 namespace App\Http\Admin\Partners\Requests;
 
 use App\Domain\Core\Identity\Models\User;
-use App\Domain\Partner\Enums\PartnerStatus;
+use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,7 +21,7 @@ class ChangePartnerStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['required', Rule::enum(PartnerStatus::class)],
+            'status' => ['required', Rule::enum(OrganisationStatus::class)],
             'reason' => ['required', 'string', 'max:500'],
         ];
     }

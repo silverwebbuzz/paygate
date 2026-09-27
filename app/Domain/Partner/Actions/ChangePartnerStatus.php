@@ -6,7 +6,7 @@ use App\Domain\Commission\Enums\Direction;
 use App\Domain\Commission\RateBook;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
-use App\Domain\Partner\Enums\PartnerStatus;
+use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Partner\Models\Partner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +20,7 @@ class ChangePartnerStatus
 {
     public function __construct(private RateBook $rates) {}
 
-    public function handle(User $actor, Partner $partner, PartnerStatus $status, string $reason): Partner
+    public function handle(User $actor, Partner $partner, OrganisationStatus $status, string $reason): Partner
     {
         if (! $partner->status->canMoveTo($status)) {
             throw ValidationException::withMessages(['status' => __('A :from partner can’t become :to.', [
@@ -29,7 +29,7 @@ class ChangePartnerStatus
             ])]);
         }
 
-        if ($status === PartnerStatus::Active) {
+        if ($status === OrganisationStatus::Active) {
             $missing = $this->activationBlockers($partner);
 
             if ($missing !== []) {
@@ -42,7 +42,7 @@ class ChangePartnerStatus
 
             $partner->status = $status;
 
-            if ($status === PartnerStatus::Active && $partner->verified_at === null) {
+            if ($status === OrganisationStatus::Active && $partner->verified_at === null) {
                 $partner->verified_at = now();
                 $partner->verified_by = $actor->id;
             }

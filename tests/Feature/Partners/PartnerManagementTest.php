@@ -8,8 +8,8 @@ use App\Domain\Commission\Models\CommissionRate;
 use App\Domain\Commission\RateBook;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Core\Rbac\SystemRoles;
-use App\Domain\Partner\Enums\PartnerStatus;
 use App\Domain\Partner\Models\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
@@ -90,7 +90,7 @@ class PartnerManagementTest extends TestCase
         $partner = Partner::where('code', 'ATOZ')->firstOrFail();
         $response->assertRedirect(route('admin.partners.index', ['partner' => $partner->id]));
 
-        $this->assertSame(PartnerStatus::Draft, $partner->status);
+        $this->assertSame(OrganisationStatus::Draft, $partner->status);
         $this->assertSame('ops@atoz.example', $partner->email);
         $this->assertSame(10000, $partner->deposit_min_amount);
         $this->assertSame(5000050, $partner->deposit_max_amount);
@@ -152,7 +152,7 @@ class PartnerManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.partners.store'), $this->payload(['activate' => true]))->assertSessionHasNoErrors();
         $partner = Partner::firstOrFail();
-        $this->assertSame(PartnerStatus::Active, $partner->status);
+        $this->assertSame(OrganisationStatus::Active, $partner->status);
         $this->assertNotNull($partner->verified_at);
         $this->assertSame($admin->id, $partner->verified_by);
     }
@@ -196,7 +196,7 @@ class PartnerManagementTest extends TestCase
             ->get()
             ->first(fn ($log) => ($log->new_values['direction'] ?? null) === 'deposit');
 
-        $this->assertSame('BR-1', $audit->new_values['negative_margin_branches'][0]['code']);
+        $this->assertSame('BR-1', $audit->new_values['negative_margin_pairs'][0]['code']);
     }
 
     public function test_code_is_fixed_once_the_partner_is_live()
@@ -228,11 +228,11 @@ class PartnerManagementTest extends TestCase
 
         $this->actingAs($admin)->put(route('admin.partners.status', $partner), ['status' => 'suspended'])->assertSessionHasErrors('reason');
         $this->actingAs($admin)->put(route('admin.partners.status', $partner), ['status' => 'suspended', 'reason' => 'Chargebacks'])->assertSessionHasNoErrors();
-        $this->assertSame(PartnerStatus::Suspended, $partner->fresh()?->status);
+        $this->assertSame(OrganisationStatus::Suspended, $partner->fresh()?->status);
 
         $this->actingAs($admin)->put(route('admin.partners.status', $partner), ['status' => 'offboarded', 'reason' => 'Contract ended']);
         $this->actingAs($admin)->put(route('admin.partners.status', $partner), ['status' => 'active', 'reason' => 'Oops'])->assertSessionHasErrors('status');
-        $this->assertSame(PartnerStatus::Offboarded, $partner->fresh()?->status);
+        $this->assertSame(OrganisationStatus::Offboarded, $partner->fresh()?->status);
 
         // Activated (wizard), suspended, offboarded.
         $this->assertSame(3, AuditLog::where(['action' => 'partner.status_changed', 'subject_id' => $partner->id])->count());

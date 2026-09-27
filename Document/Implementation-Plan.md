@@ -14,17 +14,18 @@ This replaces the old roadmap in Architecture.md §19.
 
 ## 1. Where we are
 
-| Phase                 | Result                                                                                                                           | Commit        |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| 0 — Local environment | Docker stack, Laravel 13, host routing, CI                                                                                       | `d57c15d`     |
-| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs                                                                                    | `d57c15d`     |
-| Requirements v1.4     | Business model, flows, financial model, gaps                                                                                     | `d57c15d`     |
-| Database              | 47 tables, safety rules, Deployment.md                                                                                           | `d57c15d`     |
-| Design                | UI export added                                                                                                                  | `09f83ff`     |
-| 2a — Modules + schema | Domain module structure, schema fixes D-1…D-5                                                                                    | `3264531`     |
-| 2b — UI foundation    | Design tokens, portal shells, shared components, auth screens, UI kit                                                            | `c699d3b`     |
-| 3 — Roles & users     | `menu.action` permission grid, roles screen, users screen for all portals, invitations                                           | `85ae1ca`     |
-| 4 — Partners          | Partner list, 7-step wizard, API keys (shown once, rotate, revoke), IP rules, effective-dated rates, partner API & Webhooks page | (this commit) |
+| Phase                   | Result                                                                                                                                             | Commit        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| 0 — Local environment   | Docker stack, Laravel 13, host routing, CI                                                                                                         | `d57c15d`     |
+| 1 — Auth & access       | Portals, 2FA, suspension, audit/security logs                                                                                                      | `d57c15d`     |
+| Requirements v1.4       | Business model, flows, financial model, gaps                                                                                                       | `d57c15d`     |
+| Database                | 47 tables, safety rules, Deployment.md                                                                                                             | `d57c15d`     |
+| Design                  | UI export added                                                                                                                                    | `09f83ff`     |
+| 2a — Modules + schema   | Domain module structure, schema fixes D-1…D-5                                                                                                      | `3264531`     |
+| 2b — UI foundation      | Design tokens, portal shells, shared components, auth screens, UI kit                                                                              | `c699d3b`     |
+| 3 — Roles & users       | `menu.action` permission grid, roles screen, users screen for all portals, invitations                                                             | `85ae1ca`     |
+| 4 — Partners            | Partner list, 7-step wizard, API keys (shown once, rotate, revoke), IP rules, effective-dated rates, partner API & Webhooks page                   | `1639100`     |
+| 5 — Branches & accounts | Branch list/form/drawer, top-ups, mapping screen with pair rates, bank & UPI accounts (encrypted, blind index, verification), branch Accounts page | (this commit) |
 
 ---
 

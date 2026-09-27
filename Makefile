@@ -19,6 +19,7 @@ setup: hosts build ## First-time setup: build image, install deps, migrate + dem
 	$(RUN) app npm install
 	$(DC) up -d
 	@grep -q '^APP_KEY=base64:' .env || $(PHP) php artisan key:generate --no-interaction
+	@grep -q '^PAYGATE_HASH_KEY=.' .env || sed -i.bak "s|^PAYGATE_HASH_KEY=.*|PAYGATE_HASH_KEY=$$(openssl rand -base64 32)|" .env && rm -f .env.bak
 	$(PHP) php artisan migrate --seed --force
 	@echo "\n  Ready: http://paygate.local  (login admin@paygate.local / password)"
 	@echo "  Guide: Document/Developer-Guide.md\n"

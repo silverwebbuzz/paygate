@@ -1,9 +1,13 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import admin from '@/routes/admin';
+import adminAccounts from '@/routes/admin/accounts';
+import adminBranches from '@/routes/admin/branches';
+import adminMappings from '@/routes/admin/mappings';
 import adminPartners from '@/routes/admin/partners';
 import adminRoles from '@/routes/admin/roles';
 import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
+import branchAccounts from '@/routes/branch/accounts';
 import branchUsers from '@/routes/branch/users';
 import partner, { profile as partnerProfile } from '@/routes/partner';
 import partnerDevelopers from '@/routes/partner/developers';
@@ -71,8 +75,21 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: adminPartners.index(),
                     permission: 'partners.view',
                 },
-                { label: 'Branches', soon: 5 },
-                { label: 'Bank & UPI Accounts', soon: 5 },
+                {
+                    label: 'Branches',
+                    href: adminBranches.index(),
+                    permission: 'branches.view',
+                },
+                {
+                    label: 'Branch mapping',
+                    href: adminMappings.index(),
+                    permission: 'mappings.view',
+                },
+                {
+                    label: 'Bank & UPI Accounts',
+                    href: adminAccounts.index(),
+                    permission: 'accounts.view',
+                },
             ],
         },
         {
@@ -110,7 +127,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Accounts',
-            items: [{ label: 'Bank & UPI Accounts', soon: 5 }],
+            items: [
+                {
+                    label: 'Bank & UPI Accounts',
+                    href: branchAccounts.index(),
+                    permission: 'accounts.view',
+                },
+            ],
         },
         {
             label: 'Operations',

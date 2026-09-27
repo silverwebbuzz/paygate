@@ -109,4 +109,43 @@ class RateBook
 
         return $problems;
     }
+
+    /**
+     * Partners mapped to the branch that would pay less than the branch
+     * earns in this direction if the branch's rate were `$branchRate`.
+     *
+     * @return list<array{partner_id: string, code: string, name: string, partner_rate: string, branch_rate: string}>
+     */
+    public function negativeMarginsForBranch(Branch $branch, Direction $direction, ?string $branchRate = null): array
+    {
+        $problems = [];
+
+        $mappings = PartnerBranchMapping::query()
+            ->where('branch_id', $branch->id)
+            ->where('status', 'active')
+            ->with('partner')
+            ->get();
+
+        foreach ($mappings as $mapping) {
+            $rates = $this->forPair($mapping, $direction);
+            $pairOverride = $this->current('mapping', $mapping->id, 'branch', $direction);
+            $effectiveBranch = $pairOverride ?? $branchRate ?? $rates['branch'];
+
+            if ($effectiveBranch === null || $rates['partner'] === null) {
+                continue;
+            }
+
+            if (RatePercent::compare($rates['partner'], $effectiveBranch) < 0) {
+                $problems[] = [
+                    'partner_id' => $mapping->partner_id,
+                    'code' => $mapping->partner->code,
+                    'name' => $mapping->partner->name,
+                    'partner_rate' => RatePercent::normalize($rates['partner']),
+                    'branch_rate' => RatePercent::normalize($effectiveBranch),
+                ];
+            }
+        }
+
+        return $problems;
+    }
 }

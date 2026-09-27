@@ -12,6 +12,7 @@ use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Core\Rbac\Policies\RolePolicy;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
@@ -53,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
             'partner' => Partner::class,
             'branch' => Branch::class,
             'mapping' => PartnerBranchMapping::class,
+            'payment_account' => PaymentAccount::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);

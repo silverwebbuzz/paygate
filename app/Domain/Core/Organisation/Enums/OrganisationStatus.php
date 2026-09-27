@@ -1,14 +1,15 @@
 <?php
 
-namespace App\Domain\Partner\Enums;
+namespace App\Domain\Core\Organisation\Enums;
 
 /**
- * Partner lifecycle. A partner is created as a draft, goes live when Admin
- * activates it, and can be suspended (temporarily) or offboarded (for good).
+ * Lifecycle of partners and branches (Requirements §7.10). An organisation is
+ * created as a draft, goes live when Admin activates it, and can be suspended
+ * (temporarily) or offboarded (for good).
  * `pending_verification` and `rejected` exist in the schema for a future
  * self-service onboarding flow and are not used yet.
  */
-enum PartnerStatus: string
+enum OrganisationStatus: string
 {
     case Draft = 'draft';
     case PendingVerification = 'pending_verification';

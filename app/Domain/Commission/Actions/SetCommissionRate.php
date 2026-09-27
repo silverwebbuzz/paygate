@@ -69,10 +69,38 @@ class SetCommissionRate
                 'direction' => $direction->value,
                 'rate_percent' => $rate,
                 'effective_from' => $now->toIso8601String(),
-                'negative_margin_branches' => $negativeMargins ?: null,
+                'negative_margin_pairs' => $negativeMargins ?: null,
             ]), $actor);
 
             return $new;
+        });
+    }
+
+    /**
+     * Ends the rate in force now without a replacement (e.g. removing a pair
+     * override so the partner's or branch's own rate applies again).
+     */
+    public function clear(User $actor, string $subjectType, Model $subject, string $side, Direction $direction): bool
+    {
+        return DB::transaction(function () use ($actor, $subjectType, $subject, $side, $direction) {
+            $current = CommissionRate::query()
+                ->for($subjectType, (string) $subject->getKey(), $side, $direction)
+                ->whereNull('effective_to')
+                ->lockForUpdate()
+                ->first();
+
+            if ($current === null) {
+                return false;
+            }
+
+            $current->update(['effective_to' => now()]);
+
+            AuditLog::record('commission_rate.cleared', $subject, ['rate_percent' => $current->rate_percent], [
+                'side' => $side,
+                'direction' => $direction->value,
+            ], $actor);
+
+            return true;
         });
     }
 }

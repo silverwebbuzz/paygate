@@ -8,6 +8,11 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\PaymentAccount\Actions\ChangeAccountStatus;
+use App\Domain\PaymentAccount\Actions\ReviewPaymentAccount;
+use App\Domain\PaymentAccount\Actions\SavePaymentAccount;
+use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +21,7 @@ use RuntimeException;
 
 /**
  * Local development data: one demo partner, one demo branch mapped to it,
+ * one verified and active demo bank + UPI account (made-up numbers),
  * sample commission rates (partner pays 6% / 2.5%, branch earns 4% / 1.5%;
  * made-up values for trying the screens), and one user per built-in role. Password for all users: "password".
  * Never runs outside APP_ENV=local.
@@ -92,5 +98,34 @@ class LocalDemoUserSeeder extends Seeder
                 'email_verified_at' => now(),
             ]);
         }
+
+        $this->seedDemoAccount($branch);
+    }
+
+    private function seedDemoAccount(Branch $branch): void
+    {
+        if (PaymentAccount::query()->where('branch_id', $branch->id)->exists()) {
+            return;
+        }
+
+        $admin = User::query()->where('email', 'admin@paygate.local')->firstOrFail();
+        $account = app(SavePaymentAccount::class)->handle($admin, $branch, null, [
+            'label' => 'Demo HDFC current',
+            'account_holder_name' => 'Demo Branch Pvt Ltd',
+            'is_bank_enabled' => true,
+            'bank_name' => 'HDFC Bank',
+            'ifsc' => 'HDFC0000001',
+            'account_number' => '00000000000001',
+            'is_upi_enabled' => true,
+            'upi_id' => 'demo.branch@hdfcbank',
+            'upi_display_name' => 'Demo Branch',
+            'is_qr_enabled' => true,
+            'is_intent_enabled' => true,
+            'daily_amount_limit' => 50000000,
+            'max_open_sessions' => 5,
+        ]);
+
+        app(ReviewPaymentAccount::class)->approve($admin, $account);
+        app(ChangeAccountStatus::class)->handle($admin, $account, AccountStatus::Active);
     }
 }

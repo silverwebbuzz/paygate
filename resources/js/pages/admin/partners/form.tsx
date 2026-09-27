@@ -5,6 +5,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { PgButton } from '@/components/pg/button';
 import { Panel } from '@/components/pg/data-table';
 import { Field, SelectInput, TextArea, TextInput } from '@/components/pg/field';
+import { OrgPicker } from '@/components/pg/org-picker';
 import { PageHeader } from '@/components/pg/page-header';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { SwitchField } from '@/components/pg/switch-field';
@@ -682,8 +683,10 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
 
                         {step === 5 && (
                             <div className="sm:col-span-2">
-                                <BranchPicker
-                                    branches={branches}
+                                <OrgPicker
+                                    noun="branch"
+                                    emptyHint="No branches exist yet. Create one under Branches, then map it here."
+                                    items={branches}
                                     selected={data.branch_ids}
                                     search={branchSearch}
                                     onSearch={setBranchSearch}
@@ -955,114 +958,6 @@ function MarginTable({
                     ))}
                 </tbody>
             </table>
-        </div>
-    );
-}
-
-function BranchPicker({
-    branches,
-    selected,
-    search,
-    onSearch,
-    disabled,
-    onChange,
-}: {
-    branches: Branch[];
-    selected: string[];
-    search: string;
-    onSearch: (value: string) => void;
-    disabled: boolean;
-    onChange: (ids: string[]) => void;
-}) {
-    const term = search.trim().toLowerCase();
-    const visible = branches.filter(
-        (branch) =>
-            term === '' ||
-            branch.name.toLowerCase().includes(term) ||
-            branch.code.toLowerCase().includes(term),
-    );
-    const toggle = (id: string) =>
-        onChange(
-            selected.includes(id)
-                ? selected.filter((x) => x !== id)
-                : [...selected, id],
-        );
-
-    if (branches.length === 0) {
-        return (
-            <p className="text-[13px] text-tx2">
-                No branches exist yet. Branches are set up in Phase 5; you can
-                map them to this partner later.
-            </p>
-        );
-    }
-
-    return (
-        <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-                <TextInput
-                    className="h-8 max-w-[260px] text-[12.5px]"
-                    placeholder="Search branches"
-                    value={search}
-                    onChange={(event) => onSearch(event.target.value)}
-                />
-                <span className="text-xs text-tx3">
-                    {selected.length} of {branches.length} selected
-                </span>
-                <div className="flex-1" />
-                {!disabled && (
-                    <>
-                        <PgButton
-                            variant="ghost"
-                            onClick={() =>
-                                onChange([
-                                    ...new Set([
-                                        ...selected,
-                                        ...visible.map((b) => b.id),
-                                    ]),
-                                ])
-                            }
-                        >
-                            Select shown
-                        </PgButton>
-                        <PgButton variant="ghost" onClick={() => onChange([])}>
-                            Clear
-                        </PgButton>
-                    </>
-                )}
-            </div>
-            {disabled && (
-                <p className="text-xs text-tx3">
-                    You don’t have permission to change the branch mapping.
-                </p>
-            )}
-            <div className="max-h-[340px] overflow-y-auto rounded-lg border border-ln">
-                {visible.map((branch) => (
-                    <label
-                        key={branch.id}
-                        className="flex cursor-pointer items-center gap-3 border-b border-ln2 px-3 py-2 last:border-b-0 hover:bg-sf2"
-                    >
-                        <input
-                            type="checkbox"
-                            className="size-4 accent-ac"
-                            disabled={disabled}
-                            checked={selected.includes(branch.id)}
-                            onChange={() => toggle(branch.id)}
-                        />
-                        <span className="font-mono text-xs text-tx3">
-                            {branch.code}
-                        </span>
-                        <span className="flex-1 text-[13px]">
-                            {branch.name}
-                        </span>
-                        <span className="text-xs text-tx3">
-                            {branch.rates.deposit ?? '—'}% /{' '}
-                            {branch.rates.withdrawal ?? '—'}%
-                        </span>
-                        <StatusBadge status={branch.status} />
-                    </label>
-                ))}
-            </div>
         </div>
     );
 }

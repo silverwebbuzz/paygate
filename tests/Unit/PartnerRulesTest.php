@@ -3,8 +3,8 @@
 namespace Tests\Unit;
 
 use App\Domain\Commission\RatePercent;
+use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Partner\Actions\SyncIpRules;
-use App\Domain\Partner\Enums\PartnerStatus;
 use App\Support\Money;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -64,9 +64,9 @@ class PartnerRulesTest extends TestCase
 
     public function test_partner_lifecycle()
     {
-        $this->assertTrue(PartnerStatus::Draft->canMoveTo(PartnerStatus::Active));
-        $this->assertTrue(PartnerStatus::Suspended->canMoveTo(PartnerStatus::Active));
-        $this->assertFalse(PartnerStatus::Offboarded->canMoveTo(PartnerStatus::Active));
-        $this->assertFalse(PartnerStatus::Draft->canMoveTo(PartnerStatus::Suspended));
+        $this->assertTrue(OrganisationStatus::Draft->canMoveTo(OrganisationStatus::Active));
+        $this->assertTrue(OrganisationStatus::Suspended->canMoveTo(OrganisationStatus::Active));
+        $this->assertFalse(OrganisationStatus::Offboarded->canMoveTo(OrganisationStatus::Active));
+        $this->assertFalse(OrganisationStatus::Draft->canMoveTo(OrganisationStatus::Suspended));
     }
 }

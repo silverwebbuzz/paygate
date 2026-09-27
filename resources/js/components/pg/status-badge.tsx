@@ -1,12 +1,18 @@
 import { statusStyle, TONE_CLASSES } from '@/lib/status';
 import { cn } from '@/lib/utils';
 
-/** Status pill with the design's icon + label + tone (lib/status.ts). */
+/**
+ * Status pill with the design's icon + label + tone (lib/status.ts). `label`
+ * overrides the wording where a status means something else on a screen
+ * (e.g. a rejected account vs a declined payment).
+ */
 export function StatusBadge({
     status,
+    label,
     className,
 }: {
     status: string;
+    label?: string;
     className?: string;
 }) {
     const style = statusStyle(status);
@@ -22,7 +28,7 @@ export function StatusBadge({
             <span aria-hidden className="text-[11px]">
                 {style.icon}
             </span>
-            {style.label}
+            {label ?? style.label}
         </span>
     );
 }

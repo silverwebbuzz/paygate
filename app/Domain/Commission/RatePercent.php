@@ -41,6 +41,14 @@ final class RatePercent
         return $units;
     }
 
+    /**
+     * -15000 → "-1.5000" (for margins, which can be negative).
+     */
+    public static function fromUnits(int $units): string
+    {
+        return ($units < 0 ? '-' : '').number_format(abs($units) / 10000, 4, '.', '');
+    }
+
     public static function compare(string $a, string $b): int
     {
         return self::units($a) <=> self::units($b);

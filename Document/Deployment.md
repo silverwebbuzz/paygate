@@ -29,6 +29,14 @@ For your local machine, use the [Developer Guide](Developer-Guide.md) instead (`
 - Staging and production must have **different** keys.
 - Back it up separately from the database backups.
 
+### 2.1 `PAYGATE_HASH_KEY` (critical, same rules)
+
+Bank account numbers and UPI IDs are also stored as an HMAC "blind index" (`*_hash` columns), so the database can refuse the same account being added twice without storing the number in clear. The HMAC key is `PAYGATE_HASH_KEY`.
+
+- Generate it **once** per environment: `php -r 'echo base64_encode(random_bytes(32)), PHP_EOL;'`, store it next to `APP_KEY`.
+- **Never change or lose it.** With a different key, duplicate accounts are no longer detected and account search stops matching.
+- Different in staging and production. The app refuses to save accounts when it is missing.
+
 ---
 
 ## 3. First-time database setup (run once per environment)
@@ -69,6 +77,7 @@ The app always connects as **`paygate_app`**:
 APP_ENV=production            # staging: APP_ENV=staging
 APP_DEBUG=false
 APP_KEY=base64:...            # from §2
+PAYGATE_HASH_KEY=...          # from §2.1
 APP_URL=https://paygate.example.com
 
 APP_DOMAIN=paygate.example.com
@@ -160,6 +169,7 @@ It asks for a name, email and password (min. 12 characters with mixed case, numb
 
 - [ ] PostgreSQL ≥ 15, `btree_gist` allowed, TLS on
 - [ ] `APP_KEY` generated, stored in the secret manager, backed up
+- [ ] `PAYGATE_HASH_KEY` generated, stored and backed up the same way
 - [ ] `paygate_owner` and `paygate_app` created; the app `.env` uses `paygate_app`
 - [ ] `migrate --force` run as `paygate_owner`: all migrations "Ran"
 - [ ] `database/sql/app-privileges.sql` applied

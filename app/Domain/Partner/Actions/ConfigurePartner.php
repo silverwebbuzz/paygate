@@ -7,8 +7,8 @@ use App\Domain\Commission\Enums\Direction;
 use App\Domain\Commission\RateBook;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
-use App\Domain\Network\Actions\SyncPartnerBranches;
-use App\Domain\Partner\Enums\PartnerStatus;
+use App\Domain\Core\Organisation\Enums\OrganisationStatus;
+use App\Domain\Network\Actions\SyncMappings;
 use App\Domain\Partner\Models\Partner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -29,7 +29,7 @@ class ConfigurePartner
 
     public function __construct(
         private SyncIpRules $syncIpRules,
-        private SyncPartnerBranches $syncBranches,
+        private SyncMappings $syncBranches,
         private SetCommissionRate $setRate,
         private RateBook $rates,
         private IssueApiKey $issueApiKey,
@@ -50,7 +50,7 @@ class ConfigurePartner
             $secret = null;
 
             if ($partner === null) {
-                $partner = Partner::create([...$attributes, 'status' => PartnerStatus::Draft]);
+                $partner = Partner::create([...$attributes, 'status' => OrganisationStatus::Draft]);
                 AuditLog::record('partner.created', $partner, [], $partner->only(array_keys($attributes)), $actor);
                 $secret = $this->issueApiKey->handle($actor, $partner)['secret'];
             } else {
@@ -63,7 +63,7 @@ class ConfigurePartner
 
             // Branches first, so the margin check sees the new mapping.
             if ($branchIds !== null) {
-                $this->syncBranches->handle($actor, $partner, $branchIds);
+                $this->syncBranches->forPartner($actor, $partner, $branchIds);
             }
 
             $negative = [];
@@ -78,8 +78,8 @@ class ConfigurePartner
                 }
             }
 
-            if ($activate && $partner->status !== PartnerStatus::Active) {
-                $this->changeStatus->handle($actor, $partner, PartnerStatus::Active, __('Activated from the partner wizard.'));
+            if ($activate && $partner->status !== OrganisationStatus::Active) {
+                $this->changeStatus->handle($actor, $partner, OrganisationStatus::Active, __('Activated from the partner wizard.'));
             }
 
             return ['partner' => $partner, 'secret' => $secret, 'negative_margins' => $negative];
@@ -93,7 +93,7 @@ class ConfigurePartner
     {
         $partner->fill($attributes);
 
-        if ($partner->status !== PartnerStatus::Draft && $partner->isDirty(self::LOCKED_AFTER_DRAFT)) {
+        if ($partner->status !== OrganisationStatus::Draft && $partner->isDirty(self::LOCKED_AFTER_DRAFT)) {
             throw ValidationException::withMessages(['code' => __('The partner code can’t change after the partner went live.')]);
         }
 

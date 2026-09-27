@@ -4,8 +4,8 @@ namespace App\Domain\Partner\Models;
 
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Network\Models\PartnerBranchMapping;
-use App\Domain\Partner\Enums\PartnerStatus;
 use Carbon\CarbonInterface;
 use Database\Factories\PartnerFactory;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -32,7 +32,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $payin_webhook_url
  * @property string|null $payout_webhook_url
  * @property string $api_version
- * @property PartnerStatus $status
+ * @property OrganisationStatus $status
  * @property bool $is_payin_enabled
  * @property bool $is_payout_enabled
  * @property bool $is_h2h_enabled
@@ -68,7 +68,7 @@ class Partner extends Model
     protected function casts(): array
     {
         return [
-            'status' => PartnerStatus::class,
+            'status' => OrganisationStatus::class,
             'is_payin_enabled' => 'boolean',
             'is_payout_enabled' => 'boolean',
             'is_h2h_enabled' => 'boolean',

@@ -1,0 +1,204 @@
+<?php
+
+namespace Tests\Feature\Branches;
+
+use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\SystemRoles;
+use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Support\Crypto\BlindIndex;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Inertia\Testing\AssertableInertia as Assert;
+use Tests\TestCase;
+
+class PaymentAccountTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private Branch $branch;
+
+    private User $owner;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->branch = Branch::factory()->create(['deposit_min_amount' => 50000, 'deposit_max_amount' => 5000000]);
+        $this->owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payload(array $overrides = []): array
+    {
+        return [
+            'label' => 'HDFC current 1',
+            'account_holder_name' => 'Ashan Ali Shaik',
+            'is_bank_enabled' => true,
+            'bank_name' => 'HDFC Bank',
+            'ifsc' => 'hdfc0001203',
+            'account_number' => '5010 0482 716640',
+            'is_upi_enabled' => true,
+            'upi_id' => 'AshanAli@HDFCBank',
+            'upi_display_name' => 'Ashan Ali',
+            'is_qr_enabled' => true,
+            'is_intent_enabled' => false,
+            'min_amount' => '500',
+            'max_amount' => '50000',
+            'daily_amount_limit' => '200000',
+            'daily_count_limit' => '',
+            'max_open_sessions' => 5,
+            ...$overrides,
+        ];
+    }
+
+    private function add(array $overrides = []): PaymentAccount
+    {
+        $this->actingAs($this->owner)->post(route('branch.accounts.store'), $this->payload($overrides))->assertSessionHasNoErrors();
+
+        return PaymentAccount::latest('created_at')->firstOrFail();
+    }
+
+    public function test_a_branch_adds_an_account_stored_encrypted_and_waiting_for_verification()
+    {
+        $account = $this->add();
+
+        $this->assertSame(AccountStatus::VerificationPending, $account->status);
+        $this->assertSame('HDFC0001203', $account->ifsc);
+        $this->assertSame('50100482716640', $account->account_number_encrypted);
+        $this->assertSame('6640', $account->account_number_last4);
+        $this->assertSame('ashanali@hdfcbank', $account->upi_id_encrypted);
+        $this->assertSame(BlindIndex::of('bank_account', '50100482716640'), $account->account_number_hash);
+        $this->assertSame(50000, $account->min_amount);
+
+        // Nothing readable in the database row itself.
+        $raw = (array) DB::table('payment_accounts')->where('id', $account->id)->first();
+        $this->assertStringNotContainsString('50100482716640', json_encode($raw) ?: '');
+        $this->assertStringNotContainsString('ashanali', json_encode($raw) ?: '');
+
+        // Nor in the audit log.
+        $audit = DB::table('audit_logs')->where(['action' => 'payment_account.created', 'subject_id' => $account->id])->first();
+        $this->assertNotNull($audit);
+        $this->assertStringNotContainsString('50100482716640', (string) $audit->new_values);
+    }
+
+    public function test_the_same_account_or_upi_id_cannot_be_registered_twice_even_by_another_branch()
+    {
+        $this->add();
+        $other = User::factory()->branch(SystemRoles::BRANCH_OWNER)->withTwoFactor()->create();
+
+        $this->actingAs($other)->post(route('branch.accounts.store'), $this->payload(['label' => 'Copy', 'upi_id' => 'someone@okaxis']))
+            ->assertSessionHasErrors('account_number');
+        $this->actingAs($other)->post(route('branch.accounts.store'), $this->payload(['label' => 'Copy', 'account_number' => '999988887777']))
+            ->assertSessionHasErrors('upi_id');
+    }
+
+    public function test_limits_must_sit_inside_the_branch_limits()
+    {
+        $this->actingAs($this->owner)->post(route('branch.accounts.store'), $this->payload(['min_amount' => '100']))
+            ->assertSessionHasErrors('min_amount');
+        $this->actingAs($this->owner)->post(route('branch.accounts.store'), $this->payload(['max_amount' => '60000']))
+            ->assertSessionHasErrors('max_amount');
+    }
+
+    public function test_admin_verifies_then_the_branch_activates_and_pauses()
+    {
+        $account = $this->add();
+        $admin = User::factory()->admin(SystemRoles::ADMIN_OPS)->withTwoFactor()->create();
+
+        // A branch can't activate an unverified account.
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasErrors('status');
+
+        $this->actingAs($admin)->post(route('admin.accounts.approve', $account))->assertSessionHasNoErrors();
+        $account->refresh();
+        $this->assertSame(AccountStatus::Verified, $account->status);
+        $this->assertSame($admin->id, $account->verified_by);
+
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused'])->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::Paused, $account->fresh()?->status);
+
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'disabled'])->assertSessionHasErrors('reason');
+    }
+
+    public function test_changing_payment_details_needs_verification_again_but_limits_do_not()
+    {
+        $account = $this->add();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $this->actingAs($admin)->post(route('admin.accounts.approve', $account));
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active']);
+
+        // Limits only: stays active. Empty numbers keep the stored ones.
+        $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload(['account_number' => '', 'upi_id' => '', 'daily_amount_limit' => '300000']))
+            ->assertSessionHasNoErrors();
+        $account->refresh();
+        $this->assertSame(AccountStatus::Active, $account->status);
+        $this->assertSame('50100482716640', $account->account_number_encrypted);
+
+        // New account number: back to verification.
+        $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload(['account_number' => '11112222333344', 'upi_id' => '']))
+            ->assertSessionHasNoErrors();
+        $account->refresh();
+        $this->assertSame(AccountStatus::VerificationPending, $account->status);
+        $this->assertNull($account->verified_at);
+    }
+
+    public function test_rejection_needs_a_reason_and_editing_resubmits()
+    {
+        $account = $this->add();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+
+        $this->actingAs($admin)->post(route('admin.accounts.reject', $account), [])->assertSessionHasErrors('reason');
+        $this->actingAs($admin)->post(route('admin.accounts.reject', $account), ['reason' => 'IFSC does not match'])->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::Rejected, $account->fresh()?->status);
+
+        $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload(['ifsc' => 'HDFC0001204', 'account_number' => '', 'upi_id' => '']))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::VerificationPending, $account->fresh()?->status);
+    }
+
+    public function test_branches_only_see_and_change_their_own_accounts()
+    {
+        $account = $this->add();
+        $stranger = User::factory()->branch(SystemRoles::BRANCH_OWNER)->withTwoFactor()->create();
+
+        $this->actingAs($stranger)->get(route('branch.accounts.index'))
+            ->assertInertia(fn (Assert $page) => $page->component('branch/accounts')->has('accounts', 0));
+        $this->actingAs($stranger)->put(route('branch.accounts.status', $account), ['status' => 'disabled', 'reason' => 'x'])->assertNotFound();
+        $this->actingAs($stranger)->put(route('branch.accounts.update', $account), $this->payload())->assertNotFound();
+    }
+
+    public function test_operators_can_view_but_not_add_accounts()
+    {
+        $operator = User::factory()->branch(SystemRoles::BRANCH_OPERATOR, $this->branch)->withTwoFactor()->create();
+
+        $this->actingAs($operator)->get(route('branch.accounts.index'))->assertOk();
+        $this->actingAs($operator)->post(route('branch.accounts.store'), $this->payload())->assertForbidden();
+    }
+
+    public function test_lists_show_masked_numbers_and_revealing_is_audited()
+    {
+        $account = $this->add();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+
+        $this->actingAs($admin)->get(route('admin.accounts.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('accounts.data.0.account_number', 'XXXX 6640')
+                ->where('accounts.data.0.upi_id', '••••nali@hdfcbank'));
+
+        $this->actingAs($admin)
+            ->get(route('admin.accounts.index', ['reveal' => $account->id]), [
+                'X-Inertia' => 'true',
+                'X-Inertia-Partial-Component' => 'admin/accounts/index',
+                'X-Inertia-Partial-Data' => 'reveal',
+                'X-Inertia-Version' => Inertia::getVersion(),
+            ])
+            ->assertJsonPath('props.reveal.account_number', '50100482716640');
+
+        $this->assertDatabaseHas('audit_logs', ['action' => 'payment_account.revealed', 'subject_id' => $account->id, 'actor_id' => $admin->id]);
+    }
+}

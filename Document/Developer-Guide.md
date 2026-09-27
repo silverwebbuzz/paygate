@@ -74,6 +74,10 @@ Open **http://paygate.local** and log in with `admin@paygate.local` / `password`
 | http://paygate.local                    | Portals: login, `/admin`, `/partner`, `/branch`                                     |
 | http://paygate.local/horizon            | Queue dashboard (open locally; super admins only on servers)                        |
 | http://paygate.local/admin/partners     | Partners: list, create wizard, drawer (keys, rates, branches, activity)             |
+| http://paygate.local/admin/branches     | Branches: list, form, drawer (accounts, partners, users, top-ups, rates)            |
+| http://paygate.local/admin/mappings     | Partner ↔ branch pairs: switches, pair limits, pair rates                           |
+| http://paygate.local/admin/accounts     | All bank & UPI accounts; “Review” to verify (log in as admin@ or ops@)              |
+| http://paygate.local/branch/accounts    | Branch portal: the branch's accounts (log in as branch@)                            |
 | http://paygate.local/partner/developers | Partner portal: API keys, endpoints, allowed IPs (log in as partner@ or developer@) |
 | http://paygate.local/admin/ui-kit       | UI kit: every shared component with sample data (local only, log in as admin)       |
 | http://api.paygate.local/v1/ping        | Partner API health check                                                            |
@@ -238,9 +242,13 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 - **No privilege escalation:** nobody can grant a permission, assign a role or manage a user holding more than they hold themselves. The super admin role is locked and always has every admin permission. The last active super admin can't be suspended or demoted.
 - **Adding a permission:** add the case to `Permission` (and a `Menu` case if it's a new menu), grant it in `SystemRoles` if built-in roles need it, then add a migration that inserts it into `role_permissions` for existing roles on servers. Super admin gets it automatically.
 - **Money in forms:** people type rupees ("1500.50"); `App\Support\Money::toPaise()` converts to paise in the form request. Empty limit = no limit (null). Never use floats for money or rates.
-- **Commission rates are never edited:** `SetCommissionRate` closes the current rate (`effective_to = now`) and starts a new one, so history stays and past transactions keep their rate. Rates are strings with up to 4 decimals (`RatePercent`); a rate below a mapped branch's rate is allowed but flagged in the audit log (`negative_margin_branches`).
+- **Commission rates are never edited:** `SetCommissionRate` closes the current rate (`effective_to = now`) and starts a new one, so history stays and past transactions keep their rate. Rates are strings with up to 4 decimals (`RatePercent`); a rate below a mapped branch's rate is allowed but flagged in the audit log (`negative_margin_pairs`).
 - **API secrets are shown once:** `IssueApiKey` returns the plain secret a single time (flashed to the page as `credentials`); it is stored encrypted because we need it for HMAC checks and webhook signing. Rotation keeps the old key valid for 24 hours. Generating, rotating and revoking require the person's password.
 - **Partner status:** draft → active (needs rates for enabled directions and an API key) → suspended / offboarded (`PartnerStatus::transitions()`). The partner code can't change after it goes live.
+- **Bank account numbers and UPI IDs** are stored encrypted (`*_encrypted`), with a blind index (`*_hash`, `BlindIndex::of()`, key `PAYGATE_HASH_KEY`) so the same account can't be registered twice by any branch, and `*_last4` for display. Never log, return or show full numbers; the only exception is Admin's verification dialog, which records `payment_account.revealed` in the audit log.
+- **Account lifecycle:** added → `verification_pending` → Admin approves (`verified`) or rejects with a reason → branch/Admin activates (`active`) ⇄ `paused` → `disabled` (final). Changing the holder, bank, IFSC, account number or UPI ID sends it back to `verification_pending`; limits and labels don't. Only `active` accounts will receive customers (Phase 6).
+- **Branch deposit limits:** `daily_reset` = a cap per day (00:00 IST); `topup` = a running allowance changed only through `TopUpBranchLimit` (append-only `branch_limit_topups`, never below zero).
+- **Pair rates:** a mapping may override the partner's or the branch's rate for that pair only (`RateBook::forPair()`); an empty override means the default applies.
 - **Users are invited, never created with a password:** Admin (any portal) or a partner/branch owner (own organisation) sends an invitation; the emailed link is valid 72 hours (`invites` password broker) and setting the password verifies the email. Locally the emails land in Mailpit.
 - **Money:** integer paise (`bigint`), never float.
 - **IDs:** UUIDv7 primary keys (`HasUuids`).

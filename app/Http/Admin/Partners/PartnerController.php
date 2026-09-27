@@ -8,10 +8,10 @@ use App\Domain\Commission\Models\CommissionRate;
 use App\Domain\Commission\RateBook;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Actions\ChangePartnerStatus;
 use App\Domain\Partner\Actions\ConfigurePartner;
-use App\Domain\Partner\Enums\PartnerStatus;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Partner\Models\PartnerIpRule;
@@ -145,7 +145,7 @@ class PartnerController extends Controller
 
     public function status(ChangePartnerStatusRequest $request, Partner $partner, ChangePartnerStatus $change): RedirectResponse
     {
-        $status = PartnerStatus::from($request->string('status')->value());
+        $status = OrganisationStatus::from($request->string('status')->value());
         $change->handle($request->actor(), $partner, $status, $request->string('reason')->value());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('“:name” is now :status.', ['name' => $partner->name, 'status' => str_replace('_', ' ', $status->value)])]);
@@ -301,8 +301,8 @@ class PartnerController extends Controller
                     'at' => $log->created_at->toIso8601String(),
                     'reason' => $log->new_values['reason'] ?? null,
                 ]),
-            'transitions' => array_map(fn (PartnerStatus $next) => $next->value, $partner->status->transitions()),
-            'blockers' => $partner->status === PartnerStatus::Active ? [] : $status->activationBlockers($partner),
+            'transitions' => array_map(fn (OrganisationStatus $next) => $next->value, $partner->status->transitions()),
+            'blockers' => $partner->status === OrganisationStatus::Active ? [] : $status->activationBlockers($partner),
         ];
     }
 }
