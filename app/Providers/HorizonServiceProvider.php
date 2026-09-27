@@ -2,8 +2,8 @@
 
 namespace App\Providers;
 
-use App\Enums\Permission;
-use App\Models\User;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\Enums\Permission;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Horizon\Horizon;
 use Laravel\Horizon\HorizonApplicationServiceProvider;

@@ -33,8 +33,12 @@ return new class extends Migration
             $table->string('status', 30);
             $table->string('status_reason_code', 50)->nullable();
             $table->text('status_note')->nullable();
-            $table->string('utr', 50)->nullable();
-            $table->string('utr_normalized', 50)->nullable()->index();
+            // The UTR the customer submits (a claim) and the UTR the branch enters
+            // after seeing the money in its bank (the verified value).
+            $table->string('customer_utr', 50)->nullable();
+            $table->string('customer_utr_normalized', 50)->nullable()->index();
+            $table->string('bank_utr', 50)->nullable();
+            $table->string('bank_utr_normalized', 50)->nullable()->index();
             $table->decimal('partner_rate_percent', 7, 4)->nullable();
             $table->decimal('branch_rate_percent', 7, 4)->nullable();
             $table->bigInteger('partner_commission')->nullable();
@@ -71,8 +75,9 @@ return new class extends Migration
         DB::statement("CREATE INDEX transactions_branch_queue ON transactions (branch_id, status, created_at) WHERE status IN ('payment_submitted', 'under_review', 'assigned', 'processing')");
         // Expiry sweep.
         DB::statement("CREATE INDEX transactions_expiry ON transactions (expires_at) WHERE status IN ('created', 'awaiting_payment')");
-        // The same UTR can't be claimed twice on one receiving account (unless the earlier claim failed).
-        DB::statement("CREATE UNIQUE INDEX transactions_unique_payin_utr ON transactions (payment_account_id, utr_normalized) WHERE direction = 'payin' AND utr_normalized IS NOT NULL AND status NOT IN ('rejected', 'expired', 'cancelled')");
+        // A verified bank UTR can't be used for two pay-ins on one receiving account
+        // (unless the earlier one failed). Reused customer UTRs are flagged by the app.
+        DB::statement("CREATE UNIQUE INDEX transactions_unique_payin_bank_utr ON transactions (payment_account_id, bank_utr_normalized) WHERE direction = 'payin' AND bank_utr_normalized IS NOT NULL AND status NOT IN ('rejected', 'expired', 'cancelled')");
 
         Schema::create('payment_sessions', function (Blueprint $table) {
             $table->uuid('id')->primary();

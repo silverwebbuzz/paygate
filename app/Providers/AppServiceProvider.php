@@ -2,9 +2,15 @@
 
 namespace App\Providers;
 
-use App\Enums\Permission;
-use App\Models\User;
+use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Audit\Models\AuditLog;
+use App\Domain\Core\Audit\Models\SecurityLog;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\Enums\Permission;
+use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Partner\Models\Partner;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -27,7 +33,25 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureMorphMap();
         $this->configureAuthorization();
+    }
+
+    /**
+     * Polymorphic columns (audit subject, file owner, notifiable) store these short
+     * names instead of PHP class names, so moving a class never breaks stored data.
+     * Every model used polymorphically must be listed here.
+     */
+    protected function configureMorphMap(): void
+    {
+        Relation::enforceMorphMap([
+            'user' => User::class,
+            'role' => Role::class,
+            'partner' => Partner::class,
+            'branch' => Branch::class,
+            'audit_log' => AuditLog::class,
+            'security_log' => SecurityLog::class,
+        ]);
     }
 
     /**

@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Database;
 
-use App\Auth\SystemRoles;
-use App\Models\Branch;
-use App\Models\Partner;
-use App\Models\Role;
-use App\Models\User;
+use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\SystemRoles;
+use App\Domain\Partner\Models\Partner;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -70,17 +70,67 @@ class SchemaConstraintsTest extends TestCase
         $this->assertRejected(fn () => $this->transaction($partner->id, ['direction' => 'payout', 'status' => 'awaiting_payment']), 'transactions_status_check');
     }
 
-    public function test_the_same_utr_cannot_be_claimed_twice_on_one_account_unless_the_first_claim_failed()
+    public function test_a_verified_bank_utr_cannot_be_used_twice_on_one_account_unless_the_first_failed()
     {
         $partner = Partner::factory()->create();
         $account = $this->paymentAccount();
 
-        $first = $this->transaction($partner->id, ['payment_account_id' => $account, 'utr_normalized' => 'UTR123', 'status' => 'payment_submitted']);
-        $this->assertRejected(fn () => $this->transaction($partner->id, ['payment_account_id' => $account, 'utr_normalized' => 'UTR123', 'status' => 'payment_submitted']), 'transactions_unique_payin_utr');
+        $first = $this->transaction($partner->id, ['payment_account_id' => $account, 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']);
+        $this->assertRejected(fn () => $this->transaction($partner->id, ['payment_account_id' => $account, 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']), 'transactions_unique_payin_bank_utr');
 
         DB::table('transactions')->where('id', $first)->update(['status' => 'rejected']);
-        $this->transaction($partner->id, ['payment_account_id' => $account, 'utr_normalized' => 'UTR123', 'status' => 'payment_submitted']);
-        $this->assertSame(2, DB::table('transactions')->where('utr_normalized', 'UTR123')->count());
+        $this->transaction($partner->id, ['payment_account_id' => $account, 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']);
+        $this->assertSame(2, DB::table('transactions')->where('bank_utr_normalized', 'UTR123')->count());
+    }
+
+    public function test_customer_utr_claims_are_stored_separately_from_the_bank_utr()
+    {
+        $partner = Partner::factory()->create();
+        $account = $this->paymentAccount();
+
+        // Two customers claiming the same UTR is allowed at database level (the app flags it for review).
+        $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
+        $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
+
+        $this->assertSame(2, DB::table('transactions')->where('customer_utr_normalized', 'CLAIM1')->count());
+    }
+
+    public function test_a_payment_account_needs_at_least_one_method_with_its_details()
+    {
+        $branchId = Branch::factory()->create()->id;
+        $insert = fn (array $attributes) => DB::table('payment_accounts')->insert(array_merge([
+            'id' => (string) Str::uuid7(), 'branch_id' => $branchId, 'label' => 'Acc', 'account_holder_name' => 'Demo',
+        ], $attributes));
+
+        $this->assertRejected(fn () => $insert([]), 'payment_accounts_has_method');
+        $this->assertRejected(fn () => $insert(['is_bank_enabled' => true]), 'payment_accounts_bank_details');
+        $this->assertRejected(fn () => $insert(['is_bank_enabled' => true, 'bank_name' => 'SBI', 'ifsc' => 'SBIN0000001', 'account_number_encrypted' => 'x', 'account_number_hash' => 'h1', 'is_qr_enabled' => true]), 'payment_accounts_upi_features');
+
+        // Bank account with a linked UPI ID, QR enabled: valid.
+        $insert([
+            'is_bank_enabled' => true, 'bank_name' => 'SBI', 'ifsc' => 'SBIN0000001', 'account_number_encrypted' => 'x', 'account_number_hash' => 'h2',
+            'is_upi_enabled' => true, 'upi_id_encrypted' => 'y', 'upi_id_hash' => 'u2', 'is_qr_enabled' => true,
+        ]);
+        $this->assertSame(1, DB::table('payment_accounts')->where('branch_id', $branchId)->count());
+    }
+
+    public function test_branch_top_up_allowance_cannot_go_negative_and_its_history_is_append_only()
+    {
+        $branch = Branch::factory()->create(['deposit_limit_type' => 'topup']);
+        $admin = User::factory()->admin()->create();
+
+        $this->assertRejected(fn () => DB::table('branches')->where('id', $branch->id)->update(['deposit_topup_balance' => -1]), 'branches_topup_balance_non_negative');
+
+        $topup = (string) Str::uuid7();
+        DB::table('branch_limit_topups')->insert(['id' => $topup, 'branch_id' => $branch->id, 'amount' => 5000000, 'balance_after' => 5000000, 'reason' => 'Weekly top-up', 'created_by' => $admin->id]);
+
+        $this->assertRejected(fn () => DB::table('branch_limit_topups')->where('id', $topup)->update(['amount' => 1]), 'append-only');
+    }
+
+    public function test_limit_types_are_restricted_to_daily_reset_or_topup()
+    {
+        $this->assertRejected(fn () => Branch::factory()->create(['deposit_limit_type' => 'weekly']), 'branches_deposit_limit_type_check');
+        $this->assertRejected(fn () => Partner::factory()->create(['payout_limit_type' => 'weekly']), 'partners_payout_limit_type_check');
     }
 
     public function test_a_successful_transaction_must_carry_its_commission_snapshot()
@@ -216,7 +266,7 @@ class SchemaConstraintsTest extends TestCase
         $id = (string) Str::uuid7();
 
         DB::table('payment_accounts')->insert([
-            'id' => $id, 'branch_id' => Branch::factory()->create()->id, 'type' => 'upi', 'label' => 'UPI 1',
+            'id' => $id, 'branch_id' => Branch::factory()->create()->id, 'is_upi_enabled' => true, 'label' => 'UPI 1',
             'account_holder_name' => 'Demo', 'upi_id_encrypted' => 'x', 'upi_id_hash' => Str::random(40),
         ]);
 

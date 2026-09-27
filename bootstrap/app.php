@@ -35,6 +35,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->group(base_path('routes/pay.php'));
         },
     )
+    // Listeners live inside their domain module (app/Domain/<Module>/[<Area>/]Listeners).
+    ->withEvents(discover: [
+        __DIR__.'/../app/Domain/*/Listeners',
+        __DIR__.'/../app/Domain/*/*/Listeners',
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
 

@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\User;
+use App\Domain\Core\Identity\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 

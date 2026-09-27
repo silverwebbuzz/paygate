@@ -5,7 +5,7 @@ How the whole system gets built, one phase at a time, from the three agreed inpu
 | Input            | Document                                                                 | Status                                                             |
 | ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | **Requirements** | [Requirements.md](Requirements.md) v1.4                                  | ✅ Accepted baseline                                               |
-| **Database**     | [Database.md](Database.md) (47 tables, migrations `2026_09_27_1000xx`)   | ✅ Built; small adjustments below (§2.1)                           |
+| **Database**     | [Database.md](Database.md) (48 tables, migrations `2026_09_27_1000xx`)   | ✅ Built; design fixes D-1…D-5 applied in Phase 2a                 |
 | **Design**       | `Document/PayGate UI redesign/PayGate.dc.html` (claude.ai design export) | 🟡 Covers the core screens; others follow its design system (§2.3) |
 
 This replaces the old roadmap in Architecture.md §19.

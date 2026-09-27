@@ -2,11 +2,11 @@
 
 namespace App\Console\Commands;
 
-use App\Auth\SystemRoles;
-use App\Enums\UserType;
-use App\Models\AuditLog;
-use App\Models\Role;
-use App\Models\User;
+use App\Domain\Core\Audit\Models\AuditLog;
+use App\Domain\Core\Identity\Enums\UserType;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\SystemRoles;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;

@@ -2,9 +2,9 @@
 
 namespace Tests\Unit;
 
-use App\Auth\SystemRoles;
-use App\Enums\Permission;
-use App\Enums\UserType;
+use App\Domain\Core\Identity\Enums\UserType;
+use App\Domain\Core\Rbac\Enums\Permission;
+use App\Domain\Core\Rbac\SystemRoles;
 use PHPUnit\Framework\TestCase;
 
 class RolePermissionTest extends TestCase

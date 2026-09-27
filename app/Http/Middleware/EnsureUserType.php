@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\SecurityEvent;
-use App\Enums\UserType;
-use App\Models\SecurityLog;
-use App\Models\User;
+use App\Domain\Core\Audit\Enums\SecurityEvent;
+use App\Domain\Core\Audit\Models\SecurityLog;
+use App\Domain\Core\Identity\Enums\UserType;
+use App\Domain\Core\Identity\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;

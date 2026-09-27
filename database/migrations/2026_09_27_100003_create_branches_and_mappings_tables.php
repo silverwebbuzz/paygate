@@ -17,7 +17,11 @@ return new class extends Migration
             $table->string('status', 30)->default('draft')->index();
             $table->boolean('is_deposit_enabled')->default(true);
             $table->boolean('is_withdrawal_enabled')->default(false);
-            $table->string('limit_type', 30)->nullable();
+            // daily_reset: the deposit limit is a cap that restarts at 00:00 IST.
+            // topup: deposit_topup_balance is a running allowance, reduced by each
+            // successful deposit and increased only by audited Admin top-ups.
+            $table->string('deposit_limit_type', 20)->default('daily_reset');
+            $table->bigInteger('deposit_topup_balance')->default(0);
             $table->bigInteger('deposit_min_amount')->nullable();
             $table->bigInteger('deposit_max_amount')->nullable();
             $table->bigInteger('deposit_daily_limit')->nullable();
@@ -33,6 +37,25 @@ return new class extends Migration
         Pg::check('branches', 'branches_amounts_positive', 'COALESCE(deposit_min_amount, 1) > 0 AND COALESCE(deposit_max_amount, 1) > 0 AND COALESCE(deposit_daily_limit, 1) > 0 AND COALESCE(withdrawal_min_amount, 1) > 0 AND COALESCE(withdrawal_max_amount, 1) > 0 AND COALESCE(withdrawal_daily_limit, 1) > 0');
         Pg::check('branches', 'branches_deposit_range', 'deposit_min_amount IS NULL OR deposit_max_amount IS NULL OR deposit_min_amount <= deposit_max_amount');
         Pg::check('branches', 'branches_withdrawal_range', 'withdrawal_min_amount IS NULL OR withdrawal_max_amount IS NULL OR withdrawal_min_amount <= withdrawal_max_amount');
+        Pg::check('branches', 'branches_deposit_limit_type_check', Pg::in('deposit_limit_type', ['daily_reset', 'topup']));
+        Pg::check('branches', 'branches_topup_balance_non_negative', 'deposit_topup_balance >= 0');
+
+        // History of Admin top-ups of a branch's deposit allowance (append-only).
+        Schema::create('branch_limit_topups', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->foreignUuid('branch_id')->constrained();
+            $table->bigInteger('amount');
+            $table->bigInteger('balance_after');
+            $table->text('reason');
+            $table->foreignUuid('created_by')->constrained('users');
+            $table->timestampTz('created_at')->useCurrent();
+
+            $table->index(['branch_id', 'created_at']);
+        });
+
+        Pg::check('branch_limit_topups', 'branch_limit_topups_amount_non_zero', 'amount <> 0');
+        Pg::check('branch_limit_topups', 'branch_limit_topups_balance_non_negative', 'balance_after >= 0');
+        Pg::appendOnly('branch_limit_topups');
 
         Schema::create('partner_branch_mappings', function (Blueprint $table) {
             $table->uuid('id')->primary();
@@ -91,6 +114,7 @@ return new class extends Migration
     {
         Schema::dropIfExists('commission_rates');
         Schema::dropIfExists('partner_branch_mappings');
+        Schema::dropIfExists('branch_limit_topups');
         Schema::dropIfExists('branches');
     }
 };

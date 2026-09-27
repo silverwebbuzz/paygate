@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Auth\SystemRoles;
-use App\Enums\UserStatus;
-use App\Enums\UserType;
-use App\Models\Branch;
-use App\Models\Partner;
-use App\Models\Role;
-use App\Models\User;
+use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Identity\Enums\UserStatus;
+use App\Domain\Core\Identity\Enums\UserType;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\SystemRoles;
+use App\Domain\Partner\Models\Partner;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -18,6 +18,8 @@ use Illuminate\Support\Str;
  */
 class UserFactory extends Factory
 {
+    protected $model = User::class;
+
     /**
      * The current password being used by the factory.
      */
@@ -52,7 +54,7 @@ class UserFactory extends Factory
      * Indicate that the model's email address should be unverified.
      */
     /**
-     * Give the user a built-in role by slug (see App\Auth\SystemRoles). Partner and
+     * Give the user a built-in role by slug (see App\Domain\Core\Rbac\SystemRoles). Partner and
      * branch users get a new partner / branch unless one is passed.
      */
     public function role(string $slug, Partner|Branch|null $organisation = null): static

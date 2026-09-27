@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('payment_accounts', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('branch_id')->constrained();
-            $table->string('type', 10);
+            $table->boolean('is_bank_enabled')->default(false);
+            $table->boolean('is_upi_enabled')->default(false);
             $table->string('label');
             $table->string('bank_name')->nullable();
             $table->string('ifsc', 11)->nullable();
@@ -46,9 +47,12 @@ return new class extends Migration
             $table->index(['branch_id', 'status', 'last_allocated_at']);
         });
 
-        Pg::check('payment_accounts', 'payment_accounts_type_check', Pg::in('type', ['bank', 'upi']));
         Pg::check('payment_accounts', 'payment_accounts_status_check', Pg::in('status', ['new', 'verification_pending', 'verified', 'active', 'paused', 'disabled', 'rejected']));
-        Pg::check('payment_accounts', 'payment_accounts_details_check', "(type = 'bank' AND bank_name IS NOT NULL AND ifsc IS NOT NULL AND account_number_encrypted IS NOT NULL AND account_number_hash IS NOT NULL) OR (type = 'upi' AND upi_id_encrypted IS NOT NULL AND upi_id_hash IS NOT NULL)");
+        // An account is a bank account and/or a UPI ID; each enabled method needs its details.
+        Pg::check('payment_accounts', 'payment_accounts_has_method', 'is_bank_enabled OR is_upi_enabled');
+        Pg::check('payment_accounts', 'payment_accounts_bank_details', 'NOT is_bank_enabled OR (bank_name IS NOT NULL AND ifsc IS NOT NULL AND account_number_encrypted IS NOT NULL AND account_number_hash IS NOT NULL)');
+        Pg::check('payment_accounts', 'payment_accounts_upi_details', 'NOT is_upi_enabled OR (upi_id_encrypted IS NOT NULL AND upi_id_hash IS NOT NULL)');
+        Pg::check('payment_accounts', 'payment_accounts_upi_features', '(NOT is_qr_enabled AND NOT is_intent_enabled) OR is_upi_enabled');
         Pg::check('payment_accounts', 'payment_accounts_limits_positive', 'COALESCE(min_amount, 1) > 0 AND COALESCE(max_amount, 1) > 0 AND COALESCE(daily_amount_limit, 1) > 0 AND COALESCE(daily_count_limit, 1) > 0 AND max_open_sessions > 0');
         Pg::check('payment_accounts', 'payment_accounts_range', 'min_amount IS NULL OR max_amount IS NULL OR min_amount <= max_amount');
         Pg::check('payment_accounts', 'payment_accounts_active_is_verified', "status NOT IN ('verified', 'active', 'paused') OR verified_at IS NOT NULL");

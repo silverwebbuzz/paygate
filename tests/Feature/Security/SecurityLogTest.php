@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Security;
 
-use App\Enums\SecurityEvent;
-use App\Models\AuditLog;
-use App\Models\SecurityLog;
-use App\Models\User;
+use App\Domain\Core\Audit\Enums\SecurityEvent;
+use App\Domain\Core\Audit\Models\AuditLog;
+use App\Domain\Core\Audit\Models\SecurityLog;
+use App\Domain\Core\Identity\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;

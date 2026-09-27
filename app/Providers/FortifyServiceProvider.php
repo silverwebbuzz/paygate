@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
-use App\Actions\Fortify\ResetUserPassword;
-use App\Enums\SecurityEvent;
-use App\Models\SecurityLog;
-use App\Models\User;
+use App\Domain\Core\Audit\Enums\SecurityEvent;
+use App\Domain\Core\Audit\Models\SecurityLog;
+use App\Domain\Core\Identity\Actions\ResetUserPassword;
+use App\Domain\Core\Identity\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;

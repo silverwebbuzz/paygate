@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\Branch;
+use App\Domain\Branch\Models\Branch;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class BranchFactory extends Factory
 {
+    protected $model = Branch::class;
+
     public function definition(): array
     {
         return [

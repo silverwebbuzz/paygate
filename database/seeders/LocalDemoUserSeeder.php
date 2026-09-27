@@ -2,11 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Auth\SystemRoles;
-use App\Models\Branch;
-use App\Models\Partner;
-use App\Models\Role;
-use App\Models\User;
+use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\SystemRoles;
+use App\Domain\Partner\Models\Partner;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;

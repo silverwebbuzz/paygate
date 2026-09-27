@@ -15,7 +15,7 @@ PayGate is a manual payment-collection platform with three portals in one Larave
 
 **Stack:** Laravel 13 · PHP 8.5 (FrankenPHP) · PostgreSQL 18 · Redis 8 + Horizon · React 19 + TypeScript via Inertia · Tailwind · Docker Compose.
 
-**Progress:** see [Architecture.md §19](Architecture.md#19-implementation-roadmap). Phases 0 (environment) and 1 (auth & roles) are done, and the **full database** (47 tables) is built. The business baseline is [Requirements.md](Requirements.md), the database design is [Database.md](Database.md), and staging/production setup is [Deployment.md](Deployment.md).
+**Progress:** see [Architecture.md §19](Architecture.md#19-implementation-roadmap). Phases 0 (environment) and 1 (auth & roles) are done, and the **full database** (48 tables) is built, and the code is organised in domain modules. The build plan is [Implementation-Plan.md](Implementation-Plan.md). The business baseline is [Requirements.md](Requirements.md), the database design is [Database.md](Database.md), and staging/production setup is [Deployment.md](Deployment.md).
 
 ---
 
@@ -151,35 +151,56 @@ PHP code changes apply immediately (refresh the page). React changes hot-reload.
 
 ```text
 app/
-  Auth/             SystemRoles (the 9 built-in roles and their permissions)
-  Enums/            UserType, Permission (catalogue), UserStatus, SecurityEvent
-  Http/Middleware/  AssignRequestId, EnsureUserType, RequireTwoFactor,
-                    EnsureUserIsActive, RestrictToPortalHost
-  Listeners/        RecordSecurityEvents (login/2FA/password → security_logs)
-  Models/           User, Role, Partner, Branch, AuditLog, SecurityLog
-  Support/Database/ Pg (CHECK constraints and append-only triggers for migrations)
-  Console/Commands/ CreateAdminCommand (paygate:create-admin)
-bootstrap/app.php   host-based routing + middleware registration
-config/app.php      "domains" + business timezone
-config/paygate.php  PayGate settings (2FA enforcement)
-config/horizon.php  queue supervisors
+  Domain/                     BUSINESS LOGIC, one folder per module (see below)
+    Core/
+      Identity/               User, UserType, UserStatus, password/profile rules
+      Rbac/                   Role, Permission catalogue, SystemRoles (9 built-in roles)
+      Audit/                  AuditLog, SecurityLog, SecurityEvent, RecordSecurityEvents listener
+    Partner/                  Partner (+ API credentials, configuration: coming phases)
+    Branch/                   Branch (+ limits, top-ups: coming phases)
+    Network/ PaymentAccount/ PaymentSession/ Allocation/ Transaction/ Payout/
+    Commission/ Ledger/ Reconciliation/ Settlement/ Webhook/ Notification/
+    Reporting/ Platform/      created as each phase starts
+      (each module: Models/ Actions/ Services/ Enums/ Events/ Listeners/ Policies/ Jobs/)
+  Http/                       DELIVERY ONLY (thin): calls domain actions, no business logic
+    Admin/ Branch/ Partner/   portal controllers + requests (coming phases)
+    Api/                      partner API (coming: Phase 6)
+    Checkout/                 customer payment page (coming: Phase 6)
+    Shared/Settings/          profile & security settings (all portals)
+    Middleware/               request id, portal type, 2FA, active user, host restriction
+    Controller.php            base controller
+  Support/Database/           Pg helper (CHECK constraints, append-only triggers)
+  Console/Commands/           paygate:create-admin
+  Providers/                  app (gates, morph map), Fortify, Horizon
+bootstrap/app.php             host routing, middleware, listener discovery in app/Domain
+config/app.php                "domains" + business timezone
+config/paygate.php            PayGate settings (2FA enforcement)
+config/horizon.php            queue supervisors
 routes/
-  web.php           portals (paygate.local)
-  portals/*.php     admin / partner / branch routes
-  api.php           partner API (api.paygate.local)
-  pay.php           payer pages (pay.paygate.local)
+  web.php                     portals (paygate.local)
+  portals/*.php               admin / partner / branch routes
+  api.php                     partner API (api.paygate.local)
+  pay.php                     payer pages (pay.paygate.local)
 resources/js/
-  pages/            Inertia pages (admin/, partner/, branch/, auth/, settings/)
-  components/       shared React components (ui/ = shadcn components)
+  pages/                      Inertia pages (admin/, partner/, branch/, auth/, settings/)
+  components/                 shared React components (ui/ = shadcn components)
 database/
-  migrations/       schema (2026_09_27_1000xx = the PayGate business tables)
-  sql/              app-privileges.sql (production database-user privileges)
-  seeders/          LocalDemoUserSeeder (local only: demo partner, branch, 7 users)
-docker/             PHP image, Postgres init script, Adminer config
-tests/              PHPUnit (Feature/, Unit/)
-Document/           Requirements, Architecture, Database, Deployment, Features, Flows, Legacy-API, this guide
-  PayGate UI redesign/  design export from the claude.ai design tool: excluded from formatting; do not edit by hand
+  migrations/                 schema (2026_09_27_1000xx = the PayGate business tables)
+  sql/                        app-privileges.sql (production database-user privileges)
+  seeders/                    LocalDemoUserSeeder (local only: demo partner, branch, 7 users)
+docker/                       PHP image, Postgres init script, Adminer config
+tests/                        PHPUnit: Feature/, Unit/ (incl. ArchitectureTest)
+Document/                     Requirements, Implementation-Plan, Architecture, Database, Deployment,
+                              Features, Flows, Legacy-API, this guide
+  PayGate UI redesign/        design export (claude.ai): excluded from formatting; do not edit by hand
 ```
+
+**Module rules** (enforced by `tests/Unit/ArchitectureTest.php`, which fails the build):
+
+- Business logic lives in `app/Domain/<Module>`; controllers in `app/Http/...` only validate input and call a domain action.
+- Only the **Ledger** module may write ledger tables; everything else calls a Ledger action.
+- `app/Domain` never depends on `app/Http`; `app/Http` never runs raw `DB::` queries.
+- No `app/Models` folder: every model belongs to a module. Polymorphic columns store short names (`user`, `partner`, …) from the morph map in `AppServiceProvider`; register new models there.
 
 ---
 
@@ -188,7 +209,7 @@ Document/           Requirements, Architecture, Database, Deployment, Features, 
 | Area                   | Tables                                                                                                                                   |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | Access                 | `users`, `roles`, `role_permissions`, `audit_logs`, `security_logs`                                                                      |
-| Network                | `partners`, `partner_api_keys`, `partner_ip_rules`, `branches`, `partner_branch_mappings`, `commission_rates`                            |
+| Network                | `partners`, `partner_api_keys`, `partner_ip_rules`, `branches`, `branch_limit_topups`, `partner_branch_mappings`, `commission_rates`     |
 | Accounts & limits      | `payment_accounts`, `usage_counters`                                                                                                     |
 | Payments               | `partner_customers`, `transactions`, `payment_sessions`, `payout_beneficiaries`, `transaction_events`, `files`                           |
 | Reconciliation         | `statement_imports`, `statement_entries`, `reconciliation_cases`                                                                         |

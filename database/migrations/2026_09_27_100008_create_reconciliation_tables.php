@@ -58,6 +58,7 @@ return new class extends Migration
             $table->timestampTz('matched_at')->nullable();
             $table->foreignUuid('matched_by')->nullable()->constrained('users');
             $table->jsonb('raw')->nullable();
+            $table->foreignUuid('created_by')->nullable()->constrained('users'); // manual entries
             $table->timestampTz('created_at')->useCurrent();
 
             // Stops the same bank line being stored twice (re-imports, overlapping statements).

@@ -1,23 +1,24 @@
 # PAY GATEWAY — Database Design v1
 
-|          |                                                                                                                                                         |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (47 tables). Staging/production setup: [Deployment.md](Deployment.md) |
-| Date     | 2026-09-27                                                                                                                                              |
-| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                  |
-| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                       |
-| Readers  | Database architect, backend developers, QA                                                                                                              |
+|          |                                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (48 tables, incl. Phase 2 fixes D-1…D-5). Staging/production setup: [Deployment.md](Deployment.md) |
+| Date     | 2026-09-27                                                                                                                                                                           |
+| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                                               |
+| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                                                    |
+| Readers  | Database architect, backend developers, QA                                                                                                                                           |
 
 ---
 
 ## Implementation notes (differences from the first draft)
 
-| Area                   | As built                                                                                                                                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `roles`                | Has a `slug` (stable key for the 9 built-in roles, e.g. `admin.super`); built-in roles and their permissions are created by the migration (`App\Auth\SystemRoles`)                          |
-| Ledger links           | Journals point to their source (`transaction_id`, `adjustment_id`, `settlement_payment_id`); `adjustments` and `settlement_payments` have **no** `journal_id` column (avoids circular keys) |
-| Append-only            | Enforced twice: database triggers **and** revoked UPDATE/DELETE for the app user in production (`database/sql/app-privileges.sql`)                                                          |
-| Existing dev databases | Phase 1 demo users without an organisation are attached to placeholder records `MIGRATED-P` / `MIGRATED-B`; run `make fresh` for clean demo data                                            |
+| Area                                                                          | As built                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `roles`                                                                       | Has a `slug` (stable key for the 9 built-in roles, e.g. `admin.super`); built-in roles and their permissions are created by the migration (`App\Auth\SystemRoles`)                          |
+| Ledger links                                                                  | Journals point to their source (`transaction_id`, `adjustment_id`, `settlement_payment_id`); `adjustments` and `settlement_payments` have **no** `journal_id` column (avoids circular keys) |
+| Append-only                                                                   | Enforced twice: database triggers **and** revoked UPDATE/DELETE for the app user in production (`database/sql/app-privileges.sql`)                                                          |
+| Existing dev databases                                                        | Phase 1 demo users without an organisation are attached to placeholder records `MIGRATED-P` / `MIGRATED-B`; run `make fresh` for clean demo data                                            |
+| Design check (Phase 2, [Implementation-Plan.md](Implementation-Plan.md) §2.1) | D-1 customer vs bank UTR · D-2 bank + UPI on one account · D-3 limit types + branch top-ups · D-4 partner payout fields · D-5 statement entry author: all reflected in the tables below     |
 
 ## 0. Conventions
 
@@ -114,6 +115,10 @@ Constraints: `UNIQUE (user_type, name)`, `UNIQUE (id, user_type)` (target of the
 | is_payin_enabled, is_payout_enabled                                  | boolean                |                                                                                                   |
 | is_h2h_enabled                                                       | boolean                | Meaning still open (Req G-41); stored, not used yet                                               |
 | allow_upi, allow_qr, allow_bank_transfer                             | boolean                | Methods offered on the payment page (∩ branch/account)                                            |
+| manual_payment_type                                                  | text null              | `bank_details` / `intent` / `dynamic_qr` (D-4)                                                    |
+| withdraw_url, payout_group                                           | text null              | Payout configuration (D-4)                                                                        |
+| is_auto_withdrawal, is_partial_withdrawal                            | boolean                | (D-4)                                                                                             |
+| payout_limit_type                                                    | text                   | `daily_reset` / `topup` (D-3). A partner top-up is a ledger adjustment of type `topup`            |
 | deposit_min_amount, deposit_max_amount, deposit_daily_limit          | bigint null            | Paise; null = no limit (Req v1.4 #45)                                                             |
 | withdrawal_min_amount, withdrawal_max_amount, withdrawal_daily_limit | bigint null            |                                                                                                   |
 | session_ttl_minutes                                                  | integer                | Payment-page expiry, default 15                                                                   |
@@ -145,18 +150,21 @@ Index: partial unique `(partner_id) WHERE status = 'active'` (one primary key at
 
 **`branches`**
 
-| Column                                                               | Type        | Notes                                                                                                                              |
-| -------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| id                                                                   | uuid PK     |                                                                                                                                    |
-| code                                                                 | text UNIQUE | e.g. `BRANCH-001`                                                                                                                  |
-| name                                                                 | text        |                                                                                                                                    |
-| status                                                               | text        | Same lifecycle as partners                                                                                                         |
-| is_deposit_enabled, is_withdrawal_enabled                            | boolean     | Req BRN-08                                                                                                                         |
-| limit_type                                                           | text null   | Reference-UI field ("Deposit limit" / "Assign top-up balance"); stored for display. Top-ups are modelled as adjustments (Req G-16) |
-| deposit_min_amount, deposit_max_amount, deposit_daily_limit          | bigint null | Set by Admin                                                                                                                       |
-| withdrawal_min_amount, withdrawal_max_amount, withdrawal_daily_limit | bigint null |                                                                                                                                    |
-| verified_at, verified_by                                             |             |                                                                                                                                    |
-| created_at, updated_at                                               |             |                                                                                                                                    |
+| Column                                                               | Type        | Notes                                                                                                                   |
+| -------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------- |
+| id                                                                   | uuid PK     |                                                                                                                         |
+| code                                                                 | text UNIQUE | e.g. `BRANCH-001`                                                                                                       |
+| name                                                                 | text        |                                                                                                                         |
+| status                                                               | text        | Same lifecycle as partners                                                                                              |
+| is_deposit_enabled, is_withdrawal_enabled                            | boolean     | Req BRN-08                                                                                                              |
+| deposit_limit_type                                                   | text        | `daily_reset` (cap restarting 00:00 IST) / `topup` (running allowance) (D-3)                                            |
+| deposit_topup_balance                                                | bigint      | Remaining allowance for `topup` branches; reduced by each successful deposit, increased by Admin top-ups. `CHECK (≥ 0)` |
+| deposit_min_amount, deposit_max_amount, deposit_daily_limit          | bigint null | Set by Admin                                                                                                            |
+| withdrawal_min_amount, withdrawal_max_amount, withdrawal_daily_limit | bigint null |                                                                                                                         |
+| verified_at, verified_by                                             |             |                                                                                                                         |
+| created_at, updated_at                                               |             |                                                                                                                         |
+
+**`branch_limit_topups`** (append-only history of Admin top-ups): `id`, `branch_id FK`, `amount` (non-zero; negative = correction), `balance_after` (≥ 0), `reason`, `created_by`, `created_at`.
 
 **`partner_branch_mappings`**
 
@@ -202,7 +210,7 @@ Constraint: `EXCLUDE USING gist (subject_type WITH =, subject_id WITH =, side WI
 | ----------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
 | id                                        | uuid PK               |                                                                                                        |
 | branch_id                                 | uuid FK               |                                                                                                        |
-| type                                      | text                  | `bank` / `upi`                                                                                         |
+| is_bank_enabled, is_upi_enabled           | boolean               | One account = bank details and/or a UPI ID (D-2); at least one must be enabled                         |
 | label                                     | text                  | Internal name                                                                                          |
 | bank_name, ifsc                           | text null             | Bank                                                                                                   |
 | account_holder_name                       | text                  |                                                                                                        |
@@ -218,7 +226,7 @@ Constraint: `EXCLUDE USING gist (subject_type WITH =, subject_id WITH =, side WI
 | last_allocated_at                         | timestamptz null      | Round robin cursor                                                                                     |
 | created_by, created_at, updated_at        |                       |                                                                                                        |
 
-Checks: bank rows need bank fields, UPI rows need UPI fields (`CHECK` per type).
+Checks: at least one method enabled; bank enabled ⇒ bank fields present; UPI enabled ⇒ UPI fields present; QR/intent only with UPI enabled.
 Allocation index: `(branch_id, status, last_allocated_at)`.
 
 **`usage_counters`** (daily capacity, one row per scope/day/direction)
@@ -261,8 +269,8 @@ PK `(scope_type, scope_id, business_date, direction)`. Rows are created on first
 | currency                                               | char(3)            | `INR`                                                                                    |
 | status                                                 | text               | See the check below                                                                      |
 | status_reason_code, status_note                        | text null          | E.g. decline reason                                                                      |
-| utr                                                    | text null          | As entered                                                                               |
-| utr_normalized                                         | text null          | Upper-case, trimmed; used for matching                                                   |
+| customer_utr, customer_utr_normalized                  | text null          | The UTR the customer submits (a claim, D-1)                                              |
+| bank_utr, bank_utr_normalized                          | text null          | The UTR the branch enters after seeing the money in its bank (verified, D-1)             |
 | partner_rate_percent, branch_rate_percent              | numeric(7,4) null  | Snapshot at SUCCESS                                                                      |
 | partner_commission, branch_commission, platform_margin | bigint null        | Snapshot at SUCCESS; margin may be negative                                              |
 | partner_rate_id, branch_rate_id                        | uuid null FK       | Which commission_rates rows were used                                                    |
@@ -285,8 +293,8 @@ Key indexes:
 - Partner lists: `(partner_id, direction, created_at DESC)`
 - Admin lists: `(status, created_at DESC)`, `(created_at)`
 - Expiry sweep: `(expires_at) WHERE status IN ('created','awaiting_payment')`
-- **Duplicate-UTR protection:** `UNIQUE (payment_account_id, utr_normalized) WHERE direction = 'payin' AND utr_normalized IS NOT NULL AND status NOT IN ('rejected','expired','cancelled')`
-- UTR search: `(utr_normalized)`
+- **Duplicate-UTR protection:** `UNIQUE (payment_account_id, bank_utr_normalized) WHERE direction = 'payin' AND bank_utr_normalized IS NOT NULL AND status NOT IN ('rejected','expired','cancelled')`. Reused **customer** UTRs are allowed in the database and flagged by the app for review
+- UTR search: `(customer_utr_normalized)`, `(bank_utr_normalized)`
 
 **`payment_sessions`** (pay-in only)
 
@@ -316,23 +324,24 @@ Key indexes:
 
 **`statement_entries`**
 
-| Column                        | Type             | Notes                                                                                                                       |
-| ----------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| id                            | uuid PK          |                                                                                                                             |
-| import_id                     | uuid FK null     | Null for manual entries                                                                                                     |
-| branch_id, payment_account_id | uuid FK          | "Bank-entry branch"                                                                                                         |
-| value_date                    | date             |                                                                                                                             |
-| posted_at                     | timestamptz null |                                                                                                                             |
-| entry_direction               | text             | `credit` / `debit`                                                                                                          |
-| amount                        | bigint           | > 0                                                                                                                         |
-| utr, utr_normalized           | text null        |                                                                                                                             |
-| description                   | text null        |                                                                                                                             |
-| row_hash                      | text             | Hash of (account, date, direction, amount, utr, description); `UNIQUE (payment_account_id, row_hash)` stops duplicate lines |
-| status                        | text             | `imported` / `matched` / `unmatched` / `duplicate` / `ignored` / `reconciled` (Req §7.6)                                    |
-| transaction_id                | uuid FK null     | Linked transaction; `UNIQUE (transaction_id) WHERE transaction_id IS NOT NULL`                                              |
-| matched_at, matched_by        |                  |                                                                                                                             |
-| raw                           | jsonb            | Original row                                                                                                                |
-| created_at                    |                  |                                                                                                                             |
+| Column                        | Type               | Notes                                                                                                                       |
+| ----------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| id                            | uuid PK            |                                                                                                                             |
+| import_id                     | uuid FK null       | Null for manual entries                                                                                                     |
+| branch_id, payment_account_id | uuid FK            | "Bank-entry branch"                                                                                                         |
+| value_date                    | date               |                                                                                                                             |
+| posted_at                     | timestamptz null   |                                                                                                                             |
+| entry_direction               | text               | `credit` / `debit`                                                                                                          |
+| amount                        | bigint             | > 0                                                                                                                         |
+| utr, utr_normalized           | text null          |                                                                                                                             |
+| description                   | text null          |                                                                                                                             |
+| row_hash                      | text               | Hash of (account, date, direction, amount, utr, description); `UNIQUE (payment_account_id, row_hash)` stops duplicate lines |
+| status                        | text               | `imported` / `matched` / `unmatched` / `duplicate` / `ignored` / `reconciled` (Req §7.6)                                    |
+| transaction_id                | uuid FK null       | Linked transaction; `UNIQUE (transaction_id) WHERE transaction_id IS NOT NULL`                                              |
+| matched_at, matched_by        |                    |                                                                                                                             |
+| raw                           | jsonb              | Original row                                                                                                                |
+| created_by                    | uuid FK users null | Who entered a manual line (D-5)                                                                                             |
+| created_at                    |                    |                                                                                                                             |
 
 Index: `(payment_account_id, utr_normalized)`, `(branch_id, status, value_date)`.
 

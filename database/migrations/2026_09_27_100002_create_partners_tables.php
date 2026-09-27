@@ -29,6 +29,12 @@ return new class extends Migration
             $table->boolean('allow_upi')->default(true);
             $table->boolean('allow_qr')->default(true);
             $table->boolean('allow_bank_transfer')->default(true);
+            $table->string('manual_payment_type', 20)->nullable(); // bank_details / intent / dynamic_qr
+            $table->string('withdraw_url')->nullable();
+            $table->string('payout_group', 100)->nullable();
+            $table->boolean('is_auto_withdrawal')->default(false);
+            $table->boolean('is_partial_withdrawal')->default(false);
+            $table->string('payout_limit_type', 20)->default('daily_reset');
             $table->bigInteger('deposit_min_amount')->nullable();
             $table->bigInteger('deposit_max_amount')->nullable();
             $table->bigInteger('deposit_daily_limit')->nullable();
@@ -48,6 +54,8 @@ return new class extends Migration
         Pg::check('partners', 'partners_deposit_range', 'deposit_min_amount IS NULL OR deposit_max_amount IS NULL OR deposit_min_amount <= deposit_max_amount');
         Pg::check('partners', 'partners_withdrawal_range', 'withdrawal_min_amount IS NULL OR withdrawal_max_amount IS NULL OR withdrawal_min_amount <= withdrawal_max_amount');
         Pg::check('partners', 'partners_session_ttl', 'session_ttl_minutes BETWEEN 1 AND 1440');
+        Pg::check('partners', 'partners_manual_payment_type_check', 'manual_payment_type IS NULL OR '.Pg::in('manual_payment_type', ['bank_details', 'intent', 'dynamic_qr']));
+        Pg::check('partners', 'partners_payout_limit_type_check', Pg::in('payout_limit_type', ['daily_reset', 'topup']));
 
         Schema::create('partner_api_keys', function (Blueprint $table) {
             $table->uuid('id')->primary();

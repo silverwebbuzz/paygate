@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Security;
 
-use App\Auth\SystemRoles;
-use App\Enums\SecurityEvent;
-use App\Models\User;
+use App\Domain\Core\Audit\Enums\SecurityEvent;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\SystemRoles;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

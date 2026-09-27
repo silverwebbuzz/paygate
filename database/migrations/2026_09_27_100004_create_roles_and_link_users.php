@@ -1,6 +1,6 @@
 <?php
 
-use App\Auth\SystemRoles;
+use App\Domain\Core\Rbac\SystemRoles;
 use App\Support\Database\Pg;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 
 /**
  * Roles move from code into the database (editable by Admin). The permission
- * catalogue stays in code (App\Enums\Permission). Users gain partner_id /
+ * catalogue stays in code (App\Domain\Core\Rbac\Enums\Permission). Users gain partner_id /
  * branch_id, and the database guarantees a user's role belongs to their portal.
  */
 return new class extends Migration
