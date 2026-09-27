@@ -1,0 +1,133 @@
+# PayGate — Implementation Plan
+
+How the whole system gets built, one phase at a time, from the three agreed inputs:
+
+| Input            | Document                                                                 | Status                                                             |
+| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **Requirements** | [Requirements.md](Requirements.md) v1.4                                  | ✅ Accepted baseline                                               |
+| **Database**     | [Database.md](Database.md) (47 tables, migrations `2026_09_27_1000xx`)   | ✅ Built; small adjustments below (§2.1)                           |
+| **Design**       | `Document/PayGate UI redesign/PayGate.dc.html` (claude.ai design export) | 🟡 Covers the core screens; others follow its design system (§2.3) |
+
+This replaces the old roadmap in Architecture.md §19.
+
+---
+
+## 1. Where we are
+
+| Phase                 | Result                                        | Commit    |
+| --------------------- | --------------------------------------------- | --------- |
+| 0 — Local environment | Docker stack, Laravel 13, host routing, CI    | `d57c15d` |
+| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs | `d57c15d` |
+| Requirements v1.4     | Business model, flows, financial model, gaps  | `d57c15d` |
+| Database              | 47 tables, safety rules, Deployment.md        | `d57c15d` |
+| Design                | UI export added                               | `09f83ff` |
+
+---
+
+## 2. Design ↔ database ↔ requirements check (2026-09-27)
+
+### 2.1 Things the design shows that the database doesn't have yet → fix in Phase 2
+
+| #   | Design shows                                                                                                                                                                              | Database today                         | Change                                                                                                                                                                                    |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D-1 | **Two UTRs** on a deposit: the customer's "UTR / Recharge Request Id" **and** the "Bank UTR" the branch enters when approving (the mock data has different values for the two)            | One `utr` column                       | Split into `customer_utr` and `bank_utr` (+ normalised copies). The duplicate check applies to the **bank UTR** (money really received) and still warns on reused customer UTRs           |
+| D-2 | A payment account is a **bank account with an optional UPI ID** ("Methods" column: bank, UPI, QR on one row)                                                                              | `type` = bank **or** upi               | Replace `type` with `is_bank_enabled` / `is_upi_enabled` (+ existing QR/intent flags); checks per enabled method                                                                          |
+| D-3 | Branch limit types **"Master limit · daily reset"** and **"Deposit limit · top-up"** (and a partner "Payout limit type" with the same two options)                                        | `limit_type` text only; daily counters | `limit_type` ∈ `daily_reset` / `topup`; for top-up, a **remaining-capacity balance** reduced by each successful deposit and increased by audited Admin top-ups (new table `limit_topups`) |
+| D-4 | Partner wizard: **Manual payment type** (Manual bank details / Intent / Dynamic QR), **Withdraw URL**, **Group name**, **Auto withdrawal**, **Partial withdrawal**, **Payout limit type** | Not present                            | New partner columns                                                                                                                                                                       |
+| D-5 | Statement screen shows **who entered** each manual statement line                                                                                                                         | Only imports record a user             | Add `created_by` to `statement_entries`                                                                                                                                                   |
+
+No staging or production database exists yet, so these go into the **existing** migrations (then `make fresh` locally). After the first staging deploy, changes are new migrations only (Deployment.md §4).
+
+### 2.2 Differences in approach (no database change)
+
+| #   | Design                                                                                             | Built / agreed                                                | Resolution                                                                                                                                                                                              |
+| --- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-1 | Role builder: **menu × View / Insert / Update / Delete** grid                                      | Named permissions (`transaction.decide`, `partner.manage`, …) | Regroup the permission catalogue by menu with actions `view / create / update / delete` plus special actions (`approve`, `export`); render it as the design's grid. Role storage is unchanged (Phase 3) |
+| A-2 | Status labels: Created, Pending, Payment hold, Under review, Approved, Declined, Failed, Unsettled | Database states (Requirements §7)                             | One display mapping, e.g. `payment_submitted` → "Pending", `under_review` → "Payment hold", `success` → "Approved" / "Success", `rejected` → "Declined"                                                 |
+| A-3 | Account status "Exhausted"                                                                         | Not a stored state                                            | Derived from `usage_counters` (daily limit reached)                                                                                                                                                     |
+| A-4 | Limits entered as **−1 = unlimited**                                                               | `NULL` = unlimited                                            | The UI converts −1 ↔ NULL                                                                                                                                                                               |
+| A-5 | Mock partner wizard says "Routing: weighted by order"                                              | Client confirmed **round robin** (G-29)                       | Round robin is the default; priority/weighted stay optional per partner                                                                                                                                 |
+| A-6 | Fonts Inter + JetBrains Mono                                                                       | Starter kit uses Instrument Sans                              | Switch to the design fonts                                                                                                                                                                              |
+| A-7 | Settlement mock "Next cycle 18:00 IST"                                                             | Daily cut-off still open (G-09)                               | Make the cut-off a global setting; confirm the time with the client                                                                                                                                     |
+
+### 2.3 Design coverage
+
+The design contains **12 finished screens** plus shared patterns (drawer, modal, wizard, toasts, dark mode, compact/comfortable density, per-portal accent colours).
+
+| Portal   | Designed                                                                                                                                                                                                                                                                 | Not yet designed (placeholders in the export)                                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin    | Dashboard, Transactions (+ drawer: timeline, proof, ledger, webhooks, compare, audit), Manual Deposit (grid/list + approve/hold/decline), Manual A/C Statement, Partners (+ 7-step wizard), Branches, Bank & UPI Accounts, Roles & Permissions (+ grid builder), Profile | Manual Payout, Refunds, Chargebacks, Auto A/C Statement, UTR Reconciliation, Unsettled UTR, Settlement, Commissions, Reports, Users, Payment Gateways, Credentials, Global Settings, IP Management, Audit Logs |
+| Branch   | Dashboard, Bank & UPI Accounts, Manual Deposit, A/C Statement Entry, Pay-in History, Profile                                                                                                                                                                             | Manual Payout, Deposit Unsettled, Auto A/C Statement, Statement History, Pay-out History, UTR Reconciliation, Branch Balance, Settlement, Reports, Users, Audit Logs                                           |
+| Partner  | Dashboard, Pay-in, API & Webhooks (credentials + webhook log), Profile                                                                                                                                                                                                   | Create Payment, Pay-out, Settlements, Balance, Reports, IP Whitelist, API Logs                                                                                                                                 |
+| Checkout | Landing, UPI, Bank transfer, QR, Pending, Success, Failed, Expired (mobile, 390 px)                                                                                                                                                                                      | —                                                                                                                                                                                                              |
+| Auth     | Login, OTP, Forgot, Reset, Sent, Done                                                                                                                                                                                                                                    | —                                                                                                                                                                                                              |
+
+**Approach:** undesigned screens are built from the same components and patterns. For large ones (Settlement, Reconciliation, Reports), a quick design pass in the claude.ai design tool before the phase is recommended; that's optional.
+
+### 2.4 Everything else matches
+
+- Transaction list fields: partner, order ID, customer, gross/net, method, bank, UTR, branch, status, timestamps
+- Partner fields and 7-step wizard
+- Branch limits and commissions
+- Account limits and daily usage
+- API credentials (API key + HMAC secret)
+- Webhook log columns
+- Drawer tabs: timeline, proof, ledger, webhooks, statement compare, audit
+- Per-portal colours and customer checkout states
+
+All of these map directly onto existing tables.
+
+---
+
+## 3. Build phases
+
+Every phase delivers **working screens + backend + tests** for one area, ends with `make check` green, a short demo, documentation updates, and a commit. Size: S ≈ a few days, M ≈ 1–2 weeks, L ≈ 2–3 weeks (one developer).
+
+| #      | Phase                                   | Size | Delivers                                                                                                                                                                                                                                                                                                                   | Design                     | Depends on |
+| ------ | --------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- | ---------- |
+| **2**  | **UI foundation + schema fixes**        | M    | Schema fixes D-1…D-5 (§2.1); design tokens (colours, dark mode, density); the 3 portal shells with the design's menus; shared components (data table, filters, status badge, KPI card, drawer, modal, toast, wizard, empty states); fonts; the restyled auth screens (login, OTP, forgot/reset)                            | ✅                         | —          |
+| **3**  | **Roles & users**                       | M    | Roles list + permission grid builder (A-1); users list/invite/edit/suspend for admin, partner and branch users (owners manage their own users); email invites via Mailpit; audit                                                                                                                                           | ✅ roles · ⬜ users        | 2          |
+| **4**  | **Partners**                            | M    | Partner list + 7-step wizard (profile, API & security, payment config, commission, withdrawal, branch mapping, review); API keys (generate, show once, rotate, revoke); IP rules; effective-dated commission rates with negative-margin warning; partner portal: API & Webhooks page, Profile                              | ✅                         | 3          |
+| **5**  | **Branches, mapping & accounts**        | M    | Branch list/create with limits, limit types and top-ups (D-3); assign branch admin; partner↔branch mapping screen; bank & UPI accounts (branch adds, Admin verifies); daily usage display; branch portal Accounts page                                                                                                     | ✅                         | 3, 4       |
+| **6**  | **Pay-in: API + checkout + allocation** | L    | Partner API: HMAC authentication, create pay-in, status, multi-status, idempotency, rate limits, API request log; payment sessions; **checkout page** (all 8 states); round-robin allocation with limits; UTR / photo submission; expiry job; partner API documentation page                                               | ✅ checkout                | 4, 5       |
+| **7**  | **Approval, ledger & webhooks**         | L    | Manual Deposit queue (grid/list, approve with bank UTR / hold / decline with reason); atomic approval: commission snapshot + ledger journal + balances; transaction list + drawer (timeline, proof, ledger, audit); webhook outbox, signed delivery, retries, resend, webhook log; partner Pay-in list; admin Transactions | ✅                         | 6          |
+| **8**  | **Payouts**                             | L    | Payout API + "balance is low" pair check and reservation; branch payout queue (Manual Payout: pay, enter UTR, complete/fail); payout webhooks; partner Balance page + balance API; pay-out histories (admin, branch, partner)                                                                                              | ⬜                         | 7          |
+| **9**  | **Statements & reconciliation**         | L    | Manual A/C statement entry; statement import (CSV/XLS templates per bank) + history; auto-matching (UTR + amount + branch); Unsettled UTR / Deposit Unsettled case queue with resolutions; drawer "compare" tab                                                                                                            | ✅ manual · ⬜ rest        | 7          |
+| **10** | **Settlement & adjustments**            | L    | Daily + on-demand settlement calculation per party with per-pair lines; settlement screens (admin, branch, partner); "mark as settled" (partial allowed); adjustments (top-up, correction, chargeback, refund, goodwill) with approval; commissions view                                                                   | ⬜                         | 7, 8       |
+| **11** | **Dashboards, reports & exports**       | M    | Live KPI dashboards per portal (pre-aggregated); report catalogue: pay-in, pay-out, branch, partner, branch-partner, commission, balance, settlement; background CSV/Excel exports                                                                                                                                         | ✅ dashboards · ⬜ reports | 7–10       |
+| **12** | **Platform administration**             | M    | Global settings (incl. settlement cut-off A-7); CMS pages; IP management overview; audit-log viewer; alert notifications (in-panel + email); reason-code management; refunds & chargebacks screens                                                                                                                         | ⬜                         | 7–10       |
+| **13** | **Hardening & go-live**                 | M    | Cloudflare/trusted proxies, Octane, security review, load tests (1,000 concurrent pay-ins incl. few-account hot case), backups + restore test, **staging deploy per Deployment.md**, client UAT, partner onboarding kit (API docs, sandbox), production launch                                                             | —                          | all        |
+
+**Critical path to a first real payment:** 2 → 3 → 4 → 5 → 6 → 7. After Phase 7 a partner can take a real pay-in end to end: API → checkout → branch approval → ledger → webhook.
+
+**Deliberately later:** Payment Gateways / Credentials (providers are out of v1, OOS-11), Manual link (OOS-13), Branch Map (G-50, pending the client's explanation).
+
+---
+
+## 4. How each phase is run
+
+1. **Start:** re-read the phase's requirements (Req §4/§5), design screens and tables; list any open question for that phase (Priority-2 gaps) and ask the client **before** building.
+2. **Build:** migrations only if needed (new files once staging exists) → domain services (state machine, ledger, allocation…) → policies/permissions → controllers/API → React screens matching the design.
+3. **Test:** feature tests for every rule (permissions, tenant scoping, money maths, concurrency-sensitive paths), plus a browser walk-through of the screens.
+4. **Finish:** `make check` green, update Requirements/Database/Developer-Guide where behaviour changed, demo, commit.
+
+Rules that apply to every phase:
+
+- Money only moves through domain services (never `balance += amount` in a controller).
+- Every portal query is scoped to the user's partner/branch on the server.
+- Every sensitive action is audited.
+- Nothing financial is deleted or edited; corrections are new entries.
+
+---
+
+## 5. Open items to settle along the way (Requirements §9, Priority 2)
+
+| Before phase | Items                                                                                                                                 |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 2            | Meaning of "Deposit limit · top-up" vs "Master limit · daily reset" (D-3): the design suggests running capacity vs daily cap; confirm |
+| 4            | H2H meaning (G-41), payout group / auto / partial withdrawal meaning (G-19)                                                           |
+| 6            | Photo-only submissions (G-61), per-request return URLs (G-41), customer data retention (G-43)                                         |
+| 9            | Bank statement formats per bank (G-27), matching tolerances (G-24), unmatched credit handling (G-26)                                  |
+| 10           | Settlement cut-off time (G-09 / A-7), second approval for large settlements (G-10), chargeback responsibility (G-20)                  |
+| 12           | Alert events and channels (G-47), CMS pages and global settings list (G-48)                                                           |
+| 13           | Legal/compliance review (G-51)                                                                                                        |

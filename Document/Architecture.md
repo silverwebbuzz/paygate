@@ -500,6 +500,8 @@ Accepted as proposed on 2026-09-25 (items 6, 7, 10 and 12 still need business in
 
 ## 19. Implementation roadmap
 
+> **Superseded (2026-09-27):** the current phase plan is [Implementation-Plan.md](Implementation-Plan.md). The table below is the original roadmap, kept for history.
+
 Each phase ends with tests passing, a short demo, and this document updated.
 
 | Phase                                  | Deliverable                                                                                                    |
