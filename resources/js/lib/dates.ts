@@ -30,3 +30,15 @@ export function formatRelative(value: string | null | undefined): string {
 
     return formatDateTime(value);
 }
+
+const dateOnly = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+});
+
+/** A calendar date ("2026-09-25", e.g. a bank statement date) as "25 Sep 2026". */
+export function formatDate(value: string | null | undefined): string {
+    return value ? dateOnly.format(new Date(`${value}T00:00:00Z`)) : '—';
+}

@@ -195,7 +195,7 @@ The branch checks its bank statement/app, then:
 - **Reject** (reason: UTR not found / amount mismatch / …) → `REJECTED` → webhook `payment.failed`
 
 An admin can override either decision. Every override is audited.
-Later, **statement upload** (CSV/XLSX per bank format) can auto-match UTR + amount and pre-confirm, leaving only exceptions for humans.
+**Statement lines** (typed in, or imported from the bank's CSV / Excel file; Phase 9) are matched on exact UTR + amount + receiving account. A match links the line and tells the branch the credit is in the bank; it never approves by itself (decided 2026-09-28, G-23). Anything that doesn't match exactly becomes a case in the unsettled queue (Unsettled UTR / Deposit Unsettled).
 
 ### 5.7 Expiry, late payments, disputes
 

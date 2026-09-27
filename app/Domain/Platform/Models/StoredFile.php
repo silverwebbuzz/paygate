@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -65,6 +66,34 @@ class StoredFile extends Model
             'mime' => (string) $upload->getMimeType(),
             'size_bytes' => (int) $upload->getSize(),
             'sha256' => (string) hash_file('sha256', (string) $upload->getRealPath()),
+            'attachable_type' => $attachable->getMorphClass(),
+            'attachable_id' => $attachable->getKey(),
+            'purpose' => $purpose,
+            'uploaded_by_type' => $uploadedByType,
+            'uploaded_by_id' => $uploadedById,
+        ]);
+    }
+
+    /**
+     * Keeps a file already on the private disk (e.g. an upload staged for a
+     * second step), copied under <purpose>/<yyyy>/<mm>/.
+     */
+    public static function adopt(string $sourcePath, string $originalName, string $mime, string $purpose, Model $attachable, string $uploadedByType, ?string $uploadedById = null): self
+    {
+        $disk = 'local';
+        $path = $purpose.'/'.now()->format('Y/m').'/'.Str::random(40).'.'.pathinfo($sourcePath, PATHINFO_EXTENSION);
+
+        if (! Storage::disk($disk)->copy($sourcePath, $path)) {
+            throw new RuntimeException('Could not store the file.');
+        }
+
+        return self::create([
+            'disk' => $disk,
+            'path' => $path,
+            'original_name' => mb_substr($originalName, 0, 255),
+            'mime' => $mime,
+            'size_bytes' => (int) Storage::disk($disk)->size($path),
+            'sha256' => (string) hash_file('sha256', Storage::disk($disk)->path($path)),
             'attachable_type' => $attachable->getMorphClass(),
             'attachable_id' => $attachable->getKey(),
             'purpose' => $purpose,

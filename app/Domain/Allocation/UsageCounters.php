@@ -102,6 +102,19 @@ class UsageCounters
     }
 
     /**
+     * Adds confirmed usage without a reservation: a late payment approved
+     * after its reservation was released. Limits aren't checked; the money
+     * has already arrived.
+     */
+    public function addConfirmed(string $scopeType, string $scopeId, string $date, Direction $direction, int $amount): void
+    {
+        $key = ['scope_type' => $scopeType, 'scope_id' => $scopeId, 'business_date' => $date, 'direction' => $direction->value];
+
+        DB::table('usage_counters')->insertOrIgnore($key);
+        DB::table('usage_counters')->where($key)->incrementEach(['confirmed_amount' => $amount, 'confirmed_count' => 1], ['updated_at' => now()]);
+    }
+
+    /**
      * Frees one "customer on the payment page" slot of an account (the
      * customer submitted their proof; the amount stays reserved).
      */

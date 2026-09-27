@@ -33,6 +33,26 @@ class ReleaseAllocation
     }
 
     /**
+     * A late payment was approved (Admin, from the unsettled queue): its
+     * reservation was released at expiry or decline, so the amount is added
+     * to today's confirmed usage of the same scopes.
+     */
+    public function confirmLate(Transaction $payin): void
+    {
+        $reservation = $this->lastAllocation($payin)?->data['reservation'] ?? null;
+
+        if (! is_array($reservation)) {
+            return;
+        }
+
+        foreach ($reservation['scopes'] as [$type, $id]) {
+            $this->usage->addConfirmed($type, $id, UsageCounters::businessDate(), Direction::Deposit, $payin->amount);
+        }
+
+        TransactionEvent::record($payin, 'allocation_confirmed', $payin->status, $payin->status, 'system', null, 'late_payment');
+    }
+
+    /**
      * The customer submitted their proof and left the payment page: their
      * account slot (max_open_sessions) is free for the next customer, while
      * the amount stays reserved until the branch decides.

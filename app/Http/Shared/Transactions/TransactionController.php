@@ -57,7 +57,7 @@ class TransactionController extends Controller
         $base = fn () => self::scoped($actor)->where('direction', $direction);
 
         $transactions = $base()
-            ->with(['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary'])
+            ->with(['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry'])
             ->when($group !== null, fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
             ->when($search !== '', fn (Builder $query) => self::search($query, $search))
             ->latest('created_at')

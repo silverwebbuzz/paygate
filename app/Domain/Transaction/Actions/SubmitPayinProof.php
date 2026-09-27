@@ -4,6 +4,7 @@ namespace App\Domain\Transaction\Actions;
 
 use App\Domain\Allocation\Actions\ReleaseAllocation;
 use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
@@ -26,7 +27,7 @@ class SubmitPayinProof
 {
     public const UTR_PATTERN = '/^[A-Z0-9]{6,22}$/';
 
-    public function __construct(private QueueWebhook $webhooks, private ReleaseAllocation $allocation) {}
+    public function __construct(private QueueWebhook $webhooks, private ReleaseAllocation $allocation, private StatementMatcher $matcher) {}
 
     public function handle(Transaction $payin, ?string $utr, ?UploadedFile $photo): Transaction
     {
@@ -77,6 +78,8 @@ class SubmitPayinProof
             ]));
 
             $this->webhooks->forPayin($locked->load('partner'), 'payin.submitted');
+            // The bank statement may already show this payment.
+            $this->matcher->transactionSubmitted($locked);
 
             return $locked;
         });

@@ -75,7 +75,9 @@ export function PortalSidebar({
                                             </span>
                                             {item.soon !== undefined && (
                                                 <span className="rounded px-1.5 py-px text-[10.5px] font-medium text-[#6B778C] ring-1 ring-white/10">
-                                                    P{item.soon}
+                                                    {item.soon === 'later'
+                                                        ? 'Later'
+                                                        : `P${item.soon}`}
                                                 </span>
                                             )}
                                         </>
@@ -105,7 +107,11 @@ export function PortalSidebar({
                                 <span
                                     key={item.label}
                                     className={classes}
-                                    title={`${item.label}: coming in Phase ${item.soon}`}
+                                    title={
+                                        item.soon === 'later'
+                                            ? `${item.label}: waiting for a client decision`
+                                            : `${item.label}: coming in Phase ${item.soon}`
+                                    }
                                 >
                                     {content}
                                 </span>

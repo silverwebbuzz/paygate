@@ -9,6 +9,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
+use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
@@ -27,21 +28,43 @@ use Illuminate\Validation\ValidationException;
  *   top-up branch's allowance is reduced, and the webhook is queued.
  * - hold: needs a closer look (under_review); decided later.
  * - decline: not paid / invalid; the reservation is released.
+ * - approveLate (Admin, from the unsettled queue): a deposit that expired or
+ *   was declined, whose money arrived anyway.
  *
+ * Bank statement lines are matched after each decision (StatementMatcher).
  * Every decision is on the timeline and in the audit log.
  */
 class DecidePayin
 {
     private const DECIDABLE = [PayinStatus::PaymentSubmitted, PayinStatus::PaymentDetected, PayinStatus::UnderReview];
 
+    private const LATE_APPROVABLE = [PayinStatus::Rejected, PayinStatus::Expired];
+
     public function __construct(
         private CommissionCalculator $commissions,
         private Ledger $ledger,
         private ReleaseAllocation $allocation,
         private QueueWebhook $webhooks,
+        private StatementMatcher $matcher,
     ) {}
 
     public function approve(User $actor, Transaction $payin, string $bankUtr, ?string $note = null): Transaction
+    {
+        return $this->succeed($actor, $payin, $bankUtr, $note, late: false);
+    }
+
+    /**
+     * A bank credit arrived for a deposit that already expired or was
+     * declined (decided 2026-09-28, G-25): Admin approves it late from the
+     * unsettled queue. Same bookings as approve; the partner receives
+     * payin.success again with `late: true`.
+     */
+    public function approveLate(User $actor, Transaction $payin, string $bankUtr, ?string $note = null): Transaction
+    {
+        return $this->succeed($actor, $payin, $bankUtr, $note, late: true);
+    }
+
+    private function succeed(User $actor, Transaction $payin, string $bankUtr, ?string $note, bool $late): Transaction
     {
         $utr = Transaction::normaliseUtr($bankUtr);
 
@@ -50,8 +73,8 @@ class DecidePayin
         }
 
         try {
-            return DB::transaction(function () use ($actor, $payin, $bankUtr, $utr, $note) {
-                $locked = $this->lock($payin);
+            return DB::transaction(function () use ($actor, $payin, $bankUtr, $utr, $note, $late) {
+                $locked = $this->lock($payin, $late ? self::LATE_APPROVABLE : self::DECIDABLE);
 
                 $mapping = PartnerBranchMapping::query()
                     ->where(['partner_id' => $locked->partner_id, 'branch_id' => $locked->branch_id])
@@ -62,6 +85,8 @@ class DecidePayin
                 $locked->forceFill([
                     ...$commission,
                     'status' => PayinStatus::Success->value,
+                    // Marks a late approval (PayinData `late`); a decline reason no longer applies.
+                    'status_reason_code' => $late ? 'late_payment' : null,
                     'bank_utr' => mb_substr(trim($bankUtr), 0, 50),
                     'bank_utr_normalized' => $utr,
                     'received_amount' => $locked->amount,
@@ -79,7 +104,9 @@ class DecidePayin
                     $this->ledger->account(Ledger::PLATFORM_MARGIN) => $commission['platform_margin'],
                 ], $locked->id, "Pay-in {$locked->reference}", $actor->id);
 
-                $this->allocation->confirm($locked);
+                // The reservation becomes confirmed usage; a late payment's
+                // reservation was already released, so today's usage grows.
+                $late ? $this->allocation->confirmLate($locked) : $this->allocation->confirm($locked);
 
                 // A top-up branch's allowance shrinks by what it received.
                 DB::update(
@@ -87,15 +114,16 @@ class DecidePayin
                     [$locked->amount, $locked->branch_id],
                 );
 
-                TransactionEvent::record($locked, 'approved', $from, $locked->status, 'user', $actor->id, $note, [
+                TransactionEvent::record($locked, $late ? 'approved_late' : 'approved', $from, $locked->status, 'user', $actor->id, $note, [
                     'bank_utr' => $utr,
                     'customer_utr' => $locked->customer_utr_normalized,
                     'utr_differs' => $locked->customer_utr_normalized !== null && $locked->customer_utr_normalized !== $utr,
                     'partner_commission' => $commission['partner_commission'],
                     'branch_commission' => $commission['branch_commission'],
                 ]);
-                AuditLog::record('payin.approved', $locked, ['status' => $from], ['status' => $locked->status, 'bank_utr' => $utr], $actor);
+                AuditLog::record($late ? 'payin.approved_late' : 'payin.approved', $locked, ['status' => $from], ['status' => $locked->status, 'bank_utr' => $utr], $actor);
                 $this->webhooks->forPayin($locked, 'payin.success');
+                $this->matcher->transactionApproved($locked, $actor);
 
                 $payin->setRawAttributes($locked->getAttributes(), true);
 
@@ -156,6 +184,7 @@ class DecidePayin
             TransactionEvent::record($locked, 'declined', $from, $locked->status, 'user', $actor->id, $note, ['reason_code' => $reasonCode]);
             AuditLog::record('payin.declined', $locked, ['status' => $from], ['status' => $locked->status, 'reason_code' => $reasonCode, 'note' => $note], $actor);
             $this->webhooks->forPayin($locked, 'payin.rejected');
+            $this->matcher->transactionDeclined($locked);
 
             $payin->setRawAttributes($locked->getAttributes(), true);
 
@@ -163,12 +192,15 @@ class DecidePayin
         });
     }
 
-    private function lock(Transaction $payin): Transaction
+    /**
+     * @param  list<PayinStatus>  $allowed
+     */
+    private function lock(Transaction $payin, array $allowed = self::DECIDABLE): Transaction
     {
         /** @var Transaction $locked */
         $locked = Transaction::query()->with('partner')->whereKey($payin->id)->lockForUpdate()->firstOrFail();
 
-        if (! in_array($locked->payinStatus(), self::DECIDABLE, true)) {
+        if (! in_array($locked->payinStatus(), $allowed, true)) {
             throw ValidationException::withMessages(['status' => __('This pay-in is :status and can’t be decided now.', ['status' => str_replace('_', ' ', $locked->status)])]);
         }
 

@@ -244,6 +244,8 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
     "method": null,
     "customer_id": "user-5521",
     "utr": null,
+    "reason": null,                       // decline reason code when rejected
+    "late": false,                        // true: approved after it had expired / been declined
     "payment_url": "https://pay.…/p/…",
     "expires_at": "2026-09-27T12:15:00+00:00",
     "submitted_at": null,
@@ -367,6 +369,15 @@ X-PayGate-Event: payin.success
 X-PayGate-Signature: t=1790521203,v1=5f2c…
 
 { "id": "01J…", "type": "payin.success", "created_at": "…", "data": { "id": "PI260927K7QX4MZD", "status": "success", … } }`}</Pre>
+                <p>
+                    <b>Late payments:</b> if a customer&apos;s money reaches the
+                    bank after the pay-in expired or was declined, we may
+                    approve it afterwards. You then receive{' '}
+                    <Code>payin.success</Code> for a pay-in you last saw as{' '}
+                    <Code>expired</Code> or <Code>rejected</Code>, with{' '}
+                    <Code>&quot;late&quot;: true</Code>. Credit the customer
+                    once, as for any success.
+                </p>
                 <p>
                     Verify every webhook before trusting it: the HMAC-SHA256 of{' '}
                     <Code>{'<t>.<raw body>'}</Code> with your API secret must

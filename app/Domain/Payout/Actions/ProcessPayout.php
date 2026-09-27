@@ -13,6 +13,7 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\Payout\Enums\PayoutStatus;
 use App\Domain\Payout\PayoutReservation;
 use App\Domain\Payout\PayoutRouter;
+use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
@@ -40,6 +41,7 @@ class ProcessPayout
         private CommissionCalculator $commissions,
         private Ledger $ledger,
         private QueueWebhook $webhooks,
+        private StatementMatcher $matcher,
     ) {}
 
     public function start(User $actor, Transaction $payout): Transaction
@@ -100,6 +102,7 @@ class ProcessPayout
             ]);
             AuditLog::record('payout.paid', $locked, ['status' => $from], ['status' => $locked->status, 'bank_utr' => $utr], $actor);
             $this->webhooks->forPayout($locked, 'payout.success');
+            $this->matcher->payoutPaid($locked, $actor);
 
             return $this->sync($payout, $locked);
         });

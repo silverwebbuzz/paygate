@@ -8,6 +8,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Payout\PayoutReservation;
 use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Webhook\Models\WebhookAttempt;
@@ -73,6 +74,13 @@ class TransactionPresenter
             'submitted_at' => $txn->submitted_at?->toIso8601String(),
             'decided_at' => $txn->decided_at?->toIso8601String(),
             'expires_at' => $txn->expires_at?->toIso8601String(),
+            // The bank statement line that confirms it (never shown to partners).
+            'bank_line' => $type === UserType::Partner || $txn->statementEntry === null ? null : [
+                'status' => $txn->statementEntry->status,
+                'utr' => $txn->statementEntry->utr_normalized,
+                'amount' => $txn->statementEntry->amount,
+                'value_date' => $txn->statementEntry->value_date->toDateString(),
+            ],
             'can' => [
                 'decide' => $viewer->can('decide', $txn),
                 'process' => $viewer->can('process', $txn),
@@ -122,6 +130,7 @@ class TransactionPresenter
                 'at' => $file->created_at->toIso8601String(),
             ])->values()->all(),
             'ledger' => $type === UserType::Admin ? $this->ledger->journalsForTransaction($txn->id) : null,
+            'reconciliation' => $type === UserType::Partner ? null : $this->reconciliation($txn),
             'webhooks' => $type === UserType::Branch ? null : WebhookEvent::query()
                 ->where('transaction_id', $txn->id)
                 ->with('attemptsLog')
@@ -156,6 +165,48 @@ class TransactionPresenter
                     'new' => $log->new_values,
                     'at' => $log->created_at->toIso8601String(),
                 ])->values()->all() : null,
+        ];
+    }
+
+    /**
+     * Drawer "Bank" tab (design: compare): the statement line linked to the
+     * transaction, the two branches side by side, and any cases about it.
+     *
+     * @return array<string, mixed>
+     */
+    private function reconciliation(Transaction $txn): array
+    {
+        $line = $txn->statementEntry()->with(['paymentAccount', 'branch', 'import.file', 'creator'])->first();
+
+        return [
+            'line' => $line === null ? null : [
+                'id' => $line->id,
+                'value_date' => $line->value_date->toDateString(),
+                'direction' => $line->entry_direction,
+                'amount' => $line->amount,
+                'utr' => $line->utr_normalized,
+                'description' => $line->description,
+                'status' => $line->status,
+                'account' => $line->paymentAccount->label,
+                'branch' => $line->branch->code,
+                'source' => $line->import_id === null ? __('Typed in by :name', ['name' => $line->creator->name ?? '—']) : __('Imported from :file', ['file' => $line->import->file->original_name ?? '—']),
+                'matched_at' => $line->matched_at?->toIso8601String(),
+            ],
+            'transaction_branch' => $txn->branch?->code,
+            'cases' => ReconciliationCase::query()
+                ->where('transaction_id', $txn->id)
+                ->with('entry.branch')
+                ->orderBy('created_at')
+                ->get()
+                ->map(fn (ReconciliationCase $case) => [
+                    'reference' => $case->reference,
+                    'type' => $case->type->label(),
+                    'status' => $case->status,
+                    'resolution' => $case->resolution?->label(),
+                    'notes' => $case->notes,
+                    'line_branch' => $case->entry?->branch->code,
+                    'at' => $case->created_at?->toIso8601String(),
+                ])->values()->all(),
         ];
     }
 }

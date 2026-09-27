@@ -1,12 +1,12 @@
 # PAY GATEWAY — Database Design v1
 
-|          |                                                                                                                                                                                      |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (48 tables, incl. Phase 2 fixes D-1…D-5). Staging/production setup: [Deployment.md](Deployment.md) |
-| Date     | 2026-09-27                                                                                                                                                                           |
-| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                                               |
-| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                                                    |
-| Readers  | Database architect, backend developers, QA                                                                                                                                           |
+|          |                                                                                                                                                                                                                                                           |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (48 tables, incl. Phase 2 fixes D-1…D-5); Phase 9 adds `2026_09_28_100001` (`statement_templates`, 49 tables). Staging/production setup: [Deployment.md](Deployment.md) |
+| Date     | 2026-09-27                                                                                                                                                                                                                                                |
+| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                                                                                                                    |
+| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                                                                                                                         |
+| Readers  | Database architect, backend developers, QA                                                                                                                                                                                                                |
 
 ---
 
@@ -320,33 +320,37 @@ Key indexes:
 
 ### 2.7 Reconciliation
 
-**`statement_imports`**: `id`, `branch_id FK`, `payment_account_id FK`, `source` (`upload` / `manual_entry` / `auto`), `file_id FK null`, `file_sha256 text null`, `period_from`, `period_to` (date), `status` (`processing` / `completed` / `failed`), `rows_total`, `rows_imported`, `rows_duplicate`, `rows_failed`, `credit_total`, `debit_total` (bigint), `errors jsonb`, `imported_by`, `created_at`, `completed_at`. `UNIQUE (payment_account_id, file_sha256)` (the same file can't be imported twice).
+**`statement_imports`**: `id`, `branch_id FK`, `payment_account_id FK`, `source` (`upload` / `manual_entry` / `auto`), `file_id FK null`, `file_sha256 text null`, `period_from`, `period_to` (date), `status` (`processing` / `completed` / `failed`), `rows_total`, `rows_imported`, `rows_duplicate`, `rows_failed`, `credit_total`, `debit_total` (bigint), `errors jsonb`, `imported_by`, `template_id FK null` (Phase 9), `created_at`, `completed_at`. `UNIQUE (payment_account_id, file_sha256)` (the same file can't be imported twice).
 
 **`statement_entries`**
 
-| Column                        | Type               | Notes                                                                                                                       |
-| ----------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| id                            | uuid PK            |                                                                                                                             |
-| import_id                     | uuid FK null       | Null for manual entries                                                                                                     |
-| branch_id, payment_account_id | uuid FK            | "Bank-entry branch"                                                                                                         |
-| value_date                    | date               |                                                                                                                             |
-| posted_at                     | timestamptz null   |                                                                                                                             |
-| entry_direction               | text               | `credit` / `debit`                                                                                                          |
-| amount                        | bigint             | > 0                                                                                                                         |
-| utr, utr_normalized           | text null          |                                                                                                                             |
-| description                   | text null          |                                                                                                                             |
-| row_hash                      | text               | Hash of (account, date, direction, amount, utr, description); `UNIQUE (payment_account_id, row_hash)` stops duplicate lines |
-| status                        | text               | `imported` / `matched` / `unmatched` / `duplicate` / `ignored` / `reconciled` (Req §7.6)                                    |
-| transaction_id                | uuid FK null       | Linked transaction; `UNIQUE (transaction_id) WHERE transaction_id IS NOT NULL`                                              |
-| matched_at, matched_by        |                    |                                                                                                                             |
-| raw                           | jsonb              | Original row                                                                                                                |
-| created_by                    | uuid FK users null | Who entered a manual line (D-5)                                                                                             |
-| created_at                    |                    |                                                                                                                             |
+| Column                        | Type               | Notes                                                                                                                                                      |
+| ----------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                            | uuid PK            |                                                                                                                                                            |
+| import_id                     | uuid FK null       | Null for manual entries                                                                                                                                    |
+| branch_id, payment_account_id | uuid FK            | "Bank-entry branch"                                                                                                                                        |
+| value_date                    | date               |                                                                                                                                                            |
+| posted_at                     | timestamptz null   |                                                                                                                                                            |
+| entry_direction               | text               | `credit` / `debit`                                                                                                                                         |
+| amount                        | bigint             | > 0                                                                                                                                                        |
+| utr, utr_normalized           | text null          |                                                                                                                                                            |
+| description                   | text null          |                                                                                                                                                            |
+| row_hash                      | text               | Hash of (account, date, direction, amount, UTR or else description, occurrence in the file); `UNIQUE (payment_account_id, row_hash)` stops duplicate lines |
+| status                        | text               | `imported` / `matched` / `unmatched` / `duplicate` / `ignored` / `reconciled` (Req §7.6)                                                                   |
+| transaction_id                | uuid FK null       | Linked transaction; `UNIQUE (transaction_id) WHERE transaction_id IS NOT NULL`                                                                             |
+| matched_at, matched_by        |                    |                                                                                                                                                            |
+| raw                           | jsonb              | Original row                                                                                                                                               |
+| created_by                    | uuid FK users null | Who entered a manual line (D-5)                                                                                                                            |
+| created_at                    |                    |                                                                                                                                                            |
 
 Index: `(payment_account_id, utr_normalized)`, `(branch_id, status, value_date)`.
 
 **`reconciliation_cases`** (the unsettled-UTR queue)
-`id`, `reference`, `type` (`utr_not_found` / `amount_mismatch` / `wrong_branch` / `duplicate_utr` / `entry_without_transaction` / `transaction_without_entry` / `entry_before_transaction` / `manual_review`), `status` (`open` / `in_review` / `resolved` / `reopened`), `resolution` (`linked` / `rejected` / `refunded` / `written_off` / `adjusted`) null, `branch_id`, `transaction_id` null, `statement_entry_id` null, `assigned_to` null, `notes`, `resolved_by`, `resolved_at`, `created_at`, `updated_at`. Index `(branch_id, status, created_at)`, `(status, type)`.
+`id`, `reference`, `type` (`utr_not_found` / `amount_mismatch` / `wrong_branch` / `duplicate_utr` / `late_payment` (Phase 9: a credit for an expired / declined deposit) / `entry_without_transaction` / `transaction_without_entry` / `entry_before_transaction` / `manual_review`), `status` (`open` / `in_review` / `resolved` / `reopened`), `resolution` (`linked` / `rejected` / `refunded` / `written_off` / `adjusted`) null, `branch_id`, `transaction_id` null, `statement_entry_id` null, `assigned_to` null, `notes`, `resolved_by`, `resolved_at`, `created_at`, `updated_at`. Index `(branch_id, status, created_at)`, `(status, type)`.
+
+**`statement_templates`** (Phase 9): a bank's statement layout. `id`, `name` (e.g. "HDFC Bank"), `header_signature` (SHA-256 of the normalised header row, `UNIQUE`), `mapping jsonb` (header row, date column + format, description, UTR, credit / debit or amount + Cr/Dr, balance), `created_by`, `updated_by`, timestamps. Found again by the header row of the next file, so the same bank's file needs no mapping.
+
+**Matching (Phase 9, `App\Domain\Reconciliation\StatementMatcher`)** never writes the ledger. It links a line only on exact UTR + amount + account (payouts: branch); a transaction can be linked to one line only. Everything else opens one case per line.
 
 ### 2.8 Ledger (see §3 for the rules)
 

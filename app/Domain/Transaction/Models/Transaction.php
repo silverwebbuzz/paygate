@@ -3,11 +3,13 @@
 namespace App\Domain\Transaction\Models;
 
 use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Identity\Models\User;
 use App\Domain\Customer\Models\PartnerCustomer;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\PaymentSession\Models\PaymentSession;
 use App\Domain\Payout\Models\PayoutBeneficiary;
+use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Transaction\Enums\PayinStatus;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -60,6 +62,9 @@ use Illuminate\Support\Str;
  * @property-read PaymentAccount|null $paymentAccount
  * @property-read PaymentSession|null $session
  * @property-read PayoutBeneficiary|null $beneficiary
+ * @property-read Branch|null $branch
+ * @property-read StatementEntry|null $statementEntry
+ * @property-read User|null $decider
  */
 class Transaction extends Model
 {
@@ -173,6 +178,26 @@ class Transaction extends Model
     public function session(): HasOne
     {
         return $this->hasOne(PaymentSession::class);
+    }
+
+    /**
+     * Who approved / declined (pay-ins) or paid / failed (payouts) it.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function decider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'decided_by');
+    }
+
+    /**
+     * The bank statement line this transaction is linked to (reconciliation).
+     *
+     * @return HasOne<StatementEntry, $this>
+     */
+    public function statementEntry(): HasOne
+    {
+        return $this->hasOne(StatementEntry::class);
     }
 
     /**

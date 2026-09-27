@@ -110,7 +110,7 @@ Migrations run with the **owner** credentials, passed only for this one command 
 DB_USERNAME=paygate_owner DB_PASSWORD='<owner password>' php artisan migrate --force
 ```
 
-This creates all **48 tables**, the `btree_gist` extension, every constraint and trigger, and the built-in system data:
+This creates all **49 tables**, the `btree_gist` extension, every constraint and trigger, and the built-in system data:
 
 - 9 system roles with their permissions
 - 3 platform ledger accounts

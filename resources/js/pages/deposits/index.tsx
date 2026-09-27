@@ -314,6 +314,16 @@ export default function Deposits(props: Props) {
                                         {txn.customer_utr ?? 'screenshot only'}
                                     </span>
                                 </Row>
+                                {txn.bank_line && (
+                                    <Row label="Bank statement">
+                                        <span className="font-medium text-ok">
+                                            ✓ Credit found
+                                        </span>{' '}
+                                        <span className="font-mono text-tx3">
+                                            {txn.bank_line.utr}
+                                        </span>
+                                    </Row>
+                                )}
                                 <Row label="Submitted">
                                     {formatDateTime(txn.submitted_at)}{' '}
                                     <span className="text-tx3">
@@ -520,7 +530,8 @@ function ApproveDialog({
     url: string;
     onClose: () => void;
 }) {
-    const form = useForm({ bank_utr: '', note: '' });
+    // A matching bank statement line gives the verified UTR.
+    const form = useForm({ bank_utr: txn.bank_line?.utr ?? '', note: '' });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
@@ -540,6 +551,12 @@ function ApproveDialog({
                 <b className="font-mono">
                     {txn.customer_utr ?? 'none — screenshot only'}
                 </b>
+                {txn.bank_line && (
+                    <div className="text-ok">
+                        ✓ The bank statement shows this credit (
+                        {txn.bank_line.value_date}).
+                    </div>
+                )}
                 {txn.account && (
                     <div className="text-tx3">
                         Paid into:{' '}

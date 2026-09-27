@@ -1,19 +1,26 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import admin from '@/routes/admin';
 import adminAccounts from '@/routes/admin/accounts';
+import adminCases from '@/routes/admin/cases';
 import adminDeposits from '@/routes/admin/deposits';
 import adminTransactions from '@/routes/admin/transactions';
 import adminBranches from '@/routes/admin/branches';
 import adminMappings from '@/routes/admin/mappings';
 import adminPartners from '@/routes/admin/partners';
 import adminPayouts from '@/routes/admin/payouts';
+import adminReconciliation from '@/routes/admin/reconciliation';
 import adminRoles from '@/routes/admin/roles';
+import adminStatements from '@/routes/admin/statements';
 import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
 import branchAccounts from '@/routes/branch/accounts';
+import branchCases from '@/routes/branch/cases';
 import branchDeposits from '@/routes/branch/deposits';
 import branchPayins from '@/routes/branch/payins';
 import branchPayouts from '@/routes/branch/payouts';
+import branchReconciliation from '@/routes/branch/reconciliation';
+import branchImports from '@/routes/branch/statement-imports';
+import branchStatements from '@/routes/branch/statements';
 import branchUsers from '@/routes/branch/users';
 import partner, {
     balance as partnerBalance,
@@ -38,7 +45,8 @@ import type { UserType } from '@/types';
 export type NavLink = {
     label: string;
     href?: NonNullable<InertiaLinkProps['href']>;
-    soon?: number;
+    /** Planned phase, or 'later' while it waits for a client decision. */
+    soon?: number | 'later';
     permission?: string;
 };
 
@@ -86,10 +94,23 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Reconciliation',
             items: [
-                { label: 'Manual A/C Statement', soon: 9 },
-                { label: 'Auto A/C Statement', soon: 9 },
-                { label: 'UTR Reconciliation', soon: 9 },
-                { label: 'Unsettled UTR', soon: 9 },
+                {
+                    label: 'Manual A/C Statement',
+                    href: adminStatements.index(),
+                    permission: 'statements.view',
+                },
+                // Source not decided yet (bank API, email, SMS…; G-27).
+                { label: 'Auto A/C Statement', soon: 'later' },
+                {
+                    label: 'UTR Reconciliation',
+                    href: adminReconciliation.index(),
+                    permission: 'reconciliation.view',
+                },
+                {
+                    label: 'Unsettled UTR',
+                    href: adminCases.index(),
+                    permission: 'reconciliation.view',
+                },
             ],
         },
         {
@@ -173,15 +194,27 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: branchPayouts.index(),
                     permission: 'payouts.view',
                 },
-                { label: 'Deposit Unsettled', soon: 9 },
+                {
+                    label: 'Deposit Unsettled',
+                    href: branchCases.index(),
+                    permission: 'reconciliation.view',
+                },
             ],
         },
         {
             label: 'Statements',
             items: [
-                { label: 'A/C Statement Entry', soon: 9 },
-                { label: 'Auto A/C Statement', soon: 9 },
-                { label: 'Statement History', soon: 9 },
+                {
+                    label: 'A/C Statement Entry',
+                    href: branchStatements.index(),
+                    permission: 'statements.view',
+                },
+                { label: 'Auto A/C Statement', soon: 'later' },
+                {
+                    label: 'Statement History',
+                    href: branchImports.index(),
+                    permission: 'statements.view',
+                },
             ],
         },
         {
@@ -197,7 +230,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: branchPayouts.history(),
                     permission: 'payouts.view',
                 },
-                { label: 'UTR Reconciliation', soon: 9 },
+                {
+                    label: 'UTR Reconciliation',
+                    href: branchReconciliation.index(),
+                    permission: 'reconciliation.view',
+                },
             ],
         },
         {

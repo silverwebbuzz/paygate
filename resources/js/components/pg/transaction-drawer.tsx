@@ -2,7 +2,7 @@ import { router } from '@inertiajs/react';
 import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { formatDateTime } from '@/lib/dates';
+import { formatDate, formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import adminWebhooks from '@/routes/admin/webhooks';
@@ -11,6 +11,7 @@ import partnerWebhooks from '@/routes/partner/webhooks';
 import type { UserType } from '@/types';
 import { PgButton } from './button';
 import { Drawer, KeyValues } from './drawer';
+import { CompareBlock, LineAmount } from './reconciliation';
 import { SimpleTable } from './simple-table';
 import { StatusBadge } from './status-badge';
 
@@ -42,6 +43,13 @@ export type TxnRow = {
     submitted_at: string | null;
     decided_at: string | null;
     expires_at: string | null;
+    /** The bank statement line that confirms it (not for partners). */
+    bank_line?: {
+        status: string;
+        utr: string | null;
+        amount: number;
+        value_date: string;
+    } | null;
     can: { decide: boolean; process?: boolean };
 };
 
@@ -92,6 +100,31 @@ export type TxnDetail = {
               can_resend: boolean;
           }[]
         | null;
+    reconciliation?: {
+        line: {
+            id: string;
+            value_date: string;
+            direction: 'credit' | 'debit';
+            amount: number;
+            utr: string | null;
+            description: string | null;
+            status: string;
+            account: string;
+            branch: string;
+            source: string;
+            matched_at: string | null;
+        } | null;
+        transaction_branch: string | null;
+        cases: {
+            reference: string;
+            type: string;
+            status: string;
+            resolution: string | null;
+            notes: string | null;
+            line_branch: string | null;
+            at: string | null;
+        }[];
+    } | null;
     audit:
         | {
               action: string;
@@ -121,6 +154,8 @@ const EVENT_LABELS: Record<string, string> = {
     proof_submitted: 'Customer submitted payment details',
     held: 'Put on hold',
     approved: 'Approved',
+    approved_late: 'Approved late (the money arrived after expiry / decline)',
+    bank_line_matched: 'Found in the bank statement',
     declined: 'Declined',
     expired: 'Expired',
     cancelled: 'Cancelled',
@@ -172,6 +207,7 @@ export function TransactionDrawer({
         ...(portal !== 'partner' && txn.direction === 'payin'
             ? [{ key: 'proof', label: 'Proof' }]
             : []),
+        ...(portal !== 'partner' ? [{ key: 'bank', label: 'Bank' }] : []),
         ...(portal === 'admin' ? [{ key: 'ledger', label: 'Ledger' }] : []),
         ...(portal !== 'branch'
             ? [{ key: 'webhooks', label: 'Webhooks' }]
@@ -249,6 +285,7 @@ export function TransactionDrawer({
                     )}
                     {tab === 'timeline' && <Timeline detail={detail} />}
                     {tab === 'proof' && <Proof txn={txn} detail={detail} />}
+                    {tab === 'bank' && <Bank txn={txn} detail={detail} />}
                     {tab === 'ledger' && <Ledger detail={detail} />}
                     {tab === 'webhooks' && (
                         <Webhooks detail={detail} portal={portal} />
@@ -509,6 +546,115 @@ function Proof({ txn, detail }: { txn: TxnRow; detail: TxnDetail }) {
                     </div>
                 </div>
             ))}
+        </>
+    );
+}
+
+/** Design "compare": the bank statement line against the transaction. */
+function Bank({ txn, detail }: { txn: TxnRow; detail: TxnDetail }) {
+    const rec = detail.reconciliation;
+
+    if (!rec) return null;
+
+    const line = rec.line;
+    const mismatch = rec.cases.find(
+        (item) =>
+            item.status !== 'resolved' &&
+            item.line_branch !== null &&
+            item.line_branch !== rec.transaction_branch,
+    );
+
+    return (
+        <>
+            <CompareBlock
+                transactionBranch={rec.transaction_branch}
+                transactionSub={`${txn.direction === 'payout' ? 'Payout' : 'Pay-in'} ${txn.reference}`}
+                lineBranch={line?.branch ?? mismatch?.line_branch ?? '—'}
+                lineSub={
+                    line
+                        ? `${line.account} · ${formatDate(line.value_date)}`
+                        : 'No bank line linked'
+                }
+                state={line ? 'matched' : mismatch ? 'mismatch' : 'none'}
+            />
+            {line ? (
+                <Section title="Bank statement line">
+                    <KeyValues
+                        items={[
+                            { label: 'UTR', value: line.utr, mono: true },
+                            {
+                                label: 'Amount',
+                                value: (
+                                    <LineAmount
+                                        line={{
+                                            direction: line.direction,
+                                            amount: line.amount,
+                                        }}
+                                    />
+                                ),
+                            },
+                            {
+                                label: 'Date',
+                                value: formatDate(line.value_date),
+                            },
+                            { label: 'Description', value: line.description },
+                            { label: 'Account', value: line.account },
+                            { label: 'Source', value: line.source },
+                            {
+                                label: 'Matched',
+                                value: formatDateTime(line.matched_at),
+                            },
+                            {
+                                label: 'State',
+                                value: (
+                                    <StatusBadge
+                                        status={line.status}
+                                        label={
+                                            line.status === 'matched'
+                                                ? 'Found · awaiting approval'
+                                                : undefined
+                                        }
+                                    />
+                                ),
+                            },
+                        ]}
+                    />
+                </Section>
+            ) : (
+                <p className="text-xs text-tx3">
+                    {txn.status === 'success'
+                        ? 'No bank statement line confirms this yet. It appears once the statement is entered or imported.'
+                        : 'No bank statement line found for this transaction yet.'}
+                </p>
+            )}
+            {rec.cases.length > 0 && (
+                <Section title="Reconciliation cases">
+                    {rec.cases.map((item) => (
+                        <div
+                            key={item.reference}
+                            className="rounded-lg border border-ln p-3 text-[12.5px]"
+                        >
+                            <div className="flex justify-between gap-2">
+                                <span>
+                                    <span className="font-mono text-xs">
+                                        {item.reference}
+                                    </span>{' '}
+                                    · <b>{item.type}</b>
+                                </span>
+                                <StatusBadge status={item.status} />
+                            </div>
+                            <div className="mt-1 whitespace-pre-line text-tx2">
+                                {item.notes}
+                            </div>
+                            {item.resolution && (
+                                <div className="text-xs text-tx3">
+                                    {item.resolution}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </Section>
+            )}
         </>
     );
 }

@@ -6,6 +6,10 @@ use App\Http\Admin\Mappings\MappingController;
 use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Roles\RoleController;
+use App\Http\Shared\Reconciliation\CaseController;
+use App\Http\Shared\Reconciliation\ReconciliationController;
+use App\Http\Shared\Reconciliation\StatementController;
+use App\Http\Shared\Reconciliation\StatementImportController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
@@ -37,6 +41,27 @@ Route::controller(PayoutQueueController::class)->prefix('payouts')->name('payout
     Route::post('{transaction}/fail', 'fail')->name('fail');
     Route::post('{transaction}/reassign', 'reassign')->name('reassign');
 });
+
+// Reconciliation: bank statement lines (typed in / imported), their import
+// history, the unsettled queue (cases) and the transaction-side view.
+Route::controller(StatementController::class)->prefix('statements')->name('statements.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'store')->name('store');
+    Route::get('export', 'export')->name('export');
+});
+Route::controller(StatementImportController::class)->prefix('statements/imports')->name('statement-imports.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('preview', 'preview')->middleware('throttle:20,1')->name('preview');
+    Route::post('/', 'store')->name('store');
+    Route::delete('{token}', 'cancel')->name('cancel');
+});
+Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('{case}/link', 'link')->name('link');
+    Route::post('{case}/close', 'close')->name('close');
+    Route::post('{case}/approve-late', 'approveLate')->name('approve-late');
+});
+Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
 
 // Partners (wizard, detail drawer, status, API keys).
 Route::controller(PartnerController::class)->prefix('partners')->name('partners.')->group(function () {

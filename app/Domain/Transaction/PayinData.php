@@ -30,6 +30,8 @@ final class PayinData
             'customer_id' => $payin->customer?->external_id,
             'utr' => $payin->bank_utr_normalized ?? $payin->customer_utr_normalized,
             'reason' => $payin->status === 'rejected' ? $payin->status_reason_code : null,
+            // Approved after it had expired or been declined (the money arrived late).
+            'late' => $payin->status === 'success' && $payin->status_reason_code === 'late_payment',
             'payment_url' => $open && $session !== null ? $session->url() : null,
             'expires_at' => $payin->expires_at?->toIso8601String(),
             'submitted_at' => $payin->submitted_at?->toIso8601String(),

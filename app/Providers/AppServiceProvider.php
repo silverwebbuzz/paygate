@@ -14,6 +14,9 @@ use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Reconciliation\Models\ReconciliationCase;
+use App\Domain\Reconciliation\Models\StatementEntry;
+use App\Domain\Reconciliation\Models\StatementImport;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Policies\TransactionPolicy;
 use App\Domain\Webhook\Models\WebhookEvent;
@@ -79,6 +82,9 @@ class AppServiceProvider extends ServiceProvider
             'transaction' => Transaction::class,
             'file' => StoredFile::class,
             'webhook_event' => WebhookEvent::class,
+            'statement_entry' => StatementEntry::class,
+            'statement_import' => StatementImport::class,
+            'reconciliation_case' => ReconciliationCase::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);

@@ -1,6 +1,10 @@
 <?php
 
 use App\Http\Branch\Accounts\AccountController;
+use App\Http\Shared\Reconciliation\CaseController;
+use App\Http\Shared\Reconciliation\ReconciliationController;
+use App\Http\Shared\Reconciliation\StatementController;
+use App\Http\Shared\Reconciliation\StatementImportController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
@@ -30,6 +34,26 @@ Route::controller(PayoutQueueController::class)->prefix('payouts')->name('payout
     Route::post('{transaction}/complete', 'complete')->name('complete');
     Route::post('{transaction}/fail', 'fail')->name('fail');
 });
+
+// Reconciliation: bank statement lines (typed in / imported), their import
+// history, the unsettled queue (cases) and the transaction-side view.
+Route::controller(StatementController::class)->prefix('statements')->name('statements.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'store')->name('store');
+    Route::get('export', 'export')->name('export');
+});
+Route::controller(StatementImportController::class)->prefix('statements/imports')->name('statement-imports.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('preview', 'preview')->middleware('throttle:20,1')->name('preview');
+    Route::post('/', 'store')->name('store');
+    Route::delete('{token}', 'cancel')->name('cancel');
+});
+Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('{case}/link', 'link')->name('link');
+    Route::post('{case}/close', 'close')->name('close');
+});
+Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
 
 // The branch's own bank & UPI accounts.
 Route::controller(AccountController::class)->prefix('accounts')->name('accounts.')->group(function () {
