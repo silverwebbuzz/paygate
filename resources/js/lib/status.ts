@@ -45,6 +45,7 @@ const STATUSES: Record<string, StatusStyle> = {
     exhausted: { label: 'Limit exhausted', tone: 'hd', icon: '!' },
     disabled: { label: 'Disabled', tone: 'nt', icon: '–' },
     suspended: { label: 'Suspended', tone: 'er', icon: '✕' },
+    invited: { label: 'Invited', tone: 'in', icon: '✉' },
     offboarded: { label: 'Offboarded', tone: 'nt', icon: '–' },
     // reconciliation & settlement
     matched: { label: 'Matched', tone: 'ok', icon: '✓' },

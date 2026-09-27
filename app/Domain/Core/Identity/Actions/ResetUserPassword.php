@@ -22,8 +22,10 @@ class ResetUserPassword implements ResetsUserPasswords
             'password' => $this->passwordRules(),
         ])->validate();
 
+        // The reset link was emailed to the user, so using it proves they own the address.
         $user->forceFill([
             'password' => $input['password'],
+            'email_verified_at' => $user->email_verified_at ?? now(),
         ])->save();
     }
 }

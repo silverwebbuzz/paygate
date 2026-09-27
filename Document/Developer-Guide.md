@@ -183,7 +183,8 @@ routes/
   api.php                     partner API (api.paygate.local)
   pay.php                     payer pages (pay.paygate.local)
 resources/js/
-  pages/                      Inertia pages (admin/, partner/, branch/, auth/, settings/)
+  pages/                      Inertia pages (admin/, partner/, branch/, auth/, settings/,
+                              users/ = the Users screen shared by all three portals)
   layouts/                    portal-layout (sidebar + top bar, all portals), auth-layout, settings/
   components/pg/              PayGate components from the design: sidebar, topbar, page header,
                               KPI card, data table, filters, status badge, drawer, confirm dialog,
@@ -231,13 +232,16 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 ## 9. Rules of the codebase
 
 - **Three hostnames, one app.** `paygate.local` serves the portals, `api.` the Partner API, and `pay.` the payer pages. A route only answers on its own host.
-- **Roles live in the database** (Admin edits them), **permissions in code** (`app/Domain/Core/Rbac/Enums/Permission.php`); the 9 built-in roles are in `SystemRoles.php`. Check permissions with `$user->can('accounts.verify')` or `Gate::authorize(...)`. Portal routes are guarded by `user.type:<type>`.
+- **Roles live in the database** (Admin edits them on _Roles & Permissions_), **permissions in code**: `app/Domain/Core/Rbac/Enums/Permission.php`, named `menu.action` (`payins.approve`, `users.create`, …), one grid row per `Menu` enum case. The 9 built-in roles are in `SystemRoles.php`. Check with `$user->can('payins.approve')` or `Gate::authorize(...)`; record-level rules (own organisation only, can't manage yourself) are in `UserPolicy` / `RolePolicy`. Portal routes are guarded by `user.type:<type>`.
+- **No privilege escalation:** nobody can grant a permission, assign a role or manage a user holding more than they hold themselves. The super admin role is locked and always has every admin permission. The last active super admin can't be suspended or demoted.
+- **Adding a permission:** add the case to `Permission` (and a `Menu` case if it's a new menu), grant it in `SystemRoles` if built-in roles need it, then add a migration that inserts it into `role_permissions` for existing roles on servers. Super admin gets it automatically.
+- **Users are invited, never created with a password:** Admin (any portal) or a partner/branch owner (own organisation) sends an invitation; the emailed link is valid 72 hours (`invites` password broker) and setting the password verifies the email. Locally the emails land in Mailpit.
 - **Money:** integer paise (`bigint`), never float.
 - **IDs:** UUIDv7 primary keys (`HasUuids`).
 - **Times:** stored in UTC. A business "day" uses `Asia/Kolkata` (`config('app.business_timezone')`).
 - **PostgreSQL is the source of truth.** Redis only speeds things up, so never keep money or state only in Redis.
 - **Logs are append-only.** `audit_logs` and `security_logs` can't be updated or deleted, because the database blocks it. Record changes with `AuditLog::record(...)` and `SecurityLog::record(...)`.
-- **Users are suspended, never deleted.**
+- **Users are suspended, never deleted.** Suspending, reactivating and resetting 2FA require a reason, which goes into the audit log.
 - **Queued jobs** wait for the DB transaction to commit (`after_commit`), and each job must be safe to run twice.
 - **Tests use real PostgreSQL** (`paygate_testing`), not SQLite.
 - **UI:** build screens from `components/pg/*` and the design tokens (`bg-sf`, `text-tx2`, `border-ln`, `text-ac`, …), not raw colours. Show money with `formatPaise()` and statuses with `<StatusBadge>`. Each portal's accent colour comes from `data-portal` automatically. Check new components on `/admin/ui-kit`.
@@ -247,19 +251,19 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 
 ## 10. Troubleshooting
 
-| Problem                                                    | Fix                                                                                                                                          |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `paygate.local` doesn't open                               | Hosts entry missing. Run `make hosts` to check, then step 3.2 above.                                                                         |
-| Port 80 / 5432 / 6379 already in use                       | Stop the local web server / database using it (`sudo lsof -i :80`), then `make up`.                                                          |
-| Adminer says "Connection refused"                          | Choose server **PayGate PostgreSQL (local)**; Adminer's MySQL default won't work. If it persists, check `make ps` shows postgres as healthy. |
-| Page loads without styles / blank                          | Vite isn't running: `make logs s=vite`. Try `make npm cmd=install`, then `docker compose restart vite`.                                      |
-| "No application encryption key"                            | `make artisan cmd="key:generate"`                                                                                                            |
-| Forced to set up 2FA locally                               | Expected when `PAYGATE_ENFORCE_2FA=true`; set it to `false` in your own `.env`.                                                              |
-| Queue job changes not picked up                            | `make horizon-restart`                                                                                                                       |
-| DB in a weird state                                        | `make fresh` (wipes local data)                                                                                                              |
-| Demo partner/branch users show `MIGRATED-P` / `MIGRATED-B` | Your DB predates the business tables; run `make fresh` for clean demo data                                                                   |
-| Start completely from scratch                              | `docker compose down -v` (deletes DB + Redis volumes), then `make setup`                                                                     |
-| Files owned by root (Linux)                                | Always use `make …` commands; they pass your user ID into the containers.                                                                    |
+| Problem                                                                                         | Fix                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paygate.local` doesn't open                                                                    | Hosts entry missing. Run `make hosts` to check, then step 3.2 above.                                                                         |
+| Port 80 / 5432 / 6379 already in use                                                            | Stop the local web server / database using it (`sudo lsof -i :80`), then `make up`.                                                          |
+| Adminer says "Connection refused"                                                               | Choose server **PayGate PostgreSQL (local)**; Adminer's MySQL default won't work. If it persists, check `make ps` shows postgres as healthy. |
+| Page loads without styles / blank                                                               | Vite isn't running: `make logs s=vite`. Try `make npm cmd=install`, then `docker compose restart vite`.                                      |
+| "No application encryption key"                                                                 | `make artisan cmd="key:generate"`                                                                                                            |
+| Forced to set up 2FA locally                                                                    | Expected when `PAYGATE_ENFORCE_2FA=true`; set it to `false` in your own `.env`.                                                              |
+| Queue job / email changes not picked up, or a queued email fails with "Route [...] not defined" | Horizon still runs the old code: `make horizon-restart` (needed after changing PHP code or routes)                                           |
+| DB in a weird state                                                                             | `make fresh` (wipes local data)                                                                                                              |
+| Demo partner/branch users show `MIGRATED-P` / `MIGRATED-B`                                      | Your DB predates the business tables; run `make fresh` for clean demo data                                                                   |
+| Start completely from scratch                                                                   | `docker compose down -v` (deletes DB + Redis volumes), then `make setup`                                                                     |
+| Files owned by root (Linux)                                                                     | Always use `make …` commands; they pass your user ID into the containers.                                                                    |
 
 ---
 

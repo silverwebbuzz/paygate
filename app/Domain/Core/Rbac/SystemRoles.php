@@ -9,6 +9,10 @@ use App\Domain\Core\Rbac\Enums\Permission as P;
  * Built-in roles created by the migrations. Admin can create more roles and
  * edit these; `is_system` roles can't be deleted. Slugs are stable keys used
  * by code, seeders and tests.
+ *
+ * The super admin role is locked: it always holds every admin permission
+ * (including ones added to the catalogue later), so Admin can never lock
+ * itself out of the roles screen.
  */
 final class SystemRoles
 {
@@ -39,7 +43,7 @@ final class SystemRoles
             self::ADMIN_SUPER => [
                 'type' => UserType::Admin,
                 'name' => 'Super admin',
-                'description' => 'Full control of the platform.',
+                'description' => 'Full control of the platform. Always holds every admin permission and can\'t be edited.',
                 'permissions' => P::forType(UserType::Admin),
             ],
             self::ADMIN_OPS => [
@@ -47,11 +51,11 @@ final class SystemRoles
                 'name' => 'Operations',
                 'description' => 'Verifies accounts, maps branches, oversees transactions and reconciliation.',
                 'permissions' => [
-                    P::PartnerView, P::BranchView, P::MappingManage,
-                    P::AccountView, P::AccountVerify,
-                    P::TransactionView, P::TransactionDecide, P::PayoutProcess,
-                    P::StatementImport, P::ReconciliationView, P::ReconciliationResolve,
-                    P::BalanceView, P::ReportView, P::AuditView,
+                    P::PartnersView, P::BranchesView, P::MappingsView, P::MappingsUpdate,
+                    P::AccountsView, P::AccountsVerify,
+                    P::PayinsView, P::PayinsApprove, P::PayoutsView, P::PayoutsProcess,
+                    P::StatementsView, P::StatementsCreate, P::ReconciliationView, P::ReconciliationResolve,
+                    P::BalancesView, P::ReportsView, P::AuditLogsView,
                 ],
             ],
             self::ADMIN_FINANCE => [
@@ -59,9 +63,11 @@ final class SystemRoles
                 'name' => 'Finance',
                 'description' => 'Calculates and records settlements and adjustments.',
                 'permissions' => [
-                    P::PartnerView, P::BranchView, P::TransactionView,
-                    P::BalanceView, P::SettlementView, P::SettlementManage, P::AdjustmentRequest,
-                    P::ReportView, P::ReportExport, P::AuditView,
+                    P::PartnersView, P::BranchesView, P::PayinsView, P::PayoutsView,
+                    P::BalancesView, P::CommissionsView,
+                    P::SettlementsView, P::SettlementsCreate, P::SettlementsUpdate,
+                    P::AdjustmentsView, P::AdjustmentsCreate,
+                    P::ReportsView, P::ReportsExport, P::AuditLogsView,
                 ],
             ],
             self::ADMIN_VIEWER => [
@@ -69,32 +75,37 @@ final class SystemRoles
                 'name' => 'Viewer',
                 'description' => 'Read-only access.',
                 'permissions' => [
-                    P::PartnerView, P::BranchView, P::TransactionView,
-                    P::BalanceView, P::SettlementView, P::ReportView,
+                    P::PartnersView, P::BranchesView, P::PayinsView, P::PayoutsView,
+                    P::BalancesView, P::SettlementsView, P::ReportsView,
                 ],
             ],
             self::PARTNER_OWNER => [
                 'type' => UserType::Partner,
                 'name' => 'Owner',
-                'description' => 'Full access to the partner portal.',
+                'description' => 'Full access to the partner portal, including its users.',
                 'permissions' => P::forType(UserType::Partner),
             ],
             self::PARTNER_DEVELOPER => [
                 'type' => UserType::Partner,
                 'name' => 'Developer',
                 'description' => 'Manages the API integration.',
-                'permissions' => [P::TransactionView, P::ApiKeyManage, P::WebhookManage, P::IpRuleManage, P::ApiLogView],
+                'permissions' => [
+                    P::PayinsView, P::PayoutsView,
+                    P::ApiKeysView, P::ApiKeysCreate, P::ApiKeysDelete,
+                    P::WebhooksView, P::WebhooksUpdate,
+                    P::IpRulesView, P::IpRulesCreate, P::IpRulesDelete, P::ApiLogsView,
+                ],
             ],
             self::PARTNER_VIEWER => [
                 'type' => UserType::Partner,
                 'name' => 'Viewer',
                 'description' => 'Views transactions, balance and reports.',
-                'permissions' => [P::TransactionView, P::BalanceView, P::SettlementView, P::ReportView],
+                'permissions' => [P::PayinsView, P::PayoutsView, P::BalancesView, P::SettlementsView, P::ReportsView],
             ],
             self::BRANCH_OWNER => [
                 'type' => UserType::Branch,
                 'name' => 'Branch admin',
-                'description' => 'Full access to the branch portal.',
+                'description' => 'Full access to the branch portal, including its users.',
                 'permissions' => P::forType(UserType::Branch),
             ],
             self::BRANCH_OPERATOR => [
@@ -102,8 +113,8 @@ final class SystemRoles
                 'name' => 'Operator',
                 'description' => 'Approves deposits, processes payouts, imports statements.',
                 'permissions' => [
-                    P::AccountView, P::TransactionView, P::TransactionDecide, P::PayoutProcess,
-                    P::StatementImport, P::ReconciliationView,
+                    P::AccountsView, P::PayinsView, P::PayinsApprove, P::PayoutsView, P::PayoutsProcess,
+                    P::StatementsView, P::StatementsCreate, P::ReconciliationView,
                 ],
             ],
         ];

@@ -6,8 +6,10 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Audit\Models\SecurityLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Identity\Policies\UserPolicy;
 use App\Domain\Core\Rbac\Enums\Permission;
 use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\Policies\RolePolicy;
 use App\Domain\Partner\Models\Partner;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -56,7 +58,7 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * Every Permission enum value is a Gate ability, resolved from the user's role:
-     * `$user->can('partners.manage')`, `Gate::authorize(Permission::PartnersManage->value)`.
+     * `$user->can('partners.update')`, `Gate::authorize(Permission::PartnersUpdate->value)`.
      */
     protected function configureAuthorization(): void
     {
@@ -65,6 +67,10 @@ class AppServiceProvider extends ServiceProvider
 
             return $permission === null ? null : $user->hasPermission($permission);
         });
+
+        // Record-level rules (scope, escalation, locked roles) on top of permissions.
+        Gate::policy(User::class, UserPolicy::class);
+        Gate::policy(Role::class, RolePolicy::class);
     }
 
     /**

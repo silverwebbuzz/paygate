@@ -21,7 +21,7 @@ export default function PortalLayout({
     const [density, toggleDensity] = useDensity();
 
     const portal = auth.user.type;
-    const groups =
+    const groups = (
         portal === 'admin' && environment === 'local'
             ? [
                   ...PORTAL_NAV.admin,
@@ -30,7 +30,17 @@ export default function PortalLayout({
                       items: [{ label: 'UI kit', href: '/admin/ui-kit' }],
                   },
               ]
-            : PORTAL_NAV[portal];
+            : PORTAL_NAV[portal]
+    )
+        .map((group) => ({
+            ...group,
+            items: group.items.filter(
+                (item) =>
+                    !item.permission ||
+                    auth.permissions.includes(item.permission),
+            ),
+        }))
+        .filter((group) => group.items.length > 0);
     const current = groups
         .flatMap((group) =>
             group.items.map((item) => ({ group: group.label, item })),

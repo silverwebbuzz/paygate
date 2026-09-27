@@ -1,7 +1,11 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import admin from '@/routes/admin';
+import adminRoles from '@/routes/admin/roles';
+import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
+import branchUsers from '@/routes/branch/users';
 import partner from '@/routes/partner';
+import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
 import type { UserType } from '@/types';
 
@@ -9,6 +13,8 @@ import type { UserType } from '@/types';
  * Sidebar menus per portal, following the design's navigation
  * (Document/PayGate UI redesign). Items without `href` are planned for the
  * phase in `soon` and render disabled, so the menu is complete from day one.
+ * Items with `permission` are hidden from users whose role lacks it (the
+ * server checks again on every request).
  */
 export type NavLink = {
     label: string;
@@ -74,8 +80,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'System',
             items: [
-                { label: 'Users', soon: 3 },
-                { label: 'Roles & Permissions', soon: 3 },
+                {
+                    label: 'Users',
+                    href: adminUsers.index(),
+                    permission: 'users.view',
+                },
+                {
+                    label: 'Roles & Permissions',
+                    href: adminRoles.index(),
+                    permission: 'roles.view',
+                },
                 { label: 'Global Settings', soon: 12 },
                 { label: 'IP Management', soon: 12 },
                 { label: 'Audit Logs', soon: 12 },
@@ -127,7 +141,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Admin',
             items: [
-                { label: 'Users', soon: 3 },
+                {
+                    label: 'Users',
+                    href: branchUsers.index(),
+                    permission: 'users.view',
+                },
                 { label: 'Audit Logs', soon: 12 },
             ],
         },
@@ -160,6 +178,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 { label: 'API & Webhooks', soon: 4 },
                 { label: 'IP Whitelist', soon: 4 },
                 { label: 'API Logs', soon: 6 },
+            ],
+        },
+        {
+            label: 'Admin',
+            items: [
+                {
+                    label: 'Users',
+                    href: partnerUsers.index(),
+                    permission: 'users.view',
+                },
             ],
         },
         account,

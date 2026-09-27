@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Core\Identity\Models\User;
+use App\Http\Shared\Auth\InvitationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -10,6 +11,12 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::redirect('/', '/dashboard')->name('home');
+
+// Invitation links (emailed by App\Domain\Core\Identity\Actions\SendInvitation).
+Route::middleware('guest')->group(function () {
+    Route::get('invitation/{token}', [InvitationController::class, 'show'])->name('invitation.show');
+    Route::post('invitation', [InvitationController::class, 'store'])->middleware('throttle:6,1')->name('invitation.store');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Sends each user to their own portal.

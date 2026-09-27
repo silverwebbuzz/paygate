@@ -5,11 +5,13 @@ namespace App\Domain\Core\Rbac\Models;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Enums\Permission;
+use App\Domain\Core\Rbac\SystemRoles;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 
 /**
@@ -62,14 +64,38 @@ class Role extends Model
     }
 
     /**
+     * The super admin role can't be edited, suspended or deleted, and always
+     * holds every admin permission (see SystemRoles).
+     */
+    public function isLocked(): bool
+    {
+        return $this->slug === SystemRoles::ADMIN_SUPER;
+    }
+
+    /**
      * @return list<string>
      */
     public function permissionValues(): array
     {
+        if ($this->isLocked()) {
+            return array_map(fn (Permission $permission) => $permission->value, Permission::forType(UserType::Admin));
+        }
+
         return $this->permissionCache ??= array_values(array_map(
             'strval',
             DB::table('role_permissions')->where('role_id', $this->id)->orderBy('permission')->pluck('permission')->all(),
         ));
+    }
+
+    /**
+     * Whether `$user` may hand this role out (or edit it): a user can never
+     * grant more than they hold themselves.
+     */
+    public function isWithinPermissionsOf(User $user): bool
+    {
+        $granted = array_filter($this->permissionValues(), fn (string $value) => Permission::tryFrom($value) !== null);
+
+        return array_diff($granted, $user->permissionNames()) === [];
     }
 
     public function grants(Permission $permission): bool
@@ -80,10 +106,34 @@ class Role extends Model
     }
 
     /**
+     * Stops `$actor` giving this role to a user of `$type`: it must be an
+     * active role of that portal, and no more powerful than the actor's own.
+     *
+     * @throws ValidationException
+     */
+    public function ensureAssignableBy(User $actor, UserType $type, string $field = 'role_id'): void
+    {
+        $error = match (true) {
+            $this->user_type !== $type => __('Choose a :portal role.', ['portal' => $type->label()]),
+            ! $this->isActive() => __('This role is inactive.'),
+            ! $this->isWithinPermissionsOf($actor) => __('You can only assign roles with permissions you hold yourself.'),
+            default => null,
+        };
+
+        if ($error !== null) {
+            throw ValidationException::withMessages([$field => $error]);
+        }
+    }
+
+    /**
      * @param  list<Permission>  $permissions
      */
     public function syncPermissions(array $permissions): void
     {
+        if ($this->isLocked()) {
+            throw new InvalidArgumentException('The super admin role always holds every permission and cannot be changed.');
+        }
+
         foreach ($permissions as $permission) {
             if (! $permission->allowedFor($this->user_type)) {
                 throw new InvalidArgumentException("Permission {$permission->value} is not available to {$this->user_type->value} roles.");

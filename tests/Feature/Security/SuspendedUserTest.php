@@ -45,7 +45,7 @@ class SuspendedUserTest extends TestCase
     {
         $user = User::factory()->admin()->suspended()->create();
 
-        $this->assertFalse($user->can('partner.manage'));
+        $this->assertFalse($user->can('partners.update'));
         $this->assertSame([], $user->permissionNames());
     }
 }

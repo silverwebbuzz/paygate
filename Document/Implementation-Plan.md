@@ -14,15 +14,16 @@ This replaces the old roadmap in Architecture.md §19.
 
 ## 1. Where we are
 
-| Phase                 | Result                                                                | Commit        |
-| --------------------- | --------------------------------------------------------------------- | ------------- |
-| 0 — Local environment | Docker stack, Laravel 13, host routing, CI                            | `d57c15d`     |
-| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs                         | `d57c15d`     |
-| Requirements v1.4     | Business model, flows, financial model, gaps                          | `d57c15d`     |
-| Database              | 47 tables, safety rules, Deployment.md                                | `d57c15d`     |
-| Design                | UI export added                                                       | `09f83ff`     |
-| 2a — Modules + schema | Domain module structure, schema fixes D-1…D-5                         | `3264531`     |
-| 2b — UI foundation    | Design tokens, portal shells, shared components, auth screens, UI kit | (this commit) |
+| Phase                 | Result                                                                                 | Commit        |
+| --------------------- | -------------------------------------------------------------------------------------- | ------------- |
+| 0 — Local environment | Docker stack, Laravel 13, host routing, CI                                             | `d57c15d`     |
+| 1 — Auth & access     | Portals, 2FA, suspension, audit/security logs                                          | `d57c15d`     |
+| Requirements v1.4     | Business model, flows, financial model, gaps                                           | `d57c15d`     |
+| Database              | 47 tables, safety rules, Deployment.md                                                 | `d57c15d`     |
+| Design                | UI export added                                                                        | `09f83ff`     |
+| 2a — Modules + schema | Domain module structure, schema fixes D-1…D-5                                          | `3264531`     |
+| 2b — UI foundation    | Design tokens, portal shells, shared components, auth screens, UI kit                  | `c699d3b`     |
+| 3 — Roles & users     | `menu.action` permission grid, roles screen, users screen for all portals, invitations | (this commit) |
 
 ---
 
@@ -42,15 +43,15 @@ No staging or production database exists yet, so these go into the **existing** 
 
 ### 2.2 Differences in approach (no database change)
 
-| #   | Design                                                                                             | Built / agreed                                                | Resolution                                                                                                                                                                                              |
-| --- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A-1 | Role builder: **menu × View / Insert / Update / Delete** grid                                      | Named permissions (`transaction.decide`, `partner.manage`, …) | Regroup the permission catalogue by menu with actions `view / create / update / delete` plus special actions (`approve`, `export`); render it as the design's grid. Role storage is unchanged (Phase 3) |
-| A-2 | Status labels: Created, Pending, Payment hold, Under review, Approved, Declined, Failed, Unsettled | Database states (Requirements §7)                             | One display mapping, e.g. `payment_submitted` → "Pending", `under_review` → "Payment hold", `success` → "Approved" / "Success", `rejected` → "Declined"                                                 |
-| A-3 | Account status "Exhausted"                                                                         | Not a stored state                                            | Derived from `usage_counters` (daily limit reached)                                                                                                                                                     |
-| A-4 | Limits entered as **−1 = unlimited**                                                               | `NULL` = unlimited                                            | The UI converts −1 ↔ NULL                                                                                                                                                                               |
-| A-5 | Mock partner wizard says "Routing: weighted by order"                                              | Client confirmed **round robin** (G-29)                       | Round robin is the default; priority/weighted stay optional per partner                                                                                                                                 |
-| A-6 | Fonts Inter + JetBrains Mono                                                                       | Starter kit uses Instrument Sans                              | Switch to the design fonts                                                                                                                                                                              |
-| A-7 | Settlement mock "Next cycle 18:00 IST"                                                             | Daily cut-off still open (G-09)                               | Make the cut-off a global setting; confirm the time with the client                                                                                                                                     |
+| #   | Design                                                                                             | Built / agreed                                     | Resolution                                                                                                                                                                      |
+| --- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A-1 | Role builder: **menu × View / Insert / Update / Delete** grid                                      | Named permissions (old names, replaced in Phase 3) | ✅ Done in Phase 3: permissions are `menu.action` (`payins.approve`, …), shown as the design's grid with an extra "Other" column for special actions. Role storage is unchanged |
+| A-2 | Status labels: Created, Pending, Payment hold, Under review, Approved, Declined, Failed, Unsettled | Database states (Requirements §7)                  | One display mapping, e.g. `payment_submitted` → "Pending", `under_review` → "Payment hold", `success` → "Approved" / "Success", `rejected` → "Declined"                         |
+| A-3 | Account status "Exhausted"                                                                         | Not a stored state                                 | Derived from `usage_counters` (daily limit reached)                                                                                                                             |
+| A-4 | Limits entered as **−1 = unlimited**                                                               | `NULL` = unlimited                                 | The UI converts −1 ↔ NULL                                                                                                                                                       |
+| A-5 | Mock partner wizard says "Routing: weighted by order"                                              | Client confirmed **round robin** (G-29)            | Round robin is the default; priority/weighted stay optional per partner                                                                                                         |
+| A-6 | Fonts Inter + JetBrains Mono                                                                       | Starter kit uses Instrument Sans                   | Switch to the design fonts                                                                                                                                                      |
+| A-7 | Settlement mock "Next cycle 18:00 IST"                                                             | Daily cut-off still open (G-09)                    | Make the cut-off a global setting; confirm the time with the client                                                                                                             |
 
 ### 2.3 Design coverage
 

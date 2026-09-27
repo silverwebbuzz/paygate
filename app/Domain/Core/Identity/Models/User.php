@@ -7,6 +7,7 @@ use App\Domain\Core\Identity\Enums\UserStatus;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Rbac\Enums\Permission;
 use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Partner\Models\Partner;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -79,6 +80,51 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function isType(UserType $type): bool
     {
         return $this->type === $type;
+    }
+
+    /**
+     * Invited but hasn't set a password yet (setting it verifies the email).
+     */
+    public function isInvited(): bool
+    {
+        return $this->email_verified_at === null && $this->last_login_at === null;
+    }
+
+    /**
+     * Status for display: active, invited or suspended.
+     */
+    public function displayStatus(): string
+    {
+        return match (true) {
+            ! $this->isActive() => $this->status->value,
+            $this->isInvited() => 'invited',
+            default => 'active',
+        };
+    }
+
+    /**
+     * The partner or branch the user works for (null for admins).
+     */
+    public function organisationId(): ?string
+    {
+        return $this->partner_id ?? $this->branch_id;
+    }
+
+    /**
+     * True when this user is the only active super admin left, so they must
+     * not be suspended or given another role.
+     */
+    public function isLastActiveSuperAdmin(): bool
+    {
+        if (! $this->isActive() || $this->role->slug !== SystemRoles::ADMIN_SUPER) {
+            return false;
+        }
+
+        return ! self::query()
+            ->whereKeyNot($this->getKey())
+            ->where('status', UserStatus::Active)
+            ->whereRelation('role', 'slug', SystemRoles::ADMIN_SUPER)
+            ->exists();
     }
 
     /**

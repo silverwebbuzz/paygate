@@ -14,6 +14,7 @@ export function Drawer({
     onOpenChange,
     kind,
     title,
+    monoTitle = true,
     status,
     subtitle,
     actions,
@@ -27,6 +28,7 @@ export function Drawer({
     onOpenChange: (open: boolean) => void;
     kind?: string;
     title: string;
+    monoTitle?: boolean;
     status?: ReactNode;
     subtitle?: ReactNode;
     actions?: ReactNode;
@@ -47,7 +49,14 @@ export function Drawer({
                                 <div className="text-xs text-tx3">{kind}</div>
                             )}
                             <div className="mt-0.5 flex flex-wrap items-center gap-2.5">
-                                <DialogPrimitive.Title className="font-mono text-[17px] font-medium">
+                                <DialogPrimitive.Title
+                                    className={cn(
+                                        'text-[17px] font-medium',
+                                        monoTitle
+                                            ? 'font-mono'
+                                            : 'font-semibold',
+                                    )}
+                                >
                                     {title}
                                 </DialogPrimitive.Title>
                                 {status}
