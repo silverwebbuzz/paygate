@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ac:#4F46E5;--acs:#EEF2FF;--act:#3730A3;--bg:#F5F6F8;--sf:#fff;--sf2:#F8FAFC;--ln:#E4E7EC;--ln2:#EEF0F3;--tx:#0F172A;--tx2:#475569;--tx3:#64748B;--rp:9px;--ok:#047857;--okb:#ECFDF5;--wn:#B45309;--wnb:#FFFBEB;--er:#B91C1C;--erb:#FEF2F2;--in:#1D4ED8;--inb:#EFF6FF;--hd:#C2410C;--hdb:#FFF7ED;--rv:#6D28D9;--rvb:#F5F3FF;--nt:#475569;--ntb:#F1F5F9}
+[data-theme=dark]{--bg:#0A0F1C;--sf:#0F1728;--sf2:#131D31;--ln:#1F2A3F;--ln2:#18233A;--tx:#E6EAF2;--tx2:#A7B1C4;--tx3:#8391A8;--ok:#34D399;--okb:rgba(16,185,129,.13);--wn:#FBBF24;--wnb:rgba(245,158,11,.13);--er:#F87171;--erb:rgba(239,68,68,.13);--in:#60A5FA;--inb:rgba(59,130,246,.13);--hd:#FB923C;--hdb:rgba(249,115,22,.13);--rv:#A78BFA;--rvb:rgba(139,92,246,.15);--nt:#A7B1C4;--ntb:rgba(148,163,184,.12)}
+*{box-sizing:border-box}html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--tx);font-family:Inter,system-ui,sans-serif;font-size:13px;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1,"cv11" 1}
+a{color:var(--ac);text-decoration:none}a:hover{text-decoration:underline}
+input,button,select,textarea{font-family:inherit}
+@keyframes pgIn{from{transform:translateX(28px);opacity:0}to{transform:none;opacity:1}}
+@keyframes pgFade{from{opacity:0}to{opacity:1}}
+@keyframes pgPop{from{transform:translateY(8px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+@keyframes pgSpin{to{transform:rotate(360deg)}}
+@keyframes pgPulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+<div style="display:flex;min-height:100vh;background:var(--bg)">
+<aside style="width:{{ sideW }};flex:none;background:#0B1220;color:#C8D1DF;display:flex;flex-direction:column;height:100vh;position:sticky;top:0;transition:width .18s ease;overflow:hidden;z-index:5">
+  <div style="height:56px;display:flex;align-items:center;gap:10px;padding:0 18px;border-bottom:1px solid rgba(255,255,255,.06);flex:none">
+    <div style="width:28px;height:28px;border-radius:8px;background:var(--ac);display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px;flex:none;transition:background .2s">P</div>
+    <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;line-height:1.2;min-width:0">
+        <span style="font-weight:600;color:#fff;font-size:14px;letter-spacing:-.01em">PayGate</span>
+        <span style="font-size:11px;color:#8391A8;white-space:nowrap">{{ envLabel }}</span>
+      </div>
+    </sc-if>
+  </div>
+  <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:12px 12px 4px;flex:none">
+      <div style="font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6B778C;padding:0 6px 6px">Environment</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;background:rgba(255,255,255,.04);padding:4px;border-radius:9px">
+        <sc-for list="{{ panels }}" as="p" hint-placeholder-count="4">
+          <button onClick="{{ p.onClick }}" style="height:28px;border:0;border-radius:6px;background:{{ p.bg }};color:{{ p.fg }};font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
+            <span style="width:6px;height:6px;border-radius:50%;background:{{ p.dot }}"></span>{{ p.label }}
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <nav style="flex:1;overflow-y:auto;padding:8px 10px 16px">
+    <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="5">
+      <div style="margin-top:12px">
+        <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6B778C;padding:0 10px 5px">{{ g.g }}</div>
+        </sc-if>
+        <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+          <button onClick="{{ it.onClick }}" title="{{ it.label }}" style="width:100%;display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border:0;border-radius:7px;background:{{ it.bg }};color:{{ it.fg }};font-size:13px;font-weight:{{ it.fw }};cursor:pointer;text-align:left" style-hover="background:rgba(255,255,255,.05)">
+            <span style="width:6px;height:6px;border-radius:2px;flex:none;background:{{ it.dot }}"></span>
+            <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+              <sc-if value="{{ it.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;padding:1px 6px;border-radius:5px;background:rgba(251,146,60,.16);color:#FDBA74">{{ it.badge }}</span></sc-if>
+            </sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-for>
+  </nav>
+  <div onClick="{{ goProfile }}" title="Profile &amp; settings" style="border-top:1px solid rgba(255,255,255,.06);padding:12px 14px;display:flex;align-items:center;gap:10px;flex:none;cursor:pointer" style-hover="background:rgba(255,255,255,.04)">
+    <div style="width:30px;height:30px;border-radius:50%;background:#1E293B;color:#E2E8F0;display:grid;place-items:center;font-size:11.5px;font-weight:600;flex:none">{{ userIni }}</div>
+    <sc-if value="{{ expanded }}" hint-placeholder-val="{{ true }}">
+      <div style="line-height:1.25;min-width:0"><div style="color:#fff;font-weight:500;font-size:12.5px">{{ userName }}</div><div style="font-size:11.5px;color:#8391A8;white-space:nowrap">{{ userRole }}</div></div><span style="flex:1"></span><button onClick="{{ signOut }}" title="Sign out" style="height:26px;padding:0 8px;border:1px solid rgba(255,255,255,.1);background:transparent;color:#C8D1DF;border-radius:6px;font-size:11.5px;cursor:pointer;flex:none">Sign out</button>
+    </sc-if>
+  </div>
+</aside>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column">
+  <header style="height:56px;flex:none;display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--sf);border-bottom:1px solid var(--ln);position:sticky;top:0;z-index:4">
+    <button onClick="{{ toggleSide }}" title="Collapse sidebar" style="width:30px;height:30px;border:1px solid var(--ln);background:var(--sf);border-radius:7px;cursor:pointer;color:var(--tx2);display:grid;place-items:center;flex:none"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2.5" width="13" height="11" rx="2"></rect><line x1="6" y1="2.5" x2="6" y2="13.5"></line></svg></button>
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px;flex:none;white-space:nowrap">
+      <span style="color:var(--tx3)">{{ crumbPanel }}</span><span style="color:var(--ln)">/</span><span style="color:var(--tx3)">{{ crumbGroup }}</span><span style="color:var(--ln)">/</span><span style="color:var(--tx);font-weight:500">{{ crumbPage }}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;height:32px;flex:1 1 200px;min-width:0;max-width:340px;margin-left:auto;padding:0 10px;border:1px solid var(--ln);border-radius:8px;background:var(--sf2);color:var(--tx3)">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"></circle><line x1="10.5" y1="10.5" x2="14" y2="14"></line></svg>
+      <span style="flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden">Search txn ID, UTR, order ID, partner…</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;border:1px solid var(--ln);border-radius:4px;padding:1px 5px;background:var(--sf)">⌘K</span>
+    </div>
+    <span style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 9px;border-radius:13px;background:var(--acs);color:var(--act);font-size:12px;font-weight:500;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:var(--ac)"></span>{{ panelShort }} · Production</span>
+    <button onClick="{{ toggleDark }}" title="Toggle theme" style="width:32px;height:32px;border:1px solid var(--ln);background:var(--sf);border-radius:8px;cursor:pointer;color:var(--tx2);font-size:14px">{{ themeIcon }}</button>
+    <button title="Notifications" style="position:relative;width:32px;height:32px;border:1px solid var(--ln);background:var(--sf);border-radius:8px;cursor:pointer;color:var(--tx2);display:grid;place-items:center"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 11V7a4 4 0 0 1 8 0v4l1.2 1.5H2.8Z"></path><path d="M6.5 14h3"></path></svg><span style="position:absolute;top:5px;right:6px;width:7px;height:7px;border-radius:50%;background:#EF4444;border:1.5px solid var(--sf)"></span></button>
+    <button title="Help" style="width:32px;height:32px;border:1px solid var(--ln);background:var(--sf);border-radius:8px;cursor:pointer;color:var(--tx2);font-weight:600;font-size:13px">?</button>
+  </header>
+
+  <div style="padding:22px 24px 48px;width:100%;max-width:1640px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+
+  <!-- DASHBOARD -->
+  <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ok);font-weight:500"><span style="width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pgPulse 1.6s infinite"></span>Live · refreshed 12s ago</div>
+        <h1 style="margin:4px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em">{{ dash.title }}</h1>
+        <p style="margin:4px 0 0;color:var(--tx2);font-size:13px">{{ dash.desc }}</p>
+      </div>
+      <div style="display:flex;gap:2px;padding:3px;border:1px solid var(--ln);border-radius:9px;background:var(--sf);flex-wrap:wrap">
+        <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="8">
+          <button onClick="{{ r.onClick }}" style="height:26px;padding:0 10px;border:0;border-radius:6px;background:{{ r.bg }};color:{{ r.fg }};font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">{{ r.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">
+      <sc-for list="{{ dash.kpis }}" as="k" hint-placeholder-count="10">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:13px 14px;display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;color:var(--tx2)">{{ k.label }}</div>
+          <div style="font-size:20px;font-weight:600;letter-spacing:-.02em">{{ k.value }}</div>
+          <div style="font-size:12px;color:{{ k.subFg }}">{{ k.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,2.1fr) minmax(280px,1fr);gap:12px">
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:16px 18px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+          <div><div style="font-size:14px;font-weight:600">Pay-in vs Pay-out volume</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">Hourly, 25 Sep 2026 · INR</div></div>
+          <div style="display:flex;gap:16px;font-size:12px;color:var(--tx2)">
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ac)"></span>Pay-in <b style="color:var(--tx);font-weight:600">{{ dash.payinTotal }}</b></span>
+            <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:var(--tx3);opacity:.45"></span>Pay-out <b style="color:var(--tx);font-weight:600">{{ dash.payoutTotal }}</b></span>
+          </div>
+        </div>
+        <div style="position:relative;height:210px;margin-top:18px;display:flex;align-items:flex-end;gap:5px;border-bottom:1px solid var(--ln);background:repeating-linear-gradient(to top,transparent 0 51px,var(--ln2) 51px 52px)">
+          <sc-for list="{{ bars }}" as="b" hint-placeholder-count="24">
+            <div title="{{ b.tip }}" style="flex:1;display:flex;align-items:flex-end;gap:2px;height:100%">
+              <div style="flex:1;height:{{ b.inH }};background:var(--ac);border-radius:3px 3px 0 0;opacity:{{ b.op }}"></div>
+              <div style="flex:1;height:{{ b.outH }};background:var(--tx3);opacity:.35;border-radius:3px 3px 0 0"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:6px">
+          <sc-for list="{{ bars }}" as="b" hint-placeholder-count="24"><div style="flex:1;font-size:10.5px;color:var(--tx3);text-align:center">{{ b.lbl }}</div></sc-for>
+        </div>
+      </div>
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+        <div><div style="font-size:14px;font-weight:600">Transaction outcome</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ dash.outcomeSub }}</div></div>
+        <div style="display:flex;align-items:center;gap:18px">
+          <div style="width:128px;height:128px;border-radius:50%;background:conic-gradient(var(--ok) 0 91.7%,var(--wn) 91.7% 97.8%,var(--er) 97.8% 100%);display:grid;place-items:center;flex:none">
+            <div style="width:94px;height:94px;border-radius:50%;background:var(--sf);display:grid;place-items:center;text-align:center"><div><div style="font-size:21px;font-weight:600;letter-spacing:-.02em">91.7%</div><div style="font-size:11px;color:var(--tx3)">success</div></div></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;flex:1;font-size:12.5px">
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:6px;color:var(--tx2)"><span style="color:var(--ok)">✓</span>Success</span><b style="font-weight:600">16,902</b></div>
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:6px;color:var(--tx2)"><span style="color:var(--wn)">◷</span>Pending</span><b style="font-weight:600">1,118</b></div>
+            <div style="display:flex;justify-content:space-between;gap:8px"><span style="display:flex;align-items:center;gap:6px;color:var(--tx2)"><span style="color:var(--er)">✕</span>Failed</span><b style="font-weight:600">406</b></div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--ln2);padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px">
+          <div><div style="color:var(--tx3)">Avg. approval time</div><div style="font-weight:600;font-size:14px;margin-top:2px">3m 42s</div></div>
+          <div><div style="color:var(--tx3)">Avg. ticket size</div><div style="font-weight:600;font-size:14px;margin-top:2px">₹2,618</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:12px">
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow:hidden">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--ln2);display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:600">Needs attention</div><span style="font-size:12px;color:var(--tx3)">Operational queue</span></div>
+        <sc-for list="{{ dash.attention }}" as="a" hint-placeholder-count="6">
+          <button onClick="{{ a.onClick }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:11px 16px;border:0;border-bottom:1px solid var(--ln2);background:transparent;cursor:pointer;text-align:left;color:var(--tx)" style-hover="background:var(--sf2)">
+            <span style="width:28px;height:28px;border-radius:7px;display:grid;place-items:center;font-size:12px;flex:none;color:{{ a.st.fg }};background:{{ a.st.bg }}">{{ a.st.ic }}</span>
+            <span style="flex:1;min-width:0"><span style="display:block;font-weight:500">{{ a.label }}</span><span style="display:block;font-size:12px;color:var(--tx3);margin-top:1px">{{ a.sub }}</span></span>
+            <span style="font-weight:600;font-size:14px">{{ a.value }}</span><span style="color:var(--tx3)">›</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow:hidden">
+        <div style="padding:14px 16px;border-bottom:1px solid var(--ln2);display:flex;justify-content:space-between;align-items:center"><div style="font-size:14px;font-weight:600">{{ dash.tblTitle }}</div><span style="font-size:12px;color:var(--ac);font-weight:500">View report →</span></div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
+          <thead><tr style="background:var(--sf2);color:var(--tx3);font-size:12px;text-align:left">
+            <sc-for list="{{ dash.tblHead }}" as="h" hint-placeholder-count="5"><th style="padding:8px 16px;font-weight:500;border-bottom:1px solid var(--ln);white-space:nowrap">{{ h }}</th></sc-for>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ dash.tblRows }}" as="r" hint-placeholder-count="6">
+              <tr style="border-bottom:1px solid var(--ln2)" style-hover="background:var(--sf2)">
+                <td style="padding:10px 16px;font-weight:500">{{ r.a }}<div style="font-size:12px;color:var(--tx3);font-weight:400">{{ r.a2 }}</div></td>
+                <td style="padding:10px 16px">{{ r.b }}</td>
+                <td style="padding:10px 16px">{{ r.c }}</td>
+                <td style="padding:10px 16px;width:180px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:3px;background:var(--ln2);overflow:hidden"><div style="height:100%;width:{{ r.pctW }};background:{{ r.pctC }};border-radius:3px"></div></div><span style="font-size:12px;color:var(--tx2);width:40px;text-align:right">{{ r.pct }}</span></div></td>
+                <td style="padding:10px 16px;text-align:right;font-weight:600">{{ r.d }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- TRANSACTIONS -->
+  <sc-if value="{{ isTxns }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">{{ txnTitle }}</h1><p style="margin:4px 0 0;color:var(--tx2)">{{ txnDesc }}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">↻ Refresh</button>
+        <button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Columns · 14</button>
+        <button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Export ▾</button>
+        <button style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Bulk actions</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+      <sc-for list="{{ txnKpis }}" as="k" hint-placeholder-count="5">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+          <span style="width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:12px;color:{{ k.fg }};background:{{ k.bg }}">{{ k.ic }}</span>
+          <div><div style="font-size:12px;color:var(--tx2)">{{ k.label }}</div><div style="font-size:18px;font-weight:600;letter-spacing:-.02em;margin-top:1px">{{ k.value }}</div></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;position:relative">
+      <div style="display:flex;align-items:center;gap:2px;padding:0 12px;border-bottom:1px solid var(--ln2);overflow-x:auto">
+        <sc-for list="{{ views }}" as="v" hint-placeholder-count="4">
+          <button onClick="{{ v.onClick }}" style="height:42px;padding:0 10px;border:0;background:transparent;border-bottom:2px solid {{ v.bd }};color:{{ v.fg }};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px">{{ v.label }}<span style="font-size:11px;padding:1px 6px;border-radius:5px;background:var(--sf2);color:var(--tx3);border:1px solid var(--ln2)">{{ v.count }}</span></button>
+        </sc-for>
+        <button style="height:42px;padding:0 10px;border:0;background:transparent;color:var(--tx3);font-size:13px;cursor:pointer;white-space:nowrap">+ Save view</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;flex-wrap:wrap;border-bottom:1px solid var(--ln2)">
+        <div style="display:flex;align-items:center;gap:8px;height:30px;width:260px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;color:var(--tx3);font-size:12.5px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"></circle><line x1="10.5" y1="10.5" x2="14" y2="14"></line></svg>Txn ID, UTR, order ID, mobile</div>
+        <sc-for list="{{ txnChips }}" as="c" hint-placeholder-count="4">
+          <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 10px;border:1px solid var(--ln);border-radius:7px;background:var(--sf2);font-size:12.5px;white-space:nowrap"><span style="color:var(--tx3)">{{ c.k }}</span><b style="font-weight:500;color:var(--tx)">{{ c.v }}</b><span style="width:18px;height:18px;display:grid;place-items:center;color:var(--tx3);border-radius:4px;cursor:pointer">×</span></span>
+        </sc-for>
+        <button onClick="{{ toggleBuilder }}" style="height:30px;padding:0 10px;border:1px dashed var(--ln);background:transparent;color:var(--ac);border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer">+ Add filter</button>
+        <div style="flex:1"></div>
+        <span style="font-size:12px;color:var(--tx3)">Showing 12 of 1,118 · sorted by Created ↓</span>
+      </div>
+      <sc-if value="{{ showBuilder }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;top:96px;left:300px;width:620px;max-width:calc(100% - 24px);background:var(--sf);border:1px solid var(--ln);border-radius:12px;box-shadow:0 18px 48px rgba(15,23,42,.18);z-index:10;animation:pgPop .16s">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--ln2);display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:600;font-size:14px">Advanced filter</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">Combine conditions with AND / OR groups</div></div><button onClick="{{ toggleBuilder }}" style="border:0;background:transparent;font-size:18px;color:var(--tx3);cursor:pointer">×</button></div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ builderRows }}" as="b" hint-placeholder-count="3">
+              <div style="display:grid;grid-template-columns:52px 1fr 110px 1.3fr 24px;gap:6px;align-items:center">
+                <span style="font-size:11.5px;font-weight:600;color:var(--ac);text-align:center;padding:4px 0;border-radius:5px;background:var(--acs)">{{ b.join }}</span>
+                <span style="height:32px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;display:flex;align-items:center;justify-content:space-between">{{ b.f }}<span style="color:var(--tx3)">▾</span></span>
+                <span style="height:32px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;color:var(--tx2)">{{ b.op }}<span style="color:var(--tx3)">▾</span></span>
+                <span style="height:32px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;display:flex;align-items:center;font-weight:500">{{ b.v }}</span>
+                <span style="color:var(--tx3);text-align:center">×</span>
+              </div>
+            </sc-for>
+            <div style="border:1px dashed var(--ln);border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:6px;margin-top:4px">
+              <div style="font-size:11.5px;color:var(--tx3);font-weight:500">GROUP · match any (OR)</div>
+              <div style="display:grid;grid-template-columns:52px 1fr 110px 1.3fr;gap:6px;align-items:center">
+                <span style="font-size:11.5px;font-weight:600;color:var(--rv);text-align:center;padding:4px 0;border-radius:5px;background:var(--rvb)">AND</span>
+                <span style="height:32px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;display:flex;align-items:center">Branch</span>
+                <span style="height:32px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;display:flex;align-items:center;color:var(--tx2)">is any of</span>
+                <span style="height:32px;border:1px solid var(--ln);border-radius:7px;padding:0 6px;display:flex;align-items:center;gap:4px"><span style="font-size:12px;padding:2px 6px;border-radius:4px;background:var(--sf2);border:1px solid var(--ln2)">297 Delux HP</span><span style="font-size:12px;padding:2px 6px;border-radius:4px;background:var(--sf2);border:1px solid var(--ln2)">300 BRR HP</span></span>
+              </div>
+            </div>
+            <div style="display:flex;gap:12px;font-size:12.5px;font-weight:500;color:var(--ac);margin-top:2px"><span>+ Condition</span><span>+ Group</span></div>
+          </div>
+          <div style="padding:12px 16px;border-top:1px solid var(--ln2);display:flex;align-items:center;gap:8px;background:var(--sf2);border-radius:0 0 12px 12px">
+            <span style="font-size:12px;color:var(--tx3)">Save as</span>
+            <span style="flex:1;height:32px;border:1px solid var(--ln);background:var(--sf);border-radius:7px;padding:0 10px;display:flex;align-items:center;font-weight:500">High Value Pending Deposits</span>
+            <button onClick="{{ saveFilter }}" style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-weight:500;cursor:pointer">Save view</button>
+            <button onClick="{{ toggleBuilder }}" style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-weight:500;cursor:pointer">Apply · 42 results</button>
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--acs);color:var(--act);font-size:12.5px;font-weight:500;border-bottom:1px solid var(--ln2)">
+          <span>{{ selCount }} selected · {{ selSum }}</span><span style="flex:1"></span>
+          <button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Switch branch</button>
+          <button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Mark for review</button>
+          <button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Export selected</button>
+          <button onClick="{{ clearSel }}" style="height:26px;padding:0 8px;border:0;background:transparent;color:var(--act);font-size:12px;cursor:pointer">Clear</button>
+        </div>
+      </sc-if>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:separate;border-spacing:0;min-width:1360px">
+        <thead><tr style="text-align:left;color:var(--tx3);font-size:12px">
+          <th style="position:sticky;top:0;background:var(--sf2);padding:8px 12px;border-bottom:1px solid var(--ln);width:36px"></th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Transaction</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Partner · Order ID</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Customer</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500;text-align:right">Amount · Net</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Method · Bank</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">UTR</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Branch</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Status</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Created ↓</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);font-weight:500">Updated · Success</th>
+          <th style="background:var(--sf2);padding:8px 10px;border-bottom:1px solid var(--ln);width:44px"></th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ txns }}" as="t" hint-placeholder-count="10">
+            <tr onClick="{{ t.open }}" style="cursor:pointer;background:{{ t.rowBg }}" style-hover="background:var(--sf2)">
+              <td style="padding:var(--rp) 12px;border-bottom:1px solid var(--ln2)"><span onClick="{{ t.toggle }}" style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ t.cbBd }};background:{{ t.cbBg }};color:#fff;display:grid;place-items:center;font-size:10px">{{ t.cbIc }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500">{{ t.id }}</div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3);margin-top:2px">{{ t.uuidShort }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div style="font-weight:500">{{ t.partner }} <span style="font-size:11px;color:var(--tx3);font-weight:400">{{ t.pcode }}</span></div><div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3);margin-top:2px">{{ t.order }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div>{{ t.cust }}</div><div style="font-size:12px;color:var(--tx3);margin-top:1px">{{ t.mob }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);text-align:right;white-space:nowrap"><div style="font-weight:600">{{ t.grossF }}</div><div style="font-size:12px;color:var(--tx3);margin-top:1px">Net {{ t.netF }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);white-space:nowrap"><div>{{ t.method }}</div><div style="font-size:12px;color:var(--tx3);margin-top:1px">{{ t.bank }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ t.utrFg }}">{{ t.utr }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;border:1px solid var(--ln);background:var(--sf2);font-size:12px;color:var(--tx2);white-space:nowrap">{{ t.branch }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;color:{{ t.st.fg }};background:{{ t.st.bg }}"><span style="font-size:10px">{{ t.st.ic }}</span>{{ t.st.label }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);white-space:nowrap"><div>{{ t.date }}</div><div style="font-size:12px;color:var(--tx3);margin-top:1px">{{ t.time }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);white-space:nowrap;font-size:12px;color:var(--tx2)"><div>{{ t.upd }}</div><div style="color:var(--tx3);margin-top:1px">{{ t.succ }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);color:var(--tx3);font-size:16px;text-align:center">⋯</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-size:12.5px;color:var(--tx2);flex-wrap:wrap;gap:8px">
+        <span>Rows per page <b style="border:1px solid var(--ln);border-radius:6px;padding:3px 8px;font-weight:500">20 ▾</b></span>
+        <div style="display:flex;gap:4px;align-items:center"><span style="padding:4px 8px;color:var(--tx3)">‹ Prev</span><span style="padding:4px 10px;border-radius:6px;background:var(--ac);color:#fff;font-weight:500">1</span><span style="padding:4px 10px">2</span><span style="padding:4px 10px">3</span><span style="padding:4px 6px;color:var(--tx3)">…</span><span style="padding:4px 10px">56</span><span style="padding:4px 8px">Next ›</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- MANUAL DEPOSIT -->
+  <sc-if value="{{ isDeps }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Manual Deposit</h1><p style="margin:4px 0 0;color:var(--tx2)">Review and manage manual deposit requests. Approvals require the bank UTR.</p></div>
+      <div style="display:flex;gap:8px">
+        <div style="display:flex;padding:3px;border:1px solid var(--ln);border-radius:8px;background:var(--sf)"><button onClick="{{ setDepGrid }}" style="height:26px;padding:0 10px;border:0;border-radius:5px;background:{{ depGridBg }};color:var(--tx);font-size:12px;font-weight:500;cursor:pointer">Cards</button><button onClick="{{ setDepList }}" style="height:26px;padding:0 10px;border:0;border-radius:5px;background:{{ depListBg }};color:var(--tx);font-size:12px;font-weight:500;cursor:pointer">Dense list</button></div>
+        <button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Export CSV</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+      <sc-for list="{{ depTabs }}" as="k" hint-placeholder-count="6">
+        <button onClick="{{ k.onClick }}" style="text-align:left;background:var(--sf);border:1px solid {{ k.bd }};box-shadow:{{ k.sh }};border-radius:10px;padding:12px 14px;cursor:pointer;color:var(--tx);display:flex;flex-direction:column;gap:5px">
+          <span style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2)"><span style="font-size:10px;color:{{ k.fg }}">{{ k.ic }}</span>{{ k.label }}</span>
+          <span style="font-size:19px;font-weight:600;letter-spacing:-.02em">{{ k.count }}</span>
+          <span style="font-size:12px;color:var(--tx3)">{{ k.amt }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:10px 12px">
+      <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Date</span><b style="font-weight:500">Today · 25 Sep 2026</b> ▾</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Branch</span><b style="font-weight:500">103 HP +199</b> ▾</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Partner</span><b style="font-weight:500">All partners</b> ▾</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Deposit type</span><b style="font-weight:500">Client request</b> ▾</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Method</span><b style="font-weight:500">Any</b> ▾</span>
+      <div style="flex:1;min-width:200px;display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;color:var(--tx3);font-size:12.5px">⌕ Request ID, transaction ID, username</div>
+      <button style="height:30px;padding:0 10px;border:0;background:transparent;color:var(--ac);font-size:12.5px;font-weight:500;cursor:pointer">More filters</button>
+    </div>
+    <sc-if value="{{ depGrid }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px">
+      <sc-for list="{{ deps }}" as="d" hint-placeholder-count="6">
+        <div onClick="{{ d.open }}" style="background:var(--sf);border:1px solid var(--ln);border-radius:12px;cursor:pointer;display:flex;flex-direction:column;transition:border-color .15s,box-shadow .15s" style-hover="border-color:var(--ac);box-shadow:0 4px 16px rgba(15,23,42,.06)">
+          <div style="padding:14px 16px 12px;display:flex;align-items:flex-start;gap:10px">
+            <div style="width:34px;height:34px;border-radius:9px;background:var(--sf2);border:1px solid var(--ln);display:grid;place-items:center;font-size:12px;font-weight:600;color:var(--tx2);flex:none">{{ d.ini }}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:13.5px">{{ d.partner }} <span style="font-weight:400;font-size:11.5px;color:var(--tx3)">{{ d.pcode }}</span></div>
+              <div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ d.branch }} · {{ d.user }}</div>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;color:{{ d.st.fg }};background:{{ d.st.bg }}"><span style="font-size:10px">{{ d.st.ic }}</span>{{ d.st.label }}</span>
+          </div>
+          <div style="padding:0 16px 12px;display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+            <div style="font-size:22px;font-weight:600;letter-spacing:-.02em">{{ d.amtF }}</div>
+            <div style="font-size:11.5px;color:var(--tx3);text-align:right">{{ d.type }}</div>
+          </div>
+          <div style="margin:0 16px;border-top:1px solid var(--ln2);padding-top:10px;display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:12px">
+            <span style="color:var(--tx3)">Request ID</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px">{{ d.reqId }}</span>
+            <span style="color:var(--tx3)">Transaction</span><span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.txnId }}</span>
+            <span style="color:var(--tx3)">Bank</span><span>{{ d.bank }} · <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ d.utrFg }}">{{ d.bankUtr }}</span></span>
+            <span style="color:var(--tx3)">Created</span><span>{{ d.created }} <span style="color:var(--tx3)">· link {{ d.link }}</span></span>
+            <span style="color:var(--tx3)">Decision</span><span style="color:var(--tx2)">{{ d.decision }}</span>
+          </div>
+          <div style="padding:12px 16px 14px;display:flex;align-items:center;gap:6px;margin-top:auto">
+            <button onClick="{{ d.proof }}" style="height:30px;padding:0 10px;border:1px solid var(--ln);background:var(--sf2);color:var(--tx);border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;border-radius:3px;background:repeating-linear-gradient(135deg,var(--ln) 0 2px,transparent 2px 4px);border:1px solid var(--ln)"></span>Proof</button>
+            <span style="flex:1"></span>
+            <sc-if value="{{ d.actionable }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ d.decline }}" title="Decline" style="height:30px;width:30px;border:1px solid var(--ln);background:var(--sf);color:var(--er);border-radius:7px;cursor:pointer">✕</button>
+              <button onClick="{{ d.hold }}" style="height:30px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--hd);border-radius:7px;font-size:12px;font-weight:500;cursor:pointer">Hold</button>
+              <button onClick="{{ d.approve }}" style="height:30px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer">Approve</button>
+            </sc-if>
+            <sc-if value="{{ d.closed }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--tx3)">View history ›</span></sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+    <sc-if value="{{ depList }}" hint-placeholder-val="{{ false }}">
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:1200px">
+        <thead><tr style="text-align:left;color:var(--tx3);font-size:12px;background:var(--sf2)">
+          <th style="padding:8px 12px;font-weight:500;border-bottom:1px solid var(--ln)">Partner · Branch</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Request · Transaction</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">User</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Bank · Bank UTR</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Amount</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Status</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Created</th><th style="padding:8px 12px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Actions</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ deps }}" as="d" hint-placeholder-count="8">
+            <tr onClick="{{ d.open }}" style="cursor:pointer" style-hover="background:var(--sf2)">
+              <td style="padding:var(--rp) 12px;border-bottom:1px solid var(--ln2)"><div style="font-weight:500">{{ d.partner }}</div><div style="font-size:12px;color:var(--tx3)">{{ d.branch }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-family:'JetBrains Mono',monospace;font-size:11.5px"><div>{{ d.reqId }}</div><div style="color:var(--tx3)">{{ d.txnShort }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)">{{ d.user }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div>{{ d.bank }}</div><div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ d.utrFg }}">{{ d.bankUtr }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);text-align:right;font-weight:600">{{ d.amtF }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;color:{{ d.st.fg }};background:{{ d.st.bg }}"><span style="font-size:10px">{{ d.st.ic }}</span>{{ d.st.label }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px;color:var(--tx2)">{{ d.created }}</td>
+              <td style="padding:var(--rp) 12px;border-bottom:1px solid var(--ln2);text-align:right;white-space:nowrap"><sc-if value="{{ d.actionable }}" hint-placeholder-val="{{ true }}"><button onClick="{{ d.hold }}" style="height:26px;padding:0 8px;border:1px solid var(--ln);background:var(--sf);color:var(--hd);border-radius:6px;font-size:12px;cursor:pointer;margin-right:4px">Hold</button><button onClick="{{ d.approve }}" style="height:26px;padding:0 10px;border:0;background:var(--ac);color:#fff;border-radius:6px;font-size:12px;cursor:pointer">Approve</button></sc-if></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    </sc-if>
+  </sc-if>
+
+  <!-- A/C STATEMENT -->
+  <sc-if value="{{ isStmt }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Manual A/C Statement Entry</h1><p style="margin:4px 0 0;color:var(--tx2)">Record bank statement lines and reconcile them against pay-in transactions and branches.</p></div>
+      <div style="display:flex;gap:8px"><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Import statement</button><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Export CSV</button></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">
+      <sc-for list="{{ stmtKpis }}" as="k" hint-placeholder-count="5">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:12px 14px"><div style="font-size:12px;color:var(--tx2)">{{ k.label }}</div><div style="font-size:19px;font-weight:600;letter-spacing:-.02em;margin-top:4px;color:{{ k.fg }}">{{ k.value }}</div><div style="font-size:12px;color:var(--tx3);margin-top:3px">{{ k.sub }}</div></div>
+      </sc-for>
+    </div>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-weight:600;font-size:13.5px">New statement line</span><span style="font-size:12px;color:var(--tx3)">Credit or debit — one value per line</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;align-items:end">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--tx2)">Branch<span style="min-height:34px;border:1px solid var(--ln);border-radius:7px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px;color:var(--tx);font-size:13px;white-space:nowrap;overflow:hidden">103 HP<span style="color:var(--tx3)">▾</span></span></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--tx2)">Bank account<span style="min-height:34px;border:1px solid var(--ln);border-radius:7px;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;gap:6px;color:var(--tx);font-size:13px;white-space:nowrap;overflow:hidden">Ashan Ali Shaik · 5535<span style="color:var(--tx3)">▾</span></span></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--tx2)">Date<span style="min-height:34px;border:1px solid var(--ln);border-radius:7px;padding:6px 10px;display:flex;align-items:center;color:var(--tx);font-size:13px;white-space:nowrap">25 Sep 2026</span></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--tx2)">Description / reference<input placeholder="e.g. 626812820491" style="height:34px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;background:var(--sf);color:var(--tx);font-size:13px;outline:none"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--tx2)">Credit ₹<input placeholder="0.00" style="height:34px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;background:var(--sf);color:var(--tx);font-size:13px;text-align:right;outline:none"></label>
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--tx2)">Debit ₹<input placeholder="0.00" style="height:34px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;background:var(--sf);color:var(--tx);font-size:13px;text-align:right;outline:none"></label>
+        <button onClick="{{ addLine }}" style="height:34px;padding:0 16px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-weight:500;cursor:pointer">Add line</button>
+      </div>
+    </div>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;flex-wrap:wrap;border-bottom:1px solid var(--ln2)">
+        <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Period</span><b style="font-weight:500">25 Sep – 25 Sep 2026</b></span>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Branch</span><b style="font-weight:500">252 Umang HP BYT +12</b></span>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--ln);border-radius:7px;font-size:12.5px"><span style="color:var(--tx3)">Bank</span><b style="font-weight:500">MD SAIF (270 Pragya RY) +504</b></span>
+        <sc-for list="{{ stmtFilters }}" as="f" hint-placeholder-count="5">
+          <button onClick="{{ f.onClick }}" style="height:30px;padding:0 10px;border:1px solid {{ f.bd }};background:{{ f.bg }};color:{{ f.fg }};border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer">{{ f.label }} <span style="opacity:.7">{{ f.count }}</span></button>
+        </sc-for>
+        <span style="flex:1"></span>
+        <span style="font-size:12px;color:var(--tx3)">Branch match: All ▾</span>
+      </div>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:1480px">
+        <thead><tr style="text-align:left;color:var(--tx3);font-size:12px;background:var(--sf2)">
+          <th style="padding:8px 12px;font-weight:500;border-bottom:1px solid var(--ln)">Sr</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Doc date · Description</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Debit</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Credit</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Transaction details</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Txn amount</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Status</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Branch details</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Branch match</th>
+          <th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Request dates</th>
+          <th style="padding:8px 12px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Actions</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ stmts }}" as="r" hint-placeholder-count="8">
+            <tr onClick="{{ r.open }}" style="cursor:pointer;vertical-align:top" style-hover="background:var(--sf2)">
+              <td style="padding:var(--rp) 12px;border-bottom:1px solid var(--ln2);color:var(--tx3)">{{ r.sr }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div>{{ r.doc }}</div><div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--tx2);margin-top:2px">{{ r.desc }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);text-align:right;color:{{ r.drFg }};white-space:nowrap">{{ r.drF }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);text-align:right;color:{{ r.crFg }};white-space:nowrap;font-weight:500">{{ r.crF }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px">
+                <div style="display:grid;grid-template-columns:58px 1fr;gap:2px 8px">
+                  <span style="color:var(--tx3)">Bank</span><span style="font-weight:500">{{ r.bankName }}</span>
+                  <span style="color:var(--tx3)">Txn ID</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:{{ r.txnFg }}">{{ r.txnShort }}</span>
+                  <span style="color:var(--tx3)">Bank UTR</span><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx2)">{{ r.bankUtr }}</span>
+                  <span style="color:var(--tx3)">Action by</span><span style="color:var(--tx2)">{{ r.actionBy }}</span>
+                </div>
+              </td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);text-align:right;font-weight:600;white-space:nowrap">{{ r.amtF }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)">
+                <span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;color:{{ r.st.fg }};background:{{ r.st.bg }}"><span style="font-size:10px">{{ r.st.ic }}</span>{{ r.st.label }}</span>
+                <sc-if value="{{ r.canAct }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:4px;margin-top:6px"><button onClick="{{ r.approve }}" style="height:24px;padding:0 8px;border:0;background:var(--ac);color:#fff;border-radius:5px;font-size:11.5px;cursor:pointer">Approve</button><button onClick="{{ r.hold }}" style="height:24px;padding:0 8px;border:1px solid var(--ln);background:var(--sf);color:var(--hd);border-radius:5px;font-size:11.5px;cursor:pointer">Hold</button></div></sc-if>
+              </td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px">
+                <div style="display:grid;grid-template-columns:70px 1fr;gap:2px 8px">
+                  <span style="color:var(--tx3)">Txn branch</span><span style="font-weight:500">{{ r.txnBranch }}</span>
+                  <span style="color:var(--tx3)">Bank entry</span><span style="font-weight:500">{{ r.bankBranch }}</span>
+                  <span style="color:var(--tx3)">Entry by</span><span style="color:var(--tx2)">{{ r.entryBy }}</span>
+                </div>
+              </td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;color:{{ r.m.fg }};background:{{ r.m.bg }}"><span style="font-size:10px">{{ r.m.ic }}</span>{{ r.m.label }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px;white-space:nowrap">
+                <div style="display:grid;grid-template-columns:auto auto;gap:2px 10px">
+                  <span style="color:var(--tx3)">Created</span><span>{{ r.d1 }}</span>
+                  <span style="color:var(--tx3)">Submitted</span><span>{{ r.d2 }}</span>
+                  <span style="color:var(--tx3)">Modified</span><span>{{ r.d3 }}</span>
+                  <span style="color:var(--tx3)">Manual entry</span><span>{{ r.d4 }}</span>
+                </div>
+              </td>
+              <td style="padding:var(--rp) 12px;border-bottom:1px solid var(--ln2);text-align:right;white-space:nowrap">
+                <div style="display:inline-flex;gap:4px"><button style="height:26px;padding:0 8px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">{{ r.primary }}</button><button style="height:26px;padding:0 8px;border:1px solid var(--ln);background:var(--sf);color:var(--tx2);border-radius:6px;font-size:12px;cursor:pointer">Logs</button><button style="height:26px;width:26px;border:1px solid var(--ln);background:var(--sf);color:var(--tx3);border-radius:6px;cursor:pointer">⋯</button></div>
+              </td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      </div>
+      <div style="padding:10px 14px;font-size:12.5px;color:var(--tx2)">Showing 1–9 of 103 statement lines</div>
+    </div>
+  </sc-if>
+
+  <!-- PARTNERS -->
+  <sc-if value="{{ isPartners }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Partners</h1><p style="margin:4px 0 0;color:var(--tx2)">79 merchants · 61 active. Credentials, payment methods and branch routing per partner.</p></div>
+      <div style="display:flex;gap:8px"><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Export</button><button onClick="{{ openWizard }}" style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">+ Create partner</button></div>
+    </div>
+    <sc-if value="{{ showWizard }}" hint-placeholder-val="{{ false }}">
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:12px;display:grid;grid-template-columns:230px minmax(0,1fr)">
+        <div style="border-right:1px solid var(--ln2);padding:16px 12px;display:flex;flex-direction:column;gap:2px;background:var(--sf2);border-radius:12px 0 0 12px">
+          <div style="font-size:12px;color:var(--tx3);padding:0 8px 8px">Create partner · Step {{ wzStepNo }} of 7</div>
+          <sc-for list="{{ wzSteps }}" as="w" hint-placeholder-count="7">
+            <button onClick="{{ w.onClick }}" style="display:flex;align-items:center;gap:10px;height:34px;padding:0 8px;border:0;border-radius:7px;background:{{ w.bg }};color:{{ w.fg }};font-size:13px;font-weight:500;cursor:pointer;text-align:left"><span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;background:{{ w.dotBg }};color:{{ w.dotFg }};flex:none">{{ w.mark }}</span>{{ w.label }}</button>
+          </sc-for>
+        </div>
+        <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+          <div><div style="font-size:16px;font-weight:600">{{ wzTitle }}</div><div style="font-size:12.5px;color:var(--tx3);margin-top:3px">{{ wzHint }}</div></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+            <sc-for list="{{ wzFields }}" as="f" hint-placeholder-count="6">
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--tx2);font-weight:500">{{ f.label }}<span style="min-height:34px;border:1px solid var(--ln);border-radius:7px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:{{ f.fg }};font-size:13px;font-weight:400;background:var(--sf)">{{ f.value }}<span style="color:var(--tx3);font-size:11px">{{ f.suffix }}</span></span><span style="font-size:11.5px;color:var(--tx3);font-weight:400">{{ f.help }}</span></label>
+            </sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;border-top:1px solid var(--ln2);padding-top:14px">
+            <button onClick="{{ closeWizard }}" style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-weight:500;cursor:pointer">Cancel</button>
+            <div style="display:flex;gap:8px"><button onClick="{{ wzPrev }}" style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-weight:500;cursor:pointer">Back</button><button onClick="{{ wzNext }}" style="height:32px;padding:0 16px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-weight:500;cursor:pointer">{{ wzNextLabel }}</button></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:1280px">
+        <thead><tr style="text-align:left;color:var(--tx3);font-size:12px;background:var(--sf2)">
+          <th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--ln)">Partner</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Secret key</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Return URL</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Pay-in</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Pay-out</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Commission</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Branch mapping</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Status</th><th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Actions</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ partners }}" as="p" hint-placeholder-count="10">
+            <tr style-hover="background:var(--sf2)">
+              <td style="padding:var(--rp) 14px;border-bottom:1px solid var(--ln2)"><div style="display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:8px;background:var(--sf2);border:1px solid var(--ln);display:grid;place-items:center;font-size:11px;font-weight:600;color:var(--tx2)">{{ p.ini }}</span><div><div style="font-weight:500">{{ p.name }} <span style="font-size:11px;color:var(--tx3);font-weight:400;font-family:'JetBrains Mono',monospace">{{ p.code }}</span></div><div style="font-size:12px;color:var(--tx3)">{{ p.email }}</div></div></div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--tx2)">sk_live_••••{{ p.sk }}<button onClick="{{ p.copy }}" style="border:1px solid var(--ln);background:var(--sf);border-radius:5px;font-size:11px;padding:2px 6px;cursor:pointer;color:var(--tx2)">Copy</button></span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px;color:var(--tx2);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.url }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:{{ p.pi.fg }};background:{{ p.pi.bg }}">{{ p.pi.ic }} {{ p.piLabel }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:{{ p.po.fg }};background:{{ p.po.bg }}">{{ p.po.ic }} {{ p.poLabel }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px"><div>Deposit <b style="font-weight:600">{{ p.cd }}</b></div><div style="color:var(--tx3)">Withdraw {{ p.cw }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">{{ p.branches }} branches ›</button></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:{{ p.st.fg }};background:{{ p.st.bg }}"><span style="font-size:9px">{{ p.st.ic }}</span>{{ p.st.label }}</span></td>
+              <td style="padding:var(--rp) 14px;border-bottom:1px solid var(--ln2);text-align:right;white-space:nowrap"><button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Edit</button> <button style="height:26px;width:26px;border:1px solid var(--ln);background:var(--sf);color:var(--tx3);border-radius:6px;cursor:pointer">⋯</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </sc-if>
+
+  <!-- BRANCHES -->
+  <sc-if value="{{ isBranches }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Branches</h1><p style="margin:4px 0 0;color:var(--tx2)">200 branches · 48 active. Limits, commissions and volumes for Today.</p></div>
+      <div style="display:flex;gap:8px"><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Today ▾</button><button style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">+ Create branch</button></div>
+    </div>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:1400px">
+        <thead>
+          <tr style="color:var(--tx3);font-size:11.5px;background:var(--sf2)">
+            <th style="padding:8px 14px 0;border:0" colspan="2"></th>
+            <th colspan="3" style="padding:8px 10px 4px;font-weight:600;text-align:left;letter-spacing:.04em;text-transform:uppercase;color:var(--ok)">Deposit</th>
+            <th colspan="4" style="padding:8px 10px 4px;font-weight:600;text-align:left;letter-spacing:.04em;text-transform:uppercase;color:var(--in);border-left:1px solid var(--ln)">Withdrawal</th>
+            <th colspan="4" style="border-left:1px solid var(--ln)"></th>
+          </tr>
+          <tr style="text-align:left;color:var(--tx3);font-size:12px;background:var(--sf2)">
+            <th style="padding:6px 14px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Branch</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Active banks</th>
+            <th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Max limit</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Comm.</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Total</th>
+            <th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln);border-left:1px solid var(--ln)">Max limit</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Comm.</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Per txn</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln);text-align:right">Total</th>
+            <th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln);border-left:1px solid var(--ln)">Partners</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Branch admin</th><th style="padding:6px 10px 8px;font-weight:500;border-bottom:1px solid var(--ln)">Status</th><th style="padding:6px 14px 8px;font-weight:500;border-bottom:1px solid var(--ln)"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ branches }}" as="b" hint-placeholder-count="10">
+            <tr style-hover="background:var(--sf2)">
+              <td style="padding:var(--rp) 14px;border-bottom:1px solid var(--ln2)"><div style="font-weight:500">{{ b.name }}</div><div style="font-size:12px;color:var(--tx3)">{{ b.type }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)">{{ b.banks }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);color:{{ b.dlFg }}">{{ b.dl }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-weight:500">{{ b.dc }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);text-align:right;font-weight:600">{{ b.td }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);border-left:1px solid var(--ln2);color:{{ b.wlFg }}">{{ b.wl }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-weight:500">{{ b.wc }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px;white-space:nowrap">{{ b.tl }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);text-align:right;font-weight:600">{{ b.tw }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);border-left:1px solid var(--ln2)"><span style="font-size:12px;color:var(--ac);font-weight:500">{{ b.partners }} mapped</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="font-size:12px;color:{{ b.adminFg }};font-weight:500">{{ b.admin }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:{{ b.st.fg }};background:{{ b.st.bg }}"><span style="font-size:9px">{{ b.st.ic }}</span>{{ b.st.label }}</span></td>
+              <td style="padding:var(--rp) 14px;border-bottom:1px solid var(--ln2);text-align:right;white-space:nowrap"><button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Edit</button> <button style="height:26px;width:26px;border:1px solid var(--ln);background:var(--sf);color:var(--tx3);border-radius:6px;cursor:pointer">⋯</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </sc-if>
+
+  <!-- ACCOUNTS -->
+  <sc-if value="{{ isAccounts }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Bank &amp; UPI Accounts</h1><p style="margin:4px 0 0;color:var(--tx2)">Collection accounts allocated to customers. Limits reset daily at 00:00 IST.</p></div>
+      <div style="display:flex;gap:8px"><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Show deleted</button><button style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">+ Add account</button></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px">
+      <sc-for list="{{ acctKpis }}" as="k" hint-placeholder-count="4">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:12px 14px"><div style="font-size:12px;color:var(--tx2)">{{ k.label }}</div><div style="font-size:19px;font-weight:600;margin-top:4px">{{ k.value }}</div><div style="font-size:12px;color:var(--tx3);margin-top:3px">{{ k.sub }}</div></div>
+      </sc-for>
+    </div>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;min-width:1380px">
+        <thead><tr style="text-align:left;color:var(--tx3);font-size:12px;background:var(--sf2)">
+          <th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--ln)">Account</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Bank · Number · IFSC</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">UPI · Merchant</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Branch</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Per-txn limit</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln);width:200px">Used today / daily limit</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Methods</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Verification</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Status</th><th style="padding:8px 14px;font-weight:500;border-bottom:1px solid var(--ln)"></th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="6">
+            <tr style-hover="background:var(--sf2)">
+              <td style="padding:var(--rp) 14px;border-bottom:1px solid var(--ln2)"><div style="font-weight:500">{{ a.holder }}</div><div style="font-size:12px;color:var(--tx3)">{{ a.type }} · order {{ a.order }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div style="font-weight:500">{{ a.bank }}</div><div style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--tx2)">{{ a.acct }} · {{ a.ifsc }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div style="font-family:'JetBrains Mono',monospace;font-size:11.5px">{{ a.upi }}</div><div style="font-size:12px;color:var(--tx3)">{{ a.merchant }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;border:1px solid var(--ln);background:var(--sf2);font-size:12px;color:var(--tx2);white-space:nowrap">{{ a.branch }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px;white-space:nowrap">{{ a.txnLim }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><b style="font-weight:600">{{ a.used }}</b><span style="color:var(--tx3)">{{ a.limit }}</span></div><div style="height:6px;border-radius:3px;background:var(--ln2);overflow:hidden"><div style="height:100%;width:{{ a.pctW }};background:{{ a.pctC }};border-radius:3px"></div></div><div style="font-size:11.5px;color:var(--tx3);margin-top:3px">{{ a.remain }}</div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><div style="display:flex;gap:4px;flex-wrap:wrap"><sc-for list="{{ a.methods }}" as="m" hint-placeholder-count="2"><span style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--ln);color:{{ m.fg }};background:var(--sf);text-decoration:{{ m.td }}">{{ m.l }}</span></sc-for></div></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><button onClick="{{ a.verify }}" style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;border:0;cursor:pointer;color:{{ a.vf.fg }};background:{{ a.vf.bg }}"><span style="font-size:10px">{{ a.vf.ic }}</span>{{ a.vf.label }} ▾</button></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:{{ a.st.fg }};background:{{ a.st.bg }}"><span style="font-size:9px">{{ a.st.ic }}</span>{{ a.st.label }}</span></td>
+              <td style="padding:var(--rp) 14px;border-bottom:1px solid var(--ln2);text-align:right;white-space:nowrap"><button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Test intent</button> <button style="height:26px;width:26px;border:1px solid var(--ln);background:var(--sf);color:var(--tx3);border-radius:6px;cursor:pointer">⋯</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </sc-if>
+
+  <!-- ROLES -->
+  <sc-if value="{{ isRoles }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Roles &amp; Permissions</h1><p style="margin:4px 0 0;color:var(--tx2)">242 roles. Permissions apply per menu: View, Insert, Update, Delete.</p></div>
+      <div style="display:flex;gap:8px"><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Duplicate role</button><button onClick="{{ savePerms }}" style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Save changes</button></div>
+    </div>
+    <div style="display:grid;grid-template-columns:260px minmax(0,1fr);gap:12px;align-items:start">
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow:hidden">
+        <div style="padding:10px 12px;border-bottom:1px solid var(--ln2)"><div style="height:30px;border:1px solid var(--ln);border-radius:7px;padding:0 10px;display:flex;align-items:center;color:var(--tx3);font-size:12.5px">⌕ Search roles</div></div>
+        <sc-for list="{{ roles }}" as="r" hint-placeholder-count="8">
+          <button onClick="{{ r.onClick }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 14px;border:0;border-bottom:1px solid var(--ln2);background:{{ r.bg }};color:var(--tx);cursor:pointer;text-align:left"><span><span style="display:block;font-weight:{{ r.fw }}">{{ r.name }}</span><span style="display:block;font-size:12px;color:var(--tx3)">{{ r.users }} users</span></span><span style="font-size:11px;color:{{ r.tagFg }}">{{ r.tag }}</span></button>
+        </sc-for>
+      </div>
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--ln2);display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:600;font-size:14px">{{ roleName }}</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ roleSummary }}</div></div><span style="font-size:12px;color:var(--tx3)">Click a cell to toggle</span></div>
+        <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:620px">
+          <thead><tr style="color:var(--tx3);font-size:12px;background:var(--sf2)"><th style="padding:8px 16px;text-align:left;font-weight:500;border-bottom:1px solid var(--ln)">Menu</th><th style="padding:8px;font-weight:500;border-bottom:1px solid var(--ln);width:80px">All</th><th style="padding:8px;font-weight:500;border-bottom:1px solid var(--ln);width:80px">View</th><th style="padding:8px;font-weight:500;border-bottom:1px solid var(--ln);width:80px">Insert</th><th style="padding:8px;font-weight:500;border-bottom:1px solid var(--ln);width:80px">Update</th><th style="padding:8px;font-weight:500;border-bottom:1px solid var(--ln);width:80px">Delete</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ permRows }}" as="p" hint-placeholder-count="12">
+              <tr style-hover="background:var(--sf2)">
+                <td style="padding:7px 16px;border-bottom:1px solid var(--ln2)"><span style="font-size:11px;color:var(--tx3);display:block">{{ p.group }}</span>{{ p.mod }}</td>
+                <sc-for list="{{ p.cells }}" as="c" hint-placeholder-count="5">
+                  <td style="padding:7px;border-bottom:1px solid var(--ln2);text-align:center"><span onClick="{{ c.onClick }}" style="display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;border:1.5px solid {{ c.bd }};background:{{ c.bg }};color:#fff;font-size:11px;cursor:pointer">{{ c.ic }}</span></td>
+                </sc-for>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- DEVELOPERS -->
+  <sc-if value="{{ isDev }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">API &amp; Webhooks</h1><p style="margin:4px 0 0;color:var(--tx2)">Credentials, webhook endpoints and delivery logs for Atoz. API version V2.</p></div>
+      <div style="display:flex;gap:8px"><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">API documentation ↗</button><button onClick="{{ testHook }}" style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Send test webhook</button></div>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px">
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-weight:600;font-size:14px">Live credentials</div>
+        <sc-for list="{{ creds }}" as="c" hint-placeholder-count="3">
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:12px;color:var(--tx2);font-weight:500">{{ c.label }}</span>
+            <div style="display:flex;gap:6px"><span style="flex:1;height:36px;border:1px solid var(--ln);border-radius:7px;background:var(--sf2);padding:0 12px;display:flex;align-items:center;font-family:'JetBrains Mono',monospace;font-size:12.5px;overflow:hidden;white-space:nowrap">{{ c.value }}</span>
+            <sc-if value="{{ c.secret }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleReveal }}" style="height:36px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:12.5px;cursor:pointer">{{ revealLabel }}</button></sc-if>
+            <button onClick="{{ c.copy }}" style="height:36px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:12.5px;cursor:pointer">Copy</button></div>
+            <span style="font-size:11.5px;color:var(--tx3)">{{ c.help }}</span>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:8px;border-top:1px solid var(--ln2);padding-top:12px"><button style="height:30px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:12.5px;cursor:pointer">Regenerate secret</button><button style="height:30px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--er);border-radius:7px;font-size:12.5px;cursor:pointer">Revoke key</button><span style="flex:1"></span><span style="font-size:12px;color:var(--tx3);align-self:center">Last rotated 12 Aug 2026 by Kunal Shah</span></div>
+      </div>
+      <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-weight:600;font-size:14px">Endpoints</div>
+        <sc-for list="{{ endpoints }}" as="e" hint-placeholder-count="4">
+          <div style="border:1px solid var(--ln2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:10px">
+            <div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--tx3)">{{ e.label }}</div><div style="font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e.url }}</div></div>
+            <span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;white-space:nowrap;color:{{ e.st.fg }};background:{{ e.st.bg }}">{{ e.st.ic }} {{ e.st.label }}</span>
+          </div>
+        </sc-for>
+        <div style="font-size:12px;color:var(--tx3)">Allowed IPs: <span style="font-family:'JetBrains Mono',monospace;color:var(--tx2)">52.66.45.184, 52.66.164.33</span></div>
+      </div>
+    </div>
+    <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow-x:auto">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--ln2);display:flex;align-items:center;justify-content:space-between"><span style="font-weight:600;font-size:14px">Webhook logs</span><span style="font-size:12px;color:var(--tx3)">Last 24 hours · 4,812 deliveries · 99.2% first-attempt success</span></div>
+      <table style="width:100%;border-collapse:collapse;min-width:1100px">
+        <thead><tr style="text-align:left;color:var(--tx3);font-size:12px;background:var(--sf2)"><th style="padding:8px 16px;font-weight:500;border-bottom:1px solid var(--ln)">Event</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Transaction</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Endpoint</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Status</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">HTTP</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Attempt</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Created</th><th style="padding:8px 10px;font-weight:500;border-bottom:1px solid var(--ln)">Delivered</th><th style="padding:8px 16px;font-weight:500;border-bottom:1px solid var(--ln)"></th></tr></thead>
+        <tbody>
+          <sc-for list="{{ hooks }}" as="h" hint-placeholder-count="7">
+            <tr style-hover="background:var(--sf2)">
+              <td style="padding:var(--rp) 16px;border-bottom:1px solid var(--ln2);font-family:'JetBrains Mono',monospace;font-size:12px">{{ h.ev }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-family:'JetBrains Mono',monospace;font-size:12px">{{ h.txn }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px;color:var(--tx2)">{{ h.ep }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)"><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:{{ h.st.fg }};background:{{ h.st.bg }}">{{ h.st.ic }} {{ h.st.label }}</span></td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ h.codeFg }}">{{ h.code }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2)">{{ h.att }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px">{{ h.created }}</td>
+              <td style="padding:var(--rp) 10px;border-bottom:1px solid var(--ln2);font-size:12px;color:var(--tx2)">{{ h.del }}</td>
+              <td style="padding:var(--rp) 16px;border-bottom:1px solid var(--ln2);text-align:right"><button style="height:26px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">{{ h.action }}</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </sc-if>
+
+  <!-- PROFILE & SETTINGS -->
+  <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--acs);color:var(--act);display:grid;place-items:center;font-size:18px;font-weight:600;flex:none">{{ userIni }}</div>
+      <div style="flex:1;min-width:0"><h1 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">{{ userName }}</h1><p style="margin:3px 0 0;color:var(--tx2)">{{ userRole }} · Last sign-in today, 09:12 AM from 103.21.58.14</p></div>
+      <button onClick="{{ signOut }}" style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--er);border-radius:7px;font-size:13px;font-weight:500;cursor:pointer">Sign out</button>
+    </div>
+    <div style="display:flex;gap:2px;border-bottom:1px solid var(--ln)">
+      <sc-for list="{{ profTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="height:40px;padding:0 12px;border:0;background:transparent;border-bottom:2px solid {{ t.bd }};color:{{ t.fg }};font-size:13px;font-weight:500;cursor:pointer">{{ t.label }}</button></sc-for>
+    </div>
+
+    <sc-if value="{{ profIsProfile }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,1fr);gap:12px;align-items:start">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-weight:600;font-size:14px">Personal details</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+            <sc-for list="{{ profFields }}" as="f" hint-placeholder-count="6">
+              <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--tx2)">{{ f.k }}<input defaultValue="{{ f.v }}" readOnly="{{ f.ro }}" style="height:36px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:13px;background:{{ f.bg }};color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"><span style="font-size:11.5px;font-weight:400;color:var(--tx3)">{{ f.help }}</span></label>
+            </sc-for>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--ln2);padding-top:14px"><button style="height:32px;padding:0 12px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-weight:500;cursor:pointer">Discard</button><button onClick="{{ saveProfile }}" style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-weight:500;cursor:pointer">Save changes</button></div>
+        </div>
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-weight:600;font-size:14px">Access scope</div>
+          <sc-for list="{{ profScope }}" as="r" hint-placeholder-count="5">
+            <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;padding-bottom:10px;border-bottom:1px solid var(--ln2)"><span style="color:var(--tx3)">{{ r.k }}</span><span style="font-weight:500;text-align:right">{{ r.v }}</span></div>
+          </sc-for>
+          <div style="font-size:12px;color:var(--tx3)">Scope is set by your administrator under Roles &amp; Permissions.</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ profIsSecurity }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,1fr);gap:12px;align-items:start">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:12px">
+          <div><div style="font-weight:600;font-size:14px">Change password</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">Last changed 42 days ago. Changing it signs out your other sessions.</div></div>
+          <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--tx2)">Current password<input type="password" placeholder="••••••••••" style="height:38px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:13px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"></label>
+          <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--tx2)">New password<input type="{{ pwType }}" value="{{ pwNew }}" onChange="{{ onPwNew }}" placeholder="At least 12 characters" style="height:38px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:13px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"></label>
+          <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:5px;border-radius:3px;background:var(--ln2);overflow:hidden"><div style="height:100%;width:{{ pwW }};background:{{ pwC }};transition:width .2s"></div></div><span style="font-size:12px;font-weight:500;color:{{ pwC }};width:60px;text-align:right">{{ pwL }}</span></div>
+          <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--tx2)">Confirm new password<input type="{{ pwType }}" value="{{ pwConf }}" onChange="{{ onPwConf }}" style="height:38px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:13px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px">
+            <sc-for list="{{ pwRules }}" as="r" hint-placeholder-count="5"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ r.fg }}"><span style="width:14px;text-align:center">{{ r.ic }}</span>{{ r.label }}</span></sc-for>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--ln2);padding-top:12px"><button onClick="{{ togglePw }}" style="border:0;background:transparent;color:var(--tx2);font-size:12.5px;cursor:pointer;padding:0">{{ pwToggleLabel }}</button><button onClick="{{ updatePw }}" style="height:32px;padding:0 14px;border:0;background:var(--ac);color:#fff;border-radius:7px;font-weight:500;cursor:pointer;opacity:{{ pwBtnOp }}">Update password</button></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;font-size:14px">Two-factor authentication</div><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:var(--ok);background:var(--okb)">✓ Enabled</span></div>
+            <div style="font-size:12.5px;color:var(--tx2)">Authenticator app · added 12 Mar 2026. Required for every sign-in and for financial approvals.</div>
+            <div style="display:flex;gap:6px"><button style="height:30px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:12.5px;cursor:pointer">View backup codes</button><button onClick="{{ reset2fa }}" style="height:30px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-size:12.5px;cursor:pointer">Reset two-factor</button></div>
+          </div>
+          <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;overflow:hidden">
+            <div style="padding:14px 18px 10px;display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;font-size:14px">Active sessions</div><button onClick="{{ signOutOthers }}" style="border:0;background:transparent;color:var(--er);font-size:12.5px;font-weight:500;cursor:pointer">Sign out others</button></div>
+            <sc-for list="{{ sessions }}" as="x" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-top:1px solid var(--ln2)"><div style="flex:1;min-width:0"><div style="font-weight:500;font-size:13px">{{ x.dev }} <span style="font-size:11px;font-weight:600;color:var(--ok)">{{ x.cur }}</span></div><div style="font-size:12px;color:var(--tx3)">{{ x.ip }} · {{ x.loc }} · {{ x.when }}</div></div><button onClick="{{ x.end }}" style="height:26px;padding:0 8px;border:1px solid var(--ln);background:var(--sf);color:var(--tx2);border-radius:6px;font-size:12px;cursor:pointer;opacity:{{ x.op }}">End</button></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ profIsPrefs }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:6px 20px">
+          <sc-for list="{{ prefs }}" as="p" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--ln2)">
+              <div><div style="font-weight:500">{{ p.k }}</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ p.help }}</div></div>
+              <div style="display:flex;gap:2px;padding:3px;border:1px solid var(--ln);border-radius:8px;flex:none">
+                <sc-for list="{{ p.opts }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.onClick }}" style="height:26px;padding:0 10px;border:0;border-radius:5px;background:{{ o.bg }};color:{{ o.fg }};font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">{{ o.l }}</button></sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:6px 20px">
+          <div style="font-weight:600;font-size:14px;padding:12px 0 4px">Notifications</div>
+          <sc-for list="{{ notifs }}" as="n" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--ln2)">
+              <div><div style="font-weight:500">{{ n.k }}</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ n.help }}</div></div>
+              <button onClick="{{ n.onClick }}" title="Toggle" style="width:36px;height:20px;border-radius:10px;border:0;background:{{ n.bg }};position:relative;cursor:pointer;flex:none;padding:0"><span style="position:absolute;top:2px;left:{{ n.x }};width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s"></span></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+  </sc-if>
+
+  <!-- PLACEHOLDER -->
+  <sc-if value="{{ isPh }}" hint-placeholder-val="{{ false }}">
+    <div style="background:var(--sf);border:1px dashed var(--ln);border-radius:12px;padding:56px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+      <div style="width:40px;height:40px;border-radius:10px;background:var(--acs);color:var(--act);display:grid;place-items:center;font-weight:600">◇</div>
+      <div style="font-size:17px;font-weight:600">{{ phTitle }}</div>
+      <div style="font-size:13px;color:var(--tx2);max-width:460px;text-wrap:pretty">This screen is specified and uses the same table, filter and drawer system shown in the built screens. It's queued for the next design batch.</div>
+      <button onClick="{{ goDash }}" style="margin-top:8px;height:32px;padding:0 14px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:7px;font-weight:500;cursor:pointer">Back to dashboard</button>
+    </div>
+  </sc-if>
+
+  <!-- CHECKOUT -->
+  <sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;justify-content:center;padding:8px 0 24px">
+      <div style="width:390px;max-width:100%;min-height:780px;background:#FFFFFF;border-radius:32px;border:1px solid #E4E7EC;box-shadow:0 30px 80px rgba(15,23,42,.14);overflow:hidden;display:flex;flex-direction:column;color:#0F172A;font-size:14px">
+        <div style="height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:12.5px;font-weight:600;color:#0F172A">9:41<span style="width:90px;height:22px;border-radius:12px;background:#0F172A"></span><span style="font-size:11px">5G ▮</span></div>
+        <div style="padding:10px 20px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #EEF0F3">
+          <div style="width:36px;height:36px;border-radius:10px;background:#7C3AED;color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px">AZ</div>
+          <div style="flex:1"><div style="font-weight:600">Atoz</div><div style="font-size:12px;color:#64748B;display:flex;align-items:center;gap:5px"><span style="color:#047857">●</span>Secure payment</div></div>
+          <span style="font-size:11.5px;color:#475569;border:1px solid #E4E7EC;border-radius:6px;padding:3px 7px">EN ▾</span>
+        </div>
+        <sc-if value="{{ coShowAmount }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:16px 20px 0;padding:16px;border-radius:14px;background:#F8FAFC;border:1px solid #EEF0F3">
+            <div style="font-size:12px;color:#64748B">Amount to pay</div>
+            <div style="font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:2px">₹12,534.00</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:#475569"><span>Order <span style="font-family:'JetBrains Mono',monospace">ORD-918231457782</span></span><span style="font-weight:600;color:{{ coTimerFg }}">⏱ {{ coTime }}</span></div>
+            <div style="height:4px;border-radius:2px;background:#E4E7EC;margin-top:8px;overflow:hidden"><div style="height:100%;width:{{ coPct }};background:{{ coTimerFg }}"></div></div>
+          </div>
+        </sc-if>
+        <div style="flex:1;padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+          <sc-if value="{{ coIsLanding }}" hint-placeholder-val="{{ true }}">
+            <div style="font-weight:600;font-size:15px">Choose how to pay</div>
+            <sc-for list="{{ coMethods }}" as="m" hint-placeholder-count="3">
+              <button onClick="{{ m.onClick }}" style="display:flex;align-items:center;gap:12px;padding:14px;border:1px solid #E4E7EC;border-radius:12px;background:#fff;cursor:pointer;text-align:left;color:#0F172A;opacity:{{ m.op }}">
+                <span style="width:36px;height:36px;border-radius:10px;background:#F5F3FF;color:#6D28D9;display:grid;place-items:center;font-weight:700;font-size:12px">{{ m.ic }}</span>
+                <span style="flex:1"><span style="display:block;font-weight:600;font-size:14px">{{ m.label }}</span><span style="display:block;font-size:12px;color:#64748B;margin-top:1px">{{ m.sub }}</span></span>
+                <span style="color:#94A3B8;font-size:12px">{{ m.tail }}</span>
+              </button>
+            </sc-for>
+          </sc-if>
+          <sc-if value="{{ coIsPay }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:4px;padding:4px;background:#F1F5F9;border-radius:10px">
+              <sc-for list="{{ coTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="flex:1;height:34px;border:0;border-radius:7px;background:{{ t.bg }};color:#0F172A;font-weight:{{ t.fw }};font-size:13px;cursor:pointer;box-shadow:{{ t.sh }}">{{ t.label }}</button></sc-for>
+            </div>
+            <sc-if value="{{ coIsBank }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid #E4E7EC;border-radius:12px;overflow:hidden">
+                <sc-for list="{{ coBankRows }}" as="r" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #EEF0F3"><div style="flex:1;min-width:0"><div style="font-size:11.5px;color:#64748B">{{ r.k }}</div><div style="font-weight:600;font-size:14px;margin-top:1px;font-family:{{ r.ff }}">{{ r.v }}</div></div><button onClick="{{ r.copy }}" style="height:28px;padding:0 10px;border:1px solid #E4E7EC;background:#fff;border-radius:7px;font-size:12px;font-weight:500;color:#6D28D9;cursor:pointer">Copy</button></div>
+                </sc-for>
+              </div>
+              <div style="font-size:12.5px;color:#475569;line-height:1.55;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 12px">Transfer the <b>exact amount</b> via IMPS/NEFT from your bank app. Use a fresh transfer for each order — this account is valid for this payment only.</div>
+            </sc-if>
+            <sc-if value="{{ coIsUpi }}" hint-placeholder-val="{{ false }}">
+              <div style="border:1px solid #E4E7EC;border-radius:12px;padding:14px;display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:11.5px;color:#64748B">Pay to UPI ID</div><div style="font-family:'JetBrains Mono',monospace;font-weight:500;margin-top:2px">gpay-29361428354@okbizaxis</div><div style="font-size:12px;color:#64748B;margin-top:2px">Mustafa Abdul Samad</div></div><button onClick="{{ coCopy }}" style="height:28px;padding:0 10px;border:1px solid #E4E7EC;background:#fff;border-radius:7px;font-size:12px;font-weight:500;color:#6D28D9;cursor:pointer">Copy</button></div>
+              <div style="font-size:12px;color:#64748B;font-weight:500">Open in app</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+                <sc-for list="{{ coApps }}" as="a" hint-placeholder-count="4"><div style="height:56px;border:1px solid #E4E7EC;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:11.5px;color:#334155"><span style="width:22px;height:22px;border-radius:6px;background:#F1F5F9;display:grid;place-items:center;font-size:10px;font-weight:700;color:#475569">{{ a.i }}</span>{{ a.l }}</div></sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ coIsQr }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0">
+                <div style="width:210px;height:210px;border-radius:14px;border:1px solid #E4E7EC;background:repeating-linear-gradient(135deg,#F8FAFC 0 8px,#EEF0F3 8px 16px);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:#64748B">dynamic UPI QR</div>
+                <div style="font-size:12.5px;color:#475569;text-align:center">Scan with any UPI app. Amount is pre-filled.</div>
+                <button style="height:30px;padding:0 12px;border:1px solid #E4E7EC;background:#fff;border-radius:8px;font-size:12.5px;font-weight:500;color:#6D28D9;cursor:pointer">Download QR</button>
+              </div>
+            </sc-if>
+            <label style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:#475569;font-weight:500">UTR / reference number <span style="font-weight:400;color:#64748B">(12 digits, from your bank app)</span><input placeholder="e.g. 626812820491" style="height:42px;border:1px solid #CBD5E1;border-radius:10px;padding:0 12px;font-size:14px;font-family:'JetBrains Mono',monospace;outline:none;color:#0F172A;background:#fff"></label>
+            <button onClick="{{ coPaid }}" style="height:48px;border:0;border-radius:12px;background:#7C3AED;color:#fff;font-size:15px;font-weight:600;cursor:pointer">I've made the payment</button>
+            <button onClick="{{ coBack }}" style="height:32px;border:0;background:transparent;color:#475569;font-size:13px;cursor:pointer">← Choose another method</button>
+          </sc-if>
+          <sc-if value="{{ coIsResult }}" hint-placeholder-val="{{ false }}">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding-top:24px">
+              <div style="width:72px;height:72px;border-radius:50%;display:grid;place-items:center;font-size:30px;font-weight:600;background:{{ coRes.bg }};color:{{ coRes.fg }};border:{{ coRes.ring }}">{{ coRes.ic }}</div>
+              <div style="font-size:20px;font-weight:700;letter-spacing:-.01em;margin-top:6px">{{ coRes.title }}</div>
+              <div style="font-size:13.5px;color:#475569;max-width:290px;line-height:1.5">{{ coRes.body }}</div>
+              <div style="width:100%;border:1px solid #EEF0F3;border-radius:12px;margin-top:10px;text-align:left">
+                <sc-for list="{{ coRes.rows }}" as="r" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #EEF0F3;font-size:13px"><span style="color:#64748B">{{ r.k }}</span><span style="font-weight:600">{{ r.v }}</span></div></sc-for>
+              </div>
+              <div style="flex:1"></div>
+              <button onClick="{{ coRes.act }}" style="width:100%;height:48px;border:0;border-radius:12px;background:#7C3AED;color:#fff;font-size:15px;font-weight:600;cursor:pointer">{{ coRes.cta }}</button>
+            </div>
+          </sc-if>
+        </div>
+        <div style="padding:12px 20px 20px;border-top:1px solid #EEF0F3;display:flex;justify-content:space-between;font-size:11.5px;color:#64748B"><span>Help: support@atoz.in</span><span>Secured by <b style="color:#334155">PayGate</b> · PCI DSS</span></div>
+      </div>
+    </div>
+  </sc-if>
+
+  </div>
+</main>
+
+<!-- DRAWER -->
+<sc-if value="{{ hasDrawer }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;background:rgba(10,15,28,.4);z-index:40;animation:pgFade .15s"></div>
+  <div style="position:fixed;top:0;right:0;bottom:0;width:min(780px,100vw);background:var(--sf);z-index:41;box-shadow:-16px 0 48px rgba(10,15,28,.22);display:flex;flex-direction:column;animation:pgIn .22s cubic-bezier(.2,.8,.2,1)">
+    <div style="padding:16px 22px 14px;border-bottom:1px solid var(--ln2);display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;color:var(--tx3)">{{ dr.kind }}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:3px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500">{{ dr.id }}</span><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;color:{{ dr.st.fg }};background:{{ dr.st.bg }}"><span style="font-size:10px">{{ dr.st.ic }}</span>{{ dr.st.label }}</span></div>
+        <div style="font-size:12px;color:var(--tx3);margin-top:4px">{{ dr.sub }}</div>
+      </div>
+      <sc-for list="{{ dr.actions }}" as="a" hint-placeholder-count="2"><button onClick="{{ a.onClick }}" style="height:32px;padding:0 12px;border:{{ a.bd }};background:{{ a.bg }};color:{{ a.fg }};border-radius:7px;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap">{{ a.label }}</button></sc-for>
+      <button onClick="{{ closeDrawer }}" style="width:32px;height:32px;border:1px solid var(--ln);background:var(--sf);border-radius:7px;cursor:pointer;color:var(--tx2);font-size:16px">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--ln2)">
+      <sc-for list="{{ dr.sums }}" as="s" hint-placeholder-count="3">
+        <div style="padding:14px 22px;border-right:1px solid var(--ln2)"><div style="font-size:12px;color:var(--tx3)">{{ s.k }}</div><div style="font-size:19px;font-weight:600;letter-spacing:-.02em;margin-top:3px;color:{{ s.fg }}">{{ s.v }}</div></div>
+      </sc-for>
+    </div>
+    <div style="display:flex;gap:2px;padding:0 16px;border-bottom:1px solid var(--ln2);overflow-x:auto;flex:none">
+      <sc-for list="{{ dr.tabs }}" as="t" hint-placeholder-count="6"><button onClick="{{ t.onClick }}" style="height:40px;padding:0 10px;border:0;background:transparent;border-bottom:2px solid {{ t.bd }};color:{{ t.fg }};font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">{{ t.label }}</button></sc-for>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:18px 22px 28px;display:flex;flex-direction:column;gap:18px">
+      <sc-if value="{{ dr.showCompare }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px solid {{ dr.cmp.bd }};background:{{ dr.cmp.bg }};border-radius:12px;padding:16px;display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center">
+          <div style="background:var(--sf);border:1px solid var(--ln);border-radius:9px;padding:12px 14px"><div style="font-size:11.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Transaction branch</div><div style="font-size:16px;font-weight:600;margin-top:4px">{{ dr.cmp.a }}</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ dr.cmp.aSub }}</div></div>
+          <div style="text-align:center"><div style="width:40px;height:40px;border-radius:50%;margin:0 auto;display:grid;place-items:center;font-size:18px;font-weight:700;background:{{ dr.cmp.fg }};color:#fff">{{ dr.cmp.ic }}</div><div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;margin-top:6px;color:{{ dr.cmp.fg }}">{{ dr.cmp.label }}</div></div>
+          <div style="background:var(--sf);border:1px solid var(--ln);border-radius:9px;padding:12px 14px"><div style="font-size:11.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.05em;font-weight:600">Bank entry branch</div><div style="font-size:16px;font-weight:600;margin-top:4px">{{ dr.cmp.b }}</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ dr.cmp.bSub }}</div></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ dr.showProof }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:160px 1fr;gap:14px;align-items:center;border:1px solid var(--ln);border-radius:10px;padding:12px">
+          <div style="height:110px;border-radius:8px;background:repeating-linear-gradient(135deg,var(--sf2) 0 8px,var(--ln2) 8px 16px);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)">payment proof</div>
+          <div><div style="font-weight:600">proof_{{ dr.id }}.jpg</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">Uploaded by customer · 214 KB · {{ dr.proofTime }}</div><div style="display:flex;gap:6px;margin-top:10px"><button style="height:28px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Open full size</button><button style="height:28px;padding:0 10px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:6px;font-size:12px;cursor:pointer">Download</button></div></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ dr.showTimeline }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px">{{ dr.tlTitle }}</div>
+          <sc-for list="{{ dr.timeline }}" as="e" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:24px 1fr auto;gap:12px">
+              <div style="display:flex;flex-direction:column;align-items:center"><span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:700;background:{{ e.dotBg }};color:{{ e.dotFg }};border:1.5px solid {{ e.dotBd }};flex:none">{{ e.ic }}</span><span style="flex:1;width:1.5px;background:var(--ln);min-height:14px"></span></div>
+              <div style="padding-bottom:14px"><div style="font-weight:500;color:{{ e.tfg }}">{{ e.title }}</div><div style="font-size:12px;color:var(--tx3);margin-top:2px">{{ e.desc }}</div></div>
+              <div style="font-size:12px;color:var(--tx3);text-align:right;white-space:nowrap">{{ e.time }}<div style="color:var(--tx2)">{{ e.actor }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-for list="{{ dr.sections }}" as="sec" hint-placeholder-count="2">
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">{{ sec.title }}</div>
+          <div style="border:1px solid var(--ln);border-radius:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))">
+            <sc-for list="{{ sec.rows }}" as="r" hint-placeholder-count="4">
+              <div style="padding:9px 14px;border-bottom:1px solid var(--ln2);display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:11.5px;color:var(--tx3)">{{ r.k }}</span><span style="font-family:{{ r.ff }};font-size:{{ r.fs }};font-weight:500;color:{{ r.fg }};overflow-wrap:anywhere">{{ r.v }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ dr.showLedger }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px solid var(--ln);border-radius:10px;overflow:hidden">
+          <sc-for list="{{ dr.ledger }}" as="l" hint-placeholder-count="6">
+            <div style="display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--ln2);background:{{ l.bg }};font-weight:{{ l.fw }}"><span style="color:{{ l.kfg }}">{{ l.k }}</span><span style="color:{{ l.fg }}">{{ l.v }}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ dr.showHooks }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px solid var(--ln);border-radius:10px;overflow:hidden">
+          <sc-for list="{{ dr.hooks }}" as="h" hint-placeholder-count="3">
+            <div style="display:grid;grid-template-columns:1.4fr 1fr 70px 60px 1fr;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--ln2);font-size:12.5px"><span style="font-family:'JetBrains Mono',monospace;font-size:12px">{{ h.ev }}</span><span style="color:var(--tx2)">{{ h.ep }}</span><span style="font-family:'JetBrains Mono',monospace;color:{{ h.codeFg }}">{{ h.code }}</span><span style="color:var(--tx3)">#{{ h.att }}</span><span style="color:var(--tx3);text-align:right">{{ h.del }}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ dr.showAudit }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ dr.audit }}" as="a" hint-placeholder-count="3">
+            <div style="border:1px solid var(--ln);border-radius:10px;padding:12px 14px">
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><span><b style="font-weight:600">{{ a.actor }}</b> <span style="color:var(--tx3)">· {{ a.role }}</span> — {{ a.action }}</span><span style="font-size:12px;color:var(--tx3)">{{ a.time }}</span></div>
+              <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;flex-wrap:wrap"><span style="padding:2px 8px;border-radius:5px;background:var(--erb);color:var(--er);text-decoration:line-through">{{ a.before }}</span><span style="color:var(--tx3)">→</span><span style="padding:2px 8px;border-radius:5px;background:var(--okb);color:var(--ok)">{{ a.after }}</span><span style="flex:1"></span><span style="font-family:'JetBrains Mono',monospace;color:var(--tx3);font-size:11px">IP {{ a.ip }} · req {{ a.req }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<!-- MODAL -->
+<sc-if value="{{ hasModal }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeModal }}" style="position:fixed;inset:0;background:rgba(10,15,28,.45);z-index:50;animation:pgFade .15s"></div>
+  <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,94vw);z-index:51">
+  <div style="background:var(--sf);border-radius:14px;box-shadow:0 30px 80px rgba(10,15,28,.3);animation:pgPop .18s;overflow:hidden">
+    <div style="padding:18px 20px 12px;display:flex;gap:12px;align-items:flex-start">
+      <span style="width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:14px;flex:none;background:{{ md.bg }};color:{{ md.fg }}">{{ md.ic }}</span>
+      <div style="flex:1"><div style="font-size:16px;font-weight:600">{{ md.title }}</div><div style="font-size:12.5px;color:var(--tx2);margin-top:3px">{{ md.body }}</div></div>
+      <button onClick="{{ closeModal }}" style="border:0;background:transparent;font-size:18px;color:var(--tx3);cursor:pointer">×</button>
+    </div>
+    <div style="margin:0 20px;border:1px solid var(--ln);border-radius:10px;display:grid;grid-template-columns:1fr 1fr">
+      <sc-for list="{{ md.rows }}" as="r" hint-placeholder-count="4"><div style="padding:9px 12px;border-bottom:1px solid var(--ln2);min-width:0"><div style="font-size:11.5px;color:var(--tx3)">{{ r.k }}</div><div style="font-weight:500;margin-top:1px;font-family:{{ r.ff }};font-size:12.5px;overflow-wrap:anywhere">{{ r.v }}</div></div></sc-for>
+    </div>
+    <div style="padding:14px 20px 0">
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--tx2)">{{ md.inputLabel }} <input value="{{ mInput }}" onChange="{{ onMInput }}" placeholder="{{ md.ph }}" style="height:38px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:13.5px;background:var(--sf);color:var(--tx);outline:none;font-family:{{ md.inputFf }}"></label>
+      <div style="font-size:12px;color:var(--tx3);margin-top:6px">{{ md.note }}</div>
+    </div>
+    <div style="padding:16px 20px;display:flex;justify-content:flex-end;gap:8px;margin-top:6px;background:var(--sf2);border-top:1px solid var(--ln2)">
+      <button onClick="{{ closeModal }}" style="height:34px;padding:0 14px;border:1px solid var(--ln);background:var(--sf);color:var(--tx);border-radius:8px;font-weight:500;cursor:pointer">Cancel</button>
+      <button onClick="{{ confirmModal }}" style="height:34px;padding:0 16px;border:0;background:{{ md.btnBg }};color:#fff;border-radius:8px;font-weight:500;cursor:pointer;opacity:{{ md.btnOp }}">{{ md.cta }}</button>
+    </div>
+  </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;right:20px;bottom:20px;z-index:60;background:#0F172A;color:#fff;border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 12px 32px rgba(0,0,0,.25);animation:pgPop .18s;font-size:13px;max-width:420px"><span style="width:20px;height:20px;border-radius:50%;background:#10B981;display:grid;place-items:center;font-size:11px;flex:none">✓</span>{{ toast }}</div>
+</sc-if>
+
+<!-- AUTH -->
+<sc-if value="{{ inAuth }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;z-index:70;display:flex;background:var(--sf);overflow:auto">
+  <div style="flex:1 1 0;min-width:0;background:#0B1220;color:#C8D1DF;padding:40px 48px;display:flex;flex-direction:column;justify-content:space-between;gap:32px">
+    <div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:9px;background:var(--ac);display:grid;place-items:center;color:#fff;font-weight:700;font-size:15px;transition:background .2s">P</div><span style="font-weight:600;color:#fff;font-size:16px;letter-spacing:-.01em">PayGate</span></div>
+    <div style="max-width:440px">
+      <div style="font-size:30px;font-weight:600;color:#fff;letter-spacing:-.02em;line-height:1.2;text-wrap:pretty">Collections, payouts and reconciliation in one console.</div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:28px;font-size:13.5px">
+        <span style="display:flex;gap:10px;align-items:center"><span style="width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.07);display:grid;place-items:center;font-size:11px;color:#fff">✓</span>Two-factor authentication on every sign-in</span>
+        <span style="display:flex;gap:10px;align-items:center"><span style="width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.07);display:grid;place-items:center;font-size:11px;color:#fff">✓</span>IP allow-listing for admin and partner consoles</span>
+        <span style="display:flex;gap:10px;align-items:center"><span style="width:22px;height:22px;border-radius:6px;background:rgba(255,255,255,.07);display:grid;place-items:center;font-size:11px;color:#fff">✓</span>Every approval recorded in the audit log</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#8391A8;display:flex;gap:8px;align-items:center"><span style="width:7px;height:7px;border-radius:50%;background:#10B981"></span>All systems operational · © 2026 PayGate</div>
+  </div>
+  <div style="flex:0 1 520px;min-width:340px;display:flex;align-items:center;justify-content:center;padding:40px 32px">
+    <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:16px">
+
+      <sc-if value="{{ auIsLogin }}" hint-placeholder-val="{{ true }}">
+        <div><h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Sign in</h2><p style="margin:5px 0 0;color:var(--tx2);font-size:13.5px">Choose your console and enter your credentials.</p></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;background:var(--sf2);border:1px solid var(--ln);border-radius:10px">
+          <sc-for list="{{ auConsoles }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.onClick }}" style="height:32px;border:0;border-radius:7px;background:{{ c.bg }};color:{{ c.fg }};font-size:13px;font-weight:500;cursor:pointer;box-shadow:{{ c.sh }};display:flex;align-items:center;justify-content:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:{{ c.dot }}"></span>{{ c.label }}</button></sc-for>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--tx2)">Username<input defaultValue="{{ auUser }}" style="height:40px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:14px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--tx2)"><span style="display:flex;justify-content:space-between">Password<button onClick="{{ goForgot }}" style="border:0;background:transparent;color:var(--ac);font-size:12.5px;font-weight:500;cursor:pointer;padding:0">Forgot password?</button></span>
+          <span style="position:relative;display:block"><input type="{{ pwType }}" defaultValue="paygate-demo" style="width:100%;height:40px;border:1px solid var(--ln);border-radius:8px;padding:0 60px 0 12px;font-size:14px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"><button onClick="{{ togglePw }}" style="position:absolute;right:6px;top:6px;height:28px;padding:0 8px;border:0;background:transparent;color:var(--tx2);font-size:12px;cursor:pointer">{{ pwShowShort }}</button></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--tx2);cursor:pointer"><input type="checkbox" defaultChecked="{{ true }}" style="accent-color:var(--ac);width:15px;height:15px">Remember this device for 30 days</label>
+        <button onClick="{{ signIn }}" style="height:42px;border:0;border-radius:9px;background:var(--ac);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Sign in</button>
+        <div style="font-size:12px;color:var(--tx3);text-align:center">Sessions time out after 30 minutes of inactivity.</div>
+      </sc-if>
+
+      <sc-if value="{{ auIsOtp }}" hint-placeholder-val="{{ false }}">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--acs);color:var(--act);display:grid;place-items:center;font-weight:700">2FA</div>
+        <div><h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Two-step verification</h2><p style="margin:5px 0 0;color:var(--tx2);font-size:13.5px">Enter the 6-digit code from your authenticator app for <b style="color:var(--tx);font-weight:600">{{ auUser }}</b>.</p></div>
+        <input value="{{ otp }}" onChange="{{ onOtp }}" maxLength="6" inputMode="numeric" placeholder="000000" autoFocus="{{ true }}" style="height:56px;border:1px solid var(--ln);border-radius:10px;padding:0 16px;font-size:26px;letter-spacing:.5em;text-align:center;font-family:'JetBrains Mono',monospace;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)">
+        <button onClick="{{ verifyOtp }}" style="height:42px;border:0;border-radius:9px;background:var(--ac);color:#fff;font-size:14px;font-weight:600;cursor:pointer;opacity:{{ otpOp }}">Verify and continue</button>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px"><button onClick="{{ goLogin }}" style="border:0;background:transparent;color:var(--tx2);cursor:pointer;padding:0">← Back</button><button onClick="{{ fillOtp }}" style="border:0;background:transparent;color:var(--ac);font-weight:500;cursor:pointer;padding:0">Use a backup code</button></div>
+      </sc-if>
+
+      <sc-if value="{{ auIsForgot }}" hint-placeholder-val="{{ false }}">
+        <div><h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Reset your password</h2><p style="margin:5px 0 0;color:var(--tx2);font-size:13.5px">Enter your username or email. We'll send a reset link to the email on file.</p></div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--tx2)">Username or email<input placeholder="e.g. Deluxadmin" style="height:40px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:14px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"></label>
+        <button onClick="{{ sendReset }}" style="height:42px;border:0;border-radius:9px;background:var(--ac);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Send reset link</button>
+        <button onClick="{{ goLogin }}" style="border:0;background:transparent;color:var(--tx2);font-size:13px;cursor:pointer">← Back to sign in</button>
+        <div style="font-size:12px;color:var(--tx3);border-top:1px solid var(--ln2);padding-top:12px">No access to your email? Ask an administrator to reset your password from Users.</div>
+      </sc-if>
+
+      <sc-if value="{{ auIsSent }}" hint-placeholder-val="{{ false }}">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--okb);color:var(--ok);display:grid;place-items:center;font-size:18px">✓</div>
+        <div><h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Check your email</h2><p style="margin:5px 0 0;color:var(--tx2);font-size:13.5px;line-height:1.5">If an account matches, we've sent a reset link to <b style="color:var(--tx);font-weight:600">d••••••n@paygate.in</b>. It expires in 30 minutes.</p></div>
+        <button onClick="{{ goReset }}" style="height:42px;border:0;border-radius:9px;background:var(--ac);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Open reset link</button>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px"><button onClick="{{ goLogin }}" style="border:0;background:transparent;color:var(--tx2);cursor:pointer;padding:0">← Back to sign in</button><button onClick="{{ sendReset }}" style="border:0;background:transparent;color:var(--ac);font-weight:500;cursor:pointer;padding:0">Resend email</button></div>
+      </sc-if>
+
+      <sc-if value="{{ auIsReset }}" hint-placeholder-val="{{ false }}">
+        <div><h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Set a new password</h2><p style="margin:5px 0 0;color:var(--tx2);font-size:13.5px">For {{ auUser }}. Other sessions are signed out once you save.</p></div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--tx2)">New password<input type="{{ pwType }}" value="{{ pwNew }}" onChange="{{ onPwNew }}" placeholder="At least 12 characters" style="height:40px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:14px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"></label>
+        <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:5px;border-radius:3px;background:var(--ln2);overflow:hidden"><div style="height:100%;width:{{ pwW }};background:{{ pwC }};transition:width .2s"></div></div><span style="font-size:12px;font-weight:500;color:{{ pwC }};width:60px;text-align:right">{{ pwL }}</span></div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500;color:var(--tx2)">Confirm password<input type="{{ pwType }}" value="{{ pwConf }}" onChange="{{ onPwConf }}" style="height:40px;border:1px solid var(--ln);border-radius:8px;padding:0 12px;font-size:14px;background:var(--sf);color:var(--tx);outline:none" style-focus="border-color:var(--ac);box-shadow:0 0 0 3px var(--acs)"></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px">
+          <sc-for list="{{ pwRules }}" as="r" hint-placeholder-count="5"><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:{{ r.fg }}"><span style="width:14px;text-align:center">{{ r.ic }}</span>{{ r.label }}</span></sc-for>
+        </div>
+        <button onClick="{{ saveReset }}" style="height:42px;border:0;border-radius:9px;background:var(--ac);color:#fff;font-size:14px;font-weight:600;cursor:pointer;opacity:{{ pwBtnOp }}">Save new password</button>
+        <button onClick="{{ togglePw }}" style="border:0;background:transparent;color:var(--tx2);font-size:12.5px;cursor:pointer">{{ pwToggleLabel }}</button>
+      </sc-if>
+
+      <sc-if value="{{ auIsDone }}" hint-placeholder-val="{{ false }}">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--okb);color:var(--ok);display:grid;place-items:center;font-size:18px">✓</div>
+        <div><h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-.015em">Password updated</h2><p style="margin:5px 0 0;color:var(--tx2);font-size:13.5px">You can now sign in with your new password. You'll still be asked for your 2FA code.</p></div>
+        <button onClick="{{ goLogin }}" style="height:42px;border:0;border-radius:9px;background:var(--ac);color:#fff;font-size:14px;font-weight:600;cursor:pointer">Back to sign in</button>
+      </sc-if>
+
+    </div>
+  </div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startPanel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;admin&quot;,&quot;branch&quot;,&quot;partner&quot;,&quot;checkout&quot;],&quot;default&quot;:&quot;admin&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;dark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;density&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;comfortable&quot;],&quot;default&quot;:&quot;compact&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const PANELS={
+admin:{ac:'#4F46E5',acs:'#EEF2FF',act:'#3730A3',dacs:'rgba(99,102,241,.16)',dact:'#A5B4FC',label:'Admin console',short:'Admin',user:'Rohan Mehta',role:'Super Admin',ini:'RM'},
+branch:{ac:'#059669',acs:'#ECFDF5',act:'#065F46',dacs:'rgba(16,185,129,.14)',dact:'#6EE7B7',label:'Branch · 297 Delux HP',short:'Branch',user:'Deluxadmin',role:'Branch Admin · 297 Delux HP',ini:'DA'},
+partner:{ac:'#7C3AED',acs:'#F5F3FF',act:'#5B21B6',dacs:'rgba(139,92,246,.16)',dact:'#C4B5FD',label:'Merchant · Atoz',short:'Partner',user:'Kunal Shah',role:'Owner · Atoz',ini:'KS'},
+checkout:{ac:'#7C3AED',acs:'#F5F3FF',act:'#5B21B6',dacs:'rgba(139,92,246,.16)',dact:'#C4B5FD',label:'Customer checkout',short:'Checkout',user:'Customer view',role:'Mobile · 390px',ini:'CU'}};
+const NAV={
+admin:[['Overview',[['dashboard','Dashboard']]],['Payments',[['txns','Transactions'],['deposits','Manual Deposit','38'],['x','Manual Payout'],['x','Refunds'],['x','Chargebacks']]],['Reconciliation',[['statement','Manual A/C Statement'],['x','Auto A/C Statement'],['x','UTR Reconciliation'],['x','Unsettled UTR','12']]],['Network',[['partners','Partners'],['branches','Branches'],['accounts','Bank & UPI Accounts']]],['Finance',[['x','Settlement'],['x','Commissions'],['x','Reports']]],['System',[['x','Users'],['roles','Roles & Permissions'],['x','Payment Gateways'],['x','Credentials'],['x','Global Settings'],['x','IP Management'],['x','Audit Logs']]],['Account',[['profile','Profile & settings'],['auth:login','Login screen']]]],
+branch:[['Overview',[['dashboard','Dashboard']]],['Accounts',[['accounts','Bank & UPI Accounts']]],['Operations',[['deposits','Manual Deposit','14'],['x','Manual Payout'],['x','Deposit Unsettled','6']]],['Statements',[['statement','A/C Statement Entry'],['x','Auto A/C Statement'],['x','Statement History']]],['History',[['txns','Pay-in History'],['x','Pay-out History'],['x','UTR Reconciliation']]],['Finance',[['x','Branch Balance'],['x','Settlement'],['x','Reports']]],['Admin',[['x','Users'],['x','Audit Logs']]],['Account',[['profile','Profile & settings'],['auth:login','Login screen']]]],
+partner:[['Overview',[['dashboard','Dashboard']]],['Payments',[['x','Create Payment'],['txns','Pay-in'],['x','Pay-out']]],['Finance',[['x','Settlements'],['x','Balance'],['x','Reports']]],['Developers',[['developers','API & Webhooks'],['x','IP Whitelist'],['x','API Logs']]],['Account',[['profile','Profile & settings'],['auth:login','Login screen']]]],
+checkout:[['Customer checkout',[['co:landing','Payment landing'],['co:upi','UPI payment'],['co:bank','Bank transfer'],['co:qr','QR payment'],['co:pending','Payment pending'],['co:success','Payment success'],['co:failed','Payment failed'],['co:expired','Payment expired']]]]};
+const ST={success:['Success','✓','ok'],approved:['Approved','✓','ok'],pending:['Pending','◷','wn'],created:['Created','○','nt'],hold:['Payment hold','‖','hd'],declined:['Declined','✕','er'],failed:['Failed','✕','er'],review:['Under review','◐','rv'],unsettled:['Unsettled','!','hd'],matched:['Matched','✓','ok'],mismatch:['Mismatch','≠','er'],none:['Not matched','–','nt'],active:['Active','●','ok'],inactive:['Inactive','○','nt'],verified:['Verified','✓','ok'],unverified:['Unverified','✕','er'],pverify:['Pending verification','◷','wn'],exhausted:['Limit exhausted','!','hd'],delivered:['Delivered','✓','ok'],retrying:['Retrying','↻','wn'],on:['Enabled','✓','ok'],off:['Disabled','○','nt']};
+function B(k){const s=ST[k];return{label:s[0],ic:s[1],fg:'var(--'+s[2]+')',bg:'var(--'+s[2]+'b)'}}
+function fmt(n){return '₹'+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmt0(n){return '₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:0})}
+function lim(n){return n<0?'Unlimited':fmt0(n)}
+function hex(seed,len){let s='',x=seed*7919+104729;for(let i=0;i<len;i++){x=(x*9301+49297)%233280;s+='0123456789ABCDEF'[x%16]}return s}
+function uuid(seed){return hex(seed,8)+'-'+hex(seed+3,4)+'-'+hex(seed+5,4)+'-'+hex(seed+7,4)+'-'+hex(seed+11,12)}
+const MONO="'JetBrains Mono',monospace";
+function KV(k,v,m){return{k,v:v||'—',ff:m?MONO:'inherit',fs:m?'12px':'13px',fg:'var(--tx)'}}
+function dot(state,i){const c={ok:['var(--okb)','var(--ok)','✓'],cur:['var(--wnb)','var(--wn)','◷'],bad:['var(--erb)','var(--er)','✕'],todo:['var(--sf)','var(--tx3)',String(i+1)]}[state];return{dotBg:c[0],dotFg:c[1],dotBd:state==='todo'?'var(--ln)':c[1],ic:c[2],tfg:state==='todo'?'var(--tx3)':'var(--tx)'}}
+const RATE={Atoz:.06,'10SP':.06};
+const TXN_RAW=[
+['6850691','Atoz','ATOZ','868115895502','Aarav Kaur','+91 60761 07763',2000,'Manual · Bank','GGB','','266 Shivay HP','pending','14:44:13'],
+['6850517','pb08','PB08','918231457782','Aarav Kaur','+91 60761 07763',2000,'Manual · Bank','DCB Bank','','266 Shivay HP','pending','14:13:45'],
+['6850102','IPN','IPN','663367090608','Vala Kanaiya','—',5000,'UPI · Intent','SBM Bank','626839834644','268 Jogmaya HP','success','13:10:28'],
+['6849395','IPN','IPN','626845793914','Avinash Murmu','+91 98110 42217',5000,'UPI · QR','HDFC Bank','614723644451','265 Charlie RY','success','11:24:49'],
+['6849333','fortressfx','FRTFX','527229756552','Jogendra Singh','+91 93048 99867',5000,'Manual · Bank','ICICI Bank','','265 Charlie RY','review','11:14:01'],
+['6848042','xpro','XPRO','738526745562','Rahul Verma','+91 94706 07133',34000,'Manual · Bank','Kotak Mahindra','315453672110','265 Charlie RY','success','01:35:33'],
+['6847975','IPN','IPN','118023164711','Shahrukh Sheikh','—',9000,'UPI · Intent','Axis Bank','','266 Shivay HP','failed','01:00:24'],
+['6847810','Atoz','ATOZ','626812820491','Mansi Sehrawat','+91 98730 11425',12534,'Manual · Bank','GGB','','295 Chaudhary FR','hold','00:48:12'],
+['6847722','bytefx','BYTFX','430007786780','Anush Rao','+91 99870 45120',40000,'UPI · QR','IDFC First','663410458414','280 Sonu HP','success','00:31:09'],
+['6847650','hyperf','HYPRF','772976690085','Vivek Pandey','+91 91520 88841',6883,'Manual · Bank','SBM Bank','','300 BRR HP','pending','00:22:03'],
+['6847601','10SP','10SP','614752722036','Kamlesh Dayaram','+91 98250 67312',50000,'Manual · Bank','HDFC Bank','005285558094','303 Tridev HP','success','00:18:17'],
+['6847588','instapay','INSTP','989874859698','Kushal Patel','+91 90990 11873',950,'UPI · Intent','ICICI Bank','','300 BRR HP','failed','00:14:09']];
+const TXNS=TXN_RAW.map((r,i)=>{const rate=RATE[r[1]]||.035;const fee=Math.round(r[6]*rate*100)/100;const u=uuid(i*13+5);return{id:r[0],uuid:u,uuidShort:u.slice(0,8)+'…'+u.slice(-6),partner:r[1],pcode:r[2],order:r[3],cust:r[4],mob:r[5],email:r[4].toLowerCase().replace(/ /g,'.')+'@gmail.com',gross:r[6],fee,net:r[6]-fee,rate,method:r[7],bank:r[8],utr:r[9],branch:r[10],status:r[11],time:r[12]}});
+const DEP_RAW=[
+['Atoz','ATOZ','297 Delux HP','626816549361',3000,'Jaatram','DEVELOPMENT','04:04 PM','pending'],
+['Atoz','ATOZ','291 Dhanlaxmi HP','313747625863',900,'Sumandakua','SK SHABNAM 2','04:03 PM','pending'],
+['pb02','PB02','299 RAM HP','315487814341',500,'Aditya Jain','Deepak','04:02 PM','created'],
+['instapay','INSTP','300 BRR HP','626816578356',1500,'testUser','GGB','04:00 PM','pending'],
+['Atoz','ATOZ','299 RAM HP','694540761027',1000,'Gulshan1996','Deepak','03:55 PM','hold'],
+['Atoz','ATOZ','297 Delux HP','626853428896',25000,'Mansi-Sehrawat','DEVELOPMENT','03:49 PM','pending'],
+['IPN','IPN','291 Dhanlaxmi HP','626839700598',19500,'vansh sachdeva','MGB DEVRAO','03:40 PM','approved'],
+['xpro','XPRO','291 Dhanlaxmi HP','401589891365',40000,'Client','MUKESH','03:32 PM','pending'],
+['Atoz','ATOZ','300 BRR HP','626833687196',6883,'RAC329','KRISHN KUMAR','03:26 PM','declined']];
+const STMT_RAW=[
+['626812820491',0,2000,'GGB',1,'','—',2000,'pending','297 Delux HP','297 Delux HP','Deluxadmin','matched','12:46 PM','12:49 PM','—','12:51 PM'],
+['130212590373',0,12534,'Remal silayi',1,'','—',12534,'pending','295 Chaudhary FR','295 Chaudhary FR','ChaudharyD','matched','04:22 PM','04:25 PM','—','04:25 PM'],
+['214952977711',0,4000,'CHANDUBHAI',1,'','—',4000,'pending','266 Shivay HP','253 Ronny HP BYT','Ronnyadmin','mismatch','09:57 AM','09:57 AM','—','09:58 AM'],
+['626839834644',0,5000,'Subhawati 1',1,'526839834644','Babaadmin',5000,'approved','279 Baba HP','279 Baba HP','Babaadmin','matched','12:13 AM','12:14 AM','12:15 AM','12:14 AM'],
+['315453672110',0,30000,'Subhawati 1',1,'415453672110','Babaadmin',30000,'approved','279 Baba HP','279 Baba HP','Babaadmin','matched','12:40 AM','12:42 AM','12:53 AM','12:53 AM'],
+['626867279595',0,3000,'Dipak',0,'','—',0,'unsettled','—','310 Cobra HP','Cobraadmin','none','—','—','—','12:36 AM'],
+['560925071657565',0,7245,'AIR-NASIR',0,'','—',0,'unsettled','—','306 Kingfisher RY','Kingfisheradmin','none','—','—','—','07:29 AM'],
+['626827411811',0,2000,'tmb curunt',0,'','—',0,'unsettled','—','298 Sadhi HP','SadhiD','none','—','—','—','09:16 AM'],
+['402583940166',500,0,'SBM',0,'','—',0,'unsettled','—','300 BRR HP','Brradmin','none','—','—','—','11:46 AM']];
+const PARTNERS=[['10SP','10SP','10sp@gmail.com','https://10sports.com/',1,1,34,'active','6%','2.5%'],['Atoz','ATOZ','atozpay@gmail.com','https://www.cwinz.com',1,1,41,'active','6%','2.5%'],['1lexchbr1','LEXB1','1lexchbr1@gmail.com','https://pg.route2222.com',1,0,12,'active','4%','2%'],['1luck','1LUCK','1luck@gmail.com','https://pg.route2222.com',1,1,18,'active','4%','2%'],['7pay','7PAY','7pay@gm.com','https://7pay.kasgd.com',1,1,22,'active','3.5%','1.5%'],['ApoloExch','APOLO','support@apoloexch.com','https://apoloexch.com',1,0,0,'inactive','4%','2%'],['Atoz-AW7','ATAW7','atoz-aw7@gmail.com','http://www.annawins777.com/callback',1,1,9,'inactive','6%','2.5%'],['bytefx','BYTFX','bytefx@bytefx.com','https://my.bytefx.com/client/return',1,1,27,'active','3.5%','1.5%'],['cexch','CEXCH','cexch@gmail.com','https://coexchange.com/deposit',1,0,15,'active','4%','2%'],['dafa','DAFA','dafa@fafa.com','https://clientwebdev1.dafaexch.com',0,1,6,'active','3.5%','1.5%']];
+const BRANCHES=[['103 HP','Master limit · daily reset',0,-1,'3.5%',0,-1,'1.5%',3000,-1,0,4,'','inactive'],['104 virat RY','Master limit · daily reset',2,-1,'3.5%',184500,-1,'1.5%',5000,-1,42000,6,'virat','active'],['114 peter','Deposit limit · top-up',1,-1,'3.5%',61200,-1,'1.5%',1,-1,0,3,'Peteradmin','active'],['118 GKW','Master limit · daily reset',3,-1,'0%',92800,-1,'2%',1,-1,15000,5,'GKWADMIN','active'],['120 TONY','Deposit limit · top-up',2,1500000,'3.25%',14000,-1,'1.5%',10000,-1,0,8,'TONYADMIN','active'],['137 Krishna RB','Master limit · daily reset',0,-1,'3.5%',0,-1,'1.5%',100000,-1,0,0,'','inactive'],['149 king RY','Master limit · daily reset',0,-1,'3.5%',0,-1,'1.5%',1,30000,0,2,'','inactive'],['151 Swami HP','Deposit limit · top-up',4,-1,'3.5%',66872,-1,'1.5%',10000,-1,21500,7,'Swamiadmin','active'],['297 Delux HP','Master limit · daily reset',6,5000000,'3.5%',3842000,2000000,'1.5%',500,50000,1210400,11,'Deluxadmin','active'],['279 Baba HP','Master limit · daily reset',5,-1,'3.5%',946716,-1,'1.5%',500,-1,318000,9,'Babaadmin','active']];
+const ACCTS=[['MUSTAFA ABDUL SAMAD 3','DCB Bank','02714600135535','DCBL0000027','gpay-29361428354@okbizaxis','270 Pragya RY',2000,-1,300000,184000,'verified','active',1],['MUSTAFA ABDUL SAMAD 1','DCB Bank','02714600135535','DCBL0000027','gpay-17989724492@okbizaxis','270 Pragya RY',2000,-1,300000,300000,'verified','exhausted',0],['MUSTAFA ABDUL SAMAD 2','DCB Bank','02714600135521','DCBL0000027','gpay-29961328753@okbizaxis','270 Pragya RY',2000,-1,300000,41200,'verified','inactive',0],['AMER KHAN 1','SBM Bank','20012626912586','STCB0000065','gpay-17989758191@okbizaxis','270 Pragya RY',2000,100000,500000,262000,'verified','active',1],['ASHAN ALI SHAIK','HDFC Bank','50100482716640','HDFC0001203','ashanali@hdfcbank','103 HP',500,50000,200000,0,'pverify','inactive',0],['SUBHAWATI 1','Kotak Mahindra','7412098837','KKBK0000958','subhawati1@kotak','279 Baba HP',1000,-1,1000000,946716,'verified','active',1]];
+const MODS=[['Dashboards','Pay-in Dashboard'],['Dashboards','Payout Dashboard'],['Network','Partner'],['Network','Branches'],['Operations','Manual Deposit'],['Operations','Manual Payment'],['Operations','Manual Payout'],['Reports','My Report'],['Reports','Pay-in History'],['Reports','Pay-in Report (Admin)'],['Reports','Payout Report (Admin)'],['Finance','Settlement'],['Finance','Admin Settlement Dashboard'],['System','Role'],['System','User'],['System','Pages'],['System','Credential'],['System','Global Settings']];
+const ROLES=[['Admin',6,'System'],['Branch Admin',48,'System'],['Sub Admin',9,''],['deposit',31,''],['widrawal',27,''],['Partner',79,'System'],['cs_shivay',4,''],['HOMED',3,''],['TONYD',2,'']];
+function seedPerms(){const p={};ROLES.forEach(([r],ri)=>{p[r]={};MODS.forEach(([g,m],mi)=>{let v;if(r==='Admin')v=[1,1,1,1];else if(r==='deposit'){v=[0,0,0,0];if(['My Report','Pay-in History','Admin Settlement Dashboard'].includes(m))v=[1,0,0,0];if(m==='Pay-in Dashboard')v=[1,1,0,0];if(m==='Pay-in Report (Admin)')v=[1,0,1,0];if(m==='Manual Deposit'||m==='Manual Payment')v=[1,1,1,1]}else{const x=(ri*7+mi*3)%5;v=[x>1?1:0,x>2?1:0,x>3?1:0,0]}p[r][m]=v})});return p}
+const WZ=[
+['Basic information','Who the partner is and how they appear to customers.',[['Partner name','Atoz'],['Partner code','ATOZ','','Unique · used in API and reports'],['Email','atozpay@gmail.com'],['Description','Gaming wallet top-ups'],['Theme','Theme 3','▾'],['Logo','atoz-logo.png · 48 KB','Replace']]],
+['API & security','Endpoints PayGate calls, and where requests may come from.',[['API version','V2','▾'],['Return URL','https://www.cwinz.com'],['Pay-in callback URL','https://pg.route2222.com/cpgwh_000000_9bf91b9d'],['Pay-in webhook URL','https://pg.route2222.com/cpgwh_000000_9bf91b9d'],['Payout webhook URL','Not set','','Optional'],['Allowed IPs','52.66.45.184, 52.66.164.33','','Comma separated · IPv4']]],
+['Payment configuration','Methods offered on the checkout page.',[['Manual payment type','Dynamic QR','▾','Manual Bank Details · Intent Details · Dynamic QR'],['QR code','Enabled','●'],['UPI','Enabled','●'],['Bank details','Enabled','●'],['Host-to-host (H2H)','Enabled','●'],['Status','Active','●']]],
+['Commission','Charged on gross amount; deducted before settlement.',[['Deposit commission','6.00','%'],['Withdrawal commission','2.50','%'],['Payout limit type','Deposit limit (assign top-up balance)','▾','Master limit resets daily at 00:00 IST']]],
+['Withdrawal','Payout rules for this partner.',[['Withdraw URL','https://pg.route2222.com/payout'],['Group name','Group A · Tier 1','▾'],['Minimum amount','₹100.00'],['Maximum amount','Unlimited','','Enter −1 for unlimited'],['Auto withdrawal','Allowed','●'],['Partial withdrawal','Not allowed','○']]],
+['Branch mapping','Branches that may collect for this partner, with routing order.',[['Mapped branches','41 of 200 selected','Edit'],['Routing','Weighted by order · 253 Ronny HP BYT first'],['Unmapped with balance','265 Charlie RY, 270 Pragya RY','','These branches will not receive Atoz traffic']]],
+['Review & create','Confirm everything before the partner goes live.',[['Partner','Atoz · ATOZ'],['API','V2 · 2 IPs whitelisted'],['Methods','QR · UPI · Bank · H2H'],['Commission','6% deposit · 2.5% withdrawal'],['Withdrawal','₹100 – Unlimited · auto'],['Branches','41 mapped']]]];
+
+class Component extends DCLogic{
+  state={panel:this.props.startPanel||'admin',screen:(this.props.startPanel==='checkout'?'checkout':'dashboard'),dark:!!this.props.dark,collapsed:false,drawer:null,drTab:0,modal:null,mInput:'',depOver:{},stmtOver:{},depTab:'all',depMode:'grid',sel:{},toast:'',range:'Today',view:0,showBuilder:false,role:'deposit',perms:seedPerms(),reveal:false,coStep:'landing',coTimer:872,stmtFilter:'all',wizard:false,wz:0,acctVf:{},auth:'app',pwNew:'',pwConf:'',showPw:false,otp:'',profTab:0,density:null,notif:[1,1,1,0,1],sessEnded:{}};
+  componentDidMount(){this.apply();this.iv=setInterval(()=>{if(this.state.panel==='checkout'&&this.state.coTimer>0&&this.state.coStep!=='expired')this.setState(s=>({coTimer:s.coTimer-1}))},1000)}
+  componentWillUnmount(){clearInterval(this.iv);clearTimeout(this.tt)}
+  componentDidUpdate(pp){if(pp.dark!==this.props.dark)this.setState({dark:!!this.props.dark});if(pp.startPanel!==this.props.startPanel&&this.props.startPanel)this.setPanel(this.props.startPanel);this.apply()}
+  apply(){const P=PANELS[this.state.panel],d=document.documentElement;d.dataset.theme=this.state.dark?'dark':'light';d.style.setProperty('--ac',P.ac);d.style.setProperty('--acs',this.state.dark?P.dacs:P.acs);d.style.setProperty('--act',this.state.dark?P.dact:P.act);d.style.setProperty('--rp',(this.state.density||this.props.density)==='comfortable'?'13px':'9px')}
+  setPanel(p){this.setState({panel:p,screen:p==='checkout'?'checkout':'dashboard',drawer:null,modal:null,showBuilder:false,wizard:false})}
+  nav(k){if(k.startsWith('auth:')){this.setState({auth:k.slice(5),otp:'',pwNew:'',pwConf:''});return}if(k.startsWith('co:')){const st=k.slice(3);this.setState({coStep:st,coTimer:st==='expired'?0:872});return}this.setState({screen:k,drawer:null,showBuilder:false,wizard:false})}
+  say(t){clearTimeout(this.tt);this.setState({toast:t});this.tt=setTimeout(()=>this.setState({toast:''}),2600)}
+  copy(v,l){try{navigator.clipboard&&navigator.clipboard.writeText(v)}catch(e){}this.say((l||'Value')+' copied')}
+  depStatus(i){return this.state.depOver[i]||DEP_RAW[i][8]}
+  stmtStatus(i){return this.state.stmtOver[i]||STMT_RAW[i][8]}
+  openModal(mode,i,src){this.setState({modal:{mode,i,src:src||'dep'},mInput:''})}
+  confirm(){const m=this.state.modal;if(!m)return;const need=m.mode!=='hold';if(need&&!this.state.mInput.trim())return;const next={approve:'approved',hold:'hold',decline:'declined'}[m.mode];
+    if(m.src==='dep'){const r=DEP_RAW[m.i];this.setState(s=>({depOver:{...s.depOver,[m.i]:next},modal:null}));this.say(m.mode==='approve'?'Deposit approved · '+fmt(r[4])+' credited to '+r[0]:m.mode==='hold'?'Moved to Payment hold · '+r[3]:'Deposit declined · partner notified')}
+    else{this.setState(s=>({stmtOver:{...s.stmtOver,[m.i]:next},modal:null}));this.say('Statement line '+STMT_RAW[m.i][0]+' → '+ST[next][0])}}
+  txnDrawer(t,tab){
+    const st=t.status,done=st==='success';
+    const ev=[['Transaction created','Partner API · V2','Order '+t.order+' received from '+t.partner],['Payment details allocated','System','Collection account assigned via '+t.branch],['Customer started payment','Customer','Opened checkout · '+t.method],['Payment detected',done?'Bank feed':'Awaiting',st==='failed'?'No credit received before expiry':done?'Credit detected on '+t.bank:'Waiting for bank credit'],['UTR matched','Reconciliation',t.utr?'UTR '+t.utr+' matched to statement':'Waiting for bank UTR'],['Approved',done?'Babaadmin':'—',done?'Approved by branch operator':'Pending operator review'],['Webhook sent','System',done?'payin.success → 200 OK':'Not yet sent'],['Completed','System',done?'Balance credited to partner':'—']];
+    const reached=done?8:3;
+    const timeline=ev.map((e,i)=>{const s=st==='failed'&&i===3?'bad':i<reached?'ok':i===reached?'cur':'todo';return{title:e[0],actor:e[1],desc:e[2],time:s!=='todo'?t.time:'',...dot(s,i)}});
+    const tabs=['Overview','Customer','Payment & Bank','UTR','Charges','Webhooks','Audit log'];
+    const act=['pending','hold','review'].includes(st);
+    const o={kind:'Pay-in transaction',id:t.id,st:B(st),sub:'Created 25 Sep 2026, '+t.time+' IST · '+t.partner+' ('+t.pcode+') · '+t.branch,
+      sums:[{k:'Gross amount',v:fmt(t.gross),fg:'var(--tx)'},{k:'Service charge · '+(t.rate*100).toFixed(1)+'%',v:'− '+fmt(t.fee),fg:'var(--er)'},{k:'Net to partner',v:'+ '+fmt(t.net),fg:'var(--ok)'}],
+      actions:act?[{label:'Switch branch',bg:'var(--sf)',fg:'var(--tx)',bd:'1px solid var(--ln)',onClick:()=>this.say('Switch branch · choose from 41 mapped branches')},{label:'Authorize',bg:'var(--ac)',fg:'#fff',bd:'0',onClick:()=>this.say('Transaction '+t.id+' authorized')}]:[{label:'Resend webhook',bg:'var(--sf)',fg:'var(--tx)',bd:'1px solid var(--ln)',onClick:()=>this.say('Webhook queued for '+t.partner)}],
+      tabs:tabs.map((l,i)=>({label:l,onClick:()=>this.setState({drTab:i}),bd:i===tab?'var(--ac)':'transparent',fg:i===tab?'var(--tx)':'var(--tx3)'})),
+      showTimeline:tab===0,tlTitle:'Lifecycle',timeline,sections:[],ledger:[],hooks:[],audit:[],cmp:{},showLedger:tab===4,showHooks:tab===5,showAudit:tab===6,showCompare:false,showProof:false};
+    if(tab===0)o.sections=[{title:'Key facts',rows:[KV('Partner order ID',t.order,1),KV('Gateway transaction ID',t.uuid,1),KV('Customer',t.cust),KV('Payment method',t.method)]}];
+    if(tab===1)o.sections=[{title:'Customer',rows:[KV('Customer ID','CUS-'+hex(+t.id.slice(-3),6),1),KV('Name',t.cust),KV('Email',t.email),KV('Mobile',t.mob),KV('IP address','49.36.'+(+t.id.slice(-2))+'.112',1),KV('Device','Android · Chrome 128')]}];
+    if(tab===2)o.sections=[{title:'Payment',rows:[KV('Amount',fmt(t.gross)),KV('Payment method',t.method),KV('Payment session','ps_'+hex(+t.id,10).toLowerCase(),1),KV('Payment URL','Opened · expires 15 min after creation'),KV('Gateway txn ID',t.uuid,1),KV('Partner txn ID',t.order,1)]},{title:'Bank details',rows:[KV('Bank',t.bank),KV('Account holder','Mustafa Abdul Samad 3'),KV('Account number','XXXX XXXX 5535',1),KV('IFSC','DCBL0000027',1),KV('Branch',t.branch),KV('Payment account ID','PA-270-003',1)]}];
+    if(tab===3)o.sections=[{title:'UTR / Reconciliation',rows:[KV('UTR',t.utr,1),KV('Match status',t.utr?'Matched ✓':'Awaiting UTR'),KV('Statement reference',t.utr?'STM-25092026-0418':'',1),KV('Branch match',t.utr?'Matched · '+t.branch:''),KV('Matched at',t.utr?'25 Sep 2026, '+t.time:''),KV('Reconciliation',t.utr?'Reconciled':'Open')]}];
+    if(tab===4){const pc=Math.round(t.fee*.55*100)/100,bc=Math.round(t.fee*.3*100)/100,gc=Math.round((t.fee-pc-bc)*100)/100;o.ledger=[{k:'Gross amount',v:fmt(t.gross),fg:'var(--tx)'},{k:'Platform commission',v:'− '+fmt(pc),fg:'var(--er)'},{k:'Branch commission · '+t.branch,v:'− '+fmt(bc),fg:'var(--er)'},{k:'Gateway charge',v:'− '+fmt(gc),fg:'var(--er)'},{k:'Other charges',v:fmt(0),fg:'var(--tx3)'},{k:'Net amount to partner',v:'+ '+fmt(t.net),fg:'var(--ok)',fw:600,bg:'var(--sf2)'}].map(l=>({fw:400,bg:'transparent',kfg:'var(--tx2)',...l}))}
+    if(tab===5)o.hooks=done?[{ev:'payin.created',ep:'pg.route2222.com',code:'200',codeFg:'var(--ok)',att:1,del:'0.38s'},{ev:'payin.success',ep:'pg.route2222.com',code:'200',codeFg:'var(--ok)',att:1,del:'0.42s'}]:[{ev:'payin.created',ep:'pg.route2222.com',code:'200',codeFg:'var(--ok)',att:1,del:'0.38s'},{ev:'payin.pending',ep:'pg.route2222.com',code:'503',codeFg:'var(--er)',att:1,del:'retry in 2m'},{ev:'payin.pending',ep:'pg.route2222.com',code:'200',codeFg:'var(--ok)',att:2,del:'1.12s'}];
+    if(tab===6)o.audit=[{actor:'Deluxadmin',role:'Branch Admin',action:'switched branch',before:'265 Charlie RY',after:t.branch,ip:'103.21.58.14',req:'rq_8f21c',time:'25 Sep, '+t.time},{actor:'System',role:'Allocator',action:'assigned collection account',before:'—',after:'PA-270-003',ip:'10.0.4.12',req:'rq_7a90e',time:'25 Sep, '+t.time}];
+    return o;
+  }
+  depDrawer(i){
+    const r=DEP_RAW[i],st=this.depStatus(i),tx=uuid(i*17+3),closed=st==='approved'||st==='declined';
+    const steps=[['Created','Client request · '+r[1]],['Submitted',r[5]+' submitted payment details'],['Payment proof uploaded','Screenshot · 214 KB'],['Reviewed',st==='created'?'Awaiting review':'Branch operator · '+r[2]],[st==='declined'?'Declined':'Approved',closed?(st==='declined'?'Reason: UTR not found in statement':'Bank UTR 5268'+r[3].slice(4)):'Awaiting decision'],['Webhook sent',closed?'payin.'+(st==='declined'?'failed':'success')+' → 200 OK':'—'],['Balance updated',st==='approved'?'+ '+fmt(r[4]*.94)+' to '+r[0]:'—']];
+    const reached=st==='created'?2:closed?7:4;
+    return{kind:'Manual deposit request',id:r[3],st:B(st),sub:r[0]+' ('+r[1]+') · '+r[2]+' · created 25 Sep 2026, '+r[7],
+      sums:[{k:'Deposit amount',v:fmt(r[4]),fg:'var(--tx)'},{k:'Deposit type',v:'Client request',fg:'var(--tx)'},{k:'Bank',v:r[6],fg:'var(--tx)'}],
+      actions:closed?[]:[{label:'Hold',bg:'var(--sf)',fg:'var(--hd)',bd:'1px solid var(--ln)',onClick:()=>this.openModal('hold',i)},{label:'Approve',bg:'var(--ac)',fg:'#fff',bd:'0',onClick:()=>this.openModal('approve',i)}],
+      tabs:[],showProof:true,proofTime:'25 Sep, '+r[7],showCompare:false,showLedger:false,showHooks:false,showAudit:false,ledger:[],hooks:[],audit:[],cmp:{},
+      sections:[{title:'Identity',rows:[KV('Partner',r[0]+' · '+r[1]),KV('Branch',r[2]),KV('Username',r[5]),KV('Customer mobile','+91 98'+r[3].slice(0,3)+' '+r[3].slice(3,8))]},{title:'Transaction',rows:[KV('Request ID (UTR description)',r[3],1),KV('Transaction ID',tx,1),KV('Bank',r[6]),KV('Bank UTR number',st==='approved'?'5268'+r[3].slice(4):'',1),KV('Manual link created','—'),KV('Last updated','25 Sep 2026, '+r[7])]}],
+      showTimeline:true,tlTitle:'Approval history',
+      timeline:steps.map((e,k)=>{const s=st==='declined'&&k===4?'bad':k<reached?'ok':k===reached?'cur':'todo';return{title:e[0],desc:e[1],actor:s==='ok'?(k<3?'Customer':'Deluxadmin'):'',time:s==='ok'?r[7]:'',...dot(s,k)}})};
+  }
+  stmtDrawer(i){
+    const r=STMT_RAW[i],st=this.stmtStatus(i),tx=r[4]?uuid(i*23+9):'',m=r[12];
+    const cmp=m==='matched'?{bd:'var(--ok)',bg:'var(--okb)',fg:'var(--ok)',ic:'✓',label:'MATCHED'}:m==='mismatch'?{bd:'var(--er)',bg:'var(--erb)',fg:'var(--er)',ic:'≠',label:'MISMATCH'}:{bd:'var(--hd)',bg:'var(--hdb)',fg:'var(--hd)',ic:'?',label:'NO TRANSACTION'};
+    Object.assign(cmp,{a:r[9],aSub:r[4]?'From pay-in '+tx.slice(0,8):'No linked transaction',b:r[10],bSub:'Entered by '+r[11]});
+    const canAct=st==='pending'||st==='hold';
+    return{kind:'A/C statement line',id:r[0],st:B(st),sub:'Document date 25 Sep 2026 · '+r[3]+' · entered '+r[16]+' by '+r[11],
+      sums:[{k:'Credit',v:r[2]?'+ '+fmt(r[2]):'—',fg:r[2]?'var(--ok)':'var(--tx3)'},{k:'Debit',v:r[1]?'− '+fmt(r[1]):'—',fg:r[1]?'var(--er)':'var(--tx3)'},{k:'Transaction amount',v:r[7]?fmt(r[7]):'Unlinked',fg:'var(--tx)'}],
+      actions:canAct?[{label:'Hold',bg:'var(--sf)',fg:'var(--hd)',bd:'1px solid var(--ln)',onClick:()=>this.openModal('hold',i,'stmt')},{label:m==='mismatch'?'Reconcile anyway':'Approve',bg:'var(--ac)',fg:'#fff',bd:'0',onClick:()=>this.openModal('approve',i,'stmt')}]:st==='unsettled'?[{label:'Match to transaction',bg:'var(--ac)',fg:'#fff',bd:'0',onClick:()=>this.say('Search pay-ins for ₹'+r[2]+' near 25 Sep')}]:[],
+      tabs:[],showCompare:true,cmp,showProof:false,showLedger:false,showHooks:false,showAudit:true,ledger:[],hooks:[],
+      sections:[{title:'Statement information',rows:[KV('Description / reference',r[0],1),KV('Document date','25 Sep 2026'),KV('Credit',r[2]?fmt(r[2]):''),KV('Debit',r[1]?fmt(r[1]):'')]},{title:'Bank & transaction',rows:[KV('Bank name',r[3]),KV('Bank UTR number',r[5],1),KV('Transaction ID',tx,1),KV('Action by',r[6])]},{title:'Request dates',rows:[KV('Request created',r[13]),KV('User submitted',r[14]),KV('Last modified',r[15]),KV('Manual entry',r[16])]}],
+      showTimeline:false,timeline:[],
+      audit:[{actor:r[11],role:'Branch Admin',action:'created statement line',before:'—',after:fmt(r[2]||r[1])+' '+(r[2]?'credit':'debit'),ip:'103.21.58.14',req:'rq_'+hex(i+40,5).toLowerCase(),time:'25 Sep, '+r[16]}].concat(st==='approved'?[{actor:r[6],role:'Branch Admin',action:'approved',before:'Pending',after:'Approved',ip:'103.21.58.19',req:'rq_'+hex(i+50,5).toLowerCase(),time:'25 Sep, '+r[15]}]:[])};
+  }
+
+  renderVals(){
+    const s=this.state,P=PANELS[s.panel],ph=s.panel;
+    const scr=s.screen;
+    let crumbGroup='',crumbPage='';
+    const navGroups=NAV[ph].map(([g,items])=>({g,items:items.map(([k,l,b])=>{const key=k==='x'?'x:'+l:k;const act=ph==='checkout'?('co:'+s.coStep)===key:scr===key;if(act){crumbGroup=g;crumbPage=l}return{label:l,badge:b||'',hasBadge:!!b,onClick:()=>this.nav(key),bg:act?'rgba(255,255,255,.08)':'transparent',fg:act?'#fff':(k==='x'?'#7B879C':'#C8D1DF'),fw:act?600:500,dot:act?P.ac:(k==='x'?'rgba(255,255,255,.12)':'rgba(255,255,255,.28)')}})}));
+    const panels=['admin','branch','partner','checkout'].map(p=>({label:PANELS[p].short,onClick:()=>this.setPanel(p),bg:p===ph?'rgba(255,255,255,.1)':'transparent',fg:p===ph?'#fff':'#8391A8',dot:PANELS[p].ac}));
+    const o={sideW:s.collapsed?'64px':'244px',expanded:!s.collapsed,envLabel:P.label,panels,navGroups,userIni:P.ini,userName:P.user,userRole:P.role,
+      toggleSide:()=>this.setState({collapsed:!s.collapsed}),crumbPanel:P.short,crumbGroup,crumbPage,panelShort:P.short,toggleDark:()=>this.setState({dark:!s.dark}),themeIcon:s.dark?'☀':'☾',
+      isDash:scr==='dashboard'&&ph!=='checkout',isTxns:scr==='txns',isDeps:scr==='deposits',isStmt:scr==='statement',isPartners:scr==='partners',isBranches:scr==='branches',isAccounts:scr==='accounts',isRoles:scr==='roles',isDev:scr==='developers',isPh:scr.startsWith('x:'),phTitle:scr.slice(2),goDash:()=>this.nav('dashboard'),isCheckout:ph==='checkout',
+      toast:s.toast,hasToast:!!s.toast};
+    if(ph==='checkout'){o.crumbGroup='Customer';}
+    // dashboard
+    const go=k=>()=>this.nav(k);
+    const K=(label,value,sub,tone)=>({label,value,sub,subFg:tone==='up'?'var(--ok)':tone==='down'?'var(--er)':tone==='warn'?'var(--wn)':'var(--tx3)'});
+    const A=(label,sub,value,st,k)=>({label,sub,value,st:B(st),onClick:go(k)});
+    const D={
+      admin:{title:'Platform overview',desc:'All partners, branches and payment accounts in real time.',kpis:[K('Total volume','₹4.82 Cr','▲ 12.4% vs yesterday','up'),K('Transactions','18,426','▲ 8.1%','up'),K('Successful','16,902','91.7% success rate','up'),K('Pending','1,118','214 older than 30 min','warn'),K('Failed','406','▼ 0.4 pts','down'),K('Partners','79','61 active'),K('Branches','200','48 active'),K('Current balance','₹1.47 Cr','Across all branches'),K('Settlement','₹92.6 L','₹18.4 L pending'),K('Commission','₹11.84 L','Deposit + withdrawal')],
+        attention:[A('Pending manual deposits','Oldest waiting 42 min','38','pending','deposits'),A('Unsettled UTR','Statement lines without a transaction','12 · ₹24,770','unsettled','statement'),A('Failed webhooks','bytefx endpoint returning 503','4','failed','x:Audit Logs'),A('Pending payouts','Awaiting branch confirmation','21','review','x:Manual Payout'),A('Bank account alerts','2 exhausted · 1 pending verification','3','exhausted','accounts'),A('Branch alerts','Mismatched branch on 2 lines','2','mismatch','statement')],
+        tblTitle:'Branch performance · today',tblHead:['Branch','Deposits','Withdrawals','Success rate','Balance'],tblRows:[['297 Delux HP','11 partners',3842000,1210400,96.2,4762376.21],['279 Baba HP','9 partners',946716,318000,94.8,493532],['253 Ronny HP BYT','7 partners',712300,204100,91.3,89128.5],['266 Shivay HP','6 partners',534900,97500,88.1,70.57],['265 Charlie RY','5 partners',421000,150000,84.6,500],['300 BRR HP','8 partners',388400,41200,79.9,500]].map(r=>({a:r[0],a2:r[1],b:fmt0(r[2]),c:fmt0(r[3]),pct:r[4]+'%',pctW:r[4]+'%',pctC:r[4]>90?'var(--ok)':r[4]>85?'var(--wn)':'var(--hd)',d:fmt(r[5])}))},
+      branch:{title:'297 Delux HP',desc:'Your branch operations for today. Data scoped to your branch only.',kpis:[K("Today's deposits",'₹38.42 L','▲ 6.2% vs yesterday','up'),K("Today's withdrawals",'₹12.10 L','184 payouts'),K('Pending manual deposits','14','Oldest 18 min','warn'),K('Unsettled UTR','6','₹24,770.00','warn'),K('Bank accounts','5 / 6 available','1 limit exhausted'),K('Current balance','₹47,62,376.21','Updated 12s ago'),K('Commission','₹1.34 L','3.5% deposit · 1.5% withdrawal'),K('Settlement due','₹8.20 L','Next cycle 18:00 IST')],
+        attention:[A('Pending manual deposits','Needs Bank UTR to approve','14','pending','deposits'),A('Unsettled statement lines','No matching transaction','6 · ₹24,770','unsettled','statement'),A('Branch mismatch','Line 214952977711 entered by 253 Ronny','1','mismatch','statement'),A('Account limit exhausted','MUSTAFA ABDUL SAMAD 1 · DCB','1','exhausted','accounts')],
+        tblTitle:'Account usage · today',tblHead:['Account','Used today','Daily limit','Utilisation','Remaining'],tblRows:ACCTS.slice(0,5).map(a=>{const p=Math.round(a[9]/a[8]*100);return{a:a[0],a2:a[1]+' · XXXX '+a[2].slice(-4),b:fmt0(a[9]),c:fmt0(a[8]),pct:p+'%',pctW:p+'%',pctC:p>=100?'var(--er)':p>75?'var(--wn)':'var(--ok)',d:fmt(a[8]-a[9])}})},
+      partner:{title:'Atoz · Merchant overview',desc:'Your collections, payouts and balance. Updated in real time.',kpis:[K('Total volume','₹1.18 Cr','▲ 9.3% vs yesterday','up'),K('Successful','4,812','93.4% success rate','up'),K('Pending','212','Avg. 3m 42s to confirm','warn'),K('Failed','96','▼ 0.2 pts','down'),K('Current balance','₹14,73,882.61','Available for payout'),K('Settlement','₹9.80 L','Next: 26 Sep, 10:00'),K('Commission paid','₹3.20 L','6% deposit · 2.5% withdrawal')],
+        attention:[A('Pending pay-ins','Customer has not completed payment','212','pending','txns'),A('Failed webhooks','Retrying · pg.route2222.com','3','failed','developers'),A('Payouts on hold','Awaiting balance top-up','2','hold','x:Pay-out')],
+        tblTitle:'Recent transactions',tblHead:['Order','Amount','Method','Conversion','Status'],tblRows:TXNS.filter(t=>t.partner==='Atoz'||t.partner==='IPN').slice(0,5).map((t,i)=>({a:t.order,a2:t.cust,b:fmt(t.gross),c:t.method,pct:[98,94,91,88,96][i]+'%',pctW:[98,94,91,88,96][i]+'%',pctC:'var(--ok)',d:ST[t.status][0]}))}};
+    o.dash={...(D[ph]||D.admin),payinTotal:ph==='branch'?'₹38.42 L':ph==='partner'?'₹1.18 Cr':'₹4.82 Cr',payoutTotal:ph==='branch'?'₹12.10 L':ph==='partner'?'₹31.6 L':'₹1.36 Cr',outcomeSub:s.range+' · 18,426 transactions'};
+    o.ranges=['Today','Yesterday','1h','24h','7d','30d','This month','Prev month','Custom'].map(l=>({label:l,onClick:()=>this.setState({range:l}),bg:l===s.range?'var(--acs)':'transparent',fg:l===s.range?'var(--act)':'var(--tx2)'}));
+    const inV=[],outV=[];for(let h=0;h<24;h++){const base=h<6?.25:h<10?.5:h<14?.9:h<18?1:h<22?.8:.45;inV.push(base*(0.75+((h*37)%11)/22));outV.push(base*.3*(0.7+((h*53)%7)/14))}
+    const mx=Math.max(...inV);o.bars=inV.map((v,h)=>({inH:Math.round(v/mx*100)+'%',outH:Math.round(outV[h]/mx*100)+'%',op:h===15?1:.82,lbl:h%3===0?String(h).padStart(2,'0'):'',tip:String(h).padStart(2,'0')+':00 · Pay-in ₹'+(v*40).toFixed(1)+' L'}));
+    // transactions
+    o.txnTitle=ph==='partner'?'Pay-in':ph==='branch'?'Pay-in History':'Transactions';
+    o.txnDesc=ph==='partner'?'Every collection on your account. Customer and order details included.':'View and manage all platform transactions.';
+    o.txnKpis=[['Total transactions','18,426','#','in'],['Success','16,902','✓','ok'],['Pending','1,118','◷','wn'],['Failed','406','✕','er'],['Total amount','₹4,82,16,540.00','₹','rv']].map(k=>({label:k[0],value:k[1],ic:k[2],fg:'var(--'+k[3]+')',bg:'var(--'+k[3]+'b)'}));
+    o.views=[['All transactions','18,426'],['High value pending','42'],['Failed today','406'],['Needs review','17']].map((v,i)=>({label:v[0],count:v[1],onClick:()=>this.setState({view:i}),bd:i===s.view?'var(--ac)':'transparent',fg:i===s.view?'var(--tx)':'var(--tx3)'}));
+    o.txnChips=[{k:'Date',v:'Today'},{k:'Type',v:'Pay-in'},{k:'Status',v:'Any'},{k:'Branch',v:'3 selected'}];
+    o.showBuilder=s.showBuilder;o.toggleBuilder=()=>this.setState({showBuilder:!s.showBuilder});o.saveFilter=()=>{this.setState({showBuilder:false});this.say('Saved view “High Value Pending Deposits”')};
+    o.builderRows=[{join:'WHERE',f:'Status',op:'is',v:'Pending'},{join:'AND',f:'Amount',op:'greater than',v:'₹50,000.00'},{join:'AND',f:'Type',op:'is',v:'Manual deposit'}];
+    const selIds=Object.keys(s.sel).filter(k=>s.sel[k]);
+    o.hasSel=selIds.length>0;o.selCount=selIds.length;o.selSum=fmt(TXNS.filter(t=>s.sel[t.id]).reduce((a,t)=>a+t.gross,0));o.clearSel=()=>this.setState({sel:{}});
+    const txList=ph==='partner'?TXNS.filter(t=>['Atoz','IPN','pb08','xpro'].includes(t.partner)):TXNS;
+    o.txns=txList.map((t,i)=>{const on=!!s.sel[t.id];return{...t,grossF:fmt(t.gross),netF:fmt(t.net),utr:t.utr||'—',utrFg:t.utr?'var(--tx)':'var(--tx3)',st:B(t.status),date:'25 Sep 2026',upd:t.time,succ:t.status==='success'?'✓ '+t.time:'—',rowBg:on?'var(--acs)':'transparent',cbBd:on?'var(--ac)':'var(--ln)',cbBg:on?'var(--ac)':'var(--sf)',cbIc:on?'✓':'',
+      toggle:e=>{e.stopPropagation();this.setState(x=>({sel:{...x.sel,[t.id]:!x.sel[t.id]}}))},open:()=>this.setState({drawer:{kind:'txn',i:TXNS.indexOf(t)},drTab:0})}});
+    // deposits
+    const depCounts={all:['Total requests','7,628','₹3.84 Cr'],created:['Created','212','₹8.4 L'],pending:['Pending','38','₹6.12 L'],approved:['Approved','7,214','₹3.71 Cr'],hold:['Payment hold','41','₹2.9 L'],declined:['Declined','123','₹4.1 L']};
+    o.depTabs=Object.keys(depCounts).map(k=>{const on=s.depTab===k,b=k==='all'?{ic:'∑',fg:'var(--tx2)'}:B(k);return{label:depCounts[k][0],count:depCounts[k][1],amt:depCounts[k][2],ic:b.ic,fg:b.fg,onClick:()=>this.setState({depTab:k}),bd:on?'var(--ac)':'var(--ln)',sh:on?'0 0 0 3px var(--acs)':'none'}});
+    o.depGrid=s.depMode==='grid';o.depList=s.depMode==='list';o.setDepGrid=()=>this.setState({depMode:'grid'});o.setDepList=()=>this.setState({depMode:'list'});o.depGridBg=o.depGrid?'var(--sf2)':'transparent';o.depListBg=o.depList?'var(--sf2)':'transparent';
+    o.deps=DEP_RAW.map((r,i)=>({r,i,st:this.depStatus(i)})).filter(x=>s.depTab==='all'||x.st===s.depTab).filter(x=>ph!=='branch'||['297 Delux HP','291 Dhanlaxmi HP','300 BRR HP'].includes(x.r[2])).map(({r,i,st})=>{const tx=uuid(i*17+3),closed=st==='approved'||st==='declined',sp=e=>e&&e.stopPropagation&&e.stopPropagation();return{partner:r[0],pcode:r[1],ini:r[0].slice(0,2).toUpperCase(),branch:r[2],reqId:r[3],amtF:fmt(r[4]),user:r[5],bank:r[6],created:'25 Sep, '+r[7],type:'Client request · Manual',txnId:tx,txnShort:tx.slice(0,8)+'…'+tx.slice(-4),bankUtr:st==='approved'?'5268'+r[3].slice(4):'awaiting',utrFg:st==='approved'?'var(--tx)':'var(--tx3)',link:'not created',decision:st==='approved'?'Approved by Deluxadmin · 25 Sep, 03:44 PM':st==='declined'?'Declined by Deluxadmin · UTR not found':'—',st:B(st),actionable:!closed,closed,
+      open:()=>this.setState({drawer:{kind:'dep',i}}),proof:e=>{sp(e);this.setState({drawer:{kind:'dep',i}})},approve:e=>{sp(e);this.openModal('approve',i)},hold:e=>{sp(e);this.openModal('hold',i)},decline:e=>{sp(e);this.openModal('decline',i)}}});
+    // statement
+    const credit=STMT_RAW.reduce((a,r)=>a+r[2],0),debit=STMT_RAW.reduce((a,r)=>a+r[1],0);
+    const pend=STMT_RAW.reduce((a,r,i)=>a+(this.stmtStatus(i)==='pending'?r[2]:0),0),uns=STMT_RAW.reduce((a,r,i)=>a+(this.stmtStatus(i)==='unsettled'?r[2]||r[1]:0),0);
+    o.stmtKpis=[{label:'Total records',value:'103',sub:'9 shown for current filter',fg:'var(--tx)'},{label:'Total credit',value:fmt(credit),sub:'Success ₹9,46,716.00 this period',fg:'var(--ok)'},{label:'Total debit',value:fmt(debit),sub:'1 debit line',fg:'var(--er)'},{label:'Pending amount',value:fmt(pend),sub:'Awaiting approval',fg:'var(--wn)'},{label:'Unsettled amount',value:fmt(uns),sub:'No linked transaction',fg:'var(--hd)'}];
+    const cnt=k=>STMT_RAW.filter((r,i)=>k==='all'||this.stmtStatus(i)===k).length;
+    o.stmtFilters=[['all','All'],['pending','Pending'],['approved','Approved'],['unsettled','Unsettled'],['hold','Hold']].map(([k,l])=>{const on=s.stmtFilter===k;return{label:l,count:cnt(k),onClick:()=>this.setState({stmtFilter:k}),bd:on?'var(--ac)':'var(--ln)',bg:on?'var(--acs)':'var(--sf)',fg:on?'var(--act)':'var(--tx2)'}});
+    o.addLine=()=>this.say('Statement line added · 103 HP · Ashan Ali Shaik');
+    o.stmts=STMT_RAW.map((r,i)=>({r,i,st:this.stmtStatus(i)})).filter(x=>s.stmtFilter==='all'||x.st===s.stmtFilter).map(({r,i,st})=>{const tx=r[4]?uuid(i*23+9):'',sp=e=>e&&e.stopPropagation&&e.stopPropagation();return{sr:i+1,doc:'25 Sep 2026',desc:r[0],drF:r[1]?'− '+fmt(r[1]):'—',drFg:r[1]?'var(--er)':'var(--tx3)',crF:r[2]?'+ '+fmt(r[2]):'—',crFg:r[2]?'var(--ok)':'var(--tx3)',bankName:r[3],txnShort:tx?tx.slice(0,13)+'…':'not linked',txnFg:tx?'var(--tx)':'var(--tx3)',bankUtr:r[5]||'—',actionBy:r[6],amtF:r[7]?fmt(r[7]):'—',st:B(st),canAct:st==='pending',txnBranch:r[9],bankBranch:r[10],entryBy:r[11],m:B(r[12]),d1:r[13],d2:r[14],d3:r[15],d4:r[16],primary:st==='unsettled'?'Match':st==='approved'?'View txn':'Edit',
+      open:()=>this.setState({drawer:{kind:'stmt',i}}),approve:e=>{sp(e);this.openModal('approve',i,'stmt')},hold:e=>{sp(e);this.openModal('hold',i,'stmt')}}});
+    // partners + wizard
+    o.partners=PARTNERS.map((p,i)=>({name:p[0],code:p[1],email:p[2],url:p[3],ini:p[0].slice(0,2).toUpperCase(),sk:hex(i+90,4).toLowerCase(),copy:()=>this.copy('sk_live_'+hex(i+90,24),'Secret key for '+p[0]),pi:B(p[4]?'on':'off'),piLabel:p[4]?'Enabled':'Off',po:B(p[5]?'on':'off'),poLabel:p[5]?'Enabled':'Off',branches:p[6],st:B(p[7]),cd:p[8],cw:p[9]}));
+    o.showWizard=s.wizard;o.openWizard=()=>this.setState({wizard:true,wz:0});o.closeWizard=()=>this.setState({wizard:false});
+    o.wzPrev=()=>this.setState({wz:Math.max(0,s.wz-1)});o.wzNext=()=>{if(s.wz===6){this.setState({wizard:false});this.say('Partner Atoz created · credentials emailed')}else this.setState({wz:s.wz+1})};
+    o.wzNextLabel=s.wz===6?'Create partner':'Continue';o.wzStepNo=s.wz+1;o.wzTitle=WZ[s.wz][0];o.wzHint=WZ[s.wz][1];
+    o.wzSteps=WZ.map((w,i)=>({label:w[0],onClick:()=>this.setState({wz:i}),bg:i===s.wz?'var(--sf)':'transparent',fg:i===s.wz?'var(--tx)':i<s.wz?'var(--tx2)':'var(--tx3)',dotBg:i<s.wz?'var(--ac)':i===s.wz?'var(--acs)':'var(--ln2)',dotFg:i<s.wz?'#fff':i===s.wz?'var(--act)':'var(--tx3)',mark:i<s.wz?'✓':String(i+1)}));
+    o.wzFields=WZ[s.wz][2].map(f=>({label:f[0],value:f[1],suffix:f[2]||'',help:f[3]||'',fg:f[1]==='Not set'?'var(--tx3)':'var(--tx)'}));
+    // branches
+    o.branches=BRANCHES.map(b=>({name:b[0],type:b[1],banks:b[2],dl:lim(b[3]),dlFg:b[3]<0?'var(--tx3)':'var(--tx)',dc:b[4],td:b[5]?fmt0(b[5]):'—',wl:lim(b[6]),wlFg:b[6]<0?'var(--tx3)':'var(--tx)',wc:b[7],tl:fmt0(b[8])+' – '+lim(b[9]),tw:b[10]?fmt0(b[10]):'—',partners:b[11],admin:b[12]||'+ Assign admin',adminFg:b[12]?'var(--tx)':'var(--ac)',st:B(b[13])}));
+    // accounts
+    o.acctKpis=[{label:'Accounts',value:'6',sub:'3 active · 2 inactive · 1 exhausted'},{label:'Used today',value:'₹17,33,916',sub:'of ₹26,00,000 daily capacity'},{label:'Remaining capacity',value:'₹8,66,084',sub:'Across active accounts'},{label:'Verification',value:'5 / 6',sub:'1 pending verification'}];
+    const vfCycle={verified:'unverified',unverified:'pverify',pverify:'verified'};
+    o.accounts=ACCTS.filter(a=>ph!=='branch'||true).map((a,i)=>{const p=Math.min(100,Math.round(a[9]/a[8]*100));const vf=s.acctVf[i]||a[10];return{holder:a[0],bank:a[1],acct:'XXXX XXXX '+a[2].slice(-4),ifsc:a[3],upi:a[4],merchant:a[0].replace(/\b\w+/g,w=>w[0]+w.slice(1).toLowerCase()),branch:a[5],type:'Dynamic QR',order:1,txnLim:fmt0(a[6])+' – '+lim(a[7]),used:fmt0(a[9]),limit:fmt0(a[8]),pctW:p+'%',pctC:p>=100?'var(--er)':p>75?'var(--wn)':'var(--ok)',remain:p>=100?'Limit reached · resets 00:00':fmt0(a[8]-a[9])+' remaining',methods:[{l:'Bank',fg:'var(--tx2)',td:'none'},{l:'UPI',fg:'var(--tx2)',td:'none'},{l:'Intent',fg:a[12]?'var(--tx2)':'var(--tx3)',td:a[12]?'none':'line-through'}],vf:B(vf),st:B(a[11]),verify:()=>{this.setState(x=>({acctVf:{...x.acctVf,[i]:vfCycle[vf]}}));this.say(a[0]+' → '+ST[vfCycle[vf]][0])}}});
+    // roles
+    const perm=s.perms[s.role];
+    o.roles=ROLES.map(r=>({name:r[0],users:r[1],tag:r[2],tagFg:'var(--tx3)',bg:r[0]===s.role?'var(--acs)':'transparent',fw:r[0]===s.role?600:500,onClick:()=>this.setState({role:r[0]})}));
+    const on=Object.values(perm).reduce((a,v)=>a+v.filter(Boolean).length,0);
+    o.roleName=s.role;o.roleSummary=on+' of '+(MODS.length*4)+' permissions granted · '+ROLES.find(r=>r[0]===s.role)[1]+' users';
+    const setP=(m,idx)=>this.setState(x=>{const pr={...x.perms},rp={...pr[x.role]},v=[...rp[m]];if(idx<0){const all=v.every(Boolean);v.fill(all?0:1)}else v[idx]=v[idx]?0:1;rp[m]=v;pr[x.role]=rp;return{perms:pr}});
+    const cell=(onv,f)=>({onClick:f,bd:onv?'var(--ac)':'var(--ln)',bg:onv?'var(--ac)':'var(--sf)',ic:onv?'✓':''});
+    o.permRows=MODS.map(([g,m],i)=>{const v=perm[m];return{group:i===0||MODS[i-1][0]!==g?g:'',mod:m,cells:[cell(v.every(Boolean),()=>setP(m,-1))].concat(v.map((x,j)=>cell(!!x,()=>setP(m,j))))}});
+    o.savePerms=()=>this.say('Permissions saved for role “'+s.role+'”');
+    // developers
+    o.revealLabel=s.reveal?'Hide':'Reveal';o.toggleReveal=()=>this.setState({reveal:!s.reveal});
+    o.creds=[{label:'Merchant ID',value:'MID_ATOZ_00412',secret:false,help:'Public identifier · safe to share',copy:()=>this.copy('MID_ATOZ_00412','Merchant ID')},{label:'API key',value:'pk_live_6f3a9c21e84b',secret:false,help:'Send as X-API-Key header',copy:()=>this.copy('pk_live_6f3a9c21e84b','API key')},{label:'Secret key',value:s.reveal?'sk_live_9bf91b9d65474e5db049e21a':'sk_live_••••••••••••••••••••e21a',secret:true,help:'Used to sign requests (HMAC-SHA256). Never expose in client code.',copy:()=>this.copy('sk_live_9bf91b9d65474e5db049e21a','Secret key')}];
+    o.endpoints=[['Pay-in callback URL','https://pg.route2222.com/cpgwh_000000_9bf91b9d','delivered'],['Pay-in webhook URL','https://pg.route2222.com/cpgwh_000000_9bf91b9d','delivered'],['Payout webhook URL','https://pg.route2222.com/payout-hook','retrying'],['Return URL','https://www.cwinz.com','active']].map(e=>({label:e[0],url:e[1],st:B(e[2])}));
+    o.testHook=()=>this.say('Test event payin.success sent · 200 OK in 0.41s');
+    o.hooks=[['payin.success','6850102','Pay-in webhook','delivered','200',1,'13:10:29','0.38s','Resend'],['payin.success','6849395','Pay-in webhook','delivered','200',1,'11:24:50','0.44s','Resend'],['payout.pending','PO-221903','Payout webhook','retrying','503',3,'11:02:14','next in 4m','Retry now'],['payin.pending','6849333','Pay-in webhook','delivered','200',2,'11:14:02','1.12s','Resend'],['payin.failed','6847975','Pay-in webhook','delivered','200',1,'01:00:25','0.40s','Resend'],['payin.success','6848042','Pay-in webhook','delivered','200',1,'01:35:34','0.36s','Resend'],['payout.success','PO-221877','Payout webhook','failed','500',5,'00:51:40','gave up','Retry now']].map(h=>({ev:h[0],txn:h[1],ep:h[2],st:B(h[3]),code:h[4],codeFg:h[4]==='200'?'var(--ok)':'var(--er)',att:h[5],created:'25 Sep, '+h[6],del:h[7],action:h[8]}));
+    // checkout
+    const cs=s.coStep,t=s.coTimer;
+    o.coTime=String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');o.coPct=Math.round(t/900*100)+'%';o.coTimerFg=t<120?'#B91C1C':'#6D28D9';
+    o.coShowAmount=!['success','failed','expired'].includes(cs);o.coIsLanding=cs==='landing';o.coIsPay=['upi','bank','qr'].includes(cs);o.coIsBank=cs==='bank';o.coIsUpi=cs==='upi';o.coIsQr=cs==='qr';o.coIsResult=['pending','success','failed','expired'].includes(cs);
+    o.coMethods=[['upi','UPI','UPI','Pay with any UPI app · instant','Recommended'],['bank','Bank transfer','₹','IMPS / NEFT / RTGS · 2–10 min','›'],['qr','QR code','QR','Scan with any UPI app','›'],['', 'Cards & wallets','▭','Coming soon','']].map(m=>({ic:m[2],label:m[1],sub:m[3],tail:m[4],op:m[0]?1:.5,onClick:()=>m[0]&&this.setState({coStep:m[0]})}));
+    o.coTabs=[['upi','UPI'],['bank','Bank'],['qr','QR']].map(([k,l])=>({label:l,onClick:()=>this.setState({coStep:k}),bg:cs===k?'#fff':'transparent',fw:cs===k?600:500,sh:cs===k?'0 1px 2px rgba(15,23,42,.1)':'none'}));
+    o.coBankRows=[['Bank name','DCB Bank',0],['Account holder','Mustafa Abdul Samad',0],['Account number','0271 4600 1355 35',1],['IFSC','DCBL0000027',1],['Amount','₹12,534.00',0]].map(r=>({k:r[0],v:r[1],ff:r[2]?MONO:'inherit',copy:()=>this.copy(r[1],r[0])}));
+    o.coApps=[{i:'G',l:'GPay'},{i:'Pe',l:'PhonePe'},{i:'P',l:'Paytm'},{i:'B',l:'BHIM'}];
+    o.coCopy=()=>this.copy('gpay-29361428354@okbizaxis','UPI ID');o.coPaid=()=>{this.setState({coStep:'pending'});clearTimeout(this.ct);this.ct=setTimeout(()=>this.state.coStep==='pending'&&this.setState({coStep:'success'}),3500)};o.coBack=()=>this.setState({coStep:'landing'});
+    const again=()=>this.setState({coStep:'landing',coTimer:872});
+    o.coRes={pending:{bg:'#F5F3FF',fg:'#6D28D9',ring:'3px solid #DDD6FE',ic:'◷',title:'Verifying your payment',body:'We are confirming your transfer with the bank. This usually takes under 2 minutes — please keep this page open.',rows:[{k:'Amount',v:'₹12,534.00'},{k:'UTR',v:'626812820491'},{k:'Order ID',v:'ORD-918231457782'}],cta:'Refresh status',act:()=>this.setState({coStep:'success'})},
+      success:{bg:'#ECFDF5',fg:'#047857',ring:'3px solid #A7F3D0',ic:'✓',title:'Payment successful',body:'₹12,534.00 has been received by Atoz. A confirmation has been sent to your registered mobile.',rows:[{k:'Amount paid',v:'₹12,534.00'},{k:'Reference',v:'626812820491'},{k:'Paid on',v:'25 Sep 2026, 12:49 PM'}],cta:'Return to Atoz',act:again},
+      failed:{bg:'#FEF2F2',fg:'#B91C1C',ring:'3px solid #FECACA',ic:'✕',title:'Payment could not be verified',body:'We could not match your transfer. If money left your account, it will be reconciled or refunded within 48 hours.',rows:[{k:'Amount',v:'₹12,534.00'},{k:'Order ID',v:'ORD-918231457782'},{k:'Support ref',v:'SR-40912'}],cta:'Try again',act:again},
+      expired:{bg:'#FFFBEB',fg:'#B45309',ring:'3px solid #FDE68A',ic:'⏱',title:'Payment session expired',body:'This payment link was valid for 15 minutes. Do not transfer to the old account details — start a new payment instead.',rows:[{k:'Amount',v:'₹12,534.00'},{k:'Order ID',v:'ORD-918231457782'},{k:'Expired at',v:'25 Sep 2026, 01:01 PM'}],cta:'Start new payment',act:again}}[cs]||{rows:[]};
+    if(ph==='checkout'&&t===0&&cs!=='expired'&&!o.coIsResult){o.coIsPay=false;o.coIsLanding=false;o.coIsResult=true;o.coShowAmount=false;}
+    // drawer
+    const dd=s.drawer;
+    o.hasDrawer=!!dd;o.closeDrawer=()=>this.setState({drawer:null});
+    o.dr=dd?(dd.kind==='txn'?this.txnDrawer(TXNS[dd.i],s.drTab):dd.kind==='dep'?this.depDrawer(dd.i):this.stmtDrawer(dd.i)):{st:{},sums:[],tabs:[],actions:[],timeline:[],sections:[],ledger:[],hooks:[],audit:[],cmp:{}};
+    // modal
+    const m=s.modal;o.hasModal=!!m;o.closeModal=()=>this.setState({modal:null});o.mInput=s.mInput;o.onMInput=e=>this.setState({mInput:e.target.value});o.confirmModal=()=>this.confirm();
+    if(m){const isDep=m.src==='dep',r=isDep?DEP_RAW[m.i]:STMT_RAW[m.i];
+      const rows=isDep?[{k:'Transaction ID',v:uuid(m.i*17+3),ff:MONO},{k:'Status',v:ST[this.depStatus(m.i)][0],ff:'inherit'},{k:'Partner · user',v:r[0]+' · '+r[5],ff:'inherit'},{k:'Deposit amount',v:fmt(r[4]),ff:'inherit'},{k:'Request ID (UTR description)',v:r[3],ff:MONO},{k:'Branch',v:r[2],ff:'inherit'}]:[{k:'Reference',v:r[0],ff:MONO},{k:'Amount',v:fmt(r[2]||r[1]),ff:'inherit'},{k:'Transaction branch',v:r[9],ff:'inherit'},{k:'Bank entry branch',v:r[10],ff:'inherit'}];
+      const cfg={approve:{ic:'✓',bg:'var(--okb)',fg:'var(--ok)',title:isDep?'Approve deposit request':'Approve statement line',body:'The partner balance is credited and a payin.success webhook is sent. This is recorded in the audit log.',inputLabel:'Bank UTR number *',ph:'12-digit UTR from bank statement',inputFf:MONO,note:'Must match the credit on the branch bank statement.',cta:'Approve '+fmt(isDep?r[4]:(r[2]||r[1])),btnBg:'var(--ok)'},
+        hold:{ic:'‖',bg:'var(--hdb)',fg:'var(--hd)',title:'Move to Payment hold',body:'Keeps the request open while payment is investigated. The customer is not notified.',inputLabel:'Note (optional)',ph:'e.g. Amount credited in two parts',inputFf:'inherit',note:'Visible to admins and branch operators.',cta:'Move to hold',btnBg:'var(--hd)'},
+        decline:{ic:'✕',bg:'var(--erb)',fg:'var(--er)',title:'Decline deposit request',body:'The request is closed and a payin.failed webhook is sent to the partner. This cannot be undone.',inputLabel:'Reason for declining *',ph:'e.g. UTR not found in statement',inputFf:'inherit',note:'Shared with the partner in the webhook payload.',cta:'Decline request',btnBg:'var(--er)'}}[m.mode];
+      o.md={...cfg,rows,btnOp:m.mode!=='hold'&&!s.mInput.trim()?.45:1}}else o.md={rows:[]};
+    // auth
+    const au=s.auth,A2=k=>()=>this.setState({auth:k});
+    Object.assign(o,{inAuth:au!=='app',auIsLogin:au==='login',auIsOtp:au==='otp',auIsForgot:au==='forgot',auIsSent:au==='sent',auIsReset:au==='reset',auIsDone:au==='done',auUser:P.user==='Customer view'?'Rohan Mehta':P.user,
+      goLogin:A2('login'),goForgot:A2('forgot'),sendReset:()=>{this.setState({auth:'sent'});this.say('Reset link sent')},goReset:()=>this.setState({auth:'reset',pwNew:'',pwConf:''}),
+      signIn:()=>this.setState({auth:'otp',otp:''}),otp:s.otp,onOtp:e=>this.setState({otp:e.target.value.replace(/\D/g,'').slice(0,6)}),otpOp:s.otp.length===6?1:.45,fillOtp:()=>this.setState({otp:'482913'}),
+      verifyOtp:()=>{if(s.otp.length!==6)return;this.setState({auth:'app',screen:ph==='checkout'?'checkout':'dashboard'});this.say('Signed in as '+P.user)},
+      signOut:e=>{e&&e.stopPropagation&&e.stopPropagation();this.setState({auth:'login',drawer:null,modal:null})},goProfile:()=>ph!=='checkout'&&this.nav('profile'),
+      auConsoles:['admin','branch','partner'].map(p=>{const on=p===(ph==='checkout'?'admin':ph);return{label:PANELS[p].short,dot:PANELS[p].ac,onClick:()=>this.setState({panel:p}),bg:on?'var(--sf)':'transparent',fg:on?'var(--tx)':'var(--tx2)',sh:on?'0 1px 2px rgba(15,23,42,.1)':'none'}})});
+    // password rules
+    const pw=s.pwNew,rules=[[pw.length>=12,'12+ characters'],[/[A-Z]/.test(pw)&&/[a-z]/.test(pw),'Upper & lower case'],[/\d/.test(pw),'A number'],[/[^A-Za-z0-9]/.test(pw),'A symbol'],[pw.length>0&&pw===s.pwConf,'Passwords match'],[pw.length>0&&!/paygate|password|123/i.test(pw),'Not a common password']];
+    const score=rules.slice(0,4).filter(r=>r[0]).length+(pw.length>=16?1:0);
+    Object.assign(o,{pwNew:s.pwNew,pwConf:s.pwConf,onPwNew:e=>this.setState({pwNew:e.target.value}),onPwConf:e=>this.setState({pwConf:e.target.value}),pwType:s.showPw?'text':'password',togglePw:()=>this.setState({showPw:!s.showPw}),pwToggleLabel:s.showPw?'Hide passwords':'Show passwords',pwShowShort:s.showPw?'Hide':'Show',
+      pwRules:rules.map(r=>({label:r[1],ic:r[0]?'✓':'○',fg:r[0]?'var(--ok)':'var(--tx3)'})),pwW:(pw?Math.max(10,score*20):0)+'%',pwC:score>=4?'var(--ok)':score>=2?'var(--wn)':'var(--er)',pwL:!pw?'':score>=4?'Strong':score>=2?'Fair':'Weak',pwBtnOp:rules.every(r=>r[0])?1:.45});
+    const allOk=rules.every(r=>r[0]);
+    o.updatePw=()=>{if(!allOk)return;this.setState({pwNew:'',pwConf:''});this.say('Password updated · 2 other sessions signed out')};
+    o.saveReset=()=>{if(!allOk)return;this.setState({auth:'done',pwNew:'',pwConf:''})};
+    // profile
+    o.isProfile=scr==='profile';const pt=s.profTab;
+    o.profTabs=['Profile','Security','Preferences'].map((l,i)=>({label:l,onClick:()=>this.setState({profTab:i}),bd:i===pt?'var(--ac)':'transparent',fg:i===pt?'var(--tx)':'var(--tx3)'}));
+    o.profIsProfile=pt===0;o.profIsSecurity=pt===1;o.profIsPrefs=pt===2;
+    const emails={admin:'rohan.mehta@paygate.in',branch:'deluxadmin@paygate.in',partner:'kunal@atoz.in'};
+    o.profFields=[['Full name',P.user,0,''],['Username',P.user.replace(/ /g,'').toLowerCase(),1,'Set by administrator'],['Email',emails[ph]||emails.admin,0,'Used for password reset and alerts'],['Mobile','+91 98250 67312',0,'Used for SMS alerts'],['Role',P.role,1,'Managed in Roles & Permissions'],['Employee / partner code',ph==='partner'?'ATOZ':ph==='branch'?'BR-297':'EMP-0012',1,'']].map(f=>({k:f[0],v:f[1],ro:!!f[2],bg:f[2]?'var(--sf2)':'var(--sf)',help:f[3]}));
+    o.profScope={admin:[['Console','Admin'],['Branches','All 200'],['Partners','All 79'],['Financial approvals','Allowed'],['Switch branch permission','Allowed']],branch:[['Console','Branch'],['Branch','297 Delux HP'],['Mapped partners','11'],['Deposit approvals','Allowed'],['Switch branch permission','Not allowed']],partner:[['Console','Partner'],['Merchant','Atoz · ATOZ'],['API access','Live · V2'],['Payout creation','Allowed'],['Team members','4']]}[ph==='checkout'?'admin':ph].map(r=>({k:r[0],v:r[1]}));
+    o.saveProfile=()=>this.say('Profile saved');o.reset2fa=()=>this.say('Two-factor reset · re-enrol on next sign-in');
+    o.sessions=[['Chrome · macOS','103.21.58.14','Surat, IN','Active now',1],['Chrome · Windows','49.36.112.40','Ahmedabad, IN','2 hours ago',0],['Safari · iPhone','106.51.8.22','Mumbai, IN','Yesterday',0]].filter((x,i)=>!s.sessEnded[i]).map((x,i)=>({dev:x[0],ip:x[1],loc:x[2],when:x[3],cur:x[4]?'· This device':'',op:x[4]?.4:1,end:()=>{if(x[4])return;this.setState(y=>({sessEnded:{...y.sessEnded,[i]:1}}));this.say('Session ended · '+x[0])}}));
+    o.signOutOthers=()=>{this.setState({sessEnded:{1:1,2:1}});this.say('Signed out of 2 other sessions')};
+    const dens=s.density||this.props.density||'compact';
+    const opt=(cur,list,f)=>list.map(([v,l])=>({l,onClick:()=>f(v),bg:v===cur?'var(--acs)':'transparent',fg:v===cur?'var(--act)':'var(--tx2)'}));
+    o.prefs=[{k:'Theme',help:'Applies to this console on this device',opts:opt(s.dark?'dark':'light',[['light','Light'],['dark','Dark']],v=>this.setState({dark:v==='dark'}))},{k:'Table density',help:'Row height in data tables',opts:opt(dens,[['compact','Compact'],['comfortable','Comfortable']],v=>this.setState({density:v}))},{k:'Time zone',help:'All timestamps shown in this zone',opts:opt('ist',[['ist','IST (UTC+5:30)'],['utc','UTC']],()=>this.say('Time zone locked by admin'))},{k:'Amount format',help:'Grouping for INR amounts',opts:opt('in',[['in','₹1,23,456.00'],['intl','₹123,456.00']],()=>{})},{k:'Landing page',help:'Screen shown after sign-in',opts:opt('dash',[['dash','Dashboard'],['txn','Transactions']],()=>{})}];
+    o.notifs=[['Pending deposits over 30 min','In-app and email'],['Failed webhooks','After 3 failed attempts'],['Account limit exhausted','When a collection account hits its daily limit'],['Settlement completed','Daily summary email'],['New sign-in from unknown device','Always recommended']].map((n,i)=>{const on=!!s.notif[i];return{k:n[0],help:n[1],bg:on?'var(--ac)':'var(--ln)',x:on?'18px':'2px',onClick:()=>this.setState(y=>{const a=[...y.notif];a[i]=a[i]?0:1;return{notif:a}})}});
+    return o;
+  }
+}
+</script>
+</body>
+</html>
