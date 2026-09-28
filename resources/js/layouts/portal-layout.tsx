@@ -1,9 +1,10 @@
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { PortalSidebar } from '@/components/pg/portal-sidebar';
 import { PortalTopbar } from '@/components/pg/portal-topbar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useDensity } from '@/hooks/use-density';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { PORTAL_LABELS, PORTAL_NAV } from '@/lib/portal-nav';
 import type { NavGroup } from '@/lib/portal-nav';
 import admin from '@/routes/admin';
@@ -30,6 +31,12 @@ export default function PortalLayout({
     const { isCurrentUrl } = useCurrentUrl();
     const [collapsed, setCollapsed] = useState(!sidebarOpen);
     const [density, toggleDensity] = useDensity();
+    // Phones: the menu is a slide-in panel, closed until the menu button is
+    // pressed and closed again after each page change.
+    const isMobile = useIsMobile();
+    const [menuOpen, setMenuOpen] = useState(false);
+
+    useEffect(() => router.on('navigate', () => setMenuOpen(false)), []);
 
     const portal = auth.user.type;
     // Super-admin tools at the end of the Admin menu (the QA Checklist on
@@ -119,7 +126,15 @@ export default function PortalLayout({
         document.documentElement.dataset.density = density;
     }, [portal, density]);
 
+    const activeKey = current ? `${current.group}/${current.item.label}` : null;
+
     const toggleSidebar = () => {
+        if (isMobile) {
+            setMenuOpen(!menuOpen);
+
+            return;
+        }
+
         const next = !collapsed;
         setCollapsed(next);
         document.cookie = `sidebar_state=${!next};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`;
@@ -131,14 +146,31 @@ export default function PortalLayout({
             data-density={density}
             className="flex min-h-screen bg-bg text-tx"
         >
-            <PortalSidebar
-                groups={groups}
-                activeKey={
-                    current ? `${current.group}/${current.item.label}` : null
-                }
-                portalLabel={PORTAL_LABELS[portal]}
-                collapsed={collapsed}
-            />
+            {isMobile ? (
+                menuOpen && (
+                    <div className="fixed inset-0 z-40 flex">
+                        <PortalSidebar
+                            groups={groups}
+                            activeKey={activeKey}
+                            portalLabel={PORTAL_LABELS[portal]}
+                            collapsed={false}
+                        />
+                        <button
+                            type="button"
+                            aria-label="Close menu"
+                            onClick={() => setMenuOpen(false)}
+                            className="flex-1 bg-black/40"
+                        />
+                    </div>
+                )
+            ) : (
+                <PortalSidebar
+                    groups={groups}
+                    activeKey={activeKey}
+                    portalLabel={PORTAL_LABELS[portal]}
+                    collapsed={collapsed}
+                />
+            )}
             <main className="flex min-w-0 flex-1 flex-col">
                 <PortalTopbar
                     portalLabel={PORTAL_LABELS[portal]}
@@ -147,7 +179,9 @@ export default function PortalLayout({
                     density={density}
                     onToggleDensity={toggleDensity}
                 />
-                <div className="flex flex-1 flex-col gap-4 p-5">{children}</div>
+                <div className="flex flex-1 flex-col gap-4 p-3 md:p-5">
+                    {children}
+                </div>
             </main>
         </div>
     );

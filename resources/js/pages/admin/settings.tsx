@@ -62,13 +62,13 @@ export default function GlobalSettings(props: Props) {
                 }
             />
 
-            <div className="grid max-w-[1100px] gap-3 lg:grid-cols-2">
+            <div className="grid max-w-[1100px] grid-cols-1 gap-3 lg:grid-cols-2">
                 <Section
                     title="Settlement day"
                     text="Each day's settlements are calculated when the day ends. A change applies from the next cut-off."
                 >
                     <form
-                        className="grid items-end gap-3 sm:grid-cols-[1fr_130px_auto]"
+                        className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_130px_auto]"
                         onSubmit={(event) => {
                             event.preventDefault();
                             cutoff.put(admin.settings.settlement().url, {

@@ -1,4 +1,4 @@
-import { Moon, PanelLeft, Rows3, Rows4, Search, Sun } from 'lucide-react';
+import { Menu, Moon, PanelLeft, Rows3, Rows4, Search, Sun } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import { useAppearance } from '@/hooks/use-appearance';
 import type { Density } from '@/hooks/use-density';
@@ -27,23 +27,31 @@ export function PortalTopbar({
         'grid size-8 flex-none place-items-center rounded-lg border border-ln bg-sf text-tx2 hover:bg-sf2';
 
     return (
-        <header className="sticky top-0 z-[4] flex h-14 flex-none items-center gap-3.5 border-b border-ln bg-sf px-5">
+        <header className="sticky top-0 z-[4] flex h-14 flex-none items-center gap-2 border-b border-ln bg-sf px-3 md:gap-3.5 md:px-5">
             <button
                 type="button"
                 onClick={onToggleSidebar}
-                title="Collapse sidebar"
+                title="Menu"
                 className={iconButton}
             >
-                <PanelLeft className="size-3.5" />
+                <PanelLeft className="size-3.5 max-md:hidden" />
+                <Menu className="size-4 md:hidden" />
             </button>
 
-            <div className="flex flex-none items-center gap-1.5 text-[13px] whitespace-nowrap">
+            {/* Phones show only the current page's name. */}
+            <div className="flex min-w-0 flex-none items-center gap-1.5 text-[13px] whitespace-nowrap max-md:flex-1">
                 {[portalLabel, ...crumbs].map((crumb, index, all) => (
                     <span
                         key={`${crumb}-${index}`}
-                        className="flex items-center gap-1.5"
+                        className={
+                            index === all.length - 1
+                                ? 'flex min-w-0 items-center gap-1.5 truncate'
+                                : 'flex items-center gap-1.5 max-md:hidden'
+                        }
                     >
-                        {index > 0 && <span className="text-ln">/</span>}
+                        {index > 0 && (
+                            <span className="text-ln max-md:hidden">/</span>
+                        )}
                         <span
                             className={
                                 index === all.length - 1
@@ -58,7 +66,7 @@ export function PortalTopbar({
             </div>
 
             <div
-                className="ml-auto flex h-8 max-w-[340px] min-w-0 flex-[1_1_200px] items-center gap-2 rounded-lg border border-ln bg-sf2 px-2.5 text-tx3"
+                className="ml-auto flex h-8 max-w-[340px] min-w-0 flex-[1_1_200px] items-center gap-2 rounded-lg border border-ln bg-sf2 px-2.5 text-tx3 max-md:hidden"
                 title="Global search arrives with transactions (Phase 7)"
             >
                 <Search className="size-3.5 flex-none" />
@@ -70,7 +78,7 @@ export function PortalTopbar({
                 </kbd>
             </div>
 
-            <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-acs px-2.5 text-xs font-medium whitespace-nowrap text-act">
+            <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-acs px-2.5 text-xs font-medium whitespace-nowrap text-act max-md:hidden">
                 <span className="size-1.5 rounded-full bg-ac" />
                 {portalLabel} · {envLabel}
             </span>
@@ -81,7 +89,7 @@ export function PortalTopbar({
                 title={
                     density === 'compact' ? 'Comfortable rows' : 'Compact rows'
                 }
-                className={iconButton}
+                className={`${iconButton} max-md:hidden`}
             >
                 {density === 'compact' ? (
                     <Rows4 className="size-3.5" />
