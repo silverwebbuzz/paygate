@@ -3,6 +3,8 @@
 use App\Domain\Core\Identity\Models\User;
 use App\Http\Shared\Auth\InvitationController;
 use App\Http\Shared\Files\FileController;
+use App\Http\Shared\Legal\LegalPageController;
+use App\Http\Shared\Notifications\NotificationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +14,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::redirect('/', '/dashboard')->name('home');
+
+// Published content pages (terms, privacy, help): public.
+Route::get('legal/{slug}', [LegalPageController::class, 'show'])->name('legal.show');
 
 // Invitation links (emailed by App\Domain\Core\Identity\Actions\SendInvitation).
 Route::middleware('guest')->group(function () {
@@ -30,6 +35,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Private files (payment proofs), after an access check.
     Route::get('files/{file}', [FileController::class, 'show'])->name('files.show');
+
+    // The bell: mark alerts read.
+    Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
 });
 
 Route::middleware(['auth', 'verified', 'user.type:admin', 'two-factor.required'])

@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Platform\Settings;
 use App\Domain\Reporting\Actions\ManageReportExports;
 use App\Domain\Settlement\Actions\CalculateSettlement;
@@ -47,4 +48,10 @@ Schedule::call(function () {
 Schedule::call(fn () => app(ManageReportExports::class)->prune())
     ->name('reports:prune-exports')
     ->hourly()
+    ->withoutOverlapping();
+
+// Deposits waiting longer than the Global Settings threshold: alert the branch (G-47, Phase 12).
+Schedule::call(fn () => app(AlertDispatcher::class)->depositsWaiting())
+    ->name('alerts:deposits-waiting')
+    ->everyFiveMinutes()
     ->withoutOverlapping();

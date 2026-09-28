@@ -44,6 +44,18 @@ class HandleInertiaRequests extends Middleware
                 // UI hints only (show/hide menu items) — every action is re-checked on the server.
                 'permissions' => $request->user()?->permissionNames() ?? [],
             ],
+            // The bell: unread count and the latest alerts (G-47).
+            'alerts' => fn () => $request->user() === null ? null : [
+                'unread' => $request->user()->unreadNotifications()->count(),
+                'latest' => $request->user()->notifications()->latest()->limit(8)->get()->map(fn ($notification) => [
+                    'id' => $notification->id,
+                    'title' => $notification->data['title'] ?? '',
+                    'body' => $notification->data['body'] ?? '',
+                    'url' => $notification->data['url'] ?? null,
+                    'read' => $notification->read_at !== null,
+                    'at' => $notification->created_at?->toIso8601String(),
+                ]),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             // Environment label for the top-bar pill ("Admin · Production").
             'environment' => app()->environment(),

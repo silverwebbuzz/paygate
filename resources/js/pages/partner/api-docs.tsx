@@ -29,6 +29,14 @@ const STATUSES: [string, string][] = [
     ['rejected', 'The payment could not be confirmed.'],
     ['expired', 'Not paid in time. The payment link no longer works.'],
     ['cancelled', 'You cancelled it before payment.'],
+    [
+        'chargeback',
+        'After success, the customer’s bank took the money back. If your balance is debited, take it back from your customer.',
+    ],
+    [
+        'refunded',
+        'After success, the money was returned to the customer. Your balance is debited the amount; take it back from your customer.',
+    ],
 ];
 
 const ERRORS: [string, number, string][] = [
@@ -343,8 +351,10 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                     <Code>GET /v1/payouts?order_id=…</Code> or{' '}
                     <Code>POST /v1/payouts/status</Code>. Repeating the same
                     order_id is safe, as for pay-ins. Webhooks:{' '}
-                    <Code>payout.success</Code>, <Code>payout.failed</Code> to
-                    your payout webhook URL.
+                    <Code>payout.success</Code>, <Code>payout.failed</Code>,{' '}
+                    <Code>payout.returned</Code> (a paid payout came back: the
+                    amount and fee are back in your balance; status{' '}
+                    <Code>returned</Code>) to your payout webhook URL.
                 </p>
                 <p>
                     <Code>GET /v1/balance</Code> returns <Code>balance</Code>,{' '}
@@ -360,8 +370,9 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                     Endpoints) when a pay-in changes. Events:{' '}
                     <Code>payin.submitted</Code> (the customer says they paid),{' '}
                     <Code>payin.success</Code>, <Code>payin.rejected</Code>,{' '}
-                    <Code>payin.expired</Code>. The body holds the same pay-in
-                    object the API returns:
+                    <Code>payin.expired</Code>, and after a success{' '}
+                    <Code>payin.chargeback</Code> or <Code>payin.refunded</Code>
+                    . The body holds the same pay-in object the API returns:
                 </p>
                 <Pre>{`POST https://your-site/…/webhook
 X-PayGate-Event-Id: 01J…            (unique per webhook — ignore ones you already processed)

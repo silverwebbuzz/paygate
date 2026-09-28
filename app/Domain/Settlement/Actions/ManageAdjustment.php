@@ -7,6 +7,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
@@ -30,7 +31,7 @@ use Illuminate\Validation\ValidationException;
  */
 class ManageAdjustment
 {
-    public function __construct(private Ledger $ledger, private StatementMatcher $matcher) {}
+    public function __construct(private Ledger $ledger, private StatementMatcher $matcher, private AlertDispatcher $alerts) {}
 
     public function request(User $actor, string $type, Partner $partner, Branch $branch, string $side, int $amount, string $reason, ?ReconciliationCase $case = null): Adjustment
     {
@@ -63,6 +64,7 @@ class ManageAdjustment
         ]);
 
         AuditLog::record('adjustment.requested', $adjustment, [], $adjustment->only(['reference', 'type', 'side', 'amount', 'reason']), $actor);
+        $this->alerts->adjustmentRequested($adjustment, $actor);
 
         return $adjustment;
     }
@@ -87,6 +89,7 @@ class ManageAdjustment
             }
 
             AuditLog::record('adjustment.approved', $locked, ['status' => 'pending'], ['status' => 'approved', 'note' => $note], $actor);
+            $this->alerts->adjustmentDecided($locked);
             $adjustment->setRawAttributes($locked->getAttributes(), true);
 
             return $locked;
@@ -101,6 +104,7 @@ class ManageAdjustment
             $locked->forceFill(['status' => 'rejected', 'approved_by' => $actor->id, 'approved_at' => now(), 'decision_note' => $note])->save();
 
             AuditLog::record('adjustment.rejected', $locked, ['status' => 'pending'], ['status' => 'rejected', 'note' => $note], $actor);
+            $this->alerts->adjustmentDecided($locked);
             $adjustment->setRawAttributes($locked->getAttributes(), true);
 
             return $locked;

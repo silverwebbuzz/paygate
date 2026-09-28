@@ -1,7 +1,8 @@
-import { Bell, Moon, PanelLeft, Rows3, Rows4, Search, Sun } from 'lucide-react';
+import { Moon, PanelLeft, Rows3, Rows4, Search, Sun } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import { useAppearance } from '@/hooks/use-appearance';
 import type { Density } from '@/hooks/use-density';
+import { AlertBell } from './alert-bell';
 
 export function PortalTopbar({
     portalLabel,
@@ -104,13 +105,7 @@ export function PortalTopbar({
                     <Moon className="size-3.5" />
                 )}
             </button>
-            <button
-                type="button"
-                title="Notifications (Phase 12)"
-                className={iconButton}
-            >
-                <Bell className="size-3.5" />
-            </button>
+            <AlertBell className={iconButton} />
         </header>
     );
 }

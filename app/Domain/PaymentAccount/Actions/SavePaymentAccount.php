@@ -5,6 +5,7 @@ namespace App\Domain\PaymentAccount\Actions;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Support\Crypto\BlindIndex;
@@ -87,6 +88,10 @@ class SavePaymentAccount
             $account->save();
 
             AuditLog::record($isNew ? 'payment_account.created' : 'payment_account.updated', $account, $old, $this->safe($account->only($changed)), $actor);
+
+            if (in_array('status', $changed, true) || $isNew) {
+                app(AlertDispatcher::class)->accountSaved($account);
+            }
         });
 
         return $account;

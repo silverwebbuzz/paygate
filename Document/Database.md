@@ -1,12 +1,12 @@
 # PAY GATEWAY — Database Design v1
 
-|          |                                                                                                                                                                                                                                                                                 |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (48 tables, incl. Phase 2 fixes D-1…D-5); later phases add `2026_09_28_1000xx` (`statement_templates`, `report_exports`: 50 tables). Staging/production setup: [Deployment.md](Deployment.md) |
-| Date     | 2026-09-27                                                                                                                                                                                                                                                                      |
-| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                                                                                                                                          |
-| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                                                                                                                                               |
-| Readers  | Database architect, backend developers, QA                                                                                                                                                                                                                                      |
+|          |                                                                                                                                                                                                                                                                                                          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (48 tables, incl. Phase 2 fixes D-1…D-5); later phases add `2026_09_28_1000xx` (`statement_templates`, `report_exports`, `transaction_reversals`: 51 tables). Staging/production setup: [Deployment.md](Deployment.md) |
+| Date     | 2026-09-27                                                                                                                                                                                                                                                                                               |
+| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                                                                                                                                                                   |
+| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                                                                                                                                                                        |
+| Readers  | Database architect, backend developers, QA                                                                                                                                                                                                                                                               |
 
 ---
 
@@ -416,7 +416,7 @@ A nightly job re-sums `ledger_entries` per account and alerts on any difference 
 
 **How a settlement is calculated (Phase 10, `CalculateSettlement`):** the period runs from the party's previous settlement end (or its first posting) to the cut-off / now, whole seconds. Per pair account, `Ledger::statement()` gives the opening balance, movements per journal type and the transactions booked; closing = opening + movements. Each payment posts a `settlement` journal (position toward zero, settlement clearing opposite). Only the party's newest settlement takes payments; older unpaid ones are carried forward. `transactions.settled_line_id` is not filled (a transaction belongs to a partner and a branch settlement); which settlement covers a transaction follows from its journal's posting time.
 
-**`settings`** holds `settlement.cutoff` = `{"timezone": "Asia/Kolkata", "time": "00:00"}` (Global Settings, G-09).
+**`settings`** holds `settlement.cutoff` = `{"timezone": "Asia/Kolkata", "time": "00:00"}` (G-09), `alerts.deposit_wait_minutes` (default 30) and `checkout.support` = `{"email", "phone"}` (Phase 12).
 
 ### 2.10 Integration
 
@@ -430,6 +430,10 @@ A nightly job re-sums `ledger_entries` per account and alerts on any difference 
 `id`, `partner_id`, `api_key_id`, `method`, `path`, `status_code`, `duration_ms`, `ip inet`, `request_id`, `partner_transaction_id` null, `created_at`. Index `(partner_id, created_at DESC)`. Monthly partitions once volume requires.
 
 **`report_exports`** (Phase 11): `id`, `user_id` (only this person can download), `report` (catalogue key), `format` (`csv` / `xlsx`), `parameters jsonb` (resolved period + filters), `status` (`queued` / `running` / `ready` / `failed` / `expired`), `rows`, `file_id FK files null` (purpose `export`), `error`, `created_at`, `completed_at`, `expires_at` (+7 days; the file is then deleted and the row kept as `expired`, G-49).
+
+**`transaction_reversals`** (Phase 12, append-only): `id`, `reference` (`RV…`), `transaction_id` (UNIQUE: one per transaction), `kind` (`chargeback` / `refund` / `return`), `bearer` (`partner` / `branch`, chargebacks only), `amount`, `reason`, `external_reference`, `journal_id` (the `reversal` journal; null when the branch bears a chargeback), `created_by`, `created_at`. Postings: chargeback/partner and refund = partner −amount, branch +amount; return = partner +(amount+fee), branch −(amount+commission), margin −(fee−commission). The journal's `reverses_journal_id` points at the success journal.
+
+**`users.notification_preferences`** (Phase 12): `{ "<alert>": false }` turns email off for that alert (on by default). Alerts themselves are Laravel database notifications (`notifications` table).
 
 ### 2.11 Platform
 

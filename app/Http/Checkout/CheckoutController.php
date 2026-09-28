@@ -6,6 +6,8 @@ use App\Domain\Allocation\Actions\AllocateAccount;
 use App\Domain\Allocation\Exceptions\NoAccountAvailable;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentSession\Models\PaymentSession;
+use App\Domain\Platform\Models\Page;
+use App\Domain\Platform\Settings;
 use App\Domain\Transaction\Actions\ClosePayin;
 use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Enums\PayinStatus;
@@ -53,6 +55,9 @@ class CheckoutController extends Controller
         return Inertia::render('checkout/show', [
             'token' => $token,
             'partner' => ['name' => $partner->name, 'initials' => $this->initials($partner->name)],
+            // Global Settings: support contact and published content pages (G-48).
+            'support' => app(Settings::class)->checkoutSupport(),
+            'pages' => Page::query()->where('status', 'published')->orderBy('title')->get(['slug', 'title'])->map(fn (Page $page) => ['title' => $page->title, 'url' => route('pay.legal.show', $page->slug)]),
             'payin' => [
                 'reference' => $payin->reference,
                 'order_id' => $payin->partner_transaction_id,

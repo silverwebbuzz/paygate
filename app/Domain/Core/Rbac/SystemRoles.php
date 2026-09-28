@@ -54,6 +54,7 @@ final class SystemRoles
                     P::PartnersView, P::BranchesView, P::MappingsView, P::MappingsUpdate,
                     P::AccountsView, P::AccountsVerify,
                     P::PayinsView, P::PayinsApprove, P::PayoutsView, P::PayoutsProcess,
+                    P::ReversalsView, P::ReversalsCreate,
                     P::StatementsView, P::StatementsCreate, P::ReconciliationView, P::ReconciliationResolve,
                     P::BalancesView, P::ReportsView, P::AuditLogsView,
                 ],
@@ -64,6 +65,7 @@ final class SystemRoles
                 'description' => 'Calculates and records settlements and adjustments.',
                 'permissions' => [
                     P::PartnersView, P::BranchesView, P::PayinsView, P::PayoutsView,
+                    P::ReversalsView, P::ReversalsCreate,
                     P::BalancesView, P::CommissionsView,
                     P::SettlementsView, P::SettlementsCreate, P::SettlementsUpdate,
                     P::AdjustmentsView, P::AdjustmentsCreate,
@@ -76,7 +78,7 @@ final class SystemRoles
                 'description' => 'Read-only access.',
                 'permissions' => [
                     P::PartnersView, P::BranchesView, P::PayinsView, P::PayoutsView,
-                    P::BalancesView, P::SettlementsView, P::ReportsView,
+                    P::ReversalsView, P::BalancesView, P::SettlementsView, P::ReportsView,
                 ],
             ],
             self::PARTNER_OWNER => [

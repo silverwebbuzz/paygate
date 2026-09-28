@@ -17,9 +17,17 @@ class Settings
     /** When the daily settlement day ends (decided 2026-09-28, G-09: set by Admin). */
     public const SETTLEMENT_CUTOFF = 'settlement.cutoff';
 
+    /** Alert branches when a customer's deposit waits longer than this (G-47). */
+    public const DEPOSIT_WAIT_MINUTES = 'alerts.deposit_wait_minutes';
+
+    /** Support contact on the customer payment page (G-48). */
+    public const CHECKOUT_SUPPORT = 'checkout.support';
+
     /** @var array<string, mixed> */
     private const DEFAULTS = [
         self::SETTLEMENT_CUTOFF => ['timezone' => 'Asia/Kolkata', 'time' => '00:00'],
+        self::DEPOSIT_WAIT_MINUTES => 30,
+        self::CHECKOUT_SUPPORT => ['email' => null, 'phone' => null],
     ];
 
     public function get(string $key): mixed
@@ -49,6 +57,21 @@ class Settings
             'timezone' => $value['timezone'] ?? 'Asia/Kolkata',
             'time' => $value['time'] ?? '00:00',
         ];
+    }
+
+    public function depositWaitMinutes(): int
+    {
+        return max(5, (int) $this->get(self::DEPOSIT_WAIT_MINUTES));
+    }
+
+    /**
+     * @return array{email: string|null, phone: string|null}
+     */
+    public function checkoutSupport(): array
+    {
+        $value = (array) $this->get(self::CHECKOUT_SUPPORT);
+
+        return ['email' => $value['email'] ?? null, 'phone' => $value['phone'] ?? null];
     }
 
     /**

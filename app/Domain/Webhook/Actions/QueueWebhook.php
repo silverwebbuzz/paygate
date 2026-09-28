@@ -15,9 +15,9 @@ use App\Domain\Webhook\Models\WebhookEvent;
  */
 class QueueWebhook
 {
-    public const PAYIN_EVENTS = ['payin.submitted', 'payin.success', 'payin.rejected', 'payin.expired'];
+    public const PAYIN_EVENTS = ['payin.submitted', 'payin.success', 'payin.rejected', 'payin.expired', 'payin.chargeback', 'payin.refunded'];
 
-    public const PAYOUT_EVENTS = ['payout.success', 'payout.failed'];
+    public const PAYOUT_EVENTS = ['payout.success', 'payout.failed', 'payout.returned'];
 
     public function forPayin(Transaction $payin, string $eventType): ?WebhookEvent
     {

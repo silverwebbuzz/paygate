@@ -8,6 +8,7 @@ use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Rbac\Enums\Permission;
 use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Core\Rbac\SystemRoles;
+use App\Domain\Notification\Enums\Alert;
 use App\Domain\Partner\Models\Partner;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -44,6 +45,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $remember_token
  * @property Carbon|null $last_login_at
  * @property string|null $last_login_ip
+ * @property array<string, bool>|null $notification_preferences alert => email on/off
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -69,6 +71,7 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             'last_login_at' => 'datetime',
             'type' => UserType::class,
             'status' => UserStatus::class,
+            'notification_preferences' => 'array',
         ];
     }
 
@@ -149,6 +152,14 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * Whether this person also wants an alert by email (on unless turned off).
+     */
+    public function wantsEmail(Alert $alert): bool
+    {
+        return ($this->notification_preferences[$alert->value] ?? true) !== false;
     }
 
     public function hasPermission(Permission $permission): bool

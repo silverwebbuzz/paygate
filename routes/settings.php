@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Shared\Notifications\NotificationController;
 use App\Http\Shared\Settings\ProfileController;
 use App\Http\Shared\Settings\SecurityController;
 use Illuminate\Auth\Middleware\RequirePassword;
@@ -22,6 +23,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
+
+    // Which alerts also come by email (G-47).
+    Route::get('settings/notifications', [NotificationController::class, 'edit'])->name('notifications.edit');
+    Route::put('settings/notifications', [NotificationController::class, 'update'])->name('notifications.update');
 });
 
 Route::get('.well-known/passkey-endpoints', function () {

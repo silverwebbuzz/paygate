@@ -16,6 +16,7 @@ enum Menu: string
     case Accounts = 'accounts';
     case Payins = 'payins';
     case Payouts = 'payouts';
+    case Reversals = 'reversals';
     case Statements = 'statements';
     case Reconciliation = 'reconciliation';
     case Balances = 'balances';
@@ -42,6 +43,7 @@ enum Menu: string
             self::Accounts => 'Bank & UPI accounts',
             self::Payins => 'Pay-ins (deposits)',
             self::Payouts => 'Payouts (withdrawals)',
+            self::Reversals => 'Refunds & chargebacks',
             self::Statements => 'Account statements',
             self::Reconciliation => 'Reconciliation',
             self::Balances => 'Balances',
@@ -65,7 +67,7 @@ enum Menu: string
     {
         return match ($this) {
             self::Partners, self::Branches, self::Mappings, self::Accounts => 'Network',
-            self::Payins, self::Payouts => 'Payments',
+            self::Payins, self::Payouts, self::Reversals => 'Payments',
             self::Statements, self::Reconciliation => 'Reconciliation',
             self::Balances, self::Commissions, self::Settlements, self::Adjustments, self::Reports => 'Finance',
             self::ApiKeys, self::Webhooks, self::IpRules, self::ApiLogs => 'Developers',

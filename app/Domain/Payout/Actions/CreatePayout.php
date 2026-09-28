@@ -5,6 +5,7 @@ namespace App\Domain\Payout\Actions;
 use App\Domain\Allocation\UsageCounters;
 use App\Domain\Commission\Enums\Direction;
 use App\Domain\Customer\Models\PartnerCustomer;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PartnerApi\Exceptions\ApiException;
 use App\Domain\Payout\Enums\PayoutStatus;
@@ -92,6 +93,7 @@ class CreatePayout
                     'branch_id' => $reservation['branch_id'],
                     'reservation' => $reservation,
                 ]);
+                app(AlertDispatcher::class)->payoutAssigned($payout);
 
                 return ['payout' => $payout, 'created' => true];
             });

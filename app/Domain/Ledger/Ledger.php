@@ -372,4 +372,15 @@ class Ledger
 
         return $pairs;
     }
+
+    /**
+     * The id of a transaction's journal of one type (e.g. its success
+     * booking), for reversals to point at.
+     */
+    public function journalId(string $transactionId, string $type): ?string
+    {
+        $id = DB::table('ledger_journals')->where(['transaction_id' => $transactionId, 'type' => $type])->value('id');
+
+        return $id === null ? null : (string) $id;
+    }
 }

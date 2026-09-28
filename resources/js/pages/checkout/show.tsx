@@ -11,6 +11,9 @@ import checkout from '@/routes/pay/checkout';
 type Method = 'upi' | 'qr' | 'bank_transfer';
 
 type Props = {
+    /** Global Settings: support contact and published pages (G-48). */
+    support: { email: string | null; phone: string | null };
+    pages: { title: string; url: string }[];
     token: string;
     partner: { name: string; initials: string };
     payin: {
@@ -206,11 +209,55 @@ export default function Checkout(props: Props) {
                     )}
                 </main>
 
-                <footer className="flex justify-between border-t border-[#EEF0F3] px-5 py-3 text-[11.5px] text-[#64748B]">
-                    <span className="font-mono">{payin.reference}</span>
-                    <span>
-                        Secured by <b className="text-[#0F172A]">PayGate</b>
-                    </span>
+                <footer className="flex flex-col gap-1.5 border-t border-[#EEF0F3] px-5 py-3 text-[11.5px] text-[#64748B]">
+                    <div className="flex justify-between">
+                        <span className="font-mono">{payin.reference}</span>
+                        <span>
+                            Secured by <b className="text-[#0F172A]">PayGate</b>
+                        </span>
+                    </div>
+                    {(props.support.email ||
+                        props.support.phone ||
+                        props.pages.length > 0) && (
+                        <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
+                            <span>
+                                {(props.support.email || props.support.phone) &&
+                                    'Help: '}
+                                {props.support.email && (
+                                    <a
+                                        href={`mailto:${props.support.email}`}
+                                        className="underline"
+                                    >
+                                        {props.support.email}
+                                    </a>
+                                )}
+                                {props.support.email &&
+                                    props.support.phone &&
+                                    ' · '}
+                                {props.support.phone && (
+                                    <a
+                                        href={`tel:${props.support.phone}`}
+                                        className="underline"
+                                    >
+                                        {props.support.phone}
+                                    </a>
+                                )}
+                            </span>
+                            <span className="flex gap-2">
+                                {props.pages.map((page) => (
+                                    <a
+                                        key={page.url}
+                                        href={page.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="underline"
+                                    >
+                                        {page.title}
+                                    </a>
+                                ))}
+                            </span>
+                        </div>
+                    )}
                 </footer>
             </div>
         </div>

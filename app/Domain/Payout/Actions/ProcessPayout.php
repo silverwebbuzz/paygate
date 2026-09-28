@@ -9,6 +9,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Payout\Enums\PayoutStatus;
 use App\Domain\Payout\PayoutReservation;
@@ -42,6 +43,7 @@ class ProcessPayout
         private Ledger $ledger,
         private QueueWebhook $webhooks,
         private StatementMatcher $matcher,
+        private AlertDispatcher $alerts,
     ) {}
 
     public function start(User $actor, Transaction $payout): Transaction
@@ -191,6 +193,7 @@ class ProcessPayout
                 'reservation' => $new,
             ]);
             AuditLog::record('payout.reassigned', $locked, ['branch_id' => $fromBranch], ['branch_id' => $to->id, 'reason' => $reason], $actor);
+            $this->alerts->payoutAssigned($locked);
 
             return $this->sync($payout, $locked);
         });

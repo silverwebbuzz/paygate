@@ -4,6 +4,7 @@ namespace App\Domain\PaymentAccount\Actions;
 
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ class ReviewPaymentAccount
             ])->save();
 
             AuditLog::record('payment_account.verified', $account, ['status' => AccountStatus::VerificationPending->value], ['status' => AccountStatus::Verified->value], $actor);
+            app(AlertDispatcher::class)->accountReviewed($account);
         });
 
         return $account;
@@ -42,6 +44,7 @@ class ReviewPaymentAccount
             $account->forceFill(['status' => AccountStatus::Rejected, 'rejected_reason' => $reason])->save();
 
             AuditLog::record('payment_account.rejected', $account, ['status' => AccountStatus::VerificationPending->value], ['status' => AccountStatus::Rejected->value, 'reason' => $reason], $actor);
+            app(AlertDispatcher::class)->accountReviewed($account);
         });
 
         return $account;

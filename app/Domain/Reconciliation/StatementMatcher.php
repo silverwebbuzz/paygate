@@ -4,6 +4,7 @@ namespace App\Domain\Reconciliation;
 
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
@@ -345,7 +346,7 @@ class StatementMatcher
             return;
         }
 
-        ReconciliationCase::create([
+        $case = ReconciliationCase::create([
             'reference' => ReconciliationCase::newReference(),
             'type' => $type,
             'status' => 'open',
@@ -354,6 +355,11 @@ class StatementMatcher
             'statement_entry_id' => $entry->id,
             'notes' => $note,
         ]);
+
+        // Only Admin can approve a late payment: tell them.
+        if ($type === CaseType::LatePayment) {
+            app(AlertDispatcher::class)->latePayment($case);
+        }
     }
 
     /**

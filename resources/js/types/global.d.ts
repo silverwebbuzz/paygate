@@ -12,6 +12,18 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            /** The bell (G-47), null when signed out. */
+            alerts: {
+                unread: number;
+                latest: {
+                    id: string;
+                    title: string;
+                    body: string;
+                    url: string | null;
+                    read: boolean;
+                    at: string | null;
+                }[];
+            } | null;
             environment: string;
             [key: string]: unknown;
         };

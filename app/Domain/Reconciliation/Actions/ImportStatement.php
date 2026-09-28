@@ -4,6 +4,7 @@ namespace App\Domain\Reconciliation\Actions;
 
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Import\ColumnMapping;
@@ -203,6 +204,8 @@ class ImportStatement
                 'errors' => $parsed['errors'] === [] ? null : array_slice($parsed['errors'], 0, 100),
                 'completed_at' => now(),
             ])->save();
+
+            app(AlertDispatcher::class)->unsettledLines($account->branch_id, $import->entries()->whereIn('status', ['unmatched', 'duplicate'])->count(), $actor);
 
             AuditLog::record('statement.imported', $import, [], [
                 'account' => $account->label,

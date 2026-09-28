@@ -2,6 +2,7 @@
 
 namespace App\Domain\Webhook\Jobs;
 
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Webhook\Models\WebhookAttempt;
 use App\Domain\Webhook\Models\WebhookEvent;
@@ -114,6 +115,10 @@ class DeliverWebhook implements ShouldQueue
                 'delivered_at' => $delivered ? now() : null,
                 'next_attempt_at' => $delivered || $wait === null ? null : now()->addMinutes($wait),
             ])->save();
+
+            if (! $delivered && $wait === null) {
+                app(AlertDispatcher::class)->webhookFailed($event);
+            }
         });
     }
 

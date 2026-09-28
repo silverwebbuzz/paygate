@@ -6,9 +6,13 @@ use App\Http\Admin\Commissions\CommissionController;
 use App\Http\Admin\Mappings\MappingController;
 use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerKeyController;
+use App\Http\Admin\Platform\IpManagementController;
+use App\Http\Admin\Platform\PageController;
+use App\Http\Admin\Reversals\ReversalController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Admin\Settings\GlobalSettingsController;
 use App\Http\Admin\Settlements\AdjustmentController;
+use App\Http\Shared\Audit\AuditLogController;
 use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reconciliation\CaseController;
 use App\Http\Shared\Reconciliation\ReconciliationController;
@@ -87,8 +91,28 @@ Route::controller(AdjustmentController::class)->prefix('settlements/adjustments'
     Route::post('{adjustment}/reject', 'reject')->name('reject');
 });
 Route::get('commissions', [CommissionController::class, 'index'])->name('commissions.index');
-Route::get('settings', [GlobalSettingsController::class, 'index'])->name('settings.index');
-Route::put('settings/settlement', [GlobalSettingsController::class, 'updateSettlement'])->name('settings.settlement');
+
+// Refunds (pay-in refunds, returned payouts) and chargebacks.
+Route::get('refunds', [ReversalController::class, 'index'])->defaults('group', 'refunds')->name('refunds.index');
+Route::get('chargebacks', [ReversalController::class, 'index'])->defaults('group', 'chargebacks')->name('chargebacks.index');
+Route::post('reversals', [ReversalController::class, 'store'])->name('reversals.store');
+
+// Platform administration: Global Settings, content pages, IP overview, audit logs.
+Route::controller(GlobalSettingsController::class)->prefix('settings')->name('settings.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::put('settlement', 'updateSettlement')->name('settlement');
+    Route::put('alerts', 'updateAlerts')->name('alerts');
+    Route::put('checkout', 'updateCheckout')->name('checkout');
+    Route::post('reasons', 'saveReason')->name('reasons.store');
+    Route::put('reasons/{reason}', 'saveReason')->name('reasons.update');
+});
+Route::controller(PageController::class)->prefix('settings/pages')->name('pages.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'store')->name('store');
+    Route::put('{page}', 'update')->name('update');
+});
+Route::get('ip-management', [IpManagementController::class, 'index'])->name('ip-management.index');
+Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
 
 // Partners (wizard, detail drawer, status, API keys).
 Route::controller(PartnerController::class)->prefix('partners')->name('partners.')->group(function () {

@@ -13,6 +13,7 @@ use App\Domain\Core\Rbac\Policies\RolePolicy;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Platform\Models\Page;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
@@ -91,6 +92,7 @@ class AppServiceProvider extends ServiceProvider
             'settlement' => Settlement::class,
             'adjustment' => Adjustment::class,
             'report_export' => ReportExport::class,
+            'page' => Page::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);

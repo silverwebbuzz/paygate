@@ -6,6 +6,7 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Settlement\Models\SettlementLine;
@@ -31,7 +32,7 @@ use Illuminate\Validation\ValidationException;
  */
 class CalculateSettlement
 {
-    public function __construct(private Ledger $ledger) {}
+    public function __construct(private Ledger $ledger, private AlertDispatcher $alerts) {}
 
     public function handle(string $partyType, string $partyId, CarbonImmutable $periodEnd, string $runType, ?User $actor = null): ?Settlement
     {
@@ -130,6 +131,8 @@ class CalculateSettlement
                 'period_end' => $periodEnd->toIso8601String(),
                 'closing' => $closing,
             ], $actor);
+
+            $this->alerts->settlementCalculated($settlement);
 
             return $settlement;
         });

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Checkout\CheckoutController;
+use App\Http\Shared\Legal\LegalPageController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -10,6 +11,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', fn () => abort(404))->name('home');
+
+// Published content pages (terms, privacy, help), linked from the payment page.
+Route::get('legal/{slug}', [LegalPageController::class, 'show'])->name('legal.show');
 
 Route::controller(CheckoutController::class)->prefix('p/{token}')->name('checkout.')->group(function () {
     Route::get('/', 'show')->middleware('throttle:checkout')->name('show');

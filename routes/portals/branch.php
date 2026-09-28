@@ -2,6 +2,7 @@
 
 use App\Http\Branch\Accounts\AccountController;
 use App\Http\Branch\Balance\BranchBalanceController;
+use App\Http\Shared\Audit\AuditLogController;
 use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reconciliation\CaseController;
 use App\Http\Shared\Reconciliation\ReconciliationController;
@@ -66,6 +67,9 @@ Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->na
 // Settlements with the platform (read-only) and the current position.
 Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');
 Route::get('balance', [BranchBalanceController::class, 'show'])->name('balance');
+
+// What the branch's own users did (read-only).
+Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
 
 // The branch's own bank & UPI accounts.
 Route::controller(AccountController::class)->prefix('accounts')->name('accounts.')->group(function () {

@@ -43,6 +43,9 @@ enum Permission: string
     case PayoutsCreate = 'payouts.create';
     case PayoutsProcess = 'payouts.process';
 
+    case ReversalsView = 'reversals.view';
+    case ReversalsCreate = 'reversals.create';
+
     case StatementsView = 'statements.view';
     case StatementsCreate = 'statements.create';
 
