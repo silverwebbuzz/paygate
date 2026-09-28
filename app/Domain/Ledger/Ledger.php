@@ -5,6 +5,8 @@ namespace App\Domain\Ledger;
 use App\Domain\Ledger\Models\LedgerAccount;
 use App\Domain\Ledger\Models\LedgerEntry;
 use App\Domain\Ledger\Models\LedgerJournal;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -70,8 +72,9 @@ class Ledger
      * Books one balanced journal. Call inside the caller's DB transaction.
      *
      * @param  array<string, int>  $lines  ledger account id => signed amount (paise)
+     * @param  array{adjustment_id?: string, settlement_payment_id?: string, reverses_journal_id?: string}  $links  what else the journal comes from
      */
-    public function post(string $type, array $lines, ?string $transactionId = null, ?string $description = null, ?string $userId = null): string
+    public function post(string $type, array $lines, ?string $transactionId = null, ?string $description = null, ?string $userId = null, array $links = []): string
     {
         $lines = array_filter($lines, fn (int $amount) => $amount !== 0);
 
@@ -96,6 +99,7 @@ class Ledger
             'posted_at' => now(),
             'created_by' => $userId,
             'request_id' => Context::get('request_id'),
+            ...array_intersect_key($links, array_flip(['adjustment_id', 'settlement_payment_id', 'reverses_journal_id'])),
         ]);
 
         foreach ($accountIds as $accountId) {
@@ -181,6 +185,130 @@ class Ledger
                 ])->values()->all(),
             ])
             ->values()
+            ->all();
+    }
+
+    /**
+     * The position accounts of one party (a partner's or a branch's pair
+     * accounts), with the counterpart of each pair.
+     *
+     * @return list<array{id: string, partner_id: string, branch_id: string}>
+     */
+    public function partyAccounts(string $partyType, string $partyId): array
+    {
+        return array_values(DB::table('ledger_accounts')
+            ->where('kind', $partyType === 'partner' ? self::PARTNER_POSITION : self::BRANCH_POSITION)
+            ->where($partyType === 'partner' ? 'partner_id' : 'branch_id', $partyId)
+            ->orderBy('created_at')
+            ->get(['id', 'partner_id', 'branch_id'])
+            ->map(fn (object $row) => ['id' => (string) $row->id, 'partner_id' => (string) $row->partner_id, 'branch_id' => (string) $row->branch_id])
+            ->all());
+    }
+
+    /**
+     * How accounts moved in [start, end) by journal posting time: the
+     * opening balance, the sum per journal type, the transactions booked,
+     * and the closing balance (opening + movements).
+     *
+     * @param  list<string>  $accountIds
+     * @return array<string, array{opening: int, closing: int, by_type: array<string, int>, transactions: list<string>}>
+     */
+    public function statement(array $accountIds, CarbonInterface $start, CarbonInterface $end): array
+    {
+        $opening = [];
+        $byType = [];
+        $transactions = [];
+
+        if ($accountIds !== []) {
+            $entries = fn () => DB::table('ledger_entries as e')
+                ->join('ledger_journals as j', 'j.id', '=', 'e.journal_id')
+                ->whereIn('e.ledger_account_id', $accountIds);
+
+            foreach ($entries()->where('j.posted_at', '<', $start)->groupBy('e.ledger_account_id')->get(['e.ledger_account_id', DB::raw('SUM(e.amount) AS total')]) as $row) {
+                $opening[(string) $row->ledger_account_id] = (int) $row->total;
+            }
+
+            $inPeriod = fn () => $entries()->where('j.posted_at', '>=', $start)->where('j.posted_at', '<', $end);
+
+            foreach ($inPeriod()->groupBy('e.ledger_account_id', 'j.type')->get(['e.ledger_account_id', 'j.type', DB::raw('SUM(e.amount) AS total')]) as $row) {
+                $byType[(string) $row->ledger_account_id][(string) $row->type] = (int) $row->total;
+            }
+
+            foreach ($inPeriod()->whereNotNull('j.transaction_id')->whereIn('j.type', ['payin_success', 'payout_success'])->distinct()->get(['e.ledger_account_id', 'j.transaction_id']) as $row) {
+                $transactions[(string) $row->ledger_account_id][] = (string) $row->transaction_id;
+            }
+        }
+
+        $result = [];
+
+        foreach ($accountIds as $id) {
+            $types = $byType[$id] ?? [];
+            $result[$id] = [
+                'opening' => $opening[$id] ?? 0,
+                'closing' => ($opening[$id] ?? 0) + array_sum($types),
+                'by_type' => $types,
+                'transactions' => $transactions[$id] ?? [],
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * When the first of these accounts was booked (null if never).
+     *
+     * @param  list<string>  $accountIds
+     */
+    public function firstPostingAt(array $accountIds): ?CarbonImmutable
+    {
+        $first = DB::table('ledger_entries as e')
+            ->join('ledger_journals as j', 'j.id', '=', 'e.journal_id')
+            ->whereIn('e.ledger_account_id', $accountIds)
+            ->min('j.posted_at');
+
+        return $first === null ? null : CarbonImmutable::parse((string) $first);
+    }
+
+    /**
+     * Current balance and payout holds of one account.
+     *
+     * @return array{balance: int, reserved: int}
+     */
+    public function figures(string $accountId): array
+    {
+        $row = DB::table('ledger_balances')->where('ledger_account_id', $accountId)->first(['balance', 'reserved']);
+
+        return ['balance' => (int) ($row->balance ?? 0), 'reserved' => (int) ($row->reserved ?? 0)];
+    }
+
+    /**
+     * Balance and holds of every position account of a branch, per partner.
+     *
+     * @return array<string, array{balance: int, reserved: int}> partner id => figures
+     */
+    public function branchPositions(string $branchId): array
+    {
+        return DB::table('ledger_balances as b')
+            ->join('ledger_accounts as a', 'a.id', '=', 'b.ledger_account_id')
+            ->where('a.kind', self::BRANCH_POSITION)
+            ->where('a.branch_id', $branchId)
+            ->get(['a.partner_id', 'b.balance', 'b.reserved'])
+            ->mapWithKeys(fn (object $row) => [(string) $row->partner_id => ['balance' => (int) $row->balance, 'reserved' => (int) $row->reserved]])
+            ->all();
+    }
+
+    /**
+     * Which pair each position account belongs to.
+     *
+     * @param  list<string>  $accountIds
+     * @return array<string, array{partner_id: string|null, branch_id: string|null}>
+     */
+    public function owners(array $accountIds): array
+    {
+        return DB::table('ledger_accounts')
+            ->whereIn('id', $accountIds)
+            ->get(['id', 'partner_id', 'branch_id'])
+            ->mapWithKeys(fn (object $row) => [(string) $row->id => ['partner_id' => $row->partner_id, 'branch_id' => $row->branch_id]])
             ->all();
     }
 }

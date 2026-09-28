@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Branch\Accounts\AccountController;
+use App\Http\Branch\Balance\BranchBalanceController;
 use App\Http\Shared\Reconciliation\CaseController;
 use App\Http\Shared\Reconciliation\ReconciliationController;
 use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
+use App\Http\Shared\Settlements\SettlementController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
@@ -54,6 +56,10 @@ Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->g
     Route::post('{case}/close', 'close')->name('close');
 });
 Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
+
+// Settlements with the platform (read-only) and the current position.
+Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');
+Route::get('balance', [BranchBalanceController::class, 'show'])->name('balance');
 
 // The branch's own bank & UPI accounts.
 Route::controller(AccountController::class)->prefix('accounts')->name('accounts.')->group(function () {

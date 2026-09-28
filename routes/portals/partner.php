@@ -4,6 +4,7 @@ use App\Http\Partner\Balance\BalanceController;
 use App\Http\Partner\Developers\ApiLogController;
 use App\Http\Partner\Developers\DeveloperController;
 use App\Http\Partner\Profile\BusinessProfileController;
+use App\Http\Shared\Settlements\SettlementController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,7 @@ Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
 Route::get('payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.index');
 Route::get('balance', [BalanceController::class, 'show'])->name('balance');
+Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
 
 // API documentation and the partner's own API call log.

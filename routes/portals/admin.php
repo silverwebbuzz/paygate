@@ -2,14 +2,18 @@
 
 use App\Http\Admin\Accounts\AccountController;
 use App\Http\Admin\Branches\BranchController;
+use App\Http\Admin\Commissions\CommissionController;
 use App\Http\Admin\Mappings\MappingController;
 use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Roles\RoleController;
+use App\Http\Admin\Settings\GlobalSettingsController;
+use App\Http\Admin\Settlements\AdjustmentController;
 use App\Http\Shared\Reconciliation\CaseController;
 use App\Http\Shared\Reconciliation\ReconciliationController;
 use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
+use App\Http\Shared\Settlements\SettlementController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
@@ -62,6 +66,23 @@ Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->g
     Route::post('{case}/approve-late', 'approveLate')->name('approve-late');
 });
 Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
+
+// Settlement: per-party settlements (calculate on demand, record payments),
+// adjustments with maker–checker, commissions, and the cut-off setting.
+Route::controller(SettlementController::class)->prefix('settlements')->name('settlements.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('calculate', 'calculate')->name('calculate');
+    Route::post('{settlement}/payments', 'pay')->name('pay');
+});
+Route::controller(AdjustmentController::class)->prefix('settlements/adjustments')->name('adjustments.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('/', 'store')->name('store');
+    Route::post('{adjustment}/approve', 'approve')->name('approve');
+    Route::post('{adjustment}/reject', 'reject')->name('reject');
+});
+Route::get('commissions', [CommissionController::class, 'index'])->name('commissions.index');
+Route::get('settings', [GlobalSettingsController::class, 'index'])->name('settings.index');
+Route::put('settings/settlement', [GlobalSettingsController::class, 'updateSettlement'])->name('settings.settlement');
 
 // Partners (wizard, detail drawer, status, API keys).
 Route::controller(PartnerController::class)->prefix('partners')->name('partners.')->group(function () {

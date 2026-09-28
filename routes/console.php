@@ -1,9 +1,12 @@
 <?php
 
+use App\Domain\Platform\Settings;
+use App\Domain\Settlement\Actions\CalculateSettlement;
 use App\Domain\Transaction\Actions\ClosePayin;
 use App\Domain\Webhook\Jobs\DeliverWebhook;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -19,5 +22,22 @@ Schedule::call(fn () => app(ClosePayin::class)->expireDue())
 // Webhooks whose retry time has come (the outbox safety net, Phase 7).
 Schedule::call(fn () => DeliverWebhook::dispatchDue())
     ->name('webhooks:dispatch-due')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+// Daily settlements, once per cut-off (time and timezone in Admin › Global
+// Settings, G-09). Checked every minute so a changed cut-off applies at once;
+// running twice creates nothing new (Phase 10).
+Schedule::call(function () {
+    $cutoff = app(Settings::class)->lastCutoff();
+
+    if (Cache::get('settlements:last-cutoff') === $cutoff->toIso8601String()) {
+        return;
+    }
+
+    app(CalculateSettlement::class)->daily($cutoff);
+    Cache::forever('settlements:last-cutoff', $cutoff->toIso8601String());
+})
+    ->name('settlements:daily')
     ->everyMinute()
     ->withoutOverlapping();

@@ -17,6 +17,8 @@ use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\Models\StatementImport;
+use App\Domain\Settlement\Models\Adjustment;
+use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Policies\TransactionPolicy;
 use App\Domain\Webhook\Models\WebhookEvent;
@@ -85,6 +87,8 @@ class AppServiceProvider extends ServiceProvider
             'statement_entry' => StatementEntry::class,
             'statement_import' => StatementImport::class,
             'reconciliation_case' => ReconciliationCase::class,
+            'settlement' => Settlement::class,
+            'adjustment' => Adjustment::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);

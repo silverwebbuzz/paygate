@@ -10,6 +10,7 @@ import adminPartners from '@/routes/admin/partners';
 import adminPayouts from '@/routes/admin/payouts';
 import adminReconciliation from '@/routes/admin/reconciliation';
 import adminRoles from '@/routes/admin/roles';
+import adminSettlements from '@/routes/admin/settlements';
 import adminStatements from '@/routes/admin/statements';
 import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
@@ -31,6 +32,7 @@ import partner, {
 import partnerDevelopers from '@/routes/partner/developers';
 import partnerPayins from '@/routes/partner/payins';
 import partnerPayouts from '@/routes/partner/payouts';
+import partnerSettlements from '@/routes/partner/settlements';
 import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
 import type { UserType } from '@/types';
@@ -141,8 +143,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Finance',
             items: [
-                { label: 'Settlement', soon: 10 },
-                { label: 'Commissions', soon: 10 },
+                {
+                    label: 'Settlement',
+                    href: adminSettlements.index(),
+                    permission: 'settlements.view',
+                },
+                {
+                    label: 'Commissions',
+                    href: admin.commissions.index(),
+                    permission: 'commissions.view',
+                },
                 { label: 'Reports', soon: 11 },
             ],
         },
@@ -159,7 +169,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: adminRoles.index(),
                     permission: 'roles.view',
                 },
-                { label: 'Global Settings', soon: 12 },
+                {
+                    label: 'Global Settings',
+                    href: admin.settings.index(),
+                    permission: 'settings.view',
+                },
                 { label: 'IP Management', soon: 12 },
                 { label: 'Audit Logs', soon: 12 },
             ],
@@ -240,8 +254,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Finance',
             items: [
-                { label: 'Branch Balance', soon: 10 },
-                { label: 'Settlement', soon: 10 },
+                {
+                    label: 'Branch Balance',
+                    href: branch.balance(),
+                    permission: 'balances.view',
+                },
+                {
+                    label: 'Settlement',
+                    href: branch.settlements.index(),
+                    permission: 'settlements.view',
+                },
                 { label: 'Reports', soon: 11 },
             ],
         },
@@ -282,7 +304,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Finance',
             items: [
-                { label: 'Settlements', soon: 10 },
+                {
+                    label: 'Settlements',
+                    href: partnerSettlements.index(),
+                    permission: 'settlements.view',
+                },
                 {
                     label: 'Balance',
                     href: partnerBalance(),

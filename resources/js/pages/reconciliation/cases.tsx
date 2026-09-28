@@ -26,6 +26,7 @@ import type {
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDate, formatDateTime, formatRelative } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
+import adminAdjustments from '@/routes/admin/adjustments';
 import adminCases from '@/routes/admin/cases';
 import adminStatements from '@/routes/admin/statements';
 import branchCases from '@/routes/branch/cases';
@@ -629,6 +630,18 @@ function CaseDrawer({
                                 >
                                     Returned to customer
                                 </PgButton>
+                            )}
+                            {portal === 'admin' && (
+                                <Link
+                                    href={
+                                        adminAdjustments.index({
+                                            query: { case: item.id },
+                                        }).url
+                                    }
+                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
+                                >
+                                    Correct with an adjustment
+                                </Link>
                             )}
                         </div>
                     </section>
