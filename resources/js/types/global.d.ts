@@ -25,8 +25,14 @@ declare module '@inertiajs/core' {
                 }[];
             } | null;
             environment: string;
-            /** Admin › QA Checklist is available (local and staging only). */
+            /** Super admins get Admin › Testing (QA Checklist, Section rollout). */
+            superAdmin: boolean;
+            /** Admin › QA Checklist is available (super admin, local and staging only). */
             qaChecklist: boolean;
+            /** Section rollout: menu links of sections not open for this person. */
+            rolloutHidden: string[];
+            /** Section rollout limits this person (planned items are hidden too). */
+            rolloutLimited: boolean;
             [key: string]: unknown;
         };
     }

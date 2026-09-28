@@ -17,7 +17,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Admin › QA Checklist (local and staging only, config paygate.qa.enabled):
+ * Admin › QA Checklist (super admins only; local and staging only, config paygate.qa.enabled):
  * every feature with where it is, how to test it and who to log in as; the
  * tester's Pass / Fail with a note; the latest automated result with a
  * Re-run button; and test pay-ins / payouts for the manual checks.
@@ -117,6 +117,7 @@ class QaChecklistController extends Controller
     private function ensureEnabled(): void
     {
         abort_unless(config('paygate.qa.enabled') && ! app()->isProduction(), 404);
+        abort_unless(request()->user()?->isSuperAdmin() === true, 403);
     }
 
     private function actor(Request $request): User

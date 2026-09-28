@@ -9,6 +9,7 @@ use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Platform\IpManagementController;
 use App\Http\Admin\Platform\PageController;
 use App\Http\Admin\Qa\QaChecklistController;
+use App\Http\Admin\Qa\SectionRolloutController;
 use App\Http\Admin\Reversals\ReversalController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Admin\Settings\GlobalSettingsController;
@@ -181,6 +182,11 @@ Route::controller(QaChecklistController::class)->prefix('qa-checklist')->name('q
     Route::post('sample', 'sample')->middleware('throttle:30,1')->name('sample');
     Route::put('{key}', 'mark')->name('mark');
 });
+
+// Section rollout (super admins only): which sections other users see,
+// opened one by one while the client tests.
+Route::get('section-rollout', [SectionRolloutController::class, 'index'])->name('section-rollout.index');
+Route::put('section-rollout', [SectionRolloutController::class, 'update'])->name('section-rollout.update');
 
 // Design-system reference page (local development only).
 if (app()->isLocal()) {

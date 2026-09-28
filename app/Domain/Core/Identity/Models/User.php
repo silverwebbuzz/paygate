@@ -130,6 +130,12 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
             ->exists();
     }
 
+    /** Super admins alone open the QA Checklist and Section rollout, and always see every section. */
+    public function isSuperAdmin(): bool
+    {
+        return $this->type === UserType::Admin && $this->role->slug === SystemRoles::ADMIN_SUPER;
+    }
+
     /**
      * @return BelongsTo<Role, $this>
      */

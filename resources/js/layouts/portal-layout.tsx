@@ -18,28 +18,45 @@ export default function PortalLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { auth, sidebarOpen, environment, qaChecklist } = usePage().props;
+    const {
+        auth,
+        sidebarOpen,
+        environment,
+        superAdmin,
+        qaChecklist,
+        rolloutHidden,
+        rolloutLimited,
+    } = usePage().props;
     const { isCurrentUrl } = useCurrentUrl();
     const [collapsed, setCollapsed] = useState(!sidebarOpen);
     const [density, toggleDensity] = useDensity();
 
     const portal = auth.user.type;
-    // Local / staging extras at the end of the Admin menu.
+    // Super-admin tools at the end of the Admin menu (the QA Checklist on
+    // local and staging only).
     const extras: NavGroup[] = [
-        ...(portal === 'admin' && qaChecklist
+        ...(portal === 'admin' && superAdmin
             ? [
                   {
                       label: 'Testing',
                       items: [
+                          ...(qaChecklist
+                              ? [
+                                    {
+                                        label: 'QA Checklist',
+                                        href: admin.qaChecklist.index(),
+                                    },
+                                ]
+                              : []),
                           {
-                              label: 'QA Checklist',
-                              href: admin.qaChecklist.index(),
+                              label: 'Section rollout',
+                              href: admin.sectionRollout.index(),
                           },
                       ],
                   },
               ]
             : []),
-        ...(portal === 'admin' && environment === 'local'
+        ...(portal === 'admin' && superAdmin && environment === 'local'
             ? [
                   {
                       label: 'Developer',
@@ -53,8 +70,20 @@ export default function PortalLayout({
             ...group,
             items: group.items.filter(
                 (item) =>
-                    !item.permission ||
-                    auth.permissions.includes(item.permission),
+                    (!item.permission ||
+                        auth.permissions.includes(item.permission)) &&
+                    // Section rollout: sections not open yet (and planned
+                    // items) are hidden.
+                    !(rolloutLimited && !item.href) &&
+                    !(
+                        item.href &&
+                        rolloutHidden.includes(
+                            toUrl(item.href).replace(
+                                /^(https?:)?\/\/[^/]+/,
+                                '',
+                            ),
+                        )
+                    ),
             ),
         }))
         .filter((group) => group.items.length > 0);
