@@ -153,7 +153,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: admin.commissions.index(),
                     permission: 'commissions.view',
                 },
-                { label: 'Reports', soon: 11 },
+                {
+                    label: 'Reports',
+                    href: admin.reports.index(),
+                    permission: 'reports.view',
+                },
             ],
         },
         {
@@ -264,7 +268,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: branch.settlements.index(),
                     permission: 'settlements.view',
                 },
-                { label: 'Reports', soon: 11 },
+                {
+                    label: 'Reports',
+                    href: branch.reports.index(),
+                    permission: 'reports.view',
+                },
             ],
         },
         {
@@ -288,7 +296,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         {
             label: 'Payments',
             items: [
-                { label: 'Create Payment', soon: 6 },
+                // Manual payment links are out of v1 (OOS-13).
+                { label: 'Create Payment', soon: 'later' },
                 {
                     label: 'Pay-in',
                     href: partnerPayins.index(),
@@ -314,7 +323,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: partnerBalance(),
                     permission: 'balances.view',
                 },
-                { label: 'Reports', soon: 11 },
+                {
+                    label: 'Reports',
+                    href: partner.reports.index(),
+                    permission: 'reports.view',
+                },
             ],
         },
         {

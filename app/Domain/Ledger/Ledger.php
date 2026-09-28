@@ -311,4 +311,65 @@ class Ledger
             ->mapWithKeys(fn (object $row) => [(string) $row->id => ['partner_id' => $row->partner_id, 'branch_id' => $row->branch_id]])
             ->all();
     }
+
+    /**
+     * Current position totals per party (sum over its pair accounts):
+     * positive = the platform owes the party.
+     *
+     * @return array<string, int> partner id or branch id => total
+     */
+    public function partyTotals(string $partyType): array
+    {
+        $column = $partyType === 'partner' ? 'a.partner_id' : 'a.branch_id';
+
+        return DB::table('ledger_balances as b')
+            ->join('ledger_accounts as a', 'a.id', '=', 'b.ledger_account_id')
+            ->where('a.kind', $partyType === 'partner' ? self::PARTNER_POSITION : self::BRANCH_POSITION)
+            ->groupBy($column)
+            ->get([DB::raw("{$column} AS party_id"), DB::raw('SUM(b.balance) AS total')])
+            ->mapWithKeys(fn (object $row) => [(string) $row->party_id => (int) $row->total])
+            ->all();
+    }
+
+    /**
+     * What parties owe the platform and what it owes them right now, over
+     * all partner and branch positions (optionally one party's only).
+     *
+     * @return array{to_receive: int, to_pay: int}
+     */
+    public function unsettled(?string $partnerId = null, ?string $branchId = null): array
+    {
+        $row = DB::table('ledger_balances as b')
+            ->join('ledger_accounts as a', 'a.id', '=', 'b.ledger_account_id')
+            ->when($partnerId !== null, fn ($query) => $query->where(['a.kind' => self::PARTNER_POSITION, 'a.partner_id' => $partnerId]))
+            ->when($branchId !== null, fn ($query) => $query->where(['a.kind' => self::BRANCH_POSITION, 'a.branch_id' => $branchId]))
+            ->when($partnerId === null && $branchId === null, fn ($query) => $query->whereIn('a.kind', [self::PARTNER_POSITION, self::BRANCH_POSITION]))
+            ->first([DB::raw('COALESCE(SUM(CASE WHEN b.balance < 0 THEN -b.balance ELSE 0 END), 0) AS to_receive'), DB::raw('COALESCE(SUM(CASE WHEN b.balance > 0 THEN b.balance ELSE 0 END), 0) AS to_pay')]);
+
+        return ['to_receive' => (int) ($row->to_receive ?? 0), 'to_pay' => (int) ($row->to_pay ?? 0)];
+    }
+
+    /**
+     * Every partner↔branch pair's two positions now.
+     *
+     * @return array<string, array{partner_id: string, branch_id: string, partner: int, reserved: int, branch: int}> "partner|branch" => figures
+     */
+    public function pairPositions(): array
+    {
+        $pairs = [];
+
+        foreach (DB::table('ledger_balances as b')->join('ledger_accounts as a', 'a.id', '=', 'b.ledger_account_id')->whereIn('a.kind', [self::PARTNER_POSITION, self::BRANCH_POSITION])->get(['a.kind', 'a.partner_id', 'a.branch_id', 'b.balance', 'b.reserved']) as $row) {
+            $key = $row->partner_id.'|'.$row->branch_id;
+            $pairs[$key] ??= ['partner_id' => (string) $row->partner_id, 'branch_id' => (string) $row->branch_id, 'partner' => 0, 'reserved' => 0, 'branch' => 0];
+
+            if ($row->kind === self::PARTNER_POSITION) {
+                $pairs[$key]['partner'] = (int) $row->balance;
+                $pairs[$key]['reserved'] = (int) $row->reserved;
+            } else {
+                $pairs[$key]['branch'] = (int) $row->balance;
+            }
+        }
+
+        return $pairs;
+    }
 }

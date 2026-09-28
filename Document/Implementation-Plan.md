@@ -5,7 +5,7 @@ How the whole system gets built, one phase at a time, from the three agreed inpu
 | Input            | Document                                                                              | Status                                                             |
 | ---------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | **Requirements** | [Requirements.md](Requirements.md) v1.4                                               | ✅ Accepted baseline                                               |
-| **Database**     | [Database.md](Database.md) (49 tables, migrations `2026_09_27_1000xx` + later phases) | ✅ Built; design fixes D-1…D-5 applied in Phase 2a                 |
+| **Database**     | [Database.md](Database.md) (50 tables, migrations `2026_09_27_1000xx` + later phases) | ✅ Built; design fixes D-1…D-5 applied in Phase 2a                 |
 | **Design**       | `Document/PayGate UI redesign/PayGate.dc.html` (claude.ai design export)              | 🟡 Covers the core screens; others follow its design system (§2.3) |
 
 This replaces the old roadmap in Architecture.md §19.
@@ -30,7 +30,8 @@ This replaces the old roadmap in Architecture.md §19.
 | 7 — Approval, ledger & webhooks | Manual Deposit queue (cards / list, approve with bank UTR, hold, decline with reason); atomic approval (commission snapshot, ledger journal, confirmed usage, top-up); webhook outbox with signing, retries, resend; Transactions lists + drawer for all portals; private proof files                                                             | `454b3b4`     |
 | 8 — Payouts                     | Payout API + balance API; pair-balance check and reservation ("balance is low"); Manual Payout queue (start, paid with UTR, can't pay, Admin reassign); W-A ledger posting; payout webhooks; partner Balance page; payout histories                                                                                                               | `46498b3`     |
 | 9 — Statements & reconciliation | Manual statement lines; CSV / Excel import with column mapping remembered per bank layout; statement history; exact matching (UTR + amount + account) in both directions; approve from a statement line; Unsettled UTR / Deposit Unsettled cases (link, Admin late approval, close); UTR Reconciliation; drawer Bank tab                          | `27b2b54`     |
-| 10 — Settlement & adjustments   | Daily (cut-off time + timezone in Global Settings) and on-demand settlements per partner / branch with per-pair lines and carry-forward; record payments per pair (partial allowed); adjustments (partner top-up, correction, goodwill) with maker–checker, can close a case; Commissions page; Branch Balance; partner / branch settlement views | (this commit) |
+| 10 — Settlement & adjustments   | Daily (cut-off time + timezone in Global Settings) and on-demand settlements per partner / branch with per-pair lines and carry-forward; record payments per pair (partial allowed); adjustments (partner top-up, correction, goodwill) with maker–checker, can close a case; Commissions page; Branch Balance; partner / branch settlement views | `84b8513`     |
+| 11 — Dashboards & reports       | Live dashboards for all portals (range buttons, KPIs, pay-in vs payout chart, outcome, needs attention, table; 30-s refresh, live queries cached 30 s); 8 reports with portal-scoped columns; CSV / Excel exports on the `reports` queue, owner-only download, deleted after 7 days                                                               | (this commit) |
 
 ---
 

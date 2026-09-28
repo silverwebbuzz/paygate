@@ -1,12 +1,12 @@
 # PAY GATEWAY — Database Design v1
 
-|          |                                                                                                                                                                                                                                                           |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (48 tables, incl. Phase 2 fixes D-1…D-5); Phase 9 adds `2026_09_28_100001` (`statement_templates`, 49 tables). Staging/production setup: [Deployment.md](Deployment.md) |
-| Date     | 2026-09-27                                                                                                                                                                                                                                                |
-| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                                                                                                                    |
-| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                                                                                                                         |
-| Readers  | Database architect, backend developers, QA                                                                                                                                                                                                                |
+|          |                                                                                                                                                                                                                                                                                 |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status   | **Implemented locally (2026-09-27)** in migrations `2026_09_27_100001` – `100012` (48 tables, incl. Phase 2 fixes D-1…D-5); later phases add `2026_09_28_1000xx` (`statement_templates`, `report_exports`: 50 tables). Staging/production setup: [Deployment.md](Deployment.md) |
+| Date     | 2026-09-27                                                                                                                                                                                                                                                                      |
+| Based on | [Requirements.md](Requirements.md) v1.4 (the baseline). Section references like "Req §6.4" point there                                                                                                                                                                          |
+| Database | PostgreSQL 18 (one database, one schema `public`)                                                                                                                                                                                                                               |
+| Readers  | Database architect, backend developers, QA                                                                                                                                                                                                                                      |
 
 ---
 
@@ -428,6 +428,8 @@ A nightly job re-sums `ledger_entries` per account and alerts on any difference 
 
 **`api_request_logs`** (partner-visible API log; high volume, 90-day retention)
 `id`, `partner_id`, `api_key_id`, `method`, `path`, `status_code`, `duration_ms`, `ip inet`, `request_id`, `partner_transaction_id` null, `created_at`. Index `(partner_id, created_at DESC)`. Monthly partitions once volume requires.
+
+**`report_exports`** (Phase 11): `id`, `user_id` (only this person can download), `report` (catalogue key), `format` (`csv` / `xlsx`), `parameters jsonb` (resolved period + filters), `status` (`queued` / `running` / `ready` / `failed` / `expired`), `rows`, `file_id FK files null` (purpose `export`), `error`, `created_at`, `completed_at`, `expires_at` (+7 days; the file is then deleted and the row kept as `expired`, G-49).
 
 ### 2.11 Platform
 

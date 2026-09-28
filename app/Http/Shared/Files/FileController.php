@@ -7,6 +7,7 @@ use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\StatementImport;
+use App\Domain\Reporting\Models\ReportExport;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Http\Shared\Reconciliation\ReconciliationScope;
@@ -34,6 +35,8 @@ class FileController extends Controller
             $owner instanceof StatementImport => $file->purpose === 'statement'
                 && $viewer->can('statements.view')
                 && ReconciliationScope::allows($viewer, $owner->branch_id),
+            // Report exports: only the person who exported.
+            $owner instanceof ReportExport => $file->purpose === 'export' && $owner->user_id === $viewer->id,
             default => false,
         };
 

@@ -17,6 +17,7 @@ use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\Models\StatementImport;
+use App\Domain\Reporting\Models\ReportExport;
 use App\Domain\Settlement\Models\Adjustment;
 use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Transaction\Models\Transaction;
@@ -89,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
             'reconciliation_case' => ReconciliationCase::class,
             'settlement' => Settlement::class,
             'adjustment' => Adjustment::class,
+            'report_export' => ReportExport::class,
             'audit_log' => AuditLog::class,
             'security_log' => SecurityLog::class,
         ]);

@@ -9,10 +9,12 @@ use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Admin\Settings\GlobalSettingsController;
 use App\Http\Admin\Settlements\AdjustmentController;
+use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reconciliation\CaseController;
 use App\Http\Shared\Reconciliation\ReconciliationController;
 use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
+use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
@@ -24,7 +26,11 @@ use Illuminate\Support\Facades\Route;
 | Admin portal — /admin/*, only for admin users (see routes/web.php).
 */
 
-Route::inertia('/', 'admin/dashboard')->name('dashboard');
+Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
+
+// Reports: preview and CSV / Excel exports prepared in the background.
+Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+Route::post('reports/export', [ReportController::class, 'export'])->middleware('throttle:20,1')->name('reports.export');
 
 // Transactions (all pay-ins) and the Manual Deposit queue of every branch.
 Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');

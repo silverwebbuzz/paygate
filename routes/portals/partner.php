@@ -4,6 +4,8 @@ use App\Http\Partner\Balance\BalanceController;
 use App\Http\Partner\Developers\ApiLogController;
 use App\Http\Partner\Developers\DeveloperController;
 use App\Http\Partner\Profile\BusinessProfileController;
+use App\Http\Shared\Dashboard\DashboardController;
+use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
@@ -13,7 +15,11 @@ use Illuminate\Support\Facades\Route;
 | Partner portal — /partner/*, only for partner users (see routes/web.php).
 */
 
-Route::inertia('/', 'partner/dashboard')->name('dashboard');
+Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
+
+// Reports: preview and CSV / Excel exports prepared in the background.
+Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+Route::post('reports/export', [ReportController::class, 'export'])->middleware('throttle:20,1')->name('reports.export');
 
 Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile');
 

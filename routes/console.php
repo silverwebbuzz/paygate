@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Platform\Settings;
+use App\Domain\Reporting\Actions\ManageReportExports;
 use App\Domain\Settlement\Actions\CalculateSettlement;
 use App\Domain\Transaction\Actions\ClosePayin;
 use App\Domain\Webhook\Jobs\DeliverWebhook;
@@ -40,4 +41,10 @@ Schedule::call(function () {
 })
     ->name('settlements:daily')
     ->everyMinute()
+    ->withoutOverlapping();
+
+// Exported report files are deleted after 7 days (G-49, Phase 11).
+Schedule::call(fn () => app(ManageReportExports::class)->prune())
+    ->name('reports:prune-exports')
+    ->hourly()
     ->withoutOverlapping();

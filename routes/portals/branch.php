@@ -2,10 +2,12 @@
 
 use App\Http\Branch\Accounts\AccountController;
 use App\Http\Branch\Balance\BranchBalanceController;
+use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reconciliation\CaseController;
 use App\Http\Shared\Reconciliation\ReconciliationController;
 use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
+use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
@@ -17,7 +19,11 @@ use Illuminate\Support\Facades\Route;
 | Branch portal — /branch/*, only for branch users (see routes/web.php).
 */
 
-Route::inertia('/', 'branch/dashboard')->name('dashboard');
+Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
+
+// Reports: preview and CSV / Excel exports prepared in the background.
+Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+Route::post('reports/export', [ReportController::class, 'export'])->middleware('throttle:20,1')->name('reports.export');
 
 // Manual Deposit: approve / hold / decline pay-ins paid into this branch.
 Route::controller(DepositQueueController::class)->prefix('deposits')->name('deposits.')->group(function () {
