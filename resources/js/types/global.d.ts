@@ -25,6 +25,8 @@ declare module '@inertiajs/core' {
                 }[];
             } | null;
             environment: string;
+            /** Admin › QA Checklist is available (local and staging only). */
+            qaChecklist: boolean;
             [key: string]: unknown;
         };
     }

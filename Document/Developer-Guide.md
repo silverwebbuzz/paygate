@@ -69,21 +69,22 @@ Open **http://paygate.local** and log in with `admin@paygate.local` / `password`
 
 ### Application
 
-| URL                                     | What                                                                                |
-| --------------------------------------- | ----------------------------------------------------------------------------------- |
-| http://paygate.local                    | Portals: login, `/admin`, `/partner`, `/branch`                                     |
-| http://paygate.local/horizon            | Queue dashboard (open locally; super admins only on servers)                        |
-| http://paygate.local/admin/partners     | Partners: list, create wizard, drawer (keys, rates, branches, activity)             |
-| http://paygate.local/admin/branches     | Branches: list, form, drawer (accounts, partners, users, top-ups, rates)            |
-| http://paygate.local/admin/mappings     | Partner ↔ branch pairs: switches, pair limits, pair rates                           |
-| http://paygate.local/admin/accounts     | All bank & UPI accounts; “Review” to verify (log in as admin@ or ops@)              |
-| http://paygate.local/branch/accounts    | Branch portal: the branch's accounts (log in as branch@)                            |
-| http://paygate.local/partner/api-docs   | Partner API documentation (signing, endpoints, errors)                              |
-| http://paygate.local/partner/api-logs   | The partner's own API calls                                                         |
-| http://paygate.local/partner/developers | Partner portal: API keys, endpoints, allowed IPs (log in as partner@ or developer@) |
-| http://paygate.local/admin/ui-kit       | UI kit: every shared component with sample data (local only, log in as admin)       |
-| http://api.paygate.local/v1/ping        | Partner API health check                                                            |
-| http://pay.paygate.local                | Payer pages (from Phase 5)                                                          |
+| URL                                     | What                                                                                                                                     |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| http://paygate.local                    | Portals: login, `/admin`, `/partner`, `/branch`                                                                                          |
+| http://paygate.local/horizon            | Queue dashboard (open locally; super admins only on servers)                                                                             |
+| http://paygate.local/admin/partners     | Partners: list, create wizard, drawer (keys, rates, branches, activity)                                                                  |
+| http://paygate.local/admin/branches     | Branches: list, form, drawer (accounts, partners, users, top-ups, rates)                                                                 |
+| http://paygate.local/admin/mappings     | Partner ↔ branch pairs: switches, pair limits, pair rates                                                                                |
+| http://paygate.local/admin/accounts     | All bank & UPI accounts; “Review” to verify (log in as admin@ or ops@)                                                                   |
+| http://paygate.local/branch/accounts    | Branch portal: the branch's accounts (log in as branch@)                                                                                 |
+| http://paygate.local/partner/api-docs   | Partner API documentation (signing, endpoints, errors)                                                                                   |
+| http://paygate.local/partner/api-logs   | The partner's own API calls                                                                                                              |
+| http://paygate.local/partner/developers | Partner portal: API keys, endpoints, allowed IPs (log in as partner@ or developer@)                                                      |
+| http://paygate.local/admin/qa-checklist | QA Checklist: every feature, how to test it, who to log in as; Pass / Fail per row, Re-run of its automated tests (local + staging only) |
+| http://paygate.local/admin/ui-kit       | UI kit: every shared component with sample data (local only, log in as admin)                                                            |
+| http://api.paygate.local/v1/ping        | Partner API health check                                                                                                                 |
+| http://pay.paygate.local                | Payer pages (from Phase 5)                                                                                                               |
 
 ### Demo users (created by `make setup` / `make fresh`, password for all: `password`)
 
@@ -272,6 +273,7 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 - **Refunds & chargebacks** (Phase 12, `ReverseTransaction`): only a successful transaction, once (`transaction_reversals`). Chargeback: Admin picks who bears it (partner → partner −amount / branch +amount; branch → nothing booked). Pay-in refund: same postings as a partner-borne chargeback. Returned payout: full reversal. Each posts a `reversal` journal pointing at the success journal, changes the status (`chargeback` / `refunded` / `returned`), sends a webhook and alerts partner and branch. Permission `reversals.view` / `reversals.create`.
 - **Alerts** (`app/Domain/Notification`): `Alert` enum lists the events; `AlertDispatcher` decides who gets each (portal + organisation + permission) and is called from the action where the event happens; `PortalAlert` is a queued Laravel notification (queue `notifications`) stored for the bell and emailed unless the person turned email off (`users.notification_preferences`, Profile & settings › Notifications). The deposit-waiting alert runs every 5 minutes (`alerts:deposits-waiting`) and reports each deposit once. Locally the emails land in Mailpit. Don't name a page prop `alerts`: that's the shared bell prop.
 - **Global Settings** (Admin › Global Settings): settlement cut-off, deposit-waiting alert threshold, payment-page support contact, decline / fail reasons (codes never change; switch a reason off instead; "other" always stays). **Content pages** (Global Settings › Content pages) are Markdown, public at `/legal/{slug}` on the portal and payment hosts once published; raw HTML is stripped.
+- **QA Checklist** (Admin › Testing › QA Checklist, `app/Domain/Qa`; local and staging only, `PAYGATE_QA_CHECKLIST`, 404 on production): the list of features lives in **`app/Domain/Qa/Checklist.php`**: per row a stable key, URL (`api:` / `pay:` prefixes for the other hosts), description, steps, logins (`Checklist::LOGINS`) and the tests that cover it (`ClassTest` or `ClassTest::test_name`). **When you add a screen or a rule, add or update its row in the same commit;** `QaChecklistTest` fails if a named test doesn't exist. Testers' Pass / Fail + note and the latest automated result are stored in `qa_results`. _Re-run_ queues `RunQaChecks` on the `qa` queue (Horizon supervisor `qa`, local and staging only, one job at a time); `TestRunner` runs `vendor/bin/phpunit --filter …` in a clean environment (`env -i`) so phpunit.xml's `paygate_testing` database is used, and refuses to run if that is the app's own database. _Run all_ runs the whole suite once (about 4 minutes locally) and spreads the results. _Test data_ creates a pay-in (with its payment link) or payout through `CreatePayin` / `CreatePayout`, so testers don't need to sign API calls. Avoid `make test` while a run is in progress: both use the testing database.
 - **Users are invited, never created with a password:** Admin (any portal) or a partner/branch owner (own organisation) sends an invitation; the emailed link is valid 72 hours (`invites` password broker) and setting the password verifies the email. Locally the emails land in Mailpit.
 - **Money:** integer paise (`bigint`), never float.
 - **IDs:** UUIDv7 primary keys (`HasUuids`).
@@ -300,6 +302,8 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 | Queue job / email changes not picked up, or a queued email fails with "Route [...] not defined" | Horizon still runs the old code: `make horizon-restart` (needed after changing PHP code or routes)                                                                                                                                     |
 | Statement import: "This file can't be read"                                                     | PDF statements aren't supported; download the statement from the bank as CSV or Excel. Password-protected Excel files must be saved without the password first.                                                                        |
 | A statement line didn't match its deposit                                                       | Matching is exact (G-24): the UTR, the amount and the receiving account must all agree. The case in _Unsettled UTR_ / _Deposit Unsettled_ says which part differs.                                                                     |
+| QA Checklist: Re-run stays "Queued" or shows "Stuck"                                            | Horizon isn't running the `qa` supervisor: `make horizon-restart` (and `make up` if Horizon is down). A run that doesn't finish in 20 minutes shows "Stuck" and can be started again                                                   |
+| QA Checklist: a row shows "No test found"                                                       | The test names in `app/Domain/Qa/Checklist.php` don't match any test (renamed?). Fix the row; `make test f=QaChecklistTest` lists the wrong one                                                                                        |
 | DB in a weird state                                                                             | `make fresh` (wipes local data)                                                                                                                                                                                                        |
 | Demo partner/branch users show `MIGRATED-P` / `MIGRATED-B`                                      | Your DB predates the business tables; run `make fresh` for clean demo data                                                                                                                                                             |
 | Start completely from scratch                                                                   | `docker compose down -v` (deletes DB + Redis volumes), then `make setup`                                                                                                                                                               |
@@ -313,6 +317,7 @@ Browse it in Adminer (http://localhost:8080). Full details and the ledger rules 
 - [ ] Log in as each demo user and open each portal
 - [ ] Open Adminer and Mailpit
 - [ ] `make check` passes
+- [ ] Open Admin › QA Checklist, click _Run all automated tests_, then walk through the rows by hand
 - [ ] Read [Architecture.md](Architecture.md) §5 (flows), §6 (allocation), §8 (state machine), §11 (security & roles)
 - [ ] Read [Requirements.md](Requirements.md) (business baseline) and [Database.md](Database.md)
 - [ ] Before any staging/production deploy: follow [Deployment.md](Deployment.md)

@@ -5,6 +5,8 @@ import { PortalTopbar } from '@/components/pg/portal-topbar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useDensity } from '@/hooks/use-density';
 import { PORTAL_LABELS, PORTAL_NAV } from '@/lib/portal-nav';
+import type { NavGroup } from '@/lib/portal-nav';
+import admin from '@/routes/admin';
 import { toUrl } from '@/lib/utils';
 
 /**
@@ -16,23 +18,37 @@ export default function PortalLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { auth, sidebarOpen, environment } = usePage().props;
+    const { auth, sidebarOpen, environment, qaChecklist } = usePage().props;
     const { isCurrentUrl } = useCurrentUrl();
     const [collapsed, setCollapsed] = useState(!sidebarOpen);
     const [density, toggleDensity] = useDensity();
 
     const portal = auth.user.type;
-    const groups = (
-        portal === 'admin' && environment === 'local'
+    // Local / staging extras at the end of the Admin menu.
+    const extras: NavGroup[] = [
+        ...(portal === 'admin' && qaChecklist
             ? [
-                  ...PORTAL_NAV.admin,
+                  {
+                      label: 'Testing',
+                      items: [
+                          {
+                              label: 'QA Checklist',
+                              href: admin.qaChecklist.index(),
+                          },
+                      ],
+                  },
+              ]
+            : []),
+        ...(portal === 'admin' && environment === 'local'
+            ? [
                   {
                       label: 'Developer',
                       items: [{ label: 'UI kit', href: '/admin/ui-kit' }],
                   },
               ]
-            : PORTAL_NAV[portal]
-    )
+            : []),
+    ];
+    const groups = [...PORTAL_NAV[portal], ...extras]
         .map((group) => ({
             ...group,
             items: group.items.filter(

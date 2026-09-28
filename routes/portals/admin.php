@@ -8,6 +8,7 @@ use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Platform\IpManagementController;
 use App\Http\Admin\Platform\PageController;
+use App\Http\Admin\Qa\QaChecklistController;
 use App\Http\Admin\Reversals\ReversalController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Admin\Settings\GlobalSettingsController;
@@ -170,6 +171,15 @@ Route::controller(UserController::class)->prefix('users')->name('users.')->group
     Route::put('{user}/status', 'status')->name('status');
     Route::post('{user}/invitation', 'resendInvitation')->name('invitation');
     Route::delete('{user}/two-factor', 'resetTwoFactor')->name('two-factor');
+});
+
+// QA Checklist: features, how to test them, results and test re-runs
+// (local and staging only; the controller answers 404 elsewhere).
+Route::controller(QaChecklistController::class)->prefix('qa-checklist')->name('qa-checklist.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('run', 'run')->middleware('throttle:30,1')->name('run');
+    Route::post('sample', 'sample')->middleware('throttle:30,1')->name('sample');
+    Route::put('{key}', 'mark')->name('mark');
 });
 
 // Design-system reference page (local development only).

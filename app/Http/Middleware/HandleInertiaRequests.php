@@ -57,6 +57,8 @@ class HandleInertiaRequests extends Middleware
                 ]),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            // Admin › QA Checklist in the menu (local and staging only).
+            'qaChecklist' => $request->user()?->type->value === 'admin' && config('paygate.qa.enabled') && ! app()->isProduction(),
             // Environment label for the top-bar pill ("Admin · Production").
             'environment' => app()->environment(),
         ];

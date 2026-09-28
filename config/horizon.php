@@ -1,5 +1,21 @@
 <?php
 
+// QA Checklist test re-runs (Admin › QA Checklist): local and staging only,
+// one at a time because the runs share the testing database.
+$qa = [
+    'connection' => 'redis-long',
+    'queue' => ['qa'],
+    'balance' => 'simple',
+    'minProcesses' => 1,
+    'maxProcesses' => 1,
+    'maxTime' => 3600,
+    'maxJobs' => 50,
+    'memory' => 256,
+    'tries' => 1,
+    'timeout' => 900,
+    'nice' => 10,
+];
+
 return [
 
     /*
@@ -245,8 +261,13 @@ return [
             'slow' => ['maxProcesses' => 2],
         ],
 
+        'staging' => [
+            'qa' => $qa,
+        ],
+
         'local' => [
             'critical' => ['maxProcesses' => 2],
+            'qa' => $qa,
         ],
     ],
 
