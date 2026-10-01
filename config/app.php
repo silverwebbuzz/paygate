@@ -85,6 +85,14 @@ return [
         'pay' => env('PAY_DOMAIN', 'pay.paygate.local'),
     ],
 
+    // Optional path prefix per area, for a single-domain setup (e.g. a demo):
+    // API_DOMAIN=PAY_DOMAIN=APP_DOMAIN with API_PATH=api, PAY_PATH=pay serves
+    // the API at /api/v1/... and payer pages at /pay/p/... Empty by default.
+    'paths' => [
+        'api' => trim((string) env('API_PATH', ''), '/'),
+        'pay' => trim((string) env('PAY_PATH', ''), '/'),
+    ],
+
     'business_timezone' => env('BUSINESS_TIMEZONE', 'Asia/Kolkata'),
 
     /*

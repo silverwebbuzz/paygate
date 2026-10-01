@@ -18,15 +18,18 @@ Run the commands **one block at a time** and check each "Expected" line before m
 | **FrankenPHP**        | A small web server with PHP built in. It runs the PayGate website.                                               | Service `paygate-web`, `127.0.0.1:8000` (not public)  |
 | **Horizon**           | Background workers (webhooks, emails, reports). Laravel's queue runner.                                          | Service `paygate-horizon`                             |
 | **Scheduler**         | Laravel's "cron": expires payments, retries webhooks, sends alerts every minute.                                 | Service `paygate-scheduler`                           |
-| **Webuzo web server** | Already on ports 80/443. Keeps doing SSL (Let's Encrypt) and simply **forwards** the 3 PayGate domains to :8000. | Existing                                              |
+| **Webuzo web server** | Already on ports 80/443. Keeps doing SSL (Let's Encrypt) and simply **forwards** `aidemo.in` to :8000.              | Existing                                              |
 
-PayGate answers on **three host names**, so you need all three:
+For the demo everything runs on **one domain**, `aidemo.in`, split by path (no subdomains needed):
 
-| Host             | Used for                                    |
-| ---------------- | ------------------------------------------- |
-| `aidemo.in`      | Admin, partner and branch portals; Horizon  |
-| `api.aidemo.in`  | Partner API                                 |
-| `pay.aidemo.in`  | Public payment pages for payers             |
+| Address                     | Used for                                   |
+| --------------------------- | ------------------------------------------ |
+| `https://aidemo.in/`        | Admin, partner and branch portals; Horizon |
+| `https://aidemo.in/api/v1`  | Partner API                                |
+| `https://aidemo.in/pay/p/…` | Public payment pages for payers            |
+
+> Later, for production, you can move the API and payer pages to their own subdomains
+> (`api.aidemo.in`, `pay.aidemo.in`) by changing four lines in `.env` (see the end of this guide). No code change needed.
 
 ```
 Browser ──https──▶ Webuzo Apache (SSL) ──http──▶ FrankenPHP 127.0.0.1:8000 ──▶ PayGate (Laravel)
@@ -42,20 +45,19 @@ The app runs as its own Linux user **`paygate`** in **`/opt/paygate/app`**, sepa
 
 ## Part A — Webuzo panel (browser), do this first
 
-1. **DNS**: `aidemo.in`, `api.aidemo.in` and `pay.aidemo.in` must point to `147.93.62.3` (A records).
-   If the domain's DNS is in Webuzo, adding the domains below creates them; otherwise add them at your domain registrar.
-2. In the Webuzo **user** panel (not the admin panel): **Domains → Add Domain** → `aidemo.in`.
-3. Add **subdomains** `api` and `pay` of `aidemo.in` (Domains → Add Domain → type Subdomain, or "Subdomains").
-4. **SSL/TLS → Let's Encrypt / AutoSSL**: issue a certificate covering `aidemo.in`, `www.aidemo.in`, `api.aidemo.in`, `pay.aidemo.in`.
-5. Note the **document root** of each of the three domains (shown in the domain list), e.g. `/home/USER/public_html/aidemo.in`. You need them in step 13.
+1. **DNS**: `aidemo.in` (and `www.aidemo.in`) must point to `147.93.62.3` (A record).
+   If the domain's DNS is in Webuzo, adding the domain below creates it; otherwise add it at your domain registrar.
+2. In the Webuzo **user** panel (not the admin panel): **Domains → Add Domain** → `aidemo.in` (skip if it is already listed).
+3. **SSL/TLS → Let's Encrypt / AutoSSL**: issue a certificate for `aidemo.in` and `www.aidemo.in`.
+4. Note the **document root** of `aidemo.in` (shown in the domain list), e.g. `/home/USER/public_html/aidemo.in`. You need it in step 14.
 
 Check from your computer (wait a few minutes after DNS changes):
 
 ```bash
-ping -c1 aidemo.in; ping -c1 api.aidemo.in; ping -c1 pay.aidemo.in
+ping -c1 aidemo.in
 ```
 
-Expected: all three reply from `147.93.62.3`.
+Expected: a reply from `147.93.62.3`.
 
 ---
 
@@ -277,9 +279,11 @@ APP_DEBUG=false
 APP_URL=https://aidemo.in
 
 APP_DOMAIN=aidemo.in
-API_DOMAIN=api.aidemo.in
-PAY_DOMAIN=pay.aidemo.in
+API_DOMAIN=aidemo.in
+PAY_DOMAIN=aidemo.in
 HORIZON_DOMAIN=aidemo.in
+API_PATH=api
+PAY_PATH=pay
 
 LOG_LEVEL=warning
 
@@ -303,7 +307,7 @@ MAIL_PASSWORD=<its password>
 MAIL_FROM_ADDRESS="no-reply@aidemo.in"
 ```
 
-Notes: `DB_SSLMODE=disable` is fine because the database is on the same machine. Add `SESSION_SECURE_COOKIE=true` as a new line if it is not in the file.
+Notes: `API_PATH`/`PAY_PATH` put the API under `/api` and the payer pages under `/pay` (add both lines if they are not in the file). `DB_SSLMODE=disable` is fine because the database is on the same machine. Add `SESSION_SECURE_COOKIE=true` as a new line if it is not in the file.
 Keep `PAYGATE_ENFORCE_2FA=true` and `PAYGATE_API_ENFORCE_IP=true`.
 
 Generate the two secret keys (**run only once, ever**; changing them later makes stored bank/UPI data unreadable):
@@ -433,11 +437,11 @@ chmod 440 /etc/sudoers.d/paygate
 visudo -cf /etc/sudoers.d/paygate
 ```
 
-### Step 14. Forward the three domains from Webuzo's Apache to PayGate
+### Step 14. Forward aidemo.in from Webuzo's Apache to PayGate
 
 If `getenforce` (step 1) said `Enforcing`, first run: `setsebool -P httpd_can_network_connect 1`.
 
-Put this **same** `.htaccess` file in **each** of the three document roots from Part A step 5
+Put this `.htaccess` file in the **document root of `aidemo.in`** from Part A step 4
 (and delete any default `index.html` / `index.php` Webuzo placed there):
 
 ```apache
@@ -455,26 +459,41 @@ RewriteCond %{REQUEST_URI} !^/\.well-known/
 RewriteRule ^(.*)$ http://127.0.0.1:8000/$1 [P,L]
 ```
 
-For example (replace the paths with your real document roots and `USER` with the Webuzo user that owns the domain):
+The same, as commands (replace `DOCROOT` with the real document root and `USER` with the Webuzo user that owns the domain):
 
 ```bash
-for d in /home/USER/public_html/aidemo.in /home/USER/public_html/api.aidemo.in /home/USER/public_html/pay.aidemo.in; do
-  cp /path/to/that/.htaccess "$d/.htaccess"; chown USER:USER "$d/.htaccess"; rm -f "$d/index.html"
-done
+DOCROOT=/home/USER/public_html/aidemo.in
+cat > "$DOCROOT/.htaccess" <<'HTACCESS'
+RewriteEngine On
+
+RewriteCond %{HTTPS} off
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+RequestHeader set X-Forwarded-Proto "https"
+
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^(.*)$ http://127.0.0.1:8000/$1 [P,L]
+HTACCESS
+chown USER:USER "$DOCROOT/.htaccess"
+rm -f "$DOCROOT/index.html"
 ```
 
-Apache forwards the original host name in `X-Forwarded-Host`; PayGate trusts these headers only from `127.0.0.1`
-(see `bootstrap/app.php`), so it knows which of the three sites was requested and the real visitor IP.
+If `aidemo.in`'s document root is the main `public_html` folder that also holds your other sites' folders, first give
+`aidemo.in` its own folder in Webuzo's domain settings, so this `.htaccess` does not affect the other sites.
+
+Apache forwards the original host name in `X-Forwarded-Host` and the visitor's IP in `X-Forwarded-For`; PayGate trusts
+these headers only from `127.0.0.1` (see `bootstrap/app.php`).
 
 Test from the server:
 
 ```bash
 curl -sI https://aidemo.in/login | head -1
-curl -s  https://api.aidemo.in/ -o /dev/null -w '%{http_code}\n'
+curl -s  https://aidemo.in/api/v1/ping; echo
 curl -sI http://aidemo.in/ | grep -i location
 ```
 
-Expected: `HTTP/... 200` for the login page; the API answers (a JSON 404/401 is fine, **not** a 502/503); the http URL redirects to `https://`.
+Expected: `HTTP/... 200` for the login page; `{"status":"ok","time":"..."}` from the API; the http URL redirects to `https://`.
 
 - `503 Service Unavailable` / `502`: Apache's proxy module is off, or SELinux blocks it (see above). In Webuzo admin, make sure Apache modules `proxy` and `proxy_http` are enabled.
 - `ERR_TOO_MANY_REDIRECTS`: remove the 3 `RewriteCond %{HTTPS} off` … `[R=301,L]` lines and use Webuzo's own "force HTTPS" option instead.
@@ -482,6 +501,9 @@ Expected: `HTTP/... 200` for the login page; the API answers (a JSON 404/401 is 
 
 Open **https://aidemo.in**, sign in with the admin from step 12, and set up two-factor authentication.
 Horizon (queues) is at **https://aidemo.in/horizon**.
+Partners call the API at **https://aidemo.in/api/v1** (the partner portal's API documentation page shows this address).
+They sign the path **without** `/api` (e.g. `/v1/payins`), exactly as that documentation describes.
+Payment links look like **https://aidemo.in/pay/p/…**.
 
 ### Step 15. Nightly database backup
 
@@ -559,3 +581,24 @@ Expected: ends with `Deployed <commit>`. The site shows a short maintenance page
 | Upload larger than 2 MB fails                 | `/etc/frankenphp/php.d/paygate.ini` not loaded; re-check step 7, `systemctl restart paygate-web` |
 
 Never run `php artisan db:seed` or `migrate:fresh` on this server. See [Deployment.md](Deployment.md) for the database rules.
+
+---
+
+## Later: moving the API and payer pages to subdomains
+
+When the demo becomes production and you want `api.aidemo.in` and `pay.aidemo.in`:
+
+1. In Webuzo, add the subdomains `api` and `pay`, issue SSL for them, and put the **same** `.htaccess` from step 14 in each subdomain's document root.
+2. In `/opt/paygate/app/.env` change these lines:
+
+   ```dotenv
+   API_DOMAIN=api.aidemo.in
+   PAY_DOMAIN=pay.aidemo.in
+   API_PATH=
+   PAY_PATH=
+   ```
+
+3. Run `sudo -iu paygate ~/deploy.sh` (it rebuilds the front-end and the config cache with the new addresses).
+
+Partners then change their base URL from `https://aidemo.in/api/v1` to `https://api.aidemo.in/v1`; their signing code stays the same.
+Payment links already sent keep pointing at the old `/pay/...` address, so switch before real payers use the demo links.

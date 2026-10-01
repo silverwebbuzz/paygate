@@ -2,6 +2,8 @@
 
 namespace App\Domain\Qa;
 
+use App\Support\Hosts;
+
 /**
  * The QA checklist shown in Admin › QA Checklist (local and staging only):
  * every feature built so far, where it is, how to test it by hand, who to
@@ -457,9 +459,8 @@ final class Checklist
         }
 
         [$host, $path] = str_contains($url, ':/') ? explode(':', $url, 2) : ['app', $url];
-        $scheme = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'http';
 
-        return $scheme.'://'.config("app.domains.{$host}").$path;
+        return Hosts::url($host, $path);
     }
 
     /**
