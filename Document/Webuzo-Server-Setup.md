@@ -5,7 +5,7 @@ Step-by-step commands to run PayGate at **`https://aidemo.in`** on an AlmaLinux 
 Run the commands **one block at a time** and check each "Expected" line before moving on.
 
 > This server: AlmaLinux 9.8, Webuzo 4.8, IP `147.93.62.3`, Webuzo user `silverwebbuzz_in`,
-> `aidemo.in` document root `/home/silverwebbuzz_in/public_html/aidemo`. Replace these if yours differ.
+> `aidemo.in` document root `/home/silverwebbuzz_in/public_html/aidemo.in`. Replace these if yours differ.
 
 ---
 
@@ -15,7 +15,7 @@ Run the commands **one block at a time** and check each "Expected" line before m
 
 ```
 /home/silverwebbuzz_in/
-├── public_html/aidemo/        ← aidemo.in document root: only one .htaccess file (forwards to PayGate)
+├── public_html/aidemo.in/     ← aidemo.in document root: only one .htaccess file (forwards to PayGate)
 └── paygate/                   ← everything PayGate, NOT reachable from the web
     ├── app/                   ← the code (git clone), .env, uploads, logs
     ├── bin/                   ← php (→ separate PHP 8.5 in /opt/remi), frankenphp, composer, psql, pg_dump
@@ -74,7 +74,7 @@ Browser ──https──▶ Webuzo Apache (SSL, aidemo.in) ──▶ FrankenPHP
 
 ## Part A — Webuzo panel (browser)
 
-1. **Domain**: `aidemo.in` is already added, with document root `/home/silverwebbuzz_in/public_html/aidemo`.
+1. **Domain**: `aidemo.in` is already added, with document root `/home/silverwebbuzz_in/public_html/aidemo.in`.
 2. **SSL**: Webuzo user panel → **SSL/TLS → Let's Encrypt / AutoSSL** → issue a certificate for `aidemo.in` and `www.aidemo.in`.
 3. **Apps → Auto Upgrade**: set **PostgreSQL** and **Redis** to **"Do not Auto Upgrade"**.
    An automatic major upgrade of a database can break the data in it. Upgrade databases only on purpose, after a backup.
@@ -102,7 +102,7 @@ echo "== Web server =="
 ps -eo comm | grep -Ei 'httpd|nginx|lsws|litespeed' | sort -u
 getenforce 2>/dev/null || echo "no selinux"
 echo "== aidemo folder =="
-ls -la /home/silverwebbuzz_in/public_html/aidemo
+ls -la /home/silverwebbuzz_in/public_html/aidemo.in
 ```
 
 Expected:
@@ -554,7 +554,7 @@ If step 1 showed `Enforcing` for SELinux, first run: `setsebool -P httpd_can_net
 This puts one `.htaccess` in `aidemo.in`'s document root (backing up anything that is there), and nothing else:
 
 ```bash
-D=/home/silverwebbuzz_in/public_html/aidemo
+D=/home/silverwebbuzz_in/public_html/aidemo.in
 mkdir -p /root/aidemo-docroot-backup && cp -a $D/. /root/aidemo-docroot-backup/ 2>/dev/null
 cat > $D/.htaccess <<'HTACCESS'
 # aidemo.in → PayGate (FrankenPHP on 127.0.0.1:8000). Let's Encrypt renewals (/.well-known/) stay with Webuzo.
@@ -711,7 +711,7 @@ Nothing else on the server depends on it:
 ```bash
 systemctl disable --now paygate-web paygate-horizon paygate-scheduler
 rm -f /etc/systemd/system/paygate-*.service /etc/sudoers.d/paygate && systemctl daemon-reload
-rm -f /home/silverwebbuzz_in/public_html/aidemo/.htaccess
+rm -f /home/silverwebbuzz_in/public_html/aidemo.in/.htaccess
 crontab -u silverwebbuzz_in -l | grep -v 'paygate' | crontab -u silverwebbuzz_in -
 # Only after you have kept a final backup:
 # rm -rf /home/silverwebbuzz_in/paygate
