@@ -645,52 +645,31 @@ This also shows up under the user's **Cron Jobs** in Webuzo. Copy `aidemo.in/.se
 
 ## Part E — Deploying new versions through git
 
-### Step 16. The deploy script (once, as `root`)
+### Step 16. The deploy script
+
+The deploy script lives in the repository: **`scripts/deploy-live.sh`**. Every pull brings its latest version, so
+nothing has to be created or edited on the server. It needs `.server/env.sh`, `.server/.deploy.env` (owner password),
+`.server/.pgpass` and the sudo rule from step 13, all set up above.
+
+What it does, in order: refuses to run if files were changed by hand on the server; `git pull` (then restarts itself
+with the pulled copy); `composer install`; `npm ci` + `npm run build` (the screens); a database backup to
+`.server/backups/before-deploy-….dump`; maintenance page on; migrations as `paygate_owner`; the app-login privileges
+(`database/sql/app-privileges.sql`); Laravel caches; maintenance page off; restarts `paygate-web`, `paygate-horizon`
+and `paygate-scheduler`. If a step fails it takes the maintenance page down again and stops.
+
+(`.server/deploy.sh` from earlier versions of this guide can be deleted.)
+
+### Step 17. Every release (UI, Laravel or database changes)
+
+1. Push your changes to `main` on GitHub.
+2. On the server, from **root** or from **`silverwebbuzz_in`**, run:
 
 ```bash
-cat > /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh <<'DEPLOY'
-#!/usr/bin/env bash
-# PayGate deploy: pull main, install, migrate as owner, rebuild, restart workers.
-set -euo pipefail
-source "$HOME/public_html/aidemo.in/.server/env.sh"
-source "$PAYGATE/.deploy.env"
-cd "$PAYGATE_APP"
-
-git pull --ff-only origin main   # public/.htaccess keeps the server's forwarding rules (skip-worktree)
-composer install --no-dev --optimize-autoloader --no-interaction
-npm ci
-npm run build
-
-php artisan down --retry=30 || true
-php artisan config:clear      # migrations must use the owner login below, not a cached config
-DB_USERNAME=paygate_owner DB_PASSWORD="$DB_OWNER_PASSWORD" php artisan migrate --force
-psql "host=127.0.0.1 port=5433 dbname=paygate user=paygate_owner" -q -v app_role=paygate_app -f database/sql/app-privileges.sql
-php artisan config:cache
-php artisan event:cache
-php artisan view:cache
-php artisan up
-
-sudo /usr/bin/systemctl restart paygate-horizon
-sudo /usr/bin/systemctl restart paygate-scheduler
-php artisan migrate:status | tail -1
-echo "Deployed $(git log -1 --oneline)"
-DEPLOY
-chown silverwebbuzz_in:silverwebbuzz_in /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh
-chmod 750 /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh
+bash ~silverwebbuzz_in/public_html/aidemo.in/scripts/deploy-live.sh
 ```
 
-### Step 17. Every release
-
-1. Merge your changes into `main` on GitHub.
-2. If the release changes the database, take a backup first:
-   `sudo -u silverwebbuzz_in -H bash -c 'source ~/public_html/aidemo.in/.server/env.sh && pg_dump -h 127.0.0.1 -p 5433 -U paygate_owner -Fc paygate > ~/public_html/aidemo.in/.server/backups/before-deploy-$(date +%F-%H%M).dump'`
-3. Deploy (pressing **Update From Remote** in Webuzo Git first is fine but not needed; the script pulls too):
-
-```bash
-sudo -u silverwebbuzz_in -H /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh
-```
-
-Expected: it ends with `Deployed <commit>`. Visitors see a short maintenance page while migrations run.
+Expected: it ends with `Deployed <commit>`. Then reload the site with Ctrl+Shift+R. Visitors see a short maintenance
+page while migrations run. Don't run `git pull`, `composer`, `npm` or `php artisan` by hand, and never as `root`.
 
 ---
 
