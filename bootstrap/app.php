@@ -50,6 +50,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
 
+        // On a server the panel's web server (Apache/Nginx) proxies to the app on
+        // 127.0.0.1: trust its X-Forwarded-* headers so host routing, https URLs
+        // and client IPs (partner API IP list, rate limits) are correct. Only a
+        // proxy on the same machine is trusted, so remote clients cannot spoof them.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         $middleware->web(append: [
