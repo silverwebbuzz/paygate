@@ -86,23 +86,11 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
-     * Invited but hasn't set a password yet (setting it verifies the email).
-     */
-    public function isInvited(): bool
-    {
-        return $this->email_verified_at === null && $this->last_login_at === null;
-    }
-
-    /**
-     * Status for display: active, invited or suspended.
+     * Status for display: active or inactive (stored as `suspended`).
      */
     public function displayStatus(): string
     {
-        return match (true) {
-            ! $this->isActive() => $this->status->value,
-            $this->isInvited() => 'invited',
-            default => 'active',
-        };
+        return $this->isActive() ? 'active' : 'inactive';
     }
 
     /**

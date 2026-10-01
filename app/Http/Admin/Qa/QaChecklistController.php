@@ -17,10 +17,11 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Admin › QA Checklist (super admins only; local and staging only, config paygate.qa.enabled):
+ * Admin › QA Checklist (super admins only; every environment, config paygate.qa.enabled):
  * every feature with where it is, how to test it and who to log in as; the
  * tester's Pass / Fail with a note; the latest automated result with a
- * Re-run button; and test pay-ins / payouts for the manual checks.
+ * Re-run button (not on production: TestRunner::available); and test
+ * pay-ins / payouts for the manual checks.
  */
 class QaChecklistController extends Controller
 {
@@ -56,9 +57,15 @@ class QaChecklistController extends Controller
         return back();
     }
 
-    public function run(Request $request, ManageQaChecklist $qa): RedirectResponse
+    public function run(Request $request, ManageQaChecklist $qa, TestRunner $runner): RedirectResponse
     {
         $this->ensureEnabled();
+
+        if (($problem = $runner->available()) !== null) {
+            Inertia::flash('toast', ['type' => 'error', 'message' => __('Automated tests can’t run here: :problem', ['problem' => $problem])]);
+
+            return back();
+        }
 
         $data = $request->validate(['key' => ['nullable', 'string', 'max:80']]);
         $count = $qa->run($this->actor($request), $data['key'] ?? null);
@@ -116,7 +123,7 @@ class QaChecklistController extends Controller
 
     private function ensureEnabled(): void
     {
-        abort_unless(config('paygate.qa.enabled') && ! app()->isProduction(), 404);
+        abort_unless((bool) config('paygate.qa.enabled'), 404);
         abort_unless(request()->user()?->isSuperAdmin() === true, 403);
     }
 

@@ -49,7 +49,6 @@ Route::controller(UserController::class)->prefix('users')->name('users.')->group
     Route::post('/', 'store')->name('store');
     Route::put('{user}', 'update')->name('update');
     Route::put('{user}/status', 'status')->name('status');
-    Route::post('{user}/invitation', 'resendInvitation')->name('invitation');
     Route::put('{user}/password', 'setPassword')->name('password');
     Route::delete('{user}/two-factor', 'resetTwoFactor')->name('two-factor');
 });

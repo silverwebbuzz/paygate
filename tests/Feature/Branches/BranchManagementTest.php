@@ -8,12 +8,10 @@ use App\Domain\Commission\Models\CommissionRate;
 use App\Domain\Commission\RateBook;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
-use App\Domain\Core\Identity\Notifications\UserInvitation;
 use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Partner\Models\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -63,9 +61,8 @@ class BranchManagementTest extends TestCase
         $this->actingAs($this->admin(SystemRoles::ADMIN_FINANCE))->get(route('admin.branches.create'))->assertForbidden();
     }
 
-    public function test_creating_a_branch_saves_limits_rates_partners_and_invites_its_admin()
+    public function test_creating_a_branch_saves_limits_rates_partners_and_its_admin()
     {
-        Notification::fake();
         $admin = $this->admin();
         $partner = Partner::factory()->create();
 
@@ -73,6 +70,8 @@ class BranchManagementTest extends TestCase
             'partner_ids' => [$partner->id],
             'admin_name' => 'Delux Admin',
             'admin_email' => 'Admin@Delux.example',
+            'admin_password' => 'Str0ng-pass!word',
+            'admin_password_confirmation' => 'Str0ng-pass!word',
         ]))->assertSessionHasNoErrors();
 
         $branch = Branch::where('code', 'BR-297')->firstOrFail();
@@ -83,10 +82,10 @@ class BranchManagementTest extends TestCase
         $this->assertSame('3.5000', app(RateBook::class)->branchRate($branch, Direction::Deposit));
         $this->assertTrue($branch->partners()->whereKey($partner->id)->exists());
 
-        $invited = User::where('email', 'admin@delux.example')->firstOrFail();
-        $this->assertSame($branch->id, $invited->branch_id);
-        $this->assertSame(SystemRoles::BRANCH_OWNER, $invited->role->slug);
-        Notification::assertSentTo($invited, UserInvitation::class);
+        $branchAdmin = User::where('email', 'admin@delux.example')->firstOrFail();
+        $this->assertSame($branch->id, $branchAdmin->branch_id);
+        $this->assertSame(SystemRoles::BRANCH_OWNER, $branchAdmin->role->slug);
+        $this->assertSame('active', $branchAdmin->displayStatus());
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'branch.created', 'subject_id' => $branch->id, 'actor_id' => $admin->id]);
     }

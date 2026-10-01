@@ -9,6 +9,7 @@ use App\Http\Shared\Concerns\ReadsMoney;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Validator;
 
 /**
@@ -48,9 +49,10 @@ class BranchRequest extends FormRequest
             'withdrawal_rate' => $rate,
             'partner_ids' => ['array'],
             'partner_ids.*' => ['uuid', Rule::exists('partners', 'id')],
-            // The branch admin is invited when the branch is created.
+            // Optional branch admin, created (active, with this password) with the branch.
             'admin_name' => $creating ? ['nullable', 'required_with:admin_email', 'string', 'max:255'] : ['prohibited'],
             'admin_email' => $creating ? ['nullable', 'required_with:admin_name', 'email', 'max:255', Rule::unique('users', 'email')] : ['prohibited'],
+            'admin_password' => $creating ? ['nullable', 'required_with:admin_email', 'string', Password::default(), 'confirmed'] : ['prohibited'],
             'activate' => ['boolean'],
         ];
     }
@@ -117,12 +119,16 @@ class BranchRequest extends FormRequest
     }
 
     /**
-     * @return array{name: string, email: string}|null
+     * @return array{name: string, email: string, password: string}|null
      */
     public function admin(): ?array
     {
         return $this->filled('admin_email') && $this->actor()->can('users.create')
-            ? ['name' => $this->string('admin_name')->value(), 'email' => $this->string('admin_email')->lower()->value()]
+            ? [
+                'name' => $this->string('admin_name')->value(),
+                'email' => $this->string('admin_email')->lower()->value(),
+                'password' => $this->string('admin_password')->value(),
+            ]
             : null;
     }
 }

@@ -38,8 +38,7 @@ export default function PortalLayout({
     useEffect(() => router.on('navigate', () => setMenuOpen(false)), []);
 
     const portal = auth.user.type;
-    // Super-admin tools at the end of the Admin menu (the QA Checklist on
-    // local and staging only).
+    // Super-admin tools at the end of the Admin menu.
     const extras: NavGroup[] = [
         ...(portal === 'admin' && superAdmin
             ? [

@@ -82,6 +82,7 @@ class PartnerController extends Controller
             'can' => [
                 'create' => $actor->can('partners.create'),
                 'update' => $actor->can('partners.update'),
+                'users' => $actor->can('users.view'),
                 'issue_keys' => $actor->can('api_keys.create'),
                 'revoke_keys' => $actor->can('api_keys.delete'),
             ],

@@ -36,10 +36,11 @@ return [
     ],
 
     'qa' => [
-        // Admin › QA Checklist: every feature with how to test it, manual
-        // results and a button that re-runs its automated tests. Local and
-        // staging only; never on production (the controller refuses there).
-        'enabled' => (bool) env('PAYGATE_QA_CHECKLIST', in_array(env('APP_ENV'), ['local', 'staging', 'testing'], true)),
+        // Admin › QA Checklist (super admins only, every environment): every
+        // feature with how to test it, manual results, test data and a button
+        // that re-runs its automated tests. The re-runs need dev dependencies
+        // and never run on production (TestRunner::available).
+        'enabled' => (bool) env('PAYGATE_QA_CHECKLIST', true),
     ],
 
 ];

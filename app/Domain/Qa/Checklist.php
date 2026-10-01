@@ -5,7 +5,7 @@ namespace App\Domain\Qa;
 use App\Support\Hosts;
 
 /**
- * The QA checklist shown in Admin › QA Checklist (local and staging only):
+ * The QA checklist shown in Admin › QA Checklist (super admins, every environment):
  * every feature built so far, where it is, how to test it by hand, who to
  * log in as, and which automated tests cover it (`tests`: "ClassTest" for a
  * whole test class or "ClassTest::test_name" for one test; the Re-run
@@ -43,7 +43,7 @@ final class Checklist
     public static function sections(): array
     {
         return [
-            self::section('access', 'Sign-in, invitations & security', [
+            self::section('access', 'Sign-in & security', [
                 self::item('access.login', 'Login', '/login',
                     'One login page for everyone; each user lands in their own portal (/admin, /partner, /branch).',
                     ['Log in as each demo user and check you land in the right portal.', 'Enter a wrong password: an error shows and the attempt appears in Audit Logs › Security.', 'Try 6 wrong passwords quickly: you are asked to wait (rate limit).', 'Sign out from the sidebar.'],
@@ -59,11 +59,6 @@ final class Checklist
                     ['Click "Forgot password" on the login page and enter a demo e-mail.', 'Open Mailpit (http://localhost:8025) and follow the link.', 'Set a new password and log in with it (set it back to "password" afterwards).'],
                     ['guest'],
                     ['PasswordResetTest', 'PasswordConfirmationTest']),
-                self::item('access.invitation', 'Invitations', '/invitation/{token}',
-                    'There is no public registration: users are invited by an admin or their owner and set their own password from the e-mail.',
-                    ['Invite a user from Users (see "Users" below).', 'Open the e-mail in Mailpit and click the link.', 'Set a password: you are logged in and the e-mail counts as verified.', 'Open the same link again: it no longer works. Links expire after 72 hours.'],
-                    ['guest'],
-                    ['InvitationTest', 'EmailVerificationTest', 'VerificationNotificationTest']),
                 self::item('access.portals', 'Portal separation', '/admin',
                     'Each user only reaches their own portal; each domain (portal, API, payment page) only answers its own pages.',
                     ['Log in as branch@ and open /admin and /partner: both are refused (403).', 'Check Audit Logs › Security as admin: the refusal is recorded.', 'Open http://api.paygate.local/login: not found.', 'Open /horizon as ops@ (no Horizon permission): refused; as admin@: opens.'],
@@ -98,10 +93,15 @@ final class Checklist
                     ['admin'],
                     ['RoleManagementTest', 'RolePermissionTest']),
                 self::item('users.admin_users', 'Users (Admin)', '/admin/users',
-                    'All users of all portals: add with a password, set a new password, change role or e-mail, suspend, reset 2FA. The Admin role does everything except the super-admin tools and can’t manage super admins.',
-                    ['Add a branch user: choose the branch and role, set a password; log in as them in a private window.', 'Set password on a user: the old one stops working.', 'Change a user’s role: recorded in Audit Logs.', 'Suspend with a reason, then reactivate.', 'Reset 2FA of a user: they must set it up again.', 'You can’t suspend yourself or the last super admin.', 'As an Admin-role user: Testing and Developer are not in the menu, and Super admin is not in the role list.'],
+                    'All users of all portals (Active / Inactive). "Add admin user" adds admin users only; set a new password, change role or e-mail, deactivate, reset 2FA. The Admin role does everything except the super-admin tools and can’t manage super admins.',
+                    ['Add an admin user with a password; log in as them in a private window.', 'The role list only offers admin roles.', 'Set password on a user: the old one stops working.', 'Change a user’s role: recorded in Audit Logs.', 'Deactivate with a reason, then activate.', 'Reset 2FA of a user: they must set it up again.', 'You can’t deactivate yourself or the last super admin.', 'As an Admin-role user: Testing and Developer are not in the menu, and Super admin is not in the role list.'],
                     ['admin'],
                     ['UserManagementTest']),
+                self::item('users.organisation_users', 'Users of a partner / branch (Admin)', '/admin/partners',
+                    'Each partner’s and branch’s users are added and managed from its own Users page.',
+                    ['On Partners, click "Users" on a partner row (or in its drawer).', 'Only that partner’s users are listed; "Add user" offers partner roles only.', 'Add a developer with a password and log in as them.', 'Do the same from Branches.'],
+                    ['admin'],
+                    ['UserManagementTest::test_a_partner_users_page_lists_and_adds_only_that_partners_users', 'UserManagementTest::test_admin_adds_a_branch_user_on_the_branch_users_page_who_can_log_in_at_once']),
                 self::item('users.owner_users', 'Users (partner / branch owners)', '/branch/users',
                     'Partner and branch owners manage the users of their own organisation only.',
                     ['As branch@, add an operator with a password: the organisation is fixed to your branch.', 'Only your branch’s users are listed.', 'Do the same as partner@ on /partner/users.', 'As operator@, Users is not in the menu.'],
@@ -140,9 +140,9 @@ final class Checklist
             self::section('branches', 'Branches, mapping & accounts', [
                 self::item('branches.list', 'Branch list & form', '/admin/branches',
                     'Branches with limits (daily reset or top-up allowance), commission rates, mapped partners and the branch admin, who is invited on save.',
-                    ['Click "New branch", fill limits and rates, map a partner, add the branch admin’s e-mail.', 'Save: the invitation arrives in Mailpit.', 'Activate a branch without rates for an enabled direction: refused.', 'A branch rate above the partner’s rate is saved with a warning.'],
+                    ['Click "New branch", fill limits and rates, map a partner, add the branch admin’s e-mail and password.', 'Save: the branch admin can log in at once.', 'Activate a branch without rates for an enabled direction: refused.', 'A branch rate above the partner’s rate is saved with a warning.'],
                     ['admin'],
-                    ['BranchManagementTest::test_branch_list_and_form_open_for_admins_only', 'BranchManagementTest::test_creating_a_branch_saves_limits_rates_partners_and_invites_its_admin', 'BranchManagementTest::test_activation_needs_rates_for_enabled_directions', 'BranchManagementTest::test_a_branch_rate_above_a_partner_rate_is_allowed_but_flagged']),
+                    ['BranchManagementTest::test_branch_list_and_form_open_for_admins_only', 'BranchManagementTest::test_creating_a_branch_saves_limits_rates_partners_and_its_admin', 'BranchManagementTest::test_activation_needs_rates_for_enabled_directions', 'BranchManagementTest::test_a_branch_rate_above_a_partner_rate_is_allowed_but_flagged']),
                 self::item('branches.topups', 'Deposit allowance top-ups', '/admin/branches',
                     'Branches on "Deposit limit · top-up" receive deposits up to an allowance that Admin tops up (history kept, never below zero).',
                     ['Open a top-up branch’s drawer › Top-ups, add ₹10,000 with a note: the allowance grows and the history row shows who did it.', 'Try to remove more than is left: refused.', 'A daily-reset branch has no top-up button.'],

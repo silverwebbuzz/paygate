@@ -124,7 +124,7 @@ Everything else from the draft is kept: PostgreSQL is the source of truth, Redis
 ### 5.1 Branch onboarding & account verification
 
 ```text
-Admin creates Branch ──► Branch user invited (email) ──► sets password + 2FA
+Admin creates Branch ──► Branch admin created with a password ──► logs in, sets up 2FA
 Branch adds Payment Account (bank a/c + IFSC  or  UPI VPA, holder name, limits)
         status = PENDING_VERIFICATION
 Admin reviews (optional penny-drop / test deposit) ──► VERIFIED ──► ACTIVE
@@ -355,9 +355,9 @@ Other Phase 1 rules:
 
 - One login page. After login, each user goes to their own portal (`/admin`, `/partner`, `/branch`) and gets 403 on the others.
 - 2FA is mandatory for Admin and Branch users (`PAYGATE_ENFORCE_2FA`). They are redirected to set it up before they can use their portal.
-- Suspended users cannot log in, and an active session ends on the next request after suspension.
+- Inactive users cannot log in, and an active session ends on the next request after deactivation.
 - There is no self-registration or self-deletion, and users can change only their own name. Email changes are made by an admin.
-- Users are never deleted, only suspended. The database blocks deleting a user who appears in the logs.
+- Users are never deleted, only deactivated. The database blocks deleting a user who appears in the logs.
 - `audit_logs` and `security_logs` are append-only. A Postgres trigger rejects UPDATE, DELETE and TRUNCATE.
 - Every request gets an `X-Request-Id`. It is stored on log rows and passed into queued jobs.
 
@@ -508,7 +508,7 @@ Each phase ends with tests passing, a short demo, and this document updated.
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | **0. Local environment** ✅            | Docker Compose stack, Laravel 13 skeleton, `paygate.local` hosts, Pint/Larastan/PHPUnit, Makefile, CI          |
 | **1. Auth & RBAC** ✅                  | Users with type (admin/partner/branch), roles & permissions, 2FA, login areas, audit + security log foundation |
-| **2. Admin: partners & branches**      | CRUD, status, invitations, partner settings                                                                    |
+| **2. Admin: partners & branches**      | CRUD, status, users, partner settings                                                                          |
 | **3. Branch portal: payment accounts** | Add bank/UPI accounts (encrypted), admin verification, assignments to partners, limits                         |
 | **4. Partner API foundation**          | Credentials, HMAC middleware, nonce, idempotency, rate limits, API docs page                                   |
 | **5. Payment sessions & allocation**   | Session API, allocation with `SKIP LOCKED`, daily usage, payer page with UPI QR, expiry job                    |

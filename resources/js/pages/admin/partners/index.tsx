@@ -96,6 +96,7 @@ type Props = {
     can: {
         create: boolean;
         update: boolean;
+        users: boolean;
         issue_keys: boolean;
         revoke_keys: boolean;
     };
@@ -346,16 +347,28 @@ export default function PartnersIndex({
             key: 'actions',
             header: '',
             align: 'right',
-            cell: (p) =>
-                can.update && (
-                    <Link
-                        href={partnersRoutes.edit(p.id).url}
-                        onClick={(event) => event.stopPropagation()}
-                        className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
-                    >
-                        Edit
-                    </Link>
-                ),
+            cell: (p) => (
+                <div className="flex justify-end gap-1.5">
+                    {can.users && (
+                        <Link
+                            href={partnersRoutes.users.index(p.id).url}
+                            onClick={(event) => event.stopPropagation()}
+                            className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
+                        >
+                            Users
+                        </Link>
+                    )}
+                    {can.update && (
+                        <Link
+                            href={partnersRoutes.edit(p.id).url}
+                            onClick={(event) => event.stopPropagation()}
+                            className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
+                        >
+                            Edit
+                        </Link>
+                    )}
+                </div>
+            ),
         },
     ];
 
@@ -468,14 +481,26 @@ export default function PartnersIndex({
                     status={<StatusBadge status={open.status} />}
                     subtitle={`${open.name} · ${open.email}`}
                     actions={
-                        can.update && (
-                            <Link
-                                href={partnersRoutes.edit(open.id).url}
-                                className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
-                            >
-                                Edit
-                            </Link>
-                        )
+                        <div className="flex gap-2">
+                            {can.users && (
+                                <Link
+                                    href={
+                                        partnersRoutes.users.index(open.id).url
+                                    }
+                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
+                                >
+                                    Users ({open.users_count})
+                                </Link>
+                            )}
+                            {can.update && (
+                                <Link
+                                    href={partnersRoutes.edit(open.id).url}
+                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
+                                >
+                                    Edit
+                                </Link>
+                            )}
+                        </div>
                     }
                     summaries={[
                         {

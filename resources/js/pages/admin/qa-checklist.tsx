@@ -228,7 +228,7 @@ export default function QaChecklist(props: Props) {
                         Demo logins exist only on a local machine; the password
                         for all of them is <b className="font-mono">password</b>
                         . On staging, use a user with the role named in “Login
-                        with”. E-mails (invitations, alerts, resets) arrive in
+                        with”. E-mails (alerts, password resets) arrive in
                         Mailpit locally (
                         <a
                             className="text-ac"

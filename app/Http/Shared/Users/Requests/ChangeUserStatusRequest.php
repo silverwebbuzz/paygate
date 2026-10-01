@@ -15,7 +15,13 @@ class ChangeUserStatusRequest extends UserActionRequest
     {
         return [
             ...parent::rules(),
-            'status' => ['required', Rule::enum(UserStatus::class)],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ];
+    }
+
+    /** Inactive users are stored as `suspended`. */
+    public function status(): UserStatus
+    {
+        return $this->input('status') === 'active' ? UserStatus::Active : UserStatus::Suspended;
     }
 }

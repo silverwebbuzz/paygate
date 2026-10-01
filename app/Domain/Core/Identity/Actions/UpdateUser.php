@@ -11,8 +11,8 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Changes a user's name, email or role. The portal and organisation of a
- * user never change: invite a new user instead. A changed email address
- * must be verified again by the user.
+ * user never change: add a new user instead. As when creating a user, the
+ * person making the change vouches for a new email address.
  */
 class UpdateUser
 {
@@ -29,14 +29,9 @@ class UpdateUser
         $old = ['name' => $user->name, 'email' => $user->email, 'role' => $user->role->name];
 
         $user->fill(['name' => $name, 'email' => Str::lower($email), 'role_id' => $role->id]);
-        $emailChanged = $user->isDirty('email');
 
         if (! $user->isDirty()) {
             return $user;
-        }
-
-        if ($emailChanged) {
-            $user->email_verified_at = null;
         }
 
         DB::transaction(function () use ($actor, $user, $old, $role) {
@@ -44,10 +39,6 @@ class UpdateUser
 
             AuditLog::record('user.updated', $user, $old, ['name' => $user->name, 'email' => $user->email, 'role' => $role->name], $actor);
         });
-
-        if ($emailChanged && ! $user->isInvited()) {
-            $user->sendEmailVerificationNotification();
-        }
 
         return $user->setRelation('role', $role);
     }

@@ -28,6 +28,8 @@ type BranchForm = {
     partner_ids: string[];
     admin_name: string;
     admin_email: string;
+    admin_password: string;
+    admin_password_confirmation: string;
     activate: boolean;
 };
 
@@ -42,7 +44,7 @@ type Props = {
     can: {
         rates: boolean;
         mappings: boolean;
-        invite: boolean;
+        add_admin: boolean;
         activate: boolean;
     };
 };
@@ -84,6 +86,8 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
             : [],
         admin_name: '',
         admin_email: '',
+        admin_password: '',
+        admin_password_confirmation: '',
         activate: false,
     });
     const { data, setData } = form;
@@ -106,7 +110,12 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
             ...values,
             activate,
             ...(editing
-                ? { admin_name: undefined, admin_email: undefined }
+                ? {
+                      admin_name: undefined,
+                      admin_email: undefined,
+                      admin_password: undefined,
+                      admin_password_confirmation: undefined,
+                  }
                 : {}),
         }));
         const options = { preserveScroll: true };
@@ -302,13 +311,26 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                     </div>
                 </Section>
 
-                {!editing && can.invite && (
+                {!editing && can.add_admin && (
                     <Section
                         title="Branch admin"
-                        description="Optional. They get an email to set a password, and can then add accounts and invite their operators."
+                        description="Optional. They can log in straight away with this email and password, then add accounts and their operators. More users can be added later from the branch’s Users page."
                     >
                         {input('admin_name', 'Full name')}
                         {input('admin_email', 'Email', { type: 'email' })}
+                        {input('admin_password', 'Password', {
+                            type: 'password',
+                            autoComplete: 'new-password',
+                            hint: 'At least 12 characters with upper and lower case letters, a number and a symbol.',
+                        })}
+                        {input(
+                            'admin_password_confirmation',
+                            'Confirm password',
+                            {
+                                type: 'password',
+                                autoComplete: 'new-password',
+                            },
+                        )}
                     </Section>
                 )}
 

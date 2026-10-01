@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Sets another user's password from the Users screen (e.g. they forgot it,
- * or never received their invitation). "Remember me" logins stop working.
+ * Sets another user's password from the Users screen (e.g. they forgot
+ * it). "Remember me" logins stop working.
  */
 class SetUserPassword
 {

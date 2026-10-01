@@ -27,7 +27,7 @@ class EnsureUserIsActive
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => __('Your account has been suspended. Contact an administrator.'),
+                'email' => __('Your account is inactive. Contact an administrator.'),
             ]);
         }
 

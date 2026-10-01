@@ -58,10 +58,10 @@ class HandleInertiaRequests extends Middleware
                 ]),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            // Admin › Testing (super admins only): the QA Checklist (local
-            // and staging only) and Section rollout.
+            // Admin › Testing (super admins only): the QA Checklist and
+            // Section rollout.
             'superAdmin' => $request->user()?->isSuperAdmin() ?? false,
-            'qaChecklist' => ($request->user()?->isSuperAdmin() ?? false) && config('paygate.qa.enabled') && ! app()->isProduction(),
+            'qaChecklist' => ($request->user()?->isSuperAdmin() ?? false) && config('paygate.qa.enabled'),
             // Section rollout: menu links of sections not open for this person.
             'rolloutLimited' => fn () => app(SectionRollout::class)->limits($request->user()),
             'rolloutHidden' => fn () => app(SectionRollout::class)->hiddenLinks($request->user()),

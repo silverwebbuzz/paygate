@@ -7,7 +7,8 @@ use App\Domain\Commission\Actions\SetCommissionRate;
 use App\Domain\Commission\Enums\Direction;
 use App\Domain\Commission\RateBook;
 use App\Domain\Core\Audit\Models\AuditLog;
-use App\Domain\Core\Identity\Actions\InviteUser;
+use App\Domain\Core\Identity\Actions\CreateUser;
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Core\Rbac\Models\Role;
@@ -19,7 +20,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * Creates or edits a branch in one transaction: profile and limits, the
  * commission the branch earns, which partners it serves, and (on create)
- * an invitation for its branch admin. A section passed as null is left
+ * its branch admin (with a password). A section passed as null is left
  * unchanged. A new branch starts as a draft.
  */
 class ConfigureBranch
@@ -28,7 +29,7 @@ class ConfigureBranch
         private SyncMappings $mappings,
         private SetCommissionRate $setRate,
         private RateBook $rates,
-        private InviteUser $inviteUser,
+        private CreateUser $createUser,
         private ChangeBranchStatus $changeStatus,
     ) {}
 
@@ -36,7 +37,7 @@ class ConfigureBranch
      * @param  array<string, mixed>  $attributes  branch columns (amounts in paise)
      * @param  array<string, string>|null  $rates  direction value => rate percent
      * @param  list<string>|null  $partnerIds
-     * @param  array{name: string, email: string}|null  $admin  branch admin to invite (create only)
+     * @param  array{name: string, email: string, password: string}|null  $admin  branch admin to create (create only)
      * @return array{branch: Branch, negative_margins: array<string, mixed>}
      */
     public function handle(User $actor, ?Branch $branch, array $attributes, ?array $rates, ?array $partnerIds, ?array $admin = null, bool $activate = false): array
@@ -47,7 +48,7 @@ class ConfigureBranch
                 AuditLog::record('branch.created', $branch, [], $branch->only(array_keys($attributes)), $actor);
 
                 if ($admin !== null) {
-                    $this->inviteUser->handle($actor, $admin['name'], $admin['email'], Role::bySlug(SystemRoles::BRANCH_OWNER), $branch->id);
+                    $this->createUser->handle($actor, UserType::Branch, $branch->id, $admin['name'], $admin['email'], Role::bySlug(SystemRoles::BRANCH_OWNER), $admin['password']);
                 }
             } else {
                 $this->update($actor, $branch, $attributes);

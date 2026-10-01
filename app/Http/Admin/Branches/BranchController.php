@@ -97,6 +97,7 @@ class BranchController extends Controller
             'can' => [
                 'create' => $actor->can('branches.create'),
                 'update' => $actor->can('branches.update'),
+                'users' => $actor->can('users.view'),
             ],
         ]);
     }
@@ -120,7 +121,7 @@ class BranchController extends Controller
             $request->boolean('activate') && $request->actor()->can('branches.update'),
         );
 
-        $this->flashResult(__('Branch “:name” created.', ['name' => $result['branch']->name]).($request->admin() ? ' '.__('Invitation sent to the branch admin.') : ''), $result['negative_margins']);
+        $this->flashResult(__('Branch “:name” created.', ['name' => $result['branch']->name]).($request->admin() ? ' '.__('Its branch admin can now log in.') : ''), $result['negative_margins']);
 
         return to_route('admin.branches.index', ['branch' => $result['branch']->id]);
     }
@@ -211,7 +212,7 @@ class BranchController extends Controller
             'can' => [
                 'rates' => $actor->can('commissions.update'),
                 'mappings' => $actor->can('mappings.update'),
-                'invite' => $actor->can('users.create'),
+                'add_admin' => $actor->can('users.create'),
                 'activate' => $actor->can('branches.update'),
             ],
         ]);

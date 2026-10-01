@@ -12,51 +12,45 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Creates a user. The user's portal follows from the role. Partner and
- * branch owners can only add users to their own organisation; Admin picks
- * the partner or branch.
- *
- * With a password (the Users screen) the account works at once and the
- * creator passes the password on. Without one (InviteUser) the password is
- * unusable until the user sets their own through the invitation link.
+ * Creates an active user with the password the creator sets; the creator
+ * passes it on. Admin adds admin users on the Users screen and partner /
+ * branch users on that partner's or branch's own Users screen; partner and
+ * branch owners add users to their own organisation only.
  */
 class CreateUser
 {
-    public function handle(User $actor, string $name, string $email, Role $role, ?string $organisationId = null, ?string $password = null): User
+    public function handle(User $actor, UserType $type, ?string $organisationId, string $name, string $email, Role $role, string $password): User
     {
-        $type = $role->user_type;
-
         if (! $actor->isType(UserType::Admin)) {
-            $role->ensureAssignableBy($actor, $actor->type);
+            $type = $actor->type;
             $organisationId = $actor->organisationId();
-        } else {
-            $role->ensureAssignableBy($actor, $type);
         }
 
-        if ($type !== UserType::Admin && $organisationId === null) {
+        $role->ensureAssignableBy($actor, $type);
+
+        if ($type === UserType::Admin) {
+            $organisationId = null;
+        } elseif ($organisationId === null) {
             throw ValidationException::withMessages([
                 'organisation_id' => __('Choose the :portal this user works for.', ['portal' => strtolower($type->label())]),
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $name, $email, $role, $type, $organisationId, $password) {
+        return DB::transaction(function () use ($actor, $type, $organisationId, $name, $email, $role, $password) {
             $user = User::create([
                 'name' => $name,
                 'email' => Str::lower($email),
-                'password' => $password ?? Str::random(64),
+                'password' => $password,
                 'type' => $type,
                 'role_id' => $role->id,
                 'partner_id' => $type === UserType::Partner ? $organisationId : null,
                 'branch_id' => $type === UserType::Branch ? $organisationId : null,
                 'status' => UserStatus::Active,
             ]);
+            // The creator vouches for the address; there is no email to confirm.
+            $user->forceFill(['email_verified_at' => now()])->save();
 
-            if ($password !== null) {
-                // The creator vouches for the address; there is no link to click.
-                $user->forceFill(['email_verified_at' => now()])->save();
-            }
-
-            AuditLog::record($password === null ? 'user.invited' : 'user.created', $user, [], [
+            AuditLog::record('user.created', $user, [], [
                 'name' => $user->name,
                 'email' => $user->email,
                 'type' => $type->value,

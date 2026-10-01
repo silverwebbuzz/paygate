@@ -165,12 +165,17 @@ Route::controller(RoleController::class)->prefix('roles')->name('roles.')->group
 });
 
 // Users (shared controller; UserPolicy limits partner/branch owners to their own organisation).
+// Users of one partner / branch, managed from that partner's or branch's own page.
+Route::get('partners/{partner}/users', [UserController::class, 'partnerIndex'])->name('partners.users.index');
+Route::post('partners/{partner}/users', [UserController::class, 'partnerStore'])->name('partners.users.store');
+Route::get('branches/{branch}/users', [UserController::class, 'branchIndex'])->name('branches.users.index');
+Route::post('branches/{branch}/users', [UserController::class, 'branchStore'])->name('branches.users.store');
+
 Route::controller(UserController::class)->prefix('users')->name('users.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('/', 'store')->name('store');
     Route::put('{user}', 'update')->name('update');
     Route::put('{user}/status', 'status')->name('status');
-    Route::post('{user}/invitation', 'resendInvitation')->name('invitation');
     Route::put('{user}/password', 'setPassword')->name('password');
     Route::delete('{user}/two-factor', 'resetTwoFactor')->name('two-factor');
 });

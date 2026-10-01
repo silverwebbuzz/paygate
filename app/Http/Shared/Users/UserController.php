@@ -6,7 +6,6 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Actions\ChangeUserStatus;
 use App\Domain\Core\Identity\Actions\CreateUser;
 use App\Domain\Core\Identity\Actions\ResetUserTwoFactor;
-use App\Domain\Core\Identity\Actions\SendInvitation;
 use App\Domain\Core\Identity\Actions\SetUserPassword;
 use App\Domain\Core\Identity\Actions\UpdateUser;
 use App\Domain\Core\Identity\Enums\UserStatus;
@@ -28,24 +27,69 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Users screen for all three portals. Admin sees every user; partner and
- * branch owners see and manage their own organisation's users (UserPolicy).
+ * Users screen for all three portals. Admin sees every user but adds only
+ * admin users there; each partner's and branch's users are added on that
+ * partner's / branch's own Users screen (/admin/partners/{id}/users). Partner
+ * and branch owners see and manage their own organisation's users
+ * (UserPolicy).
  */
 class UserController extends Controller
 {
-    private const FILTER_STATUSES = ['active', 'invited', 'suspended'];
+    private const FILTER_STATUSES = ['active', 'inactive'];
 
     public function index(Request $request): Response
+    {
+        return $this->render($request, null);
+    }
+
+    public function partnerIndex(Request $request, Partner $partner): Response
+    {
+        return $this->render($request, $partner);
+    }
+
+    public function branchIndex(Request $request, Branch $branch): Response
+    {
+        return $this->render($request, $branch);
+    }
+
+    /**
+     * Admin's Users screen adds admin users; partner and branch owners add
+     * users to their own organisation.
+     */
+    public function store(StoreUserRequest $request, CreateUser $create): RedirectResponse
+    {
+        return $this->createUser($request, $create, $request->actor()->type, null);
+    }
+
+    public function partnerStore(StoreUserRequest $request, Partner $partner, CreateUser $create): RedirectResponse
+    {
+        return $this->createUser($request, $create, UserType::Partner, $partner->id);
+    }
+
+    public function branchStore(StoreUserRequest $request, Branch $branch, CreateUser $create): RedirectResponse
+    {
+        return $this->createUser($request, $create, UserType::Branch, $branch->id);
+    }
+
+    /**
+     * @param  Partner|Branch|null  $organisation  set on a partner's / branch's own Users screen (Admin)
+     */
+    private function render(Request $request, Partner|Branch|null $organisation): Response
     {
         Gate::authorize('viewAny', User::class);
 
         $actor = $this->actor($request);
-        $isAdmin = $actor->isType(UserType::Admin);
-        $type = $isAdmin ? UserType::tryFrom((string) $request->query('type')) : null;
+        $type = $actor->isType(UserType::Admin) && $organisation === null ? UserType::tryFrom((string) $request->query('type')) : null;
         $status = in_array($request->query('status'), self::FILTER_STATUSES, true) ? (string) $request->query('status') : null;
         $search = trim((string) $request->query('search'));
+        // The portal of the users this screen adds.
+        $addType = match (true) {
+            $organisation instanceof Partner => UserType::Partner,
+            $organisation instanceof Branch => UserType::Branch,
+            default => $actor->type,
+        };
 
-        $users = $this->scoped($actor)
+        $users = $this->scoped($actor, $organisation)
             ->with(['role', 'partner', 'branch'])
             ->when($type, fn (Builder $query) => $query->where('type', $type))
             ->when($status, fn (Builder $query) => $this->whereDisplayStatus($query, (string) $status))
@@ -60,7 +104,7 @@ class UserController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'type' => $user->type->value,
-                'organisation' => ($organisation = $user->partner ?? $user->branch) ? ['name' => $organisation->name, 'code' => $organisation->code] : null,
+                'organisation' => ($org = $user->partner ?? $user->branch) ? ['name' => $org->name, 'code' => $org->code] : null,
                 'role' => ['id' => $user->role->id, 'name' => $user->role->name],
                 'status' => $user->displayStatus(),
                 'two_factor' => $user->two_factor_confirmed_at !== null,
@@ -72,26 +116,38 @@ class UserController extends Controller
 
         return Inertia::render('users/index', [
             'portal' => $actor->type->value,
+            'organisation' => $organisation === null ? null : [
+                'type' => $addType->value,
+                'id' => $organisation->id,
+                'name' => $organisation->name,
+                'code' => $organisation->code,
+                'users_url' => $organisation instanceof Partner
+                    ? route('admin.partners.users.index', $organisation)
+                    : route('admin.branches.users.index', $organisation),
+                'store_url' => $organisation instanceof Partner
+                    ? route('admin.partners.users.store', $organisation)
+                    : route('admin.branches.users.store', $organisation),
+                'back_url' => $organisation instanceof Partner
+                    ? route('admin.partners.index', ['partner' => $organisation->id])
+                    : route('admin.branches.index', ['branch' => $organisation->id]),
+            ],
             'users' => $users,
             'filters' => ['type' => $type?->value, 'status' => $status, 'search' => $search],
-            'counts' => $this->counts($actor),
+            'counts' => $this->counts($actor, $organisation),
             'roles' => $this->assignableRoles($actor),
-            'organisations' => $isAdmin ? [
-                'partner' => Partner::query()->orderBy('name')->get(['id', 'name', 'code']),
-                'branch' => Branch::query()->orderBy('name')->get(['id', 'name', 'code']),
-            ] : null,
             'can' => ['create' => $actor->can('create', User::class)],
         ]);
     }
 
-    public function store(StoreUserRequest $request, CreateUser $create): RedirectResponse
+    private function createUser(StoreUserRequest $request, CreateUser $create, UserType $type, ?string $organisationId): RedirectResponse
     {
         $user = $create->handle(
             $request->actor(),
+            $type,
+            $organisationId,
             $request->string('name')->value(),
             $request->string('email')->value(),
             $request->role(),
-            $request->input('organisation_id'),
             $request->string('password')->value(),
         );
 
@@ -111,23 +167,12 @@ class UserController extends Controller
 
     public function status(ChangeUserStatusRequest $request, User $user, ChangeUserStatus $change): RedirectResponse
     {
-        $status = UserStatus::from($request->string('status')->value());
+        $status = $request->status();
         $change->handle($request->actor(), $user, $status, $request->string('reason')->value());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $status === UserStatus::Suspended
-            ? __(':name suspended.', ['name' => $user->name])
-            : __(':name reactivated.', ['name' => $user->name])]);
-
-        return back();
-    }
-
-    public function resendInvitation(Request $request, User $user, SendInvitation $send): RedirectResponse
-    {
-        Gate::authorize('update', $user);
-
-        $send->handle($this->actor($request), $user);
-
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('New invitation sent to :email.', ['email' => $user->email])]);
+            ? __(':name deactivated.', ['name' => $user->name])
+            : __(':name activated.', ['name' => $user->name])]);
 
         return back();
     }
@@ -159,10 +204,14 @@ class UserController extends Controller
     /**
      * @return Builder<User>
      */
-    private function scoped(User $actor): Builder
+    private function scoped(User $actor, Partner|Branch|null $organisation = null): Builder
     {
         return match ($actor->type) {
-            UserType::Admin => User::query(),
+            UserType::Admin => match (true) {
+                $organisation instanceof Partner => User::query()->where('partner_id', $organisation->id),
+                $organisation instanceof Branch => User::query()->where('branch_id', $organisation->id),
+                default => User::query(),
+            },
             UserType::Partner => User::query()->where('partner_id', $actor->partner_id),
             UserType::Branch => User::query()->where('branch_id', $actor->branch_id),
         };
@@ -173,28 +222,24 @@ class UserController extends Controller
      */
     private function whereDisplayStatus(Builder $query, string $status): void
     {
-        match ($status) {
-            'suspended' => $query->where('status', UserStatus::Suspended),
-            'invited' => $query->where('status', UserStatus::Active)->whereNull('email_verified_at')->whereNull('last_login_at'),
-            default => $query->where('status', UserStatus::Active)->where(fn (Builder $query) => $query->whereNotNull('email_verified_at')->orWhereNotNull('last_login_at')),
-        };
+        $query->where('status', $status === 'inactive' ? UserStatus::Suspended : UserStatus::Active);
     }
 
     /**
      * @return array<string, int>
      */
-    private function counts(User $actor): array
+    private function counts(User $actor, Partner|Branch|null $organisation): array
     {
-        $counts = ['all' => $this->scoped($actor)->count()];
+        $counts = ['all' => $this->scoped($actor, $organisation)->count()];
 
-        if ($actor->isType(UserType::Admin)) {
+        if ($actor->isType(UserType::Admin) && $organisation === null) {
             foreach (UserType::cases() as $type) {
                 $counts[$type->value] = User::query()->where('type', $type)->count();
             }
         }
 
         foreach (self::FILTER_STATUSES as $status) {
-            $query = $this->scoped($actor);
+            $query = $this->scoped($actor, $organisation);
             $this->whereDisplayStatus($query, $status);
             $counts[$status] = $query->count();
         }
@@ -204,7 +249,8 @@ class UserController extends Controller
 
     /**
      * Roles the actor may hand out: active, of a portal they manage, and no
-     * more powerful than their own.
+     * more powerful than their own. The page offers the add-portal's roles
+     * when adding, and the user's portal's roles when editing.
      *
      * @return array<int, array{id: string, name: string, user_type: string}>
      */

@@ -1,7 +1,6 @@
 <?php
 
 use App\Domain\Core\Identity\Models\User;
-use App\Http\Shared\Auth\InvitationController;
 use App\Http\Shared\Files\FileController;
 use App\Http\Shared\Legal\LegalPageController;
 use App\Http\Shared\Notifications\NotificationController;
@@ -17,12 +16,6 @@ Route::redirect('/', '/dashboard')->name('home');
 
 // Published content pages (terms, privacy, help): public.
 Route::get('legal/{slug}', [LegalPageController::class, 'show'])->name('legal.show');
-
-// Invitation links (emailed by App\Domain\Core\Identity\Actions\SendInvitation).
-Route::middleware('guest')->group(function () {
-    Route::get('invitation/{token}', [InvitationController::class, 'show'])->name('invitation.show');
-    Route::post('invitation', [InvitationController::class, 'store'])->middleware('throttle:6,1')->name('invitation.store');
-});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Sends each user to their own portal.

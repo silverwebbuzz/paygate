@@ -6,7 +6,6 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserStatus;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
-use App\Domain\Core\Identity\Notifications\UserInvitation;
 use App\Domain\Core\Rbac\Enums\Permission;
 use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Core\Rbac\SystemRoles;
@@ -51,7 +50,7 @@ class UserManagementTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->where('users.data', fn ($rows) => collect($rows)->pluck('id')->sort()->values()->all() === collect([$owner->id, $colleague->id])->sort()->values()->all())
-                ->where('organisations', null));
+                ->where('organisation', null));
 
         $this->assertNotContains($stranger->id, [$owner->id, $colleague->id]);
     }
@@ -65,16 +64,18 @@ class UserManagementTest extends TestCase
         $this->actingAs($operator)->get(route('branch.users.index'))->assertForbidden();
     }
 
-    public function test_admin_creates_a_branch_user_who_can_log_in_with_the_password_at_once()
+    public function test_admin_adds_a_branch_user_on_the_branch_users_page_who_can_log_in_at_once()
     {
         $admin = $this->superAdmin();
         $branch = Branch::factory()->create();
 
-        $this->actingAs($admin)->post(route('admin.users.store'), [
+        $this->actingAs($admin)->get(route('admin.branches.users.index', $branch))
+            ->assertInertia(fn (Assert $page) => $page->component('users/index')->where('organisation.id', $branch->id));
+
+        $this->actingAs($admin)->post(route('admin.branches.users.store', $branch), [
             'name' => 'Ravi Operator',
             'email' => 'ravi@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
-            'organisation_id' => $branch->id,
             ...self::PASSWORD,
         ])->assertRedirect()->assertSessionHasNoErrors();
 
@@ -140,7 +141,7 @@ class UserManagementTest extends TestCase
         ])->assertSessionHasErrors('role_id');
 
         $this->actingAs($actor)->put(route('admin.users.password', $superAdmin), self::PASSWORD)->assertForbidden();
-        $this->actingAs($actor)->put(route('admin.users.status', $superAdmin), ['status' => 'suspended', 'reason' => 'test'])->assertForbidden();
+        $this->actingAs($actor)->put(route('admin.users.status', $superAdmin), ['status' => 'inactive', 'reason' => 'test'])->assertForbidden();
 
         // Other admins, including other Admin-role users, are fine.
         $this->actingAs($actor)->post(route('admin.users.store'), [
@@ -168,15 +169,61 @@ class UserManagementTest extends TestCase
         $this->actingAs($this->superAdmin())->get(route('admin.ui-kit'))->assertOk();
     }
 
-    public function test_admin_must_choose_the_organisation_for_partner_and_branch_users()
+    public function test_the_admin_users_page_adds_admin_users_only()
     {
-        $this->actingAs($this->superAdmin())->post(route('admin.users.store'), [
-            'name' => 'No Org',
+        $admin = $this->superAdmin();
+
+        $this->actingAs($admin)->post(route('admin.users.store'), [
+            'name' => 'Partner Via Users',
             'email' => 'noorg@example.com',
             'role_id' => Role::bySlug(SystemRoles::PARTNER_VIEWER)->id,
-        ])->assertSessionHasErrors('organisation_id');
+            ...self::PASSWORD,
+        ])->assertSessionHasErrors('role_id');
+
+        $this->actingAs($admin)->post(route('admin.users.store'), [
+            'name' => 'New Viewer',
+            'email' => 'viewer@example.com',
+            'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
+            ...self::PASSWORD,
+        ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseMissing('users', ['email' => 'noorg@example.com']);
+        $this->assertSame(UserType::Admin, User::where('email', 'viewer@example.com')->firstOrFail()->type);
+    }
+
+    public function test_a_partner_users_page_lists_and_adds_only_that_partners_users()
+    {
+        $admin = $this->superAdmin();
+        $partner = Partner::factory()->create();
+        $own = User::factory()->partner(SystemRoles::PARTNER_VIEWER, $partner)->create();
+        User::factory()->partner()->create();
+
+        $this->actingAs($admin)->get(route('admin.partners.users.index', $partner))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('users.data', fn ($rows) => collect($rows)->pluck('id')->all() === [$own->id])
+                ->where('organisation.type', 'partner'));
+
+        // A branch role can't be added to a partner.
+        $this->actingAs($admin)->post(route('admin.partners.users.store', $partner), [
+            'name' => 'Wrong Role',
+            'email' => 'wrong@example.com',
+            'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
+            ...self::PASSWORD,
+        ])->assertSessionHasErrors('role_id');
+
+        $this->actingAs($admin)->post(route('admin.partners.users.store', $partner), [
+            'name' => 'Dev',
+            'email' => 'dev@example.com',
+            'role_id' => Role::bySlug(SystemRoles::PARTNER_DEVELOPER)->id,
+            ...self::PASSWORD,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame($partner->id, User::where('email', 'dev@example.com')->value('partner_id'));
+        $this->assertDatabaseMissing('users', ['email' => 'wrong@example.com']);
+
+        // Partner and branch users can't open another organisation's page.
+        $this->actingAs(User::factory()->partner(SystemRoles::PARTNER_OWNER, $partner)->create())
+            ->get(route('admin.partners.users.index', $partner))->assertForbidden();
     }
 
     public function test_owners_add_users_to_their_own_organisation_only()
@@ -193,7 +240,7 @@ class UserManagementTest extends TestCase
 
         $this->assertSame($branch->id, User::where('email', 'operator2@example.com')->value('branch_id'));
 
-        // A branch owner can't create admins, and can't pick another branch.
+        // A branch owner can't create admins, and always adds to their own branch.
         $this->actingAs($owner)->post(route('branch.users.store'), [
             'name' => 'Sneaky',
             'email' => 'sneaky@example.com',
@@ -207,10 +254,10 @@ class UserManagementTest extends TestCase
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
             'organisation_id' => Branch::factory()->create()->id,
             ...self::PASSWORD,
-        ])->assertSessionHasErrors('organisation_id');
+        ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseMissing('users', ['email' => 'sneaky@example.com']);
-        $this->assertDatabaseMissing('users', ['email' => 'elsewhere@example.com']);
+        $this->assertSame($branch->id, User::where('email', 'elsewhere@example.com')->value('branch_id'));
     }
 
     public function test_owners_cannot_manage_users_of_another_organisation()
@@ -219,7 +266,7 @@ class UserManagementTest extends TestCase
         $other = User::factory()->partner(SystemRoles::PARTNER_VIEWER)->create();
 
         $this->actingAs($owner)->put(route('partner.users.status', $other), [
-            'status' => 'suspended',
+            'status' => 'inactive',
             'reason' => 'test',
         ])->assertForbidden();
 
@@ -245,22 +292,23 @@ class UserManagementTest extends TestCase
         ])->assertSessionHasErrors('role_id');
 
         $this->actingAs($actor)->put(route('admin.users.status', $superAdmin), [
-            'status' => 'suspended',
+            'status' => 'inactive',
             'reason' => 'test',
         ])->assertForbidden();
     }
 
-    public function test_suspending_requires_a_reason_is_audited_and_can_be_undone()
+    public function test_deactivating_requires_a_reason_is_audited_and_can_be_undone()
     {
         $admin = $this->superAdmin();
         $user = User::factory()->partner()->create();
 
-        $this->actingAs($admin)->put(route('admin.users.status', $user), ['status' => 'suspended'])
+        $this->actingAs($admin)->put(route('admin.users.status', $user), ['status' => 'inactive'])
             ->assertSessionHasErrors('reason');
 
-        $this->actingAs($admin)->put(route('admin.users.status', $user), ['status' => 'suspended', 'reason' => 'Left the company'])
+        $this->actingAs($admin)->put(route('admin.users.status', $user), ['status' => 'inactive', 'reason' => 'Left the company'])
             ->assertSessionHasNoErrors();
         $this->assertSame(UserStatus::Suspended, $user->fresh()?->status);
+        $this->assertSame('inactive', $user->fresh()?->displayStatus());
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.suspended', 'subject_id' => $user->id]);
 
         $this->actingAs($admin)->put(route('admin.users.status', $user), ['status' => 'active', 'reason' => 'Back'])
@@ -269,24 +317,24 @@ class UserManagementTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.reactivated', 'subject_id' => $user->id]);
     }
 
-    public function test_users_cannot_suspend_themselves_and_the_last_super_admin_stays()
+    public function test_users_cannot_deactivate_themselves_and_the_last_super_admin_stays()
     {
         $admin = $this->superAdmin();
 
-        $this->actingAs($admin)->put(route('admin.users.status', $admin), ['status' => 'suspended', 'reason' => 'x'])
+        $this->actingAs($admin)->put(route('admin.users.status', $admin), ['status' => 'inactive', 'reason' => 'x'])
             ->assertForbidden();
 
         $this->assertTrue($admin->isLastActiveSuperAdmin());
         $second = $this->superAdmin();
         $this->assertFalse($admin->fresh()?->isLastActiveSuperAdmin());
 
-        $this->actingAs($second)->put(route('admin.users.status', $admin), ['status' => 'suspended', 'reason' => 'x'])
+        $this->actingAs($second)->put(route('admin.users.status', $admin), ['status' => 'inactive', 'reason' => 'x'])
             ->assertSessionHasNoErrors();
 
         $this->assertTrue($second->fresh()?->isLastActiveSuperAdmin());
     }
 
-    public function test_changing_role_and_email_is_audited_and_email_must_be_verified_again()
+    public function test_changing_role_and_email_is_audited_and_the_new_email_works_at_once()
     {
         $admin = $this->superAdmin();
         $user = User::factory()->branch(SystemRoles::BRANCH_OPERATOR)->create(['last_login_at' => now()]);
@@ -299,7 +347,8 @@ class UserManagementTest extends TestCase
 
         $user->refresh();
         $this->assertSame(SystemRoles::BRANCH_OWNER, $user->role->slug);
-        $this->assertNull($user->email_verified_at);
+        $this->assertNotNull($user->email_verified_at);
+        Notification::assertNothingSent();
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.updated', 'subject_id' => $user->id]);
 
         // The role must stay within the user's portal.
@@ -310,16 +359,10 @@ class UserManagementTest extends TestCase
         ])->assertSessionHasErrors('role_id');
     }
 
-    public function test_admin_can_resend_an_invitation_and_reset_two_factor()
+    public function test_admin_can_reset_two_factor()
     {
         $admin = $this->superAdmin();
-        $invited = User::factory()->branch()->unverified()->create();
         $branchUser = User::factory()->branch()->withTwoFactor()->create();
-
-        $this->actingAs($admin)->post(route('admin.users.invitation', $invited))->assertSessionHasNoErrors();
-        Notification::assertSentTo($invited, UserInvitation::class);
-
-        $this->actingAs($admin)->post(route('admin.users.invitation', $branchUser))->assertSessionHasErrors('user');
 
         $this->actingAs($admin)->delete(route('admin.users.two-factor', $branchUser), ['reason' => 'Lost phone'])
             ->assertSessionHasNoErrors();

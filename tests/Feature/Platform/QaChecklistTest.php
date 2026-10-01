@@ -44,6 +44,23 @@ class QaChecklistTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.qa-checklist.index'))->assertNotFound();
     }
 
+    public function test_on_production_super_admins_open_the_checklist_but_tests_do_not_run()
+    {
+        $this->app['env'] = 'production';
+
+        $this->actingAs($this->admin)->get(route('admin.qa-checklist.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('qaChecklist', true)
+                ->where('runner.problem', 'Tests never run on production.'));
+
+        // Back in the testing environment (CSRF), with the runner refusing as on production.
+        $this->app['env'] = 'testing';
+        $this->mock(TestRunner::class, fn ($mock) => $mock->shouldReceive('available')->andReturn('Tests never run on production.'));
+
+        $this->actingAs($this->admin)->post(route('admin.qa-checklist.run'))->assertRedirect();
+        Queue::assertNothingPushed();
+    }
+
     public function test_every_item_is_unique_and_names_existing_tests()
     {
         $classes = [];

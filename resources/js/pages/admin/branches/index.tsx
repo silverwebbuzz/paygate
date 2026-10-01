@@ -94,7 +94,7 @@ type Props = {
     counts: Record<string, number>;
     selected: string | null;
     detail?: Detail | null;
-    can: { create: boolean; update: boolean };
+    can: { create: boolean; update: boolean; users: boolean };
 };
 
 const TABS = [
@@ -368,21 +368,38 @@ export default function BranchesIndex({
                                             <StatusBadge status={b.status} />
                                         </Td>
                                         <Td>
-                                            {can.update && (
-                                                <Link
-                                                    href={
-                                                        branchesRoutes.edit(
-                                                            b.id,
-                                                        ).url
-                                                    }
-                                                    onClick={(event) =>
-                                                        event.stopPropagation()
-                                                    }
-                                                    className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
-                                                >
-                                                    Edit
-                                                </Link>
-                                            )}
+                                            <div className="flex justify-end gap-1.5">
+                                                {can.users && (
+                                                    <Link
+                                                        href={
+                                                            branchesRoutes.users.index(
+                                                                b.id,
+                                                            ).url
+                                                        }
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                        className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
+                                                    >
+                                                        Users
+                                                    </Link>
+                                                )}
+                                                {can.update && (
+                                                    <Link
+                                                        href={
+                                                            branchesRoutes.edit(
+                                                                b.id,
+                                                            ).url
+                                                        }
+                                                        onClick={(event) =>
+                                                            event.stopPropagation()
+                                                        }
+                                                        className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
+                                                    >
+                                                        Edit
+                                                    </Link>
+                                                )}
+                                            </div>
                                         </Td>
                                     </tr>
                                 ))}
@@ -421,14 +438,26 @@ export default function BranchesIndex({
                     status={<StatusBadge status={open.status} />}
                     subtitle={open.name}
                     actions={
-                        can.update && (
-                            <Link
-                                href={branchesRoutes.edit(open.id).url}
-                                className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
-                            >
-                                Edit
-                            </Link>
-                        )
+                        <div className="flex gap-2">
+                            {can.users && (
+                                <Link
+                                    href={
+                                        branchesRoutes.users.index(open.id).url
+                                    }
+                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
+                                >
+                                    Users
+                                </Link>
+                            )}
+                            {can.update && (
+                                <Link
+                                    href={branchesRoutes.edit(open.id).url}
+                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
+                                >
+                                    Edit
+                                </Link>
+                            )}
+                        </div>
                     }
                     summaries={[
                         {
@@ -642,7 +671,7 @@ export default function BranchesIndex({
                             )}
                             {tab === 'users' && (
                                 <SimpleTable
-                                    empty="No users yet. Invite a branch admin from the Users page."
+                                    empty="No users yet. Add them with the Users button above."
                                     headers={['Name', 'Role', 'Status']}
                                     rows={loaded.users.map((u) => [
                                         <span key="n">

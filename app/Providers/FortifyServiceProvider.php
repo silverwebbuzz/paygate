@@ -57,7 +57,7 @@ class FortifyServiceProvider extends ServiceProvider
                 SecurityLog::record(SecurityEvent::LoginBlockedSuspended, $user);
 
                 throw ValidationException::withMessages([
-                    Fortify::username() => __('Your account has been suspended. Contact an administrator.'),
+                    Fortify::username() => __('Your account is inactive. Contact an administrator.'),
                 ]);
             }
 

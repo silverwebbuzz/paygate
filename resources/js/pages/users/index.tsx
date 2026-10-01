@@ -21,7 +21,16 @@ import branchUsers from '@/routes/branch/users';
 import partnerUsers from '@/routes/partner/users';
 import type { UserType } from '@/types';
 
-type Organisation = { id: string; name: string; code: string };
+/** Set on a partner's / branch's own Users page (Admin). */
+type Organisation = {
+    type: 'partner' | 'branch';
+    id: string;
+    name: string;
+    code: string;
+    users_url: string;
+    store_url: string;
+    back_url: string;
+};
 type RoleOption = { id: string; name: string; user_type: UserType };
 
 type UserRow = {
@@ -31,7 +40,7 @@ type UserRow = {
     type: UserType;
     organisation: { name: string; code: string } | null;
     role: { id: string; name: string };
-    status: 'active' | 'invited' | 'suspended';
+    status: 'active' | 'inactive';
     two_factor: boolean;
     last_login_at: string | null;
     last_login_ip: string | null;
@@ -52,17 +61,17 @@ type Paginated<T> = {
 
 type Filters = {
     type: UserType | null;
-    status: 'active' | 'invited' | 'suspended' | null;
+    status: 'active' | 'inactive' | null;
     search: string;
 };
 
 type Props = {
     portal: UserType;
+    organisation: Organisation | null;
     users: Paginated<UserRow>;
     filters: Filters;
     counts: Record<string, number>;
     roles: RoleOption[];
-    organisations: Record<'partner' | 'branch', Organisation[]> | null;
     can: { create: boolean };
 };
 
@@ -76,8 +85,7 @@ const ROUTES = {
 const STATUS_TABS = [
     { key: 'all', label: 'All' },
     { key: 'active', label: 'Active' },
-    { key: 'invited', label: 'Invited' },
-    { key: 'suspended', label: 'Suspended' },
+    { key: 'inactive', label: 'Inactive' },
 ] as const;
 
 const firstError = (errors: Record<string, string>) =>
@@ -85,15 +93,20 @@ const firstError = (errors: Record<string, string>) =>
 
 export default function UsersIndex({
     portal,
+    organisation,
     users,
     filters,
     counts,
     roles,
-    organisations,
     can,
 }: Props) {
     const routes = ROUTES[portal];
     const isAdmin = portal === 'admin';
+    // Admin's Users page adds admin users; a partner's / branch's page (and
+    // the partner and branch portals) add users of that organisation.
+    const addType: UserType = organisation?.type ?? portal;
+    const indexUrl = organisation?.users_url ?? routes.index().url;
+    const storeUrl = organisation?.store_url ?? routes.store().url;
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(null);
     const [dialog, setDialog] = useState<
@@ -101,8 +114,8 @@ export default function UsersIndex({
         | 'create'
         | 'edit'
         | 'password'
-        | 'suspend'
-        | 'reactivate'
+        | 'deactivate'
+        | 'activate'
         | 'two-factor'
     >(null);
     const [processing, setProcessing] = useState(false);
@@ -116,15 +129,11 @@ export default function UsersIndex({
             ),
         );
 
-        router.get(
-            routes.index({ query }).url,
-            {},
-            {
-                preserveState: true,
-                preserveScroll: true,
-                replace: true,
-            },
-        );
+        router.get(indexUrl, query, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
     };
 
     // Search as you type (debounced).
@@ -167,7 +176,7 @@ export default function UsersIndex({
                 </div>
             ),
         },
-        ...(isAdmin
+        ...(isAdmin && !organisation
             ? [
                   {
                       key: 'portal',
@@ -226,24 +235,47 @@ export default function UsersIndex({
 
     return (
         <>
-            <Head title="Users" />
+            <Head
+                title={organisation ? `Users · ${organisation.name}` : 'Users'}
+            />
 
             <PageHeader
-                title="Users"
+                title={
+                    organisation
+                        ? `Users · ${organisation.name} (${organisation.code})`
+                        : 'Users'
+                }
                 description={
-                    isAdmin
-                        ? 'Everyone who can log in to the Admin, Partner and Branch portals. Users are suspended, never deleted.'
-                        : `People who can log in to your ${PORTAL_LABELS[portal].toLowerCase()} portal.`
+                    organisation
+                        ? `People who can log in to the ${PORTAL_LABELS[organisation.type].toLowerCase()} portal of ${organisation.name}. Users are deactivated, never deleted.`
+                        : isAdmin
+                          ? 'Everyone who can log in to the Admin, Partner and Branch portals. Add user creates admin users; add a partner’s or branch’s users from its Users button on Partners / Branches.'
+                          : `People who can log in to your ${PORTAL_LABELS[portal].toLowerCase()} portal.`
                 }
                 actions={
-                    can.create && (
-                        <PgButton
-                            variant="primary"
-                            onClick={() => setDialog('create')}
-                        >
-                            Add user
-                        </PgButton>
-                    )
+                    <div className="flex gap-2">
+                        {organisation && (
+                            <Link
+                                href={organisation.back_url}
+                                className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
+                            >
+                                Back to{' '}
+                                {organisation.type === 'partner'
+                                    ? 'partner'
+                                    : 'branch'}
+                            </Link>
+                        )}
+                        {can.create && (
+                            <PgButton
+                                variant="primary"
+                                onClick={() => setDialog('create')}
+                            >
+                                {addType === 'admin' && isAdmin
+                                    ? 'Add admin user'
+                                    : 'Add user'}
+                            </PgButton>
+                        )}
+                    </div>
                 }
             />
 
@@ -274,7 +306,7 @@ export default function UsersIndex({
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
-                    {isAdmin && (
+                    {isAdmin && !organisation && (
                         <Segmented
                             options={[
                                 {
@@ -401,19 +433,6 @@ export default function UsersIndex({
                             <PgButton onClick={() => setDialog('password')}>
                                 Set password
                             </PgButton>
-                            {open.status === 'invited' && (
-                                <PgButton
-                                    disabled={processing}
-                                    onClick={() =>
-                                        act(
-                                            'post',
-                                            routes.invitation(open.id).url,
-                                        )
-                                    }
-                                >
-                                    Resend invitation
-                                </PgButton>
-                            )}
                             {open.two_factor && (
                                 <PgButton
                                     onClick={() => setDialog('two-factor')}
@@ -421,18 +440,16 @@ export default function UsersIndex({
                                     Reset two-factor
                                 </PgButton>
                             )}
-                            {open.status === 'suspended' ? (
-                                <PgButton
-                                    onClick={() => setDialog('reactivate')}
-                                >
-                                    Reactivate
+                            {open.status === 'inactive' ? (
+                                <PgButton onClick={() => setDialog('activate')}>
+                                    Activate
                                 </PgButton>
                             ) : (
                                 <PgButton
                                     variant="danger"
-                                    onClick={() => setDialog('suspend')}
+                                    onClick={() => setDialog('deactivate')}
                                 >
-                                    Suspend
+                                    Deactivate
                                 </PgButton>
                             )}
                         </div>
@@ -448,19 +465,19 @@ export default function UsersIndex({
 
             {dialog === 'create' && (
                 <UserFormDialog
-                    portal={portal}
+                    addType={addType}
+                    organisation={organisation}
                     roles={roles}
-                    organisations={organisations}
-                    url={routes.store().url}
+                    url={storeUrl}
                     onClose={() => setDialog(null)}
                 />
             )}
 
             {dialog === 'edit' && open && (
                 <UserFormDialog
-                    portal={portal}
+                    addType={addType}
+                    organisation={organisation}
                     roles={roles}
-                    organisations={organisations}
                     user={open}
                     url={routes.update(open.id).url}
                     onClose={() => setDialog(null)}
@@ -478,11 +495,11 @@ export default function UsersIndex({
             {open && (
                 <>
                     <ConfirmDialog
-                        open={dialog === 'suspend'}
+                        open={dialog === 'deactivate'}
                         onOpenChange={(next) => !next && setDialog(null)}
-                        title={`Suspend ${open.name}?`}
-                        description="They are logged out immediately and can’t log in until reactivated. Their history is kept."
-                        confirmLabel="Suspend user"
+                        title={`Deactivate ${open.name}?`}
+                        description="They are logged out immediately and can’t log in until activated again. Their history is kept."
+                        confirmLabel="Deactivate user"
                         tone="danger"
                         input={{
                             label: 'Reason (kept in the audit log)',
@@ -491,17 +508,17 @@ export default function UsersIndex({
                         processing={processing}
                         onConfirm={(reason) =>
                             act('put', routes.status(open.id).url, {
-                                status: 'suspended',
+                                status: 'inactive',
                                 reason,
                             })
                         }
                     />
                     <ConfirmDialog
-                        open={dialog === 'reactivate'}
+                        open={dialog === 'activate'}
                         onOpenChange={(next) => !next && setDialog(null)}
-                        title={`Reactivate ${open.name}?`}
+                        title={`Activate ${open.name}?`}
                         description="They can log in again with their current role."
-                        confirmLabel="Reactivate"
+                        confirmLabel="Activate"
                         input={{
                             label: 'Reason (kept in the audit log)',
                             required: true,
@@ -540,38 +557,31 @@ export default function UsersIndex({
 
 /** Add a new user with a password, or edit one (name, email, role). */
 function UserFormDialog({
-    portal,
+    addType,
+    organisation,
     roles,
-    organisations,
     user,
     url,
     onClose,
 }: {
-    portal: UserType;
+    addType: UserType;
+    organisation: Organisation | null;
     roles: RoleOption[];
-    organisations: Props['organisations'];
     user?: UserRow;
     url: string;
     onClose: () => void;
 }) {
     const editing = user !== undefined;
+    const type = user?.type ?? addType;
     const form = useForm({
         name: user?.name ?? '',
         email: user?.email ?? '',
-        type: user?.type ?? portal,
         role_id: user?.role.id ?? '',
-        organisation_id: '',
         password: '',
         password_confirmation: '',
     });
     const errors = form.errors as Record<string, string | undefined>;
-    const roleOptions = roles.filter(
-        (role) => role.user_type === form.data.type,
-    );
-    const organisationOptions =
-        form.data.type === 'admin'
-            ? []
-            : (organisations?.[form.data.type] ?? []);
+    const roleOptions = roles.filter((role) => role.user_type === type);
     // The current role may be one the editor can't hand out; keep it selectable.
     const currentRoleMissing =
         user !== undefined &&
@@ -588,9 +598,6 @@ function UserFormDialog({
             name: data.name,
             email: data.email,
             role_id: data.role_id,
-            ...(!editing && organisations && data.type !== 'admin'
-                ? { organisation_id: data.organisation_id }
-                : {}),
             ...(!editing
                 ? {
                       password: data.password,
@@ -610,10 +617,18 @@ function UserFormDialog({
         <FormDialog
             open
             onOpenChange={(next) => !next && onClose()}
-            title={editing ? `Edit ${user.name}` : 'Add user'}
+            title={
+                editing
+                    ? `Edit ${user.name}`
+                    : organisation
+                      ? `Add user to ${organisation.name}`
+                      : type === 'admin'
+                        ? 'Add admin user'
+                        : 'Add user'
+            }
             description={
                 editing
-                    ? 'A changed email address must be verified again by the user.'
+                    ? 'They log in with the new email address from now on.'
                     : 'They can log in straight away with this email and password. Pass the password on securely; they can change it under Profile & settings.'
             }
             submitLabel={editing ? 'Save' : 'Add user'}
@@ -642,50 +657,6 @@ function UserFormDialog({
                     }
                 />
             </Field>
-            {!editing && organisations && (
-                <Field label="Portal">
-                    <SelectInput
-                        value={form.data.type}
-                        onChange={(event) =>
-                            form.setData({
-                                ...form.data,
-                                type: event.target.value as UserType,
-                                role_id: '',
-                                organisation_id: '',
-                            })
-                        }
-                    >
-                        <option value="admin">Admin (our staff)</option>
-                        <option value="partner">Partner</option>
-                        <option value="branch">Branch</option>
-                    </SelectInput>
-                </Field>
-            )}
-            {!editing && organisations && form.data.type !== 'admin' && (
-                <Field
-                    label={form.data.type === 'partner' ? 'Partner' : 'Branch'}
-                    error={errors.organisation_id}
-                >
-                    <SelectInput
-                        required
-                        value={form.data.organisation_id}
-                        invalid={!!errors.organisation_id}
-                        onChange={(event) =>
-                            form.setData('organisation_id', event.target.value)
-                        }
-                    >
-                        <option value="">Choose…</option>
-                        {organisationOptions.map((organisation) => (
-                            <option
-                                key={organisation.id}
-                                value={organisation.id}
-                            >
-                                {organisation.name} ({organisation.code})
-                            </option>
-                        ))}
-                    </SelectInput>
-                </Field>
-            )}
             <Field
                 label="Role"
                 hint="Only roles with permissions you hold yourself are listed."
@@ -722,7 +693,7 @@ function UserFormDialog({
     );
 }
 
-/** Set a new password for another user (forgotten, or never received the invitation). */
+/** Set a new password for another user (e.g. they forgot it). */
 function PasswordDialog({
     user,
     url,
