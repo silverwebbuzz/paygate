@@ -9,6 +9,7 @@ use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RequireTwoFactor;
 use App\Http\Middleware\RestrictToPortalHost;
+use App\Support\Hosts;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -25,7 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
-        // Each host name only answers its own routes (see config/app.php "domains").
+        // Each host name only answers its own routes (see config/app.php "domains"),
+        // optionally under a path prefix ("paths") when areas share one host.
         then: function (): void {
             Route::middleware('web')
                 ->domain(config('app.domains.app'))
@@ -33,11 +35,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
             Route::middleware('api')
                 ->domain(config('app.domains.api'))
+                ->prefix(config('app.paths.api'))
                 ->name('api.')
                 ->group(base_path('routes/api.php'));
 
             Route::middleware('web')
                 ->domain(config('app.domains.pay'))
+                ->prefix(config('app.paths.pay'))
                 ->name('pay.')
                 ->group(base_path('routes/pay.php'));
         },
@@ -49,6 +53,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(AssignRequestId::class);
+
+        // On a server the panel's web server (Apache/Nginx) proxies to the app on
+        // 127.0.0.1: trust its X-Forwarded-* headers so host routing, https URLs
+        // and client IPs (partner API IP list, rate limits) are correct. Only a
+        // proxy on the same machine is trusted, so remote clients cannot spoof them.
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
 
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
@@ -68,13 +78,13 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->getHost() === config('app.domains.api') || $request->expectsJson(),
+            fn (Request $request) => Hosts::isApiRequest($request) || $request->expectsJson(),
         );
 
         // Partner API errors: { "error": { "code", "message", "request_id", ... } }
         // with stable codes partners can program against (Architecture §10).
         $exceptions->render(function (Throwable $exception, Request $request) {
-            if ($request->getHost() !== config('app.domains.api')) {
+            if (! Hosts::isApiRequest($request)) {
                 return null;
             }
 

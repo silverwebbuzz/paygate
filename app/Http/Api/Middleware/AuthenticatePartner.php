@@ -4,6 +4,7 @@ namespace App\Http\Api\Middleware;
 
 use App\Domain\PartnerApi\ApiAuthenticator;
 use App\Domain\PartnerApi\Exceptions\ApiException;
+use App\Support\Hosts;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -26,7 +27,7 @@ class AuthenticatePartner
             $request->header('X-Nonce'),
             $request->header('X-Signature'),
             $request->getMethod(),
-            $request->getRequestUri(),
+            Hosts::apiRequestUri($request),
             $request->getContent(),
             $request->ip(),
         );

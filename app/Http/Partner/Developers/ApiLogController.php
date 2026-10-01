@@ -8,6 +8,7 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\PartnerApi\ApiAuthenticator;
 use App\Domain\PartnerApi\Models\ApiRequestLog;
 use App\Http\Controller;
+use App\Support\Hosts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -26,10 +27,9 @@ class ApiLogController extends Controller
         abort_unless($actor->can('api_keys.view') || $actor->can('api_logs.view'), 403);
 
         $partner = Partner::query()->findOrFail($actor->partner_id);
-        $scheme = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https';
 
         return Inertia::render('partner/api-docs', [
-            'base_url' => $scheme.'://'.config('app.domains.api').'/v1',
+            'base_url' => Hosts::url('api', '/v1'),
             'key_id' => $partner->activeApiKey()->value('key_id'),
             'clock_skew' => ApiAuthenticator::MAX_CLOCK_SKEW,
             'rate_limit' => (int) config('paygate.api.rate_limit'),
