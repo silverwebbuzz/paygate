@@ -4,20 +4,22 @@ Step-by-step commands to run PayGate at **`https://aidemo.in`** on an AlmaLinux 
 **without changing anything your other projects use**.
 Run the commands **one block at a time** and check each "Expected" line before moving on.
 
-> This server: AlmaLinux 9.8, Webuzo 4.8, IP `147.93.62.3`, Webuzo user `silverwebbuzz_in`,
-> `aidemo.in` document root `/home/silverwebbuzz_in/public_html/aidemo.in`. Replace these if yours differ.
+> This server: AlmaLinux 9.8, Webuzo 4.8, IP `147.93.62.3`, Webuzo user `silverwebbuzz_in`.
+> PayGate's code is cloned with **Webuzo → Git** into `/home/silverwebbuzz_in/public_html/aidemo.in`
+> (Webuzo path `public_html/aidemo_in`, a shortcut to `aidemo.in`). Replace these if yours differ.
 
 ---
 
 ## 0. The plan (read once)
 
-### Everything PayGate needs lives in one folder
+### Where everything lives
 
 ```
 /home/silverwebbuzz_in/
-├── public_html/aidemo.in/     ← aidemo.in document root: only one .htaccess file (forwards to PayGate)
-└── paygate/                   ← everything PayGate, NOT reachable from the web
-    ├── app/                   ← the code (git clone), .env, uploads, logs
+├── public_html/aidemo.in/     ← PayGate's code (Webuzo Git clone), .env, uploads, logs
+│   └── public/                ← aidemo.in DOCUMENT ROOT: the only folder Apache may show (step 14)
+├── public_html/aidemo_in      ← shortcut to aidemo.in (Webuzo Git's path box does not accept a dot)
+└── paygate/                   ← PayGate's tools, NOT reachable from the web
     ├── bin/                   ← php (→ separate PHP 8.5 in /opt/remi), frankenphp, composer, psql, pg_dump
     ├── node/                  ← private Node.js 24 (only used to build the website files)
     ├── etc/                   ← PayGate's own PHP settings and service settings
@@ -26,8 +28,9 @@ Run the commands **one block at a time** and check each "Expected" line before m
     └── deploy.sh              ← one command to deploy a new version from git
 ```
 
-The code is **beside** `public_html`, not inside it, so `.env` (passwords and keys) can never be downloaded,
-even if the `.htaccess` stops working.
+**Important:** `aidemo.in`'s document root must be the **`public`** subfolder (step 14), as for any Laravel site.
+Then `.env` (passwords and keys), `.git` and the rest of the code can never be downloaded, even if the
+`.htaccess` stops working.
 
 ### What it uses on the server, and what it leaves alone
 
@@ -166,7 +169,7 @@ export PHP_INI_SCAN_DIR=":$PAYGATE/etc/php.d"
 export PGPASSFILE="$PAYGATE/.pgpass"
 export COMPOSER_HOME="$PAYGATE/.composer"
 export npm_config_cache="$PAYGATE/.npm"
-export GIT_SSH_COMMAND="ssh -i $PAYGATE/.ssh/deploy_key -o IdentitiesOnly=yes -o UserKnownHostsFile=$PAYGATE/.ssh/known_hosts -o StrictHostKeyChecking=accept-new"
+export PAYGATE_APP=/home/silverwebbuzz_in/public_html/aidemo.in
 ENVSH
 
 cat > $P/etc/services.env <<'SVCENV'
@@ -321,23 +324,30 @@ node -v 2>/dev/null || echo "server-wide node unchanged"
 Expected: `/home/silverwebbuzz_in/paygate/node/bin/node` and `v24.x` inside PayGate's session; the last line
 shows the server's own Node (`v12…`), unchanged.
 
-### Step 9. Deploy key (lets the server read the GitHub repository)
+### Step 9. The code, cloned with Webuzo Git
 
-A key just for PayGate, so the Webuzo user's own SSH keys are not touched:
+> The server runs the **`main`** branch. Merge the PayGate changes you want into `main` on GitHub **before** this
+> step (or press **Update From Remote** in Webuzo Git afterwards).
+
+In the Webuzo user panel → **Git** → **Create**: Clone URL `https://github.com/silverwebbuzz/paygate.git`,
+Repository Path `public_html/aidemo_in`, Name `PayGate`. Do **not** use "Deploy HEAD Commit": PayGate is deployed
+with its own script (step 16), which also builds, migrates and restarts it.
+
+Check where the code landed and who owns it:
 
 ```bash
-sudo -u silverwebbuzz_in -H ssh-keygen -t ed25519 -N "" -f /home/silverwebbuzz_in/paygate/.ssh/deploy_key -C "paygate@aidemo.in"
-cat /home/silverwebbuzz_in/paygate/.ssh/deploy_key.pub
+A=/home/silverwebbuzz_in/public_html/aidemo.in
+ls -la /home/silverwebbuzz_in/public_html | grep aidemo
+ls -la $A | head -15
+stat -c '%U:%G %n' $A $A/composer.json
+git -C $A log -1 --oneline
+git -C $A remote -v | sed -E 's#://[^@/]*@#://***@#'
+sudo -u silverwebbuzz_in -H git -C $A fetch --dry-run origin && echo "pull access OK"
 ```
 
-Copy the printed line. On GitHub: **silverwebbuzz/paygate → Settings → Deploy keys → Add deploy key**, paste it,
-title `aidemo.in`, leave **"Allow write access" unticked**, Save. Then:
-
-```bash
-sudo -u silverwebbuzz_in -H bash -c 'source ~/paygate/env.sh && $GIT_SSH_COMMAND -T git@github.com'
-```
-
-Expected: `Hi silverwebbuzz/paygate! You've successfully authenticated...`
+Expected: `aidemo_in -> …/aidemo.in`; the code (`app`, `bootstrap`, `composer.json`, `public`, …) inside
+`aidemo.in`; owner `silverwebbuzz_in`; the latest commit of `main`; `pull access OK`.
+If the owner is `root`, run `chown -R silverwebbuzz_in:silverwebbuzz_in $A`.
 
 ---
 
@@ -353,13 +363,10 @@ source ~/paygate/env.sh
 Your prompt now runs as `silverwebbuzz_in` with PayGate's tools. Check: `which php node composer psql` should all
 show `/home/silverwebbuzz_in/paygate/...`.
 
-### Step 10. Get the code
-
-> The server installs the **`main`** branch. Merge the PayGate changes you want into `main` on GitHub first.
+### Step 10. Install the PHP packages and create `.env`
 
 ```bash
-git clone git@github.com:silverwebbuzz/paygate.git ~/paygate/app
-cd ~/paygate/app
+cd $PAYGATE_APP
 composer install --no-dev --optimize-autoloader --no-interaction
 cp .env.example .env
 chmod 600 .env
@@ -427,7 +434,7 @@ grep -E '^(APP_KEY|PAYGATE_HASH_KEY)=' .env
 ### Step 12. Tables, permissions, website files, first admin
 
 ```bash
-cd ~/paygate/app
+cd $PAYGATE_APP
 source ~/paygate/.deploy.env
 DB_USERNAME=paygate_owner DB_PASSWORD="$DB_OWNER_PASSWORD" php artisan migrate --force
 psql "host=127.0.0.1 port=5433 dbname=paygate user=paygate_owner" -v app_role=paygate_app -f database/sql/app-privileges.sql
@@ -472,6 +479,7 @@ exit
 
 ```bash
 P=/home/silverwebbuzz_in/paygate
+A=/home/silverwebbuzz_in/public_html/aidemo.in
 
 cat > /etc/systemd/system/paygate-web.service <<UNIT
 [Unit]
@@ -481,9 +489,9 @@ After=network.target postgresql-18.service
 [Service]
 User=silverwebbuzz_in
 Group=silverwebbuzz_in
-WorkingDirectory=$P/app
+WorkingDirectory=$A
 EnvironmentFile=$P/etc/services.env
-ExecStart=$P/bin/frankenphp php-server --root $P/app/public --listen 127.0.0.1:8000
+ExecStart=$P/bin/frankenphp php-server --root $A/public --listen 127.0.0.1:8000
 Restart=always
 RestartSec=3
 
@@ -499,7 +507,7 @@ After=network.target postgresql-18.service
 [Service]
 User=silverwebbuzz_in
 Group=silverwebbuzz_in
-WorkingDirectory=$P/app
+WorkingDirectory=$A
 EnvironmentFile=$P/etc/services.env
 ExecStart=$P/bin/php artisan horizon
 Restart=always
@@ -519,7 +527,7 @@ After=network.target postgresql-18.service
 [Service]
 User=silverwebbuzz_in
 Group=silverwebbuzz_in
-WorkingDirectory=$P/app
+WorkingDirectory=$A
 EnvironmentFile=$P/etc/services.env
 ExecStart=$P/bin/php artisan schedule:work
 Restart=always
@@ -547,17 +555,27 @@ visudo -cf /etc/sudoers.d/paygate
 
 Expected: `parsed OK`.
 
-### Step 14. Forward aidemo.in from Apache to PayGate
+### Step 14. Point aidemo.in at `public` and forward it to PayGate
 
-If step 1 showed `Enforcing` for SELinux, first run: `setsebool -P httpd_can_network_connect 1`.
-
-This puts one `.htaccess` in `aidemo.in`'s document root (backing up anything that is there), and nothing else:
+**a) Document root → `public` (Webuzo panel).** Webuzo user panel → **Domain → List Domains** → edit `aidemo.in` →
+change its path / document root from `public_html/aidemo.in` to **`public_html/aidemo.in/public`** → Save.
+(If Webuzo does not let you edit it, tell me before doing anything else.) Check:
 
 ```bash
-D=/home/silverwebbuzz_in/public_html/aidemo.in
-mkdir -p /root/aidemo-docroot-backup && cp -a $D/. /root/aidemo-docroot-backup/ 2>/dev/null
-cat > $D/.htaccess <<'HTACCESS'
+grep -A4 "ServerName aidemo.in" /usr/local/apps/apache2/etc/conf.d/webuzoVH.conf | grep DocumentRoot
+```
+
+Expected: `DocumentRoot /home/silverwebbuzz_in/public_html/aidemo.in/public` (twice: http and https).
+
+**b) The forwarding rules.** Laravel's own `public/.htaccess` is for running PHP inside Apache; PayGate runs in
+FrankenPHP instead, so on this server that file is replaced by the forwarding rules, and git is told to keep the
+server's version (so Webuzo Git and `git pull` keep working):
+
+```bash
+A=/home/silverwebbuzz_in/public_html/aidemo.in
+cat > $A/public/.htaccess <<'HTACCESS'
 # aidemo.in → PayGate (FrankenPHP on 127.0.0.1:8000). Let's Encrypt renewals (/.well-known/) stay with Webuzo.
+# Server-only file: git keeps it because of `git update-index --skip-worktree public/.htaccess`.
 RewriteEngine On
 
 RewriteCond %{HTTPS} off
@@ -569,10 +587,12 @@ RequestHeader set X-Forwarded-Proto "https"
 RewriteCond %{REQUEST_URI} !^/\.well-known/
 RewriteRule ^(.*)$ http://127.0.0.1:8000/$1 [P,L]
 HTACCESS
-chown silverwebbuzz_in:silverwebbuzz_in $D/.htaccess
-rm -f $D/index.html $D/index.php
-ls -la $D
+chown silverwebbuzz_in:silverwebbuzz_in $A/public/.htaccess
+sudo -u silverwebbuzz_in -H git -C $A update-index --skip-worktree public/.htaccess
+sudo -u silverwebbuzz_in -H git -C $A status --short
 ```
+
+Expected: `git status` prints nothing (no changes), which Webuzo Git also needs.
 
 Apache passes the original host name (`X-Forwarded-Host`) and the visitor's IP (`X-Forwarded-For`) to PayGate,
 which trusts them only from `127.0.0.1` (see `bootstrap/app.php`).
@@ -626,9 +646,9 @@ cat > /home/silverwebbuzz_in/paygate/deploy.sh <<'DEPLOY'
 set -euo pipefail
 source "$HOME/paygate/env.sh"
 source "$PAYGATE/.deploy.env"
-cd "$PAYGATE/app"
+cd "$PAYGATE_APP"
 
-git pull --ff-only origin main
+git pull --ff-only origin main   # public/.htaccess keeps the server's forwarding rules (skip-worktree)
 composer install --no-dev --optimize-autoloader --no-interaction
 npm ci
 npm run build
@@ -656,7 +676,7 @@ chmod 750 /home/silverwebbuzz_in/paygate/deploy.sh
 1. Merge your changes into `main` on GitHub.
 2. If the release changes the database, take a backup first:
    `sudo -u silverwebbuzz_in -H bash -c 'source ~/paygate/env.sh && pg_dump -h 127.0.0.1 -p 5433 -U paygate_owner -Fc paygate > ~/paygate/backups/before-deploy-$(date +%F-%H%M).dump'`
-3. Deploy:
+3. Deploy (pressing **Update From Remote** in Webuzo Git first is fine but not needed; the script pulls too):
 
 ```bash
 sudo -u silverwebbuzz_in -H /home/silverwebbuzz_in/paygate/deploy.sh
@@ -670,7 +690,7 @@ Expected: it ends with `Deployed <commit>`. Visitors see a short maintenance pag
 
 | Symptom                                       | Look at                                                                                          |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Site error / blank page                       | `tail -50 /home/silverwebbuzz_in/paygate/app/storage/logs/laravel-$(date +%F).log`               |
+| Site error / blank page                       | `tail -50 /home/silverwebbuzz_in/public_html/aidemo.in/storage/logs/laravel-$(date +%F).log`               |
 | Web service down                              | `journalctl -u paygate-web -n 50 --no-pager`                                                     |
 | Webhooks/emails not sent                      | `journalctl -u paygate-horizon -n 50 --no-pager`, https://aidemo.in/horizon                      |
 | Payments not expiring, alerts missing         | `journalctl -u paygate-scheduler -n 50 --no-pager`                                               |
@@ -679,6 +699,7 @@ Expected: it ends with `Deployed <commit>`. Visitors see a short maintenance pag
 | `Connection refused … 6379` / `NOAUTH`        | Webuzo's Redis is stopped, or it has a password: set `REDIS_PASSWORD` in `.env`, then `config:cache` |
 | `.env` change has no effect                   | As `silverwebbuzz_in` with `env.sh`: `php artisan config:cache`, then `sudo systemctl restart paygate-horizon` |
 | `Call to undefined function proc_open()`      | `PHP_INI_SCAN_DIR` not set: use `source ~/paygate/env.sh` (by hand) or check `etc/services.env`  |
+| `git pull`: "Your local changes … public/.htaccess" | GitHub changed `public/.htaccess`: `git update-index --no-skip-worktree public/.htaccess`, `git stash`, pull, `git stash pop`, then skip-worktree again |
 | Upload larger than 2 MB fails                 | Step 7 check must say `20M`; then `systemctl restart paygate-web`                                |
 
 Never run `php artisan db:seed` or `migrate:fresh` on this server. See [Deployment.md](Deployment.md) for the database rules.
@@ -689,8 +710,8 @@ Never run `php artisan db:seed` or `migrate:fresh` on this server. See [Deployme
 
 When the demo becomes production and you want `api.aidemo.in` and `pay.aidemo.in`:
 
-1. In Webuzo, add the subdomains `api` and `pay`, issue SSL for them, and copy the `.htaccess` from step 14 into each subdomain's document root.
-2. In `/home/silverwebbuzz_in/paygate/app/.env` change:
+1. In Webuzo, add the subdomains `api` and `pay` with document root `public_html/aidemo.in/public` (the same folder), and issue SSL for them.
+2. In `/home/silverwebbuzz_in/public_html/aidemo.in/.env` change:
 
    ```dotenv
    API_DOMAIN=api.aidemo.in
@@ -711,9 +732,9 @@ Nothing else on the server depends on it:
 ```bash
 systemctl disable --now paygate-web paygate-horizon paygate-scheduler
 rm -f /etc/systemd/system/paygate-*.service /etc/sudoers.d/paygate && systemctl daemon-reload
-rm -f /home/silverwebbuzz_in/public_html/aidemo.in/.htaccess
+# In Webuzo: set aidemo.in's document root back, or delete the domain.
 crontab -u silverwebbuzz_in -l | grep -v 'paygate' | crontab -u silverwebbuzz_in -
 # Only after you have kept a final backup:
-# rm -rf /home/silverwebbuzz_in/paygate
+# rm -rf /home/silverwebbuzz_in/paygate /home/silverwebbuzz_in/public_html/aidemo.in /home/silverwebbuzz_in/public_html/aidemo_in   (and delete the repository in Webuzo Git)
 # dnf remove postgresql18-server postgresql18-contrib postgresql18 && rm -rf /var/lib/pgsql/18
 ```
