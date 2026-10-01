@@ -22,7 +22,6 @@ export default function PortalLayout({
     const {
         auth,
         sidebarOpen,
-        environment,
         superAdmin,
         qaChecklist,
         rolloutHidden,
@@ -63,11 +62,11 @@ export default function PortalLayout({
                   },
               ]
             : []),
-        ...(portal === 'admin' && superAdmin && environment === 'local'
+        ...(portal === 'admin' && superAdmin
             ? [
                   {
                       label: 'Developer',
-                      items: [{ label: 'UI kit', href: '/admin/ui-kit' }],
+                      items: [{ label: 'UI kit', href: admin.uiKit() }],
                   },
               ]
             : []),

@@ -1,4 +1,6 @@
 import { Link, usePage } from '@inertiajs/react';
+import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 import type { NavGroup } from '@/lib/portal-nav';
@@ -7,7 +9,25 @@ import { logout } from '@/routes';
 /**
  * Dark navigation sidebar (design: 244px expanded, 64px collapsed).
  * Planned items render dimmed with the phase that delivers them.
+ *
+ * Each group folds open and closed from its heading. Only the group of the
+ * current page starts open; groups the person opens stay open (remembered
+ * in this browser). The icon-only sidebar shows every item.
  */
+const OPEN_GROUPS_KEY = 'pg.sidebar.open-groups';
+
+function readOpenGroups(): string[] {
+    try {
+        const stored = JSON.parse(
+            window.localStorage.getItem(OPEN_GROUPS_KEY) ?? '[]',
+        );
+
+        return Array.isArray(stored) ? stored : [];
+    } catch {
+        return [];
+    }
+}
+
 export function PortalSidebar({
     groups,
     activeKey,
@@ -21,6 +41,22 @@ export function PortalSidebar({
 }) {
     const { auth } = usePage().props;
     const initials = useInitials();
+    const [openGroups, setOpenGroups] = useState<string[]>(readOpenGroups);
+    const activeGroup = activeKey?.split('/')[0] ?? null;
+    const isOpen = (label: string) =>
+        collapsed || label === activeGroup || openGroups.includes(label);
+    const toggleGroup = (label: string) => {
+        const next = isOpen(label)
+            ? openGroups.filter((group) => group !== label)
+            : [...openGroups, label];
+        setOpenGroups(next);
+
+        try {
+            window.localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(next));
+        } catch {
+            // Storage blocked: the choice lasts until the next page load.
+        }
+    };
 
     return (
         <aside
@@ -49,74 +85,91 @@ export function PortalSidebar({
                 {groups.map((group) => (
                     <div key={group.label} className="mt-3">
                         {!collapsed && (
-                            <div className="px-2.5 pb-1.5 text-[10.5px] font-semibold tracking-[.06em] text-[#6B778C] uppercase">
-                                {group.label}
-                            </div>
-                        )}
-                        {group.items.map((item) => {
-                            const active =
-                                `${group.label}/${item.label}` === activeKey;
-                            const content = (
-                                <>
-                                    <span
+                            <button
+                                type="button"
+                                onClick={() => toggleGroup(group.label)}
+                                aria-expanded={isOpen(group.label)}
+                                disabled={group.label === activeGroup}
+                                className="flex w-full items-center gap-1 rounded-[5px] px-2.5 pb-1.5 text-left text-[10.5px] font-semibold tracking-[.06em] text-[#6B778C] uppercase hover:text-[#C8D1DF] disabled:hover:text-[#6B778C]"
+                            >
+                                <span className="flex-1">{group.label}</span>
+                                {group.label !== activeGroup && (
+                                    <ChevronDown
                                         className={cn(
-                                            'size-1.5 flex-none rounded-[2px]',
-                                            active
-                                                ? 'bg-ac'
-                                                : item.href
-                                                  ? 'bg-white/30'
-                                                  : 'bg-white/10',
+                                            'size-3 transition-transform',
+                                            !isOpen(group.label) &&
+                                                '-rotate-90',
                                         )}
                                     />
-                                    {!collapsed && (
-                                        <>
-                                            <span className="flex-1 truncate">
-                                                {item.label}
-                                            </span>
-                                            {item.soon !== undefined && (
-                                                <span className="rounded px-1.5 py-px text-[10.5px] font-medium text-[#6B778C] ring-1 ring-white/10">
-                                                    {item.soon === 'later'
-                                                        ? 'Later'
-                                                        : `P${item.soon}`}
-                                                </span>
+                                )}
+                            </button>
+                        )}
+                        {isOpen(group.label) &&
+                            group.items.map((item) => {
+                                const active =
+                                    `${group.label}/${item.label}` ===
+                                    activeKey;
+                                const content = (
+                                    <>
+                                        <span
+                                            className={cn(
+                                                'size-1.5 flex-none rounded-[2px]',
+                                                active
+                                                    ? 'bg-ac'
+                                                    : item.href
+                                                      ? 'bg-white/30'
+                                                      : 'bg-white/10',
                                             )}
-                                        </>
-                                    )}
-                                </>
-                            );
-                            const classes = cn(
-                                'flex h-8 w-full items-center gap-2.5 rounded-[7px] px-2.5 text-left text-[13px]',
-                                active
-                                    ? 'bg-white/8 font-semibold text-white'
-                                    : item.href
-                                      ? 'font-medium text-[#C8D1DF] hover:bg-white/5'
-                                      : 'cursor-default font-medium text-[#7B879C]',
-                            );
+                                        />
+                                        {!collapsed && (
+                                            <>
+                                                <span className="flex-1 truncate">
+                                                    {item.label}
+                                                </span>
+                                                {item.soon !== undefined && (
+                                                    <span className="rounded px-1.5 py-px text-[10.5px] font-medium text-[#6B778C] ring-1 ring-white/10">
+                                                        {item.soon === 'later'
+                                                            ? 'Later'
+                                                            : `P${item.soon}`}
+                                                    </span>
+                                                )}
+                                            </>
+                                        )}
+                                    </>
+                                );
+                                const classes = cn(
+                                    'flex h-8 w-full items-center gap-2.5 rounded-[7px] px-2.5 text-left text-[13px]',
+                                    active
+                                        ? 'bg-white/8 font-semibold text-white'
+                                        : item.href
+                                          ? 'font-medium text-[#C8D1DF] hover:bg-white/5'
+                                          : 'cursor-default font-medium text-[#7B879C]',
+                                );
 
-                            return item.href ? (
-                                <Link
-                                    key={item.label}
-                                    href={item.href}
-                                    prefetch
-                                    className={classes}
-                                    title={item.label}
-                                >
-                                    {content}
-                                </Link>
-                            ) : (
-                                <span
-                                    key={item.label}
-                                    className={classes}
-                                    title={
-                                        item.soon === 'later'
-                                            ? `${item.label}: waiting for a client decision`
-                                            : `${item.label}: coming in Phase ${item.soon}`
-                                    }
-                                >
-                                    {content}
-                                </span>
-                            );
-                        })}
+                                return item.href ? (
+                                    <Link
+                                        key={item.label}
+                                        href={item.href}
+                                        prefetch
+                                        className={classes}
+                                        title={item.label}
+                                    >
+                                        {content}
+                                    </Link>
+                                ) : (
+                                    <span
+                                        key={item.label}
+                                        className={classes}
+                                        title={
+                                            item.soon === 'later'
+                                                ? `${item.label}: waiting for a client decision`
+                                                : `${item.label}: coming in Phase ${item.soon}`
+                                        }
+                                    >
+                                        {content}
+                                    </span>
+                                );
+                            })}
                     </div>
                 ))}
             </nav>

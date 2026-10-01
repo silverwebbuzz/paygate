@@ -23,7 +23,7 @@ class SchemaConstraintsTest extends TestCase
 
     public function test_system_data_is_created_by_the_migrations()
     {
-        $this->assertSame(9, DB::table('roles')->where('is_system', true)->count());
+        $this->assertSame(10, DB::table('roles')->where('is_system', true)->count());
         $this->assertSame(3, DB::table('ledger_accounts')->whereNull('partner_id')->count());
         $this->assertTrue(DB::table('reason_codes')->where(['context' => 'payin_reject', 'code' => 'invalid_utr'])->exists());
     }

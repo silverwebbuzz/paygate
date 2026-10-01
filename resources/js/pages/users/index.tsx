@@ -97,7 +97,13 @@ export default function UsersIndex({
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(null);
     const [dialog, setDialog] = useState<
-        null | 'invite' | 'edit' | 'suspend' | 'reactivate' | 'two-factor'
+        | null
+        | 'create'
+        | 'edit'
+        | 'password'
+        | 'suspend'
+        | 'reactivate'
+        | 'two-factor'
     >(null);
     const [processing, setProcessing] = useState(false);
     const open = users.data.find((user) => user.id === openId) ?? null;
@@ -233,9 +239,9 @@ export default function UsersIndex({
                     can.create && (
                         <PgButton
                             variant="primary"
-                            onClick={() => setDialog('invite')}
+                            onClick={() => setDialog('create')}
                         >
-                            Invite user
+                            Add user
                         </PgButton>
                     )
                 }
@@ -392,6 +398,9 @@ export default function UsersIndex({
                             <PgButton onClick={() => setDialog('edit')}>
                                 Edit
                             </PgButton>
+                            <PgButton onClick={() => setDialog('password')}>
+                                Set password
+                            </PgButton>
                             {open.status === 'invited' && (
                                 <PgButton
                                     disabled={processing}
@@ -437,7 +446,7 @@ export default function UsersIndex({
                 </Drawer>
             )}
 
-            {dialog === 'invite' && (
+            {dialog === 'create' && (
                 <UserFormDialog
                     portal={portal}
                     roles={roles}
@@ -454,6 +463,14 @@ export default function UsersIndex({
                     organisations={organisations}
                     user={open}
                     url={routes.update(open.id).url}
+                    onClose={() => setDialog(null)}
+                />
+            )}
+
+            {dialog === 'password' && open && (
+                <PasswordDialog
+                    user={open}
+                    url={routes.password(open.id).url}
                     onClose={() => setDialog(null)}
                 />
             )}
@@ -521,7 +538,7 @@ export default function UsersIndex({
     );
 }
 
-/** Invite a new user, or edit one (name, email, role). */
+/** Add a new user with a password, or edit one (name, email, role). */
 function UserFormDialog({
     portal,
     roles,
@@ -544,6 +561,8 @@ function UserFormDialog({
         type: user?.type ?? portal,
         role_id: user?.role.id ?? '',
         organisation_id: '',
+        password: '',
+        password_confirmation: '',
     });
     const errors = form.errors as Record<string, string | undefined>;
     const roleOptions = roles.filter(
@@ -572,6 +591,12 @@ function UserFormDialog({
             ...(!editing && organisations && data.type !== 'admin'
                 ? { organisation_id: data.organisation_id }
                 : {}),
+            ...(!editing
+                ? {
+                      password: data.password,
+                      password_confirmation: data.password_confirmation,
+                  }
+                : {}),
         }));
 
         if (editing) {
@@ -585,13 +610,13 @@ function UserFormDialog({
         <FormDialog
             open
             onOpenChange={(next) => !next && onClose()}
-            title={editing ? `Edit ${user.name}` : 'Invite user'}
+            title={editing ? `Edit ${user.name}` : 'Add user'}
             description={
                 editing
                     ? 'A changed email address must be verified again by the user.'
-                    : 'They receive an email with a link to set their password (valid 72 hours).'
+                    : 'They can log in straight away with this email and password. Pass the password on securely; they can change it under Profile & settings.'
             }
-            submitLabel={editing ? 'Save' : 'Send invitation'}
+            submitLabel={editing ? 'Save' : 'Add user'}
             processing={form.processing}
             onSubmit={submit}
         >
@@ -685,6 +710,95 @@ function UserFormDialog({
                     ))}
                 </SelectInput>
             </Field>
+            {!editing && (
+                <PasswordFields
+                    password={form.data.password}
+                    confirmation={form.data.password_confirmation}
+                    error={errors.password}
+                    onChange={(field, value) => form.setData(field, value)}
+                />
+            )}
         </FormDialog>
+    );
+}
+
+/** Set a new password for another user (forgotten, or never received the invitation). */
+function PasswordDialog({
+    user,
+    url,
+    onClose,
+}: {
+    user: UserRow;
+    url: string;
+    onClose: () => void;
+}) {
+    const form = useForm({ password: '', password_confirmation: '' });
+
+    return (
+        <FormDialog
+            open
+            onOpenChange={(next) => !next && onClose()}
+            title={`Set password for ${user.name}`}
+            description="Their current password stops working. Pass the new one on securely; they can change it under Profile & settings."
+            submitLabel="Set password"
+            processing={form.processing}
+            onSubmit={() =>
+                form.put(url, { preserveScroll: true, onSuccess: onClose })
+            }
+        >
+            <PasswordFields
+                password={form.data.password}
+                confirmation={form.data.password_confirmation}
+                error={form.errors.password}
+                onChange={(field, value) => form.setData(field, value)}
+            />
+        </FormDialog>
+    );
+}
+
+function PasswordFields({
+    password,
+    confirmation,
+    error,
+    onChange,
+}: {
+    password: string;
+    confirmation: string;
+    error?: string;
+    onChange: (
+        field: 'password' | 'password_confirmation',
+        value: string,
+    ) => void;
+}) {
+    return (
+        <>
+            <Field
+                label="Password"
+                hint="At least 12 characters with upper and lower case letters, a number and a symbol."
+                error={error}
+            >
+                <TextInput
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    value={password}
+                    invalid={!!error}
+                    onChange={(event) =>
+                        onChange('password', event.target.value)
+                    }
+                />
+            </Field>
+            <Field label="Confirm password">
+                <TextInput
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    value={confirmation}
+                    onChange={(event) =>
+                        onChange('password_confirmation', event.target.value)
+                    }
+                />
+            </Field>
+        </>
     );
 }

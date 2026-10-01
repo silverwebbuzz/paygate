@@ -89,10 +89,15 @@ class Role extends Model
 
     /**
      * Whether `$user` may hand this role out (or edit it): a user can never
-     * grant more than they hold themselves.
+     * grant more than they hold themselves, and only super admins hand out
+     * (or manage holders of) the super admin role.
      */
     public function isWithinPermissionsOf(User $user): bool
     {
+        if ($this->isLocked() && ! $user->isSuperAdmin()) {
+            return false;
+        }
+
         $granted = array_filter($this->permissionValues(), fn (string $value) => Permission::tryFrom($value) !== null);
 
         return array_diff($granted, $user->permissionNames()) === [];

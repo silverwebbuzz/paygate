@@ -4,9 +4,10 @@ namespace App\Http\Shared\Users;
 
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Actions\ChangeUserStatus;
-use App\Domain\Core\Identity\Actions\InviteUser;
+use App\Domain\Core\Identity\Actions\CreateUser;
 use App\Domain\Core\Identity\Actions\ResetUserTwoFactor;
 use App\Domain\Core\Identity\Actions\SendInvitation;
+use App\Domain\Core\Identity\Actions\SetUserPassword;
 use App\Domain\Core\Identity\Actions\UpdateUser;
 use App\Domain\Core\Identity\Enums\UserStatus;
 use App\Domain\Core\Identity\Enums\UserType;
@@ -15,7 +16,8 @@ use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Partner\Models\Partner;
 use App\Http\Controller;
 use App\Http\Shared\Users\Requests\ChangeUserStatusRequest;
-use App\Http\Shared\Users\Requests\InviteUserRequest;
+use App\Http\Shared\Users\Requests\SetUserPasswordRequest;
+use App\Http\Shared\Users\Requests\StoreUserRequest;
 use App\Http\Shared\Users\Requests\UpdateUserRequest;
 use App\Http\Shared\Users\Requests\UserActionRequest;
 use Illuminate\Database\Eloquent\Builder;
@@ -82,17 +84,18 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(InviteUserRequest $request, InviteUser $invite): RedirectResponse
+    public function store(StoreUserRequest $request, CreateUser $create): RedirectResponse
     {
-        $user = $invite->handle(
+        $user = $create->handle(
             $request->actor(),
             $request->string('name')->value(),
             $request->string('email')->value(),
             $request->role(),
             $request->input('organisation_id'),
+            $request->string('password')->value(),
         );
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Invitation sent to :email.', ['email' => $user->email])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':name can now log in as :email.', ['name' => $user->name, 'email' => $user->email])]);
 
         return back();
     }
@@ -125,6 +128,15 @@ class UserController extends Controller
         $send->handle($this->actor($request), $user);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('New invitation sent to :email.', ['email' => $user->email])]);
+
+        return back();
+    }
+
+    public function setPassword(SetUserPasswordRequest $request, User $user, SetUserPassword $set): RedirectResponse
+    {
+        $set->handle($request->actor(), $user, $request->string('password')->value());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('New password set for :name.', ['name' => $user->name])]);
 
         return back();
     }

@@ -12,6 +12,7 @@ use App\Domain\Core\Rbac\Models\Role;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Partner\Models\Partner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -26,6 +27,8 @@ class UserManagementTest extends TestCase
 
         Notification::fake();
     }
+
+    private const PASSWORD = ['password' => 'Str0ng-pass!word', 'password_confirmation' => 'Str0ng-pass!word'];
 
     private function superAdmin(): User
     {
@@ -62,7 +65,7 @@ class UserManagementTest extends TestCase
         $this->actingAs($operator)->get(route('branch.users.index'))->assertForbidden();
     }
 
-    public function test_admin_invites_a_branch_user_who_receives_an_email()
+    public function test_admin_creates_a_branch_user_who_can_log_in_with_the_password_at_once()
     {
         $admin = $this->superAdmin();
         $branch = Branch::factory()->create();
@@ -72,16 +75,97 @@ class UserManagementTest extends TestCase
             'email' => 'ravi@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
             'organisation_id' => $branch->id,
+            ...self::PASSWORD,
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $user = User::where('email', 'ravi@example.com')->firstOrFail();
         $this->assertSame(UserType::Branch, $user->type);
         $this->assertSame($branch->id, $user->branch_id);
-        $this->assertTrue($user->isInvited());
-        $this->assertSame('invited', $user->displayStatus());
+        $this->assertTrue(Hash::check('Str0ng-pass!word', $user->password));
+        $this->assertSame('active', $user->displayStatus());
 
-        Notification::assertSentTo($user, UserInvitation::class);
-        $this->assertDatabaseHas('audit_logs', ['action' => 'user.invited', 'subject_id' => $user->id, 'actor_id' => $admin->id]);
+        Notification::assertNothingSent();
+        $this->assertDatabaseHas('audit_logs', ['action' => 'user.created', 'subject_id' => $user->id, 'actor_id' => $admin->id]);
+    }
+
+    public function test_a_new_user_needs_a_confirmed_password()
+    {
+        $this->actingAs($this->superAdmin())->post(route('admin.users.store'), [
+            'name' => 'No Password',
+            'email' => 'nopass@example.com',
+            'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
+        ])->assertSessionHasErrors('password');
+
+        $this->actingAs($this->superAdmin())->post(route('admin.users.store'), [
+            'name' => 'Mismatch',
+            'email' => 'mismatch@example.com',
+            'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
+            'password' => 'Str0ng-pass!word',
+            'password_confirmation' => 'something-else',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('users', ['email' => 'nopass@example.com']);
+        $this->assertDatabaseMissing('users', ['email' => 'mismatch@example.com']);
+    }
+
+    public function test_admin_sets_another_users_password()
+    {
+        $admin = $this->superAdmin();
+        $user = User::factory()->partner()->create();
+
+        $this->actingAs($admin)->put(route('admin.users.password', $user), self::PASSWORD)->assertSessionHasNoErrors();
+
+        $this->assertTrue(Hash::check('Str0ng-pass!word', $user->fresh()?->password));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'user.password_set', 'subject_id' => $user->id, 'actor_id' => $admin->id]);
+
+        // Not their own account, and not a partner owner for another organisation.
+        $this->actingAs($admin)->put(route('admin.users.password', $admin), self::PASSWORD)->assertForbidden();
+        $this->actingAs(User::factory()->partner(SystemRoles::PARTNER_OWNER)->create())
+            ->put(route('partner.users.password', $user), self::PASSWORD)->assertForbidden();
+    }
+
+    public function test_the_admin_role_cannot_create_or_manage_super_admins()
+    {
+        $actor = User::factory()->admin(SystemRoles::ADMIN_FULL)->withTwoFactor()->create();
+        $superAdmin = $this->superAdmin();
+
+        $this->assertFalse($actor->isSuperAdmin());
+        $this->assertEqualsCanonicalizing(Role::bySlug(SystemRoles::ADMIN_SUPER)->permissionValues(), $actor->permissionNames());
+
+        $this->actingAs($actor)->post(route('admin.users.store'), [
+            'name' => 'Promoted',
+            'email' => 'promoted@example.com',
+            'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
+            ...self::PASSWORD,
+        ])->assertSessionHasErrors('role_id');
+
+        $this->actingAs($actor)->put(route('admin.users.password', $superAdmin), self::PASSWORD)->assertForbidden();
+        $this->actingAs($actor)->put(route('admin.users.status', $superAdmin), ['status' => 'suspended', 'reason' => 'test'])->assertForbidden();
+
+        // Other admins, including other Admin-role users, are fine.
+        $this->actingAs($actor)->post(route('admin.users.store'), [
+            'name' => 'Second Admin',
+            'email' => 'second@example.com',
+            'role_id' => Role::bySlug(SystemRoles::ADMIN_FULL)->id,
+            ...self::PASSWORD,
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($actor)->get(route('admin.users.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('roles', fn ($roles) => ! collect($roles)->contains('id', Role::bySlug(SystemRoles::ADMIN_SUPER)->id)));
+    }
+
+    public function test_the_admin_role_does_not_see_the_super_admin_tools()
+    {
+        $actor = User::factory()->admin(SystemRoles::ADMIN_FULL)->withTwoFactor()->create();
+
+        $this->actingAs($actor)->get(route('admin.section-rollout.index'))->assertForbidden();
+        $this->actingAs($actor)->get(route('admin.qa-checklist.index'))->assertForbidden();
+        $this->actingAs($actor)->get(route('admin.ui-kit'))->assertForbidden();
+        $this->actingAs($actor)->get(route('admin.users.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('superAdmin', false)
+            ->where('qaChecklist', false));
+
+        $this->actingAs($this->superAdmin())->get(route('admin.ui-kit'))->assertOk();
     }
 
     public function test_admin_must_choose_the_organisation_for_partner_and_branch_users()
@@ -95,7 +179,7 @@ class UserManagementTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'noorg@example.com']);
     }
 
-    public function test_owners_invite_into_their_own_organisation_only()
+    public function test_owners_add_users_to_their_own_organisation_only()
     {
         $branch = Branch::factory()->create();
         $owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $branch)->withTwoFactor()->create();
@@ -104,6 +188,7 @@ class UserManagementTest extends TestCase
             'name' => 'New Operator',
             'email' => 'operator2@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
+            ...self::PASSWORD,
         ])->assertSessionHasNoErrors();
 
         $this->assertSame($branch->id, User::where('email', 'operator2@example.com')->value('branch_id'));
@@ -113,6 +198,7 @@ class UserManagementTest extends TestCase
             'name' => 'Sneaky',
             'email' => 'sneaky@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
+            ...self::PASSWORD,
         ])->assertSessionHasErrors('role_id');
 
         $this->actingAs($owner)->post(route('branch.users.store'), [
@@ -120,6 +206,7 @@ class UserManagementTest extends TestCase
             'email' => 'elsewhere@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
             'organisation_id' => Branch::factory()->create()->id,
+            ...self::PASSWORD,
         ])->assertSessionHasErrors('organisation_id');
 
         $this->assertDatabaseMissing('users', ['email' => 'sneaky@example.com']);
@@ -154,6 +241,7 @@ class UserManagementTest extends TestCase
             'name' => 'Promoted',
             'email' => 'promoted@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
+            ...self::PASSWORD,
         ])->assertSessionHasErrors('role_id');
 
         $this->actingAs($actor)->put(route('admin.users.status', $superAdmin), [

@@ -171,6 +171,7 @@ Route::controller(UserController::class)->prefix('users')->name('users.')->group
     Route::put('{user}', 'update')->name('update');
     Route::put('{user}/status', 'status')->name('status');
     Route::post('{user}/invitation', 'resendInvitation')->name('invitation');
+    Route::put('{user}/password', 'setPassword')->name('password');
     Route::delete('{user}/two-factor', 'resetTwoFactor')->name('two-factor');
 });
 
@@ -188,7 +189,5 @@ Route::controller(QaChecklistController::class)->prefix('qa-checklist')->name('q
 Route::get('section-rollout', [SectionRolloutController::class, 'index'])->name('section-rollout.index');
 Route::put('section-rollout', [SectionRolloutController::class, 'update'])->name('section-rollout.update');
 
-// Design-system reference page (local development only).
-if (app()->isLocal()) {
-    Route::inertia('ui-kit', 'admin/ui-kit')->name('ui-kit');
-}
+// Design-system reference page with sample data (super admins only).
+Route::inertia('ui-kit', 'admin/ui-kit')->middleware('can:super-admin')->name('ui-kit');

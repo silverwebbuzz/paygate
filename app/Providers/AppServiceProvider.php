@@ -114,6 +114,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Transaction::class, TransactionPolicy::class);
+
+        // Super-admin tools (Section rollout, QA Checklist, UI kit).
+        Gate::define('super-admin', fn (User $user) => $user->isSuperAdmin());
     }
 
     /**

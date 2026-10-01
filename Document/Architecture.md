@@ -17,12 +17,12 @@
 
 ### 1.1 Actors
 
-| Actor       | Who                                            | What they do                                                                                                                                         |
-| ----------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Admin**   | Platform operators (super admin, ops, finance) | Create/suspend partners and branches, verify bank/UPI accounts, assign accounts to partners, watch every transaction, resolve disputes, settle money |
-| **Partner** | Merchant websites/apps                         | Get API credentials + webhook secret, create payment sessions for their users, receive webhooks when a payment is confirmed/failed                   |
-| **Branch**  | Bank-account providers                         | Add bank accounts / UPI IDs in their panel, see deposits made to their accounts, confirm or reject them                                              |
-| **Payer**   | End user of a partner                          | Opens the payment URL, sees bank/UPI details, pays from their own bank app, submits the UTR/reference                                                |
+| Actor       | Who                                                   | What they do                                                                                                                                         |
+| ----------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Admin**   | Platform operators (super admin, admin, ops, finance) | Create/suspend partners and branches, verify bank/UPI accounts, assign accounts to partners, watch every transaction, resolve disputes, settle money |
+| **Partner** | Merchant websites/apps                                | Get API credentials + webhook secret, create payment sessions for their users, receive webhooks when a payment is confirmed/failed                   |
+| **Branch**  | Bank-account providers                                | Add bank accounts / UPI IDs in their panel, see deposits made to their accounts, confirm or reject them                                              |
+| **Payer**   | End user of a partner                                 | Opens the payment URL, sees bank/UPI details, pays from their own bank app, submits the UTR/reference                                                |
 
 ### 1.2 Glossary
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Domain\Core\Identity\Actions\InviteUser;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Identity\Notifications\UserInvitation;
 use App\Domain\Core\Rbac\Models\Role;
@@ -24,16 +25,8 @@ class InvitationTest extends TestCase
 
         $admin = User::factory()->admin()->withTwoFactor()->create();
 
-        $this->actingAs($admin)->post(route('admin.users.store'), [
-            'name' => 'New Partner User',
-            'email' => 'new@example.com',
-            'role_id' => Role::bySlug(SystemRoles::PARTNER_VIEWER)->id,
-            'organisation_id' => Partner::factory()->create()->id,
-        ])->assertSessionHasNoErrors();
-
-        auth()->logout();
-
-        $user = User::where('email', 'new@example.com')->firstOrFail();
+        // Invitations are sent for the branch admin named when a branch is created.
+        $user = app(InviteUser::class)->handle($admin, 'New Partner User', 'new@example.com', Role::bySlug(SystemRoles::PARTNER_VIEWER), Partner::factory()->create()->id);
         $token = null;
 
         Notification::assertSentTo($user, UserInvitation::class, function (UserInvitation $notification) use (&$token) {

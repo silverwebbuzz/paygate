@@ -12,11 +12,15 @@ use App\Domain\Core\Rbac\Enums\Permission as P;
  *
  * The super admin role is locked: it always holds every admin permission
  * (including ones added to the catalogue later), so Admin can never lock
- * itself out of the roles screen.
+ * itself out of the roles screen. Only super admins hand it out or manage
+ * its users; the Admin role starts with the same permissions but not the
+ * super-admin tools.
  */
 final class SystemRoles
 {
     public const ADMIN_SUPER = 'admin.super';
+
+    public const ADMIN_FULL = 'admin.admin';
 
     public const ADMIN_OPS = 'admin.ops';
 
@@ -44,6 +48,12 @@ final class SystemRoles
                 'type' => UserType::Admin,
                 'name' => 'Super admin',
                 'description' => 'Full control of the platform. Always holds every admin permission and can\'t be edited.',
+                'permissions' => P::forType(UserType::Admin),
+            ],
+            self::ADMIN_FULL => [
+                'type' => UserType::Admin,
+                'name' => 'Admin',
+                'description' => 'Every admin screen except the super-admin tools (Section rollout, QA Checklist, UI kit). Can\'t manage super admins.',
                 'permissions' => P::forType(UserType::Admin),
             ],
             self::ADMIN_OPS => [
