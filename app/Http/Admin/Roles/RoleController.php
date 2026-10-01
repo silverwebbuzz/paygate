@@ -9,6 +9,7 @@ use App\Domain\Core\Rbac\Actions\SaveRole;
 use App\Domain\Core\Rbac\Enums\Menu;
 use App\Domain\Core\Rbac\Enums\Permission;
 use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\SystemRoles;
 use App\Http\Admin\Roles\Requests\StoreRoleRequest;
 use App\Http\Admin\Roles\Requests\UpdateRoleRequest;
 use App\Http\Controller;
@@ -31,8 +32,13 @@ class RoleController extends Controller
         $actor = $request->user();
         $type = UserType::tryFrom((string) $request->query('type')) ?? UserType::Admin;
 
+        // The super admin role (the developers) is shown to super admins only.
+        $visible = fn ($query) => $query->when(! $actor->isSuperAdmin(), fn ($query) => $query
+            ->where(fn ($query) => $query->whereNull('slug')->orWhere('slug', '!=', SystemRoles::ADMIN_SUPER)));
+
         $roles = Role::query()
             ->where('user_type', $type)
+            ->tap($visible)
             ->withCount('users')
             ->orderByDesc('is_system')
             ->orderBy('name')
@@ -40,7 +46,7 @@ class RoleController extends Controller
 
         return Inertia::render('admin/roles/index', [
             'type' => $type->value,
-            'counts' => Role::query()->toBase()->selectRaw('user_type, count(*) as total')->groupBy('user_type')->pluck('total', 'user_type'),
+            'counts' => Role::query()->tap($visible)->toBase()->selectRaw('user_type, count(*) as total')->groupBy('user_type')->pluck('total', 'user_type'),
             'roles' => $roles->map(fn (Role $role) => [
                 'id' => $role->id,
                 'name' => $role->name,

@@ -155,6 +155,27 @@ class UserManagementTest extends TestCase
             ->where('roles', fn ($roles) => ! collect($roles)->contains('id', Role::bySlug(SystemRoles::ADMIN_SUPER)->id)));
     }
 
+    public function test_super_admins_and_their_role_are_hidden_from_everyone_else()
+    {
+        $actor = User::factory()->admin(SystemRoles::ADMIN_FULL)->withTwoFactor()->create();
+        $superAdmin = $this->superAdmin();
+        $superRole = Role::bySlug(SystemRoles::ADMIN_SUPER);
+
+        $this->actingAs($actor)->get(route('admin.users.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('users.data', fn ($rows) => collect($rows)->pluck('id')->all() === [$actor->id])
+            ->where('counts.all', 1)
+            ->where('counts.admin', 1));
+
+        $this->actingAs($actor)->get(route('admin.roles.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('roles', fn ($roles) => ! collect($roles)->contains('id', $superRole->id))
+            ->where('counts.admin', 4));
+
+        // Super admins still see everything.
+        $this->actingAs($superAdmin)->get(route('admin.users.index'))->assertInertia(fn (Assert $page) => $page->where('counts.all', 2));
+        $this->actingAs($superAdmin)->get(route('admin.roles.index'))->assertInertia(fn (Assert $page) => $page
+            ->where('roles', fn ($roles) => collect($roles)->contains('id', $superRole->id)));
+    }
+
     public function test_the_admin_role_does_not_see_the_super_admin_tools()
     {
         $actor = User::factory()->admin(SystemRoles::ADMIN_FULL)->withTwoFactor()->create();

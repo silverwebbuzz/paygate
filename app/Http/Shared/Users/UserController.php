@@ -12,6 +12,7 @@ use App\Domain\Core\Identity\Enums\UserStatus;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Models\Role;
+use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Partner\Models\Partner;
 use App\Http\Controller;
 use App\Http\Shared\Users\Requests\ChangeUserStatusRequest;
@@ -210,7 +211,9 @@ class UserController extends Controller
             UserType::Admin => match (true) {
                 $organisation instanceof Partner => User::query()->where('partner_id', $organisation->id),
                 $organisation instanceof Branch => User::query()->where('branch_id', $organisation->id),
-                default => User::query(),
+                // Super admins (the developers) are listed to super admins only.
+                default => User::query()->when(! $actor->isSuperAdmin(), fn (Builder $query) => $query
+                    ->whereDoesntHave('role', fn (Builder $query) => $query->where('slug', SystemRoles::ADMIN_SUPER))),
             },
             UserType::Partner => User::query()->where('partner_id', $actor->partner_id),
             UserType::Branch => User::query()->where('branch_id', $actor->branch_id),
@@ -234,7 +237,7 @@ class UserController extends Controller
 
         if ($actor->isType(UserType::Admin) && $organisation === null) {
             foreach (UserType::cases() as $type) {
-                $counts[$type->value] = User::query()->where('type', $type)->count();
+                $counts[$type->value] = $this->scoped($actor)->where('type', $type)->count();
             }
         }
 

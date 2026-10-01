@@ -1,3 +1,5 @@
+import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
 import type {
     InputHTMLAttributes,
     ReactNode,
@@ -47,6 +49,41 @@ export function TextInput({
             className={cn(control, 'h-10', className)}
             {...props}
         />
+    );
+}
+
+/** Password field with an eye button to show / hide what is typed. */
+export function PasswordTextInput({
+    className,
+    invalid,
+    ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
+    invalid?: boolean;
+}) {
+    const [visible, setVisible] = useState(false);
+
+    return (
+        <div className="relative">
+            <input
+                type={visible ? 'text' : 'password'}
+                aria-invalid={invalid || undefined}
+                className={cn(control, 'h-10 pr-10', className)}
+                {...props}
+            />
+            <button
+                type="button"
+                onClick={() => setVisible(!visible)}
+                aria-label={visible ? 'Hide password' : 'Show password'}
+                title={visible ? 'Hide password' : 'Show password'}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-tx3 hover:text-tx"
+            >
+                {visible ? (
+                    <EyeOff className="size-4" />
+                ) : (
+                    <Eye className="size-4" />
+                )}
+            </button>
+        </div>
     );
 }
 

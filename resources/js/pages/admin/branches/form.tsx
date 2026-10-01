@@ -3,7 +3,12 @@ import { useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 import { PgButton } from '@/components/pg/button';
 import { Panel } from '@/components/pg/data-table';
-import { Field, SelectInput, TextInput } from '@/components/pg/field';
+import {
+    Field,
+    PasswordTextInput,
+    SelectInput,
+    TextInput,
+} from '@/components/pg/field';
 import { OrgPicker } from '@/components/pg/org-picker';
 import type { PickerItem } from '@/components/pg/org-picker';
 import { PageHeader } from '@/components/pg/page-header';
@@ -318,19 +323,35 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                     >
                         {input('admin_name', 'Full name')}
                         {input('admin_email', 'Email', { type: 'email' })}
-                        {input('admin_password', 'Password', {
-                            type: 'password',
-                            autoComplete: 'new-password',
-                            hint: 'At least 12 characters with upper and lower case letters, a number and a symbol.',
-                        })}
-                        {input(
-                            'admin_password_confirmation',
-                            'Confirm password',
-                            {
-                                type: 'password',
-                                autoComplete: 'new-password',
-                            },
-                        )}
+                        <Field
+                            label="Password"
+                            hint="At least 12 characters with upper and lower case letters, a number and a symbol."
+                            error={errors.admin_password}
+                        >
+                            <PasswordTextInput
+                                autoComplete="new-password"
+                                value={data.admin_password}
+                                invalid={!!errors.admin_password}
+                                onChange={(event) =>
+                                    setData(
+                                        'admin_password',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </Field>
+                        <Field label="Confirm password">
+                            <PasswordTextInput
+                                autoComplete="new-password"
+                                value={data.admin_password_confirmation}
+                                onChange={(event) =>
+                                    setData(
+                                        'admin_password_confirmation',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </Field>
                     </Section>
                 )}
 

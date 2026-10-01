@@ -8,7 +8,12 @@ import { DataTable, Panel } from '@/components/pg/data-table';
 import type { Column } from '@/components/pg/data-table';
 import { Drawer, KeyValues } from '@/components/pg/drawer';
 import { EmptyState } from '@/components/pg/empty-state';
-import { Field, SelectInput, TextInput } from '@/components/pg/field';
+import {
+    Field,
+    PasswordTextInput,
+    SelectInput,
+    TextInput,
+} from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { PageHeader } from '@/components/pg/page-header';
@@ -748,8 +753,7 @@ function PasswordFields({
                 hint="At least 12 characters with upper and lower case letters, a number and a symbol."
                 error={error}
             >
-                <TextInput
-                    type="password"
+                <PasswordTextInput
                     required
                     autoComplete="new-password"
                     value={password}
@@ -760,8 +764,7 @@ function PasswordFields({
                 />
             </Field>
             <Field label="Confirm password">
-                <TextInput
-                    type="password"
+                <PasswordTextInput
                     required
                     autoComplete="new-password"
                     value={confirmation}

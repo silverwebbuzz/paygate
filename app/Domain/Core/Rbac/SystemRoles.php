@@ -53,7 +53,8 @@ final class SystemRoles
             self::ADMIN_FULL => [
                 'type' => UserType::Admin,
                 'name' => 'Admin',
-                'description' => 'Every admin screen except the super-admin tools (Section rollout, QA Checklist, UI kit). Can\'t manage super admins.',
+                // Shown to the client: no mention of the (hidden) super admin role.
+                'description' => 'Full access to the admin portal.',
                 'permissions' => P::forType(UserType::Admin),
             ],
             self::ADMIN_OPS => [

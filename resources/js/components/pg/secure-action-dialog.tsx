@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useState } from 'react';
-import { Field, TextInput } from './field';
+import { Field, PasswordTextInput, TextInput } from './field';
 import { FormDialog } from './form-dialog';
 
 /**
@@ -77,8 +77,7 @@ export function SecureActionDialog({
                 </Field>
             )}
             <Field label="Your password" error={errors.password ?? errors.key}>
-                <TextInput
-                    type="password"
+                <PasswordTextInput
                     required
                     autoComplete="current-password"
                     value={password}
