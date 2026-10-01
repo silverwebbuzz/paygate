@@ -14,12 +14,14 @@ Run the commands **one block at a time** and check each "Expected" line before m
 
 ### Where everything lives
 
+Everything is inside `aidemo.in`; nothing is added directly to the `silverwebbuzz_in` home folder.
+(`public_html/aidemo_in` is only a shortcut to the same `aidemo.in` folder, because Webuzo Git's path box does not
+accept a dot.)
+
 ```
-/home/silverwebbuzz_in/
-├── public_html/aidemo.in/     ← PayGate's code (Webuzo Git clone), .env, uploads, logs
-│   └── public/                ← aidemo.in DOCUMENT ROOT: the only folder Apache may show (step 14)
-├── public_html/aidemo_in      ← shortcut to aidemo.in (Webuzo Git's path box does not accept a dot)
-└── paygate/                   ← PayGate's tools, NOT reachable from the web
+/home/silverwebbuzz_in/public_html/aidemo.in/      ← PayGate's code (Webuzo Git clone), .env, uploads, logs
+├── public/                    ← aidemo.in DOCUMENT ROOT: the only folder Apache may show (step 14)
+└── .server/                   ← PayGate's server tools (ignored by git, NOT reachable from the web)
     ├── bin/                   ← php (→ separate PHP 8.5 in /opt/remi), frankenphp, composer, psql, pg_dump
     ├── node/                  ← private Node.js 24 (only used to build the website files)
     ├── etc/                   ← PayGate's own PHP settings and service settings
@@ -27,6 +29,9 @@ Run the commands **one block at a time** and check each "Expected" line before m
     ├── env.sh                 ← "use PayGate's tools" switch for a terminal session
     └── deploy.sh              ← one command to deploy a new version from git
 ```
+
+`.server` is listed in the repository's `.gitignore`, so git (and Webuzo Git's "no uncommitted changes" check)
+ignores it, and `git pull` never touches it. Never run `git clean -x` there: it would delete `.server`.
 
 **Important:** `aidemo.in`'s document root must be the **`public`** subfolder (step 14), as for any Laravel site.
 Then `.env` (passwords and keys), `.git` and the rest of the code can never be downloaded, even if the
@@ -37,12 +42,12 @@ Then `.env` (passwords and keys), `.git` and the rest of the code can never be d
 | Piece                 | PayGate uses                                                                  | Your other projects                                                    |
 | --------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | **PHP**               | A separate **PHP 8.5** in `/opt/remi/php85` (Webuzo's PHP 8.5 lacks `redis` and crashes on exit), called only by its full path | Unchanged. The server's default PHP, Webuzo's PHP 8.5 and every site's PHP stay as they are |
-| PHP settings          | Its own file `paygate/etc/php.d/paygate.ini`                                  | Webuzo's `php.ini` files are **not edited**                            |
-| **Web server**        | **FrankenPHP**, a single file in `paygate/bin`, listening on `127.0.0.1:8000`   | Untouched. Apache keeps serving all sites; only `aidemo.in` forwards to :8000 |
+| PHP settings          | Its own file `.server/etc/php.d/paygate.ini`                                  | Webuzo's `php.ini` files are **not edited**                            |
+| **Web server**        | **FrankenPHP**, a single file in `.server/bin`, listening on `127.0.0.1:8000`   | Untouched. Apache keeps serving all sites; only `aidemo.in` forwards to :8000 |
 | **PostgreSQL**        | A **new PostgreSQL 18** on port **5433** (PayGate needs 15 or newer)            | Webuzo's PostgreSQL 13 on port 5432 keeps running, untouched           |
 | **Redis**             | Webuzo's **Redis 8.2**, but its own numbered databases (10 and 11) and key names | Other projects keep databases 0–9 and their own keys                   |
-| **Node.js**           | Private **Node 24** in `paygate/node`                                         | Webuzo's Node 12 and the `node` command stay as they are               |
-| **Composer**          | Private copy in `paygate/bin`                                                 | Unchanged                                                              |
+| **Node.js**           | Private **Node 24** in `.server/node`                                         | Webuzo's Node 12 and the `node` command stay as they are               |
+| **Composer**          | Private copy in `.server/bin`                                                 | Unchanged                                                              |
 | Background jobs       | 3 new services: `paygate-web`, `paygate-horizon`, `paygate-scheduler`         | Nothing else is changed                                                 |
 
 The new terms, in plain words:
@@ -158,12 +163,12 @@ The last line is the server's normal `php`, which must show the **same version a
 ### Step 2. PayGate's folder and its "switch" files
 
 ```bash
-P=/home/silverwebbuzz_in/paygate
-mkdir -p $P/{bin,node,etc/php.d,backups,.ssh}
+P=/home/silverwebbuzz_in/public_html/aidemo.in/.server
+mkdir -p $P/{bin,node,etc/php.d,backups}
 
 cat > $P/env.sh <<'ENVSH'
-# PayGate tools for this terminal session: source ~/paygate/env.sh
-export PAYGATE=/home/silverwebbuzz_in/paygate
+# PayGate tools for this terminal session: source ~/public_html/aidemo.in/.server/env.sh
+export PAYGATE=/home/silverwebbuzz_in/public_html/aidemo.in/.server
 export PATH="$PAYGATE/bin:$PAYGATE/node/bin:$PATH"
 export PHP_INI_SCAN_DIR=":$PAYGATE/etc/php.d"
 export PGPASSFILE="$PAYGATE/.pgpass"
@@ -173,8 +178,8 @@ export PAYGATE_APP=/home/silverwebbuzz_in/public_html/aidemo.in
 ENVSH
 
 cat > $P/etc/services.env <<'SVCENV'
-PATH=/home/silverwebbuzz_in/paygate/bin:/home/silverwebbuzz_in/paygate/node/bin:/usr/local/bin:/usr/bin:/bin
-PHP_INI_SCAN_DIR=:/home/silverwebbuzz_in/paygate/etc/php.d
+PATH=/home/silverwebbuzz_in/public_html/aidemo.in/.server/bin:/home/silverwebbuzz_in/public_html/aidemo.in/.server/node/bin:/usr/local/bin:/usr/bin:/bin
+PHP_INI_SCAN_DIR=:/home/silverwebbuzz_in/public_html/aidemo.in/.server/etc/php.d
 SVCENV
 
 cat > $P/etc/php.d/paygate.ini <<'PHPINI'
@@ -193,11 +198,14 @@ PHPINI
 
 ln -sf /opt/remi/php85/root/usr/bin/php $P/bin/php
 chown -R silverwebbuzz_in:silverwebbuzz_in $P
-chmod 700 $P $P/.ssh
+chmod 700 $P
+grep -qx '/.server' /home/silverwebbuzz_in/public_html/aidemo.in/.git/info/exclude || echo '/.server' >> /home/silverwebbuzz_in/public_html/aidemo.in/.git/info/exclude
 ls -la $P
+sudo -u silverwebbuzz_in -H git -C /home/silverwebbuzz_in/public_html/aidemo.in status --short
 ```
 
-Expected: the folders `bin node etc backups .ssh` and `env.sh`, owned by `silverwebbuzz_in`.
+Expected: the folders `bin node etc backups` and `env.sh`, owned by `silverwebbuzz_in`, and `git status` prints
+nothing (git ignores `.server`; the `exclude` line covers the time before `main` has the new `.gitignore`).
 
 `PHP_INI_SCAN_DIR=":…"` means: "load PHP's normal settings, **then** PayGate's file". It is set only for PayGate's
 terminal sessions and services, so other sites never see it.
@@ -205,7 +213,7 @@ terminal sessions and services, so other sites never see it.
 Check it works:
 
 ```bash
-sudo -u silverwebbuzz_in -H bash -c 'source ~/paygate/env.sh && php -r "echo PHP_VERSION, \" \", ini_get(\"memory_limit\"), \" \", ini_get(\"date.timezone\"), \" [\", ini_get(\"disable_functions\"), \"]\n\";"'
+sudo -u silverwebbuzz_in -H bash -c 'source ~/public_html/aidemo.in/.server/env.sh && php -r "echo PHP_VERSION, \" \", ini_get(\"memory_limit\"), \" \", ini_get(\"date.timezone\"), \" [\", ini_get(\"disable_functions\"), \"]\n\";"'
 ```
 
 Expected: `8.5.x 512M UTC []`.
@@ -231,8 +239,8 @@ and both 5432 (Webuzo's PostgreSQL 13) and 5433 (the new one) listening.
 `postgresql18-contrib` provides `btree_gist`, which PayGate needs. Webuzo's PostgreSQL 13 is not touched.
 
 ```bash
-ln -sf /usr/pgsql-18/bin/psql /home/silverwebbuzz_in/paygate/bin/psql
-ln -sf /usr/pgsql-18/bin/pg_dump /home/silverwebbuzz_in/paygate/bin/pg_dump
+ln -sf /usr/pgsql-18/bin/psql /home/silverwebbuzz_in/public_html/aidemo.in/.server/bin/psql
+ln -sf /usr/pgsql-18/bin/pg_dump /home/silverwebbuzz_in/public_html/aidemo.in/.server/bin/pg_dump
 ```
 
 ### Step 4. PayGate's database and its two database users
@@ -269,7 +277,7 @@ Expected: `CREATE ROLE`, `CREATE ROLE`, `CREATE DATABASE`, `ALTER DATABASE`, `AL
 Save the owner password where PayGate's tools find it (only `silverwebbuzz_in` can read these two files):
 
 ```bash
-P=/home/silverwebbuzz_in/paygate
+P=/home/silverwebbuzz_in/public_html/aidemo.in/.server
 echo "127.0.0.1:5433:paygate:paygate_owner:$DB_OWNER_PASSWORD" > $P/.pgpass
 echo "DB_OWNER_PASSWORD=$DB_OWNER_PASSWORD" > $P/.deploy.env
 chown silverwebbuzz_in:silverwebbuzz_in $P/.pgpass $P/.deploy.env
@@ -287,7 +295,7 @@ and its own key names, so it never mixes with other projects' data. You set this
 ### Step 6. Composer (private copy)
 
 ```bash
-sudo -u silverwebbuzz_in -H bash -c 'source ~/paygate/env.sh && curl -sS https://getcomposer.org/installer | php -- --install-dir=$PAYGATE/bin --filename=composer && composer --version'
+sudo -u silverwebbuzz_in -H bash -c 'source ~/public_html/aidemo.in/.server/env.sh && curl -sS https://getcomposer.org/installer | php -- --install-dir=$PAYGATE/bin --filename=composer && composer --version'
 ```
 
 Expected: `Composer version 2.x`.
@@ -295,7 +303,7 @@ Expected: `Composer version 2.x`.
 ### Step 7. FrankenPHP (the web server that runs PayGate)
 
 ```bash
-sudo -u silverwebbuzz_in -H bash -c 'source ~/paygate/env.sh && curl -fL -o $PAYGATE/bin/frankenphp https://github.com/php/frankenphp/releases/latest/download/frankenphp-linux-x86_64 && chmod +x $PAYGATE/bin/frankenphp && frankenphp version'
+sudo -u silverwebbuzz_in -H bash -c 'source ~/public_html/aidemo.in/.server/env.sh && curl -fL -o $PAYGATE/bin/frankenphp https://github.com/php/frankenphp/releases/latest/download/frankenphp-linux-x86_64 && chmod +x $PAYGATE/bin/frankenphp && frankenphp version'
 ```
 
 Expected: `FrankenPHP v1.x PHP 8.x ...`. FrankenPHP has its own PHP built in (for the website only) with every
@@ -304,7 +312,7 @@ extension PayGate needs.
 Check it reads PayGate's PHP settings:
 
 ```bash
-sudo -u silverwebbuzz_in -H bash -c 'source ~/paygate/env.sh && echo "<?php echo ini_get(\"upload_max_filesize\"), \" \", extension_loaded(\"pdo_pgsql\") && extension_loaded(\"redis\") ? \"ok\" : \"MISSING\", PHP_EOL;" > /tmp/pg-check.php && frankenphp php-cli /tmp/pg-check.php; rm -f /tmp/pg-check.php'
+sudo -u silverwebbuzz_in -H bash -c 'source ~/public_html/aidemo.in/.server/env.sh && echo "<?php echo ini_get(\"upload_max_filesize\"), \" \", extension_loaded(\"pdo_pgsql\") && extension_loaded(\"redis\") ? \"ok\" : \"MISSING\", PHP_EOL;" > /tmp/pg-check.php && frankenphp php-cli /tmp/pg-check.php; rm -f /tmp/pg-check.php'
 ```
 
 Expected: `20M ok`.
@@ -313,7 +321,7 @@ Expected: `20M ok`.
 
 ```bash
 sudo -u silverwebbuzz_in -H bash -c '
-source ~/paygate/env.sh
+source ~/public_html/aidemo.in/.server/env.sh
 NODE_TAR=$(curl -fsSL https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt | awk "/linux-x64.tar.xz\$/{print \$2}")
 echo "Downloading $NODE_TAR"
 curl -fsSL "https://nodejs.org/dist/latest-v24.x/$NODE_TAR" | tar -xJ -C $PAYGATE/node --strip-components=1
@@ -321,7 +329,7 @@ which node; node -v; npm -v'
 node -v 2>/dev/null || echo "server-wide node unchanged"
 ```
 
-Expected: `/home/silverwebbuzz_in/paygate/node/bin/node` and `v24.x` inside PayGate's session; the last line
+Expected: `/home/silverwebbuzz_in/public_html/aidemo.in/.server/node/bin/node` and `v24.x` inside PayGate's session; the last line
 shows the server's own Node (`v12…`), unchanged.
 
 ### Step 9. The code, cloned with Webuzo Git
@@ -357,11 +365,11 @@ Open a PayGate session (do this every time you work on PayGate by hand):
 
 ```bash
 sudo -u silverwebbuzz_in -H bash
-source ~/paygate/env.sh
+source ~/public_html/aidemo.in/.server/env.sh
 ```
 
 Your prompt now runs as `silverwebbuzz_in` with PayGate's tools. Check: `which php node composer psql` should all
-show `/home/silverwebbuzz_in/paygate/...`.
+show `/home/silverwebbuzz_in/public_html/aidemo.in/.server/...`.
 
 ### Step 10. Install the PHP packages and create `.env`
 
@@ -435,7 +443,7 @@ grep -E '^(APP_KEY|PAYGATE_HASH_KEY)=' .env
 
 ```bash
 cd $PAYGATE_APP
-source ~/paygate/.deploy.env
+source ~/public_html/aidemo.in/.server/.deploy.env
 DB_USERNAME=paygate_owner DB_PASSWORD="$DB_OWNER_PASSWORD" php artisan migrate --force
 psql "host=127.0.0.1 port=5433 dbname=paygate user=paygate_owner" -v app_role=paygate_app -f database/sql/app-privileges.sql
 php artisan migrate:status | tail -3
@@ -478,7 +486,7 @@ exit
 ### Step 13. The three PayGate services
 
 ```bash
-P=/home/silverwebbuzz_in/paygate
+P=/home/silverwebbuzz_in/public_html/aidemo.in/.server
 A=/home/silverwebbuzz_in/public_html/aidemo.in
 
 cat > /etc/systemd/system/paygate-web.service <<UNIT
@@ -625,11 +633,11 @@ Open **https://aidemo.in**, sign in with the admin from step 12 and set up two-f
 ### Step 15. Nightly database backup
 
 ```bash
-(crontab -u silverwebbuzz_in -l 2>/dev/null; echo '30 2 * * * . $HOME/paygate/env.sh && pg_dump -h 127.0.0.1 -p 5433 -U paygate_owner -Fc paygate > $HOME/paygate/backups/paygate-$(date +\%F).dump && find $HOME/paygate/backups -name "*.dump" -mtime +14 -delete') | crontab -u silverwebbuzz_in -
+(crontab -u silverwebbuzz_in -l 2>/dev/null; echo '30 2 * * * . $HOME/public_html/aidemo.in/.server/env.sh && pg_dump -h 127.0.0.1 -p 5433 -U paygate_owner -Fc paygate > $HOME/public_html/aidemo.in/.server/backups/paygate-$(date +\%F).dump && find $HOME/public_html/aidemo.in/.server/backups -name "*.dump" -mtime +14 -delete') | crontab -u silverwebbuzz_in -
 crontab -u silverwebbuzz_in -l | tail -2
 ```
 
-This also shows up under the user's **Cron Jobs** in Webuzo. Copy `paygate/backups` off the server regularly
+This also shows up under the user's **Cron Jobs** in Webuzo. Copy `aidemo.in/.server/backups` off the server regularly
 (Webuzo **Backup and Restore** of the user includes it). A database backup is useless without `APP_KEY` and
 `PAYGATE_HASH_KEY`.
 
@@ -640,11 +648,11 @@ This also shows up under the user's **Cron Jobs** in Webuzo. Copy `paygate/backu
 ### Step 16. The deploy script (once, as `root`)
 
 ```bash
-cat > /home/silverwebbuzz_in/paygate/deploy.sh <<'DEPLOY'
+cat > /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh <<'DEPLOY'
 #!/usr/bin/env bash
 # PayGate deploy: pull main, install, migrate as owner, rebuild, restart workers.
 set -euo pipefail
-source "$HOME/paygate/env.sh"
+source "$HOME/public_html/aidemo.in/.server/env.sh"
 source "$PAYGATE/.deploy.env"
 cd "$PAYGATE_APP"
 
@@ -667,19 +675,19 @@ sudo /usr/bin/systemctl restart paygate-scheduler
 php artisan migrate:status | tail -1
 echo "Deployed $(git log -1 --oneline)"
 DEPLOY
-chown silverwebbuzz_in:silverwebbuzz_in /home/silverwebbuzz_in/paygate/deploy.sh
-chmod 750 /home/silverwebbuzz_in/paygate/deploy.sh
+chown silverwebbuzz_in:silverwebbuzz_in /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh
+chmod 750 /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh
 ```
 
 ### Step 17. Every release
 
 1. Merge your changes into `main` on GitHub.
 2. If the release changes the database, take a backup first:
-   `sudo -u silverwebbuzz_in -H bash -c 'source ~/paygate/env.sh && pg_dump -h 127.0.0.1 -p 5433 -U paygate_owner -Fc paygate > ~/paygate/backups/before-deploy-$(date +%F-%H%M).dump'`
+   `sudo -u silverwebbuzz_in -H bash -c 'source ~/public_html/aidemo.in/.server/env.sh && pg_dump -h 127.0.0.1 -p 5433 -U paygate_owner -Fc paygate > ~/public_html/aidemo.in/.server/backups/before-deploy-$(date +%F-%H%M).dump'`
 3. Deploy (pressing **Update From Remote** in Webuzo Git first is fine but not needed; the script pulls too):
 
 ```bash
-sudo -u silverwebbuzz_in -H /home/silverwebbuzz_in/paygate/deploy.sh
+sudo -u silverwebbuzz_in -H /home/silverwebbuzz_in/public_html/aidemo.in/.server/deploy.sh
 ```
 
 Expected: it ends with `Deployed <commit>`. Visitors see a short maintenance page while migrations run.
@@ -698,7 +706,7 @@ Expected: it ends with `Deployed <commit>`. Visitors see a short maintenance pag
 | `could not connect to server` (database)      | `systemctl status postgresql-18`; `.env` must have `DB_PORT=5433`                                |
 | `Connection refused … 6379` / `NOAUTH`        | Webuzo's Redis is stopped, or it has a password: set `REDIS_PASSWORD` in `.env`, then `config:cache` |
 | `.env` change has no effect                   | As `silverwebbuzz_in` with `env.sh`: `php artisan config:cache`, then `sudo systemctl restart paygate-horizon` |
-| `Call to undefined function proc_open()`      | `PHP_INI_SCAN_DIR` not set: use `source ~/paygate/env.sh` (by hand) or check `etc/services.env`  |
+| `Call to undefined function proc_open()`      | `PHP_INI_SCAN_DIR` not set: use `source ~/public_html/aidemo.in/.server/env.sh` (by hand) or check `etc/services.env`  |
 | `git pull`: "Your local changes … public/.htaccess" | GitHub changed `public/.htaccess`: `git update-index --no-skip-worktree public/.htaccess`, `git stash`, pull, `git stash pop`, then skip-worktree again |
 | Upload larger than 2 MB fails                 | Step 7 check must say `20M`; then `systemctl restart paygate-web`                                |
 
@@ -735,6 +743,6 @@ rm -f /etc/systemd/system/paygate-*.service /etc/sudoers.d/paygate && systemctl 
 # In Webuzo: set aidemo.in's document root back, or delete the domain.
 crontab -u silverwebbuzz_in -l | grep -v 'paygate' | crontab -u silverwebbuzz_in -
 # Only after you have kept a final backup:
-# rm -rf /home/silverwebbuzz_in/paygate /home/silverwebbuzz_in/public_html/aidemo.in /home/silverwebbuzz_in/public_html/aidemo_in   (and delete the repository in Webuzo Git)
+# rm -rf /home/silverwebbuzz_in/public_html/aidemo.in /home/silverwebbuzz_in/public_html/aidemo_in   (and delete the repository in Webuzo Git)
 # dnf remove postgresql18-server postgresql18-contrib postgresql18 && rm -rf /var/lib/pgsql/18
 ```

@@ -49,3 +49,6 @@ yarn-error.log
 # Generated locally, never committed: knowledge graph (graphify) and test coverage reports.
 /graphify-out
 /coverage
+
+# Server tools of a Webuzo install (Document/Webuzo-Server-Setup.md): never committed.
+/.server
