@@ -39,16 +39,16 @@ Then `.env` (passwords and keys), `.git` and the rest of the code can never be d
 
 ### What it uses on the server, and what it leaves alone
 
-| Piece                 | PayGate uses                                                                  | Your other projects                                                    |
-| --------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **PHP**               | A separate **PHP 8.5** in `/opt/remi/php85` (Webuzo's PHP 8.5 lacks `redis` and crashes on exit), called only by its full path | Unchanged. The server's default PHP, Webuzo's PHP 8.5 and every site's PHP stay as they are |
-| PHP settings          | Its own file `.server/etc/php.d/paygate.ini`                                  | Webuzo's `php.ini` files are **not edited**                            |
-| **Web server**        | **FrankenPHP**, a single file in `.server/bin`, listening on `127.0.0.1:8000`   | Untouched. Apache keeps serving all sites; only `aidemo.in` forwards to :8000 |
-| **PostgreSQL**        | A **new PostgreSQL 18** on port **5433** (PayGate needs 15 or newer)            | Webuzo's PostgreSQL 13 on port 5432 keeps running, untouched           |
-| **Redis**             | Webuzo's **Redis 8.2**, but its own numbered databases (10 and 11) and key names | Other projects keep databases 0–9 and their own keys                   |
-| **Node.js**           | Private **Node 24** in `.server/node`                                         | Webuzo's Node 12 and the `node` command stay as they are               |
-| **Composer**          | Private copy in `.server/bin`                                                 | Unchanged                                                              |
-| Background jobs       | 3 new services: `paygate-web`, `paygate-horizon`, `paygate-scheduler`         | Nothing else is changed                                                 |
+| Piece           | PayGate uses                                                                                                                   | Your other projects                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| **PHP**         | A separate **PHP 8.5** in `/opt/remi/php85` (Webuzo's PHP 8.5 lacks `redis` and crashes on exit), called only by its full path | Unchanged. The server's default PHP, Webuzo's PHP 8.5 and every site's PHP stay as they are |
+| PHP settings    | Its own file `.server/etc/php.d/paygate.ini`                                                                                   | Webuzo's `php.ini` files are **not edited**                                                 |
+| **Web server**  | **FrankenPHP**, a single file in `.server/bin`, listening on `127.0.0.1:8000`                                                  | Untouched. Apache keeps serving all sites; only `aidemo.in` forwards to :8000               |
+| **PostgreSQL**  | A **new PostgreSQL 18** on port **5433** (PayGate needs 15 or newer)                                                           | Webuzo's PostgreSQL 13 on port 5432 keeps running, untouched                                |
+| **Redis**       | Webuzo's **Redis 8.2**, but its own numbered databases (10 and 11) and key names                                               | Other projects keep databases 0–9 and their own keys                                        |
+| **Node.js**     | Private **Node 24** in `.server/node`                                                                                          | Webuzo's Node 12 and the `node` command stay as they are                                    |
+| **Composer**    | Private copy in `.server/bin`                                                                                                  | Unchanged                                                                                   |
+| Background jobs | 3 new services: `paygate-web`, `paygate-horizon`, `paygate-scheduler`                                                          | Nothing else is changed                                                                     |
 
 The new terms, in plain words:
 
@@ -696,19 +696,19 @@ Expected: it ends with `Deployed <commit>`. Visitors see a short maintenance pag
 
 ## Troubleshooting
 
-| Symptom                                       | Look at                                                                                          |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Site error / blank page                       | `tail -50 /home/silverwebbuzz_in/public_html/aidemo.in/storage/logs/laravel-$(date +%F).log`               |
-| Web service down                              | `journalctl -u paygate-web -n 50 --no-pager`                                                     |
-| Webhooks/emails not sent                      | `journalctl -u paygate-horizon -n 50 --no-pager`, https://aidemo.in/horizon                      |
-| Payments not expiring, alerts missing         | `journalctl -u paygate-scheduler -n 50 --no-pager`                                               |
-| `permission denied for table …` after release | Re-run the `psql … app-privileges.sql` line from the deploy script                               |
-| `could not connect to server` (database)      | `systemctl status postgresql-18`; `.env` must have `DB_PORT=5433`                                |
-| `Connection refused … 6379` / `NOAUTH`        | Webuzo's Redis is stopped, or it has a password: set `REDIS_PASSWORD` in `.env`, then `config:cache` |
-| `.env` change has no effect                   | As `silverwebbuzz_in` with `env.sh`: `php artisan config:cache`, then `sudo systemctl restart paygate-horizon` |
-| `Call to undefined function proc_open()`      | `PHP_INI_SCAN_DIR` not set: use `source ~/public_html/aidemo.in/.server/env.sh` (by hand) or check `etc/services.env`  |
+| Symptom                                             | Look at                                                                                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Site error / blank page                             | `tail -50 /home/silverwebbuzz_in/public_html/aidemo.in/storage/logs/laravel-$(date +%F).log`                                                            |
+| Web service down                                    | `journalctl -u paygate-web -n 50 --no-pager`                                                                                                            |
+| Webhooks/emails not sent                            | `journalctl -u paygate-horizon -n 50 --no-pager`, https://aidemo.in/horizon                                                                             |
+| Payments not expiring, alerts missing               | `journalctl -u paygate-scheduler -n 50 --no-pager`                                                                                                      |
+| `permission denied for table …` after release       | Re-run the `psql … app-privileges.sql` line from the deploy script                                                                                      |
+| `could not connect to server` (database)            | `systemctl status postgresql-18`; `.env` must have `DB_PORT=5433`                                                                                       |
+| `Connection refused … 6379` / `NOAUTH`              | Webuzo's Redis is stopped, or it has a password: set `REDIS_PASSWORD` in `.env`, then `config:cache`                                                    |
+| `.env` change has no effect                         | As `silverwebbuzz_in` with `env.sh`: `php artisan config:cache`, then `sudo systemctl restart paygate-horizon`                                          |
+| `Call to undefined function proc_open()`            | `PHP_INI_SCAN_DIR` not set: use `source ~/public_html/aidemo.in/.server/env.sh` (by hand) or check `etc/services.env`                                   |
 | `git pull`: "Your local changes … public/.htaccess" | GitHub changed `public/.htaccess`: `git update-index --no-skip-worktree public/.htaccess`, `git stash`, pull, `git stash pop`, then skip-worktree again |
-| Upload larger than 2 MB fails                 | Step 7 check must say `20M`; then `systemctl restart paygate-web`                                |
+| Upload larger than 2 MB fails                       | Step 7 check must say `20M`; then `systemctl restart paygate-web`                                                                                       |
 
 Never run `php artisan db:seed` or `migrate:fresh` on this server. See [Deployment.md](Deployment.md) for the database rules.
 
@@ -721,12 +721,12 @@ When the demo becomes production and you want `api.aidemo.in` and `pay.aidemo.in
 1. In Webuzo, add the subdomains `api` and `pay` with document root `public_html/aidemo.in/public` (the same folder), and issue SSL for them.
 2. In `/home/silverwebbuzz_in/public_html/aidemo.in/.env` change:
 
-   ```dotenv
-   API_DOMAIN=api.aidemo.in
-   PAY_DOMAIN=pay.aidemo.in
-   API_PATH=
-   PAY_PATH=
-   ```
+    ```dotenv
+    API_DOMAIN=api.aidemo.in
+    PAY_DOMAIN=pay.aidemo.in
+    API_PATH=
+    PAY_PATH=
+    ```
 
 3. Run the deploy script (step 17); it rebuilds the website files and the settings cache with the new addresses.
 
