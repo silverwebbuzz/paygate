@@ -18,7 +18,7 @@ Run the commands **one block at a time** and check each "Expected" line before m
 ├── public_html/aidemo/        ← aidemo.in document root: only one .htaccess file (forwards to PayGate)
 └── paygate/                   ← everything PayGate, NOT reachable from the web
     ├── app/                   ← the code (git clone), .env, uploads, logs
-    ├── bin/                   ← php (→ Webuzo PHP 8.5), frankenphp, composer, psql, pg_dump
+    ├── bin/                   ← php (→ separate PHP 8.5 in /opt/remi), frankenphp, composer, psql, pg_dump
     ├── node/                  ← private Node.js 24 (only used to build the website files)
     ├── etc/                   ← PayGate's own PHP settings and service settings
     ├── backups/               ← nightly database backups
@@ -33,7 +33,7 @@ even if the `.htaccess` stops working.
 
 | Piece                 | PayGate uses                                                                  | Your other projects                                                    |
 | --------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **PHP**               | Webuzo's **PHP 8.5** (`/usr/local/apps/php85`), called only by its full path    | Unchanged. The server's default PHP and every site's PHP stay as they are |
+| **PHP**               | A separate **PHP 8.5** in `/opt/remi/php85` (Webuzo's PHP 8.5 lacks `redis` and crashes on exit), called only by its full path | Unchanged. The server's default PHP, Webuzo's PHP 8.5 and every site's PHP stay as they are |
 | PHP settings          | Its own file `paygate/etc/php.d/paygate.ini`                                  | Webuzo's `php.ini` files are **not edited**                            |
 | **Web server**        | **FrankenPHP**, a single file in `paygate/bin`, listening on `127.0.0.1:8000`   | Untouched. Apache keeps serving all sites; only `aidemo.in` forwards to :8000 |
 | **PostgreSQL**        | A **new PostgreSQL 18** on port **5433** (PayGate needs 15 or newer)            | Webuzo's PostgreSQL 13 on port 5432 keeps running, untouched           |
@@ -107,13 +107,50 @@ ls -la /home/silverwebbuzz_in/public_html/aidemo
 
 Expected:
 
-- **PHP**: `PHP 8.5.x`, and all 20 names: bcmath, curl, dom, exif, fileinfo, gd, intl, mbstring, openssl, pcntl, pdo_pgsql, pgsql, posix, redis, sockets, sodium, tokenizer, xml, zip, Zend OPcache.
-  If some are missing: in Webuzo admin, look for **PHP Extensions** / **PHP Settings** for PHP 8.5 and enable them. If you can't, stop here and send me the output.
+- **PHP**: on this server Webuzo's PHP 8.5 has no `redis` extension and prints `free(): invalid pointer` (it crashes
+  when it exits). PayGate therefore gets its own PHP 8.5 in step 1b, and Webuzo's PHP is left alone.
 - **Redis**: `PONG`; `bind` shows `127.0.0.1` (only this server); `databases` is `16`.
   Note the `requirepass` value: if it is not empty, that is the Redis password for `.env` in step 11.
   `INFO keyspace` lists the databases already used (`db0`, `db1`…). PayGate uses **db10 and db11**; if those already appear, tell me.
 - **Ports**: something on 5432 (Webuzo PostgreSQL 13) and 6379 (Redis). **Nothing** on 5433 or 8000.
-- **Web server**: `httpd` in the list. If it shows only `nginx` or `litespeed`, stop and ask: step 14 differs.
+- **Web server**: on this server both `httpd` (Apache) and `nginx` run. Step 1a finds out which one answers the
+  visitors, because step 14 depends on it.
+
+### Step 1a. Which web server answers, and where is aidemo.in's folder?
+
+```bash
+echo "== Who listens on 80/443 =="
+ss -ltnp | grep -E ':(80|443|8080|8181|8443) '
+echo "== aidemo.in in the web server settings =="
+grep -rls "aidemo" /usr/local/apps/nginx/etc /usr/local/apps/apache2/etc 2>/dev/null | head
+grep -rhs -A3 "server_name.*aidemo\|ServerName.*aidemo" /usr/local/apps/nginx/etc /usr/local/apps/apache2/etc 2>/dev/null | grep -Ei "server_name|ServerName|root|DocumentRoot|proxy_pass" | head -20
+echo "== Folders =="
+ls -la /home/silverwebbuzz_in/public_html | grep -i aidemo
+ls -d /home/*/public_html/*aidemo* 2>/dev/null
+```
+
+Send the output. It decides the folder used in step 14 and whether step 14 uses `.htaccess` (Apache) or an nginx
+setting.
+
+### Step 1b. PHP 8.5 for PayGate only (separate from Webuzo's PHP)
+
+The Remi repository installs PHP versions **side by side** under `/opt/remi/php85`. It does not replace the `php`
+command, Webuzo's PHP, or any site's PHP; only PayGate calls it, by its full path.
+
+```bash
+dnf install -y epel-release
+dnf install -y https://rpms.remirepo.net/enterprise/remi-release-9.rpm
+dnf install -y php85-php-cli php85-php-common php85-php-pgsql php85-php-pecl-redis6 \
+    php85-php-intl php85-php-bcmath php85-php-mbstring php85-php-xml php85-php-process \
+    php85-php-pecl-zip php85-php-gd php85-php-opcache php85-php-sodium
+/opt/remi/php85/root/usr/bin/php -v | head -1
+/opt/remi/php85/root/usr/bin/php -m | grep -Ei '^(pdo_pgsql|pgsql|redis|intl|bcmath|pcntl|posix|zip|gd|exif|sockets|mbstring|zend opcache|sodium|openssl|curl|fileinfo|tokenizer|dom|xml)$' | sort -fu | tr '\n' ' '; echo
+php -v | head -1
+```
+
+Expected: `PHP 8.5.x`, then all 20 names (bcmath curl dom exif fileinfo gd intl mbstring openssl pcntl pdo_pgsql
+pgsql posix redis sockets sodium tokenizer xml zip Zend OPcache), and **no** `free(): invalid pointer`.
+The last line is the server's normal `php`, which must show the **same version as before** (unchanged).
 
 ### Step 2. PayGate's folder and its "switch" files
 
@@ -151,7 +188,7 @@ opcache.validate_timestamps = 1
 opcache.revalidate_freq = 2
 PHPINI
 
-ln -sf /usr/local/apps/php85/bin/php $P/bin/php
+ln -sf /opt/remi/php85/root/usr/bin/php $P/bin/php
 chown -R silverwebbuzz_in:silverwebbuzz_in $P
 chmod 700 $P $P/.ssh
 ls -la $P
