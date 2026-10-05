@@ -32,7 +32,7 @@ export default function Security(props: Props) {
                 <Heading
                     variant="small"
                     title="Update password"
-                    description="Ensure your account is using a long, random password to stay secure"
+                    description="At least 6 characters."
                 />
 
                 <Form

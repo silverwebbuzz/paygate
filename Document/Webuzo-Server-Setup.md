@@ -469,8 +469,7 @@ php artisan event:cache
 php artisan view:cache
 ```
 
-Create the first Super admin (name, email, and a password of 12+ characters with upper and lower case, a number
-and a symbol):
+Create the first Super admin (name, email, and a password of at least 6 characters):
 
 ```bash
 php artisan paygate:create-admin

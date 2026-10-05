@@ -36,7 +36,7 @@ class CreateAdminCommand extends Command
         $name = $this->option('name') ?: text('Name', required: true);
         $username = Str::lower($this->option('username') ?: text('Username', required: true, hint: '3-50 characters: lowercase letters, numbers, dot, underscore or hyphen.'));
         $email = Str::lower($this->option('email') ?: text('Email', required: true));
-        $password = password('Password', required: true, hint: 'At least 12 characters in production.');
+        $password = password('Password', required: true, hint: 'At least 6 characters.');
 
         $validator = Validator::make(
             ['name' => $name, 'username' => $username, 'email' => $email, 'password' => $password],

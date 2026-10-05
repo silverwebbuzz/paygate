@@ -781,7 +781,7 @@ function PasswordFields({
         <>
             <Field
                 label="Password"
-                hint="At least 12 characters with upper and lower case letters, a number and a symbol."
+                hint="At least 6 characters."
                 error={error}
                 required
             >

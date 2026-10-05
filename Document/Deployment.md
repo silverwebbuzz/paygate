@@ -161,7 +161,7 @@ Also run `php artisan migrate:status`: every migration must show **Ran**.
 php artisan paygate:create-admin
 ```
 
-It asks for a name, email and password (min. 12 characters with mixed case, numbers and symbols in production) and creates a **Super admin**. Two-factor authentication is set up at first login. All other users are created from the admin panel.
+It asks for a name, email and password (at least 6 characters) and creates a **Super admin**. Two-factor authentication is set up at first login. All other users are created from the admin panel.
 
 > **Never run `php artisan db:seed` on staging or production.** The demo seeder refuses to run outside `APP_ENV=local`, and there is nothing to seed: all required system data comes from the migrations.
 

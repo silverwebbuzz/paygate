@@ -98,6 +98,32 @@ class SecurityTest extends TestCase
         $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
     }
 
+    public function test_a_simple_password_is_enough_and_five_characters_are_not()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from(route('security.edit'))
+            ->put(route('user-password.update'), [
+                'current_password' => 'password',
+                'password' => 'abc12',
+                'password_confirmation' => 'abc12',
+            ])
+            ->assertSessionHasErrors('password');
+
+        $this->actingAs($user)
+            ->from(route('security.edit'))
+            ->put(route('user-password.update'), [
+                'current_password' => 'password',
+                'password' => 'abc123',
+                'password_confirmation' => 'abc123',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('security.edit'));
+
+        $this->assertTrue(Hash::check('abc123', $user->refresh()->password));
+    }
+
     public function test_correct_password_must_be_provided_to_update_password()
     {
         $user = User::factory()->create();

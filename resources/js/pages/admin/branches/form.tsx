@@ -350,7 +350,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                         {input('admin_email', 'Email', { type: 'email' })}
                         <Field
                             label="Password"
-                            hint="At least 12 characters with upper and lower case letters, a number and a symbol."
+                            hint="At least 6 characters."
                             error={errors.admin_password}
                         >
                             <PasswordTextInput
