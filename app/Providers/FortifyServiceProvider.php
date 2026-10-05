@@ -45,6 +45,10 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
+        Fortify::confirmPasswordsUsing(function (User $user, ?string $password): bool {
+            return is_string($password) && Hash::check($password, $user->password);
+        });
+
         // Same as Fortify's default credential check, plus: suspended users cannot log in.
         Fortify::authenticateUsing(function (Request $request): ?User {
             $login = $request->string(Fortify::username())->trim()->lower()->value();

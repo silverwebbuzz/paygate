@@ -24,6 +24,26 @@ class PasswordConfirmationTest extends TestCase
         );
     }
 
+    public function test_the_current_password_opens_security_settings()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get(route('security.edit'))->assertRedirect(route('password.confirm'));
+
+        $this->actingAs($user)
+            ->post(route('password.confirm.store'), ['password' => 'wrong'])
+            ->assertSessionHasErrors('password');
+
+        $this->actingAs($user)
+            ->post(route('password.confirm.store'), ['password' => 'password'])
+            ->assertRedirect(route('security.edit'));
+
+        $this->actingAs($user)
+            ->get(route('security.edit'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('settings/security'));
+    }
+
     public function test_password_confirmation_requires_authentication()
     {
         $response = $this->get(route('password.confirm'));
