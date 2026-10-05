@@ -168,6 +168,11 @@ final class Checklist
                     ['As ops@, open Bank & UPI Accounts and click "Review" on the pending account; verify it.', 'As branch@, activate it.', 'Change its account number: it needs verification again (changing only limits doesn’t).', 'Reject another one with a reason; the branch edits and resubmits.', 'Reveal a full number: recorded in Audit Logs.'],
                     ['ops', 'branch'],
                     ['PaymentAccountTest::test_admin_verifies_then_the_branch_activates_and_pauses', 'PaymentAccountTest::test_changing_payment_details_needs_verification_again_but_limits_do_not', 'PaymentAccountTest::test_rejection_needs_a_reason_and_editing_resubmits', 'PaymentAccountTest::test_lists_show_masked_numbers_and_revealing_is_audited']),
+                self::item('branches.accounts_log', 'Account log (Admin)', '/admin/accounts/logs',
+                    'Every change to a branch account (added, edited, verified, rejected, activated, paused, disabled, full number viewed) with who did it, their role, the reason, IP and branch. Pausing and disabling need a reason.',
+                    ['As branch@, pause an active account: a reason is asked for and the pause is refused without one.', 'As ops@, open Bank & UPI Accounts → "Account log": the pause shows Active → Paused, branch@ with username and role, the reason, IP and branch.', 'Filter by event, branch, dates and search by holder, person or IP; click an account to see only its history.', 'Click "Log" on an account row: the log opens filtered to that account.', 'Export CSV: the file has the same filtered rows with masked numbers.'],
+                    ['branch', 'ops'],
+                    ['AccountLogTest']),
             ]),
 
             self::section('partner_portal', 'Partner portal', [

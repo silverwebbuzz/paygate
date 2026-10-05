@@ -1,5 +1,5 @@
-import { Head, router } from '@inertiajs/react';
-import { Plus, Search } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { History, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AccountActions } from '@/components/pg/account-actions';
 import { AccountFormDialog } from '@/components/pg/account-form-dialog';
@@ -82,14 +82,22 @@ export default function AdminAccounts({
                 title="Bank & UPI Accounts"
                 description="Collection accounts of every branch. New and changed accounts wait for your verification; only active ones receive customers. Limits reset daily at 00:00 IST."
                 actions={
-                    can.create && (
-                        <PgButton
-                            variant="primary"
-                            onClick={() => setEditing('new')}
+                    <>
+                        <Link
+                            href={accountsRoutes.logs.index().url}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
                         >
-                            <Plus className="size-4" /> Add account
-                        </PgButton>
-                    )
+                            <History className="size-3.5" /> Account log
+                        </Link>
+                        {can.create && (
+                            <PgButton
+                                variant="primary"
+                                onClick={() => setEditing('new')}
+                            >
+                                <Plus className="size-4" /> Add account
+                            </PgButton>
+                        )}
+                    </>
                 }
             />
 
@@ -189,6 +197,16 @@ export default function AdminAccounts({
                                 }
                                 onEdit={() => setEditing(account)}
                             />
+                            <Link
+                                href={
+                                    accountsRoutes.logs.index({
+                                        query: { account: account.id },
+                                    }).url
+                                }
+                                className="inline-flex h-7 items-center rounded-[7px] border border-ln bg-sf px-3 text-xs font-medium"
+                            >
+                                Log
+                            </Link>
                         </>
                     )}
                 />

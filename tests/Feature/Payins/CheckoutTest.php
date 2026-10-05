@@ -122,7 +122,7 @@ class CheckoutTest extends TestCase
         $this->choose($tokenB, 'upi');
         $this->assertSame($big->id, $this->payin($b)->payment_account_id);
 
-        app(ChangeAccountStatus::class)->handle($this->networkAdmin, $big, AccountStatus::Paused);
+        app(ChangeAccountStatus::class)->handle($this->networkAdmin, $big, AccountStatus::Paused, 'Too big for now');
 
         [$c, $tokenC] = $this->createPayin(['amount' => 500000]);
         $this->choose($tokenC, 'upi')->assertSessionHasErrors('method');

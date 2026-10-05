@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Admin\Accounts\AccountController;
+use App\Http\Admin\Accounts\AccountLogController;
 use App\Http\Admin\Branches\BranchController;
 use App\Http\Admin\Commissions\CommissionController;
 use App\Http\Admin\Mappings\MappingController;
@@ -147,6 +148,11 @@ Route::controller(MappingController::class)->prefix('mappings')->name('mappings.
 });
 
 // Bank & UPI accounts of all branches (verification).
+Route::controller(AccountLogController::class)->prefix('accounts/logs')->name('accounts.logs.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('export', 'export')->name('export');
+});
+
 Route::controller(AccountController::class)->prefix('accounts')->name('accounts.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('/', 'store')->name('store');

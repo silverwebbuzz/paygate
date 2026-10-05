@@ -12,7 +12,8 @@ use Illuminate\Validation\ValidationException;
 /**
  * Activates, pauses or disables an account (AccountStatus::switchableTo).
  * Pausing stops new customers being sent to it; payments already on their
- * way are unaffected. Disabling is permanent (history is kept).
+ * way are unaffected. Disabling is permanent (history is kept). Pausing and
+ * disabling need a reason.
  */
 class ChangeAccountStatus
 {
@@ -25,8 +26,10 @@ class ChangeAccountStatus
             ])]);
         }
 
-        if ($status === AccountStatus::Disabled && ($reason === null || trim($reason) === '')) {
-            throw ValidationException::withMessages(['reason' => __('Give a reason for disabling the account.')]);
+        if (in_array($status, [AccountStatus::Paused, AccountStatus::Disabled], true) && ($reason === null || trim($reason) === '')) {
+            throw ValidationException::withMessages(['reason' => $status === AccountStatus::Paused
+                ? __('Give a reason for pausing the account.')
+                : __('Give a reason for disabling the account.')]);
         }
 
         DB::transaction(function () use ($actor, $account, $status, $reason) {

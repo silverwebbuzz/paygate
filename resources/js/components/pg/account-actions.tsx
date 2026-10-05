@@ -4,15 +4,9 @@ import type { AccountRow } from './account-form-dialog';
 import { PgButton } from './button';
 import { ConfirmDialog } from './confirm-dialog';
 
-const LABELS: Record<string, string> = {
-    active: 'Activate',
-    paused: 'Pause',
-    disabled: 'Disable',
-};
-
 /**
- * Edit + status buttons for one account row. Disabling is permanent and
- * asks for a reason; activating and pausing apply at once.
+ * Edit + status buttons for one account row. Pausing and disabling ask for
+ * a reason (kept in the account log); activating applies at once.
  */
 export function AccountActions({
     account,
@@ -23,13 +17,13 @@ export function AccountActions({
     statusUrl: string;
     onEdit: () => void;
 }) {
-    const [confirmDisable, setConfirmDisable] = useState(false);
+    const [confirm, setConfirm] = useState<'paused' | 'disabled' | null>(null);
 
     const change = (status: string, reason?: string) =>
         router.put(
             statusUrl,
             { status, reason: reason ?? null },
-            { preserveScroll: true, onFinish: () => setConfirmDisable(false) },
+            { preserveScroll: true, onFinish: () => setConfirm(null) },
         );
 
     return (
@@ -39,36 +33,54 @@ export function AccountActions({
                     Edit
                 </PgButton>
             )}
-            {account.can.switch_to
-                .filter((status) => status !== 'disabled')
-                .map((status) => (
-                    <PgButton
-                        key={status}
-                        className="h-7 text-xs"
-                        variant={status === 'active' ? 'primary' : 'secondary'}
-                        onClick={() => change(status)}
-                    >
-                        {LABELS[status] ?? status}
-                    </PgButton>
-                ))}
+            {account.can.switch_to.includes('active') && (
+                <PgButton
+                    className="h-7 text-xs"
+                    variant="primary"
+                    onClick={() => change('active')}
+                >
+                    Activate
+                </PgButton>
+            )}
+            {account.can.switch_to.includes('paused') && (
+                <PgButton
+                    className="h-7 text-xs"
+                    onClick={() => setConfirm('paused')}
+                >
+                    Pause
+                </PgButton>
+            )}
             {account.can.switch_to.includes('disabled') && (
                 <PgButton
                     className="h-7 text-xs"
                     variant="danger"
-                    onClick={() => setConfirmDisable(true)}
+                    onClick={() => setConfirm('disabled')}
                 >
                     Disable
                 </PgButton>
             )}
             <ConfirmDialog
-                open={confirmDisable}
-                onOpenChange={setConfirmDisable}
+                open={confirm === 'paused'}
+                onOpenChange={(open) => !open && setConfirm(null)}
+                title={`Pause ${account.label}?`}
+                description="New customers are not sent to this account until it is activated again. Payments already on their way are unaffected."
+                confirmLabel="Pause account"
+                tone="warning"
+                input={{
+                    label: 'Reason (kept in the account log)',
+                    required: true,
+                }}
+                onConfirm={(reason) => change('paused', reason)}
+            />
+            <ConfirmDialog
+                open={confirm === 'disabled'}
+                onOpenChange={(open) => !open && setConfirm(null)}
                 title={`Disable ${account.label}?`}
                 description="Customers are no longer sent to this account. This can’t be undone; its history is kept."
                 confirmLabel="Disable account"
                 tone="danger"
                 input={{
-                    label: 'Reason (kept in the audit log)',
+                    label: 'Reason (kept in the account log)',
                     required: true,
                 }}
                 onConfirm={(reason) => change('disabled', reason)}

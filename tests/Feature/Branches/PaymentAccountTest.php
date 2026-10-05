@@ -119,7 +119,9 @@ class PaymentAccountTest extends TestCase
         $this->assertSame($admin->id, $account->verified_by);
 
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused'])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused'])->assertSessionHasErrors('reason');
+        $this->assertSame(AccountStatus::Active, $account->fresh()?->status);
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused', 'reason' => 'Bank asked us to stop for a day'])->assertSessionHasNoErrors();
         $this->assertSame(AccountStatus::Paused, $account->fresh()?->status);
 
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'disabled'])->assertSessionHasErrors('reason');
