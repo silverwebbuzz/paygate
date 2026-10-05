@@ -92,6 +92,112 @@ class MappingController extends Controller
         return back();
     }
 
+    public function byPartner(Request $request): Response
+    {
+        return $this->assignment($request, 'partner');
+    }
+
+    public function updateByPartner(Request $request, SyncMappings $mappings): RedirectResponse
+    {
+        Gate::authorize('mappings.update');
+
+        $data = $request->validate([
+            'partner_id' => ['required', 'uuid', Rule::exists('partners', 'id')],
+            'branch_ids' => ['present', 'array'],
+            'branch_ids.*' => ['uuid', 'distinct', Rule::exists('branches', 'id')],
+        ]);
+
+        /** @var User $actor */
+        $actor = $request->user();
+        /** @var Partner $partner */
+        $partner = Partner::query()->findOrFail((string) $data['partner_id']);
+        $mappings->forPartner($actor, $partner, $data['branch_ids']);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':partner is assigned to :count branches.', ['partner' => $partner->code, 'count' => count($data['branch_ids'])])]);
+
+        return to_route('admin.mappings.by-partner', ['partner' => $partner->id]);
+    }
+
+    public function byBranch(Request $request): Response
+    {
+        return $this->assignment($request, 'branch');
+    }
+
+    public function updateByBranch(Request $request, SyncMappings $mappings): RedirectResponse
+    {
+        Gate::authorize('mappings.update');
+
+        $data = $request->validate([
+            'branch_id' => ['required', 'uuid', Rule::exists('branches', 'id')],
+            'partner_ids' => ['present', 'array'],
+            'partner_ids.*' => ['uuid', 'distinct', Rule::exists('partners', 'id')],
+        ]);
+
+        /** @var User $actor */
+        $actor = $request->user();
+        /** @var Branch $branch */
+        $branch = Branch::query()->findOrFail((string) $data['branch_id']);
+        $mappings->forBranch($actor, $branch, $data['partner_ids']);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':branch is assigned to :count partners.', ['branch' => $branch->code, 'count' => count($data['partner_ids'])])]);
+
+        return to_route('admin.mappings.by-branch', ['branch' => $branch->id]);
+    }
+
+    private function assignment(Request $request, string $side): Response
+    {
+        Gate::authorize('mappings.view');
+
+        /** @var User $actor */
+        $actor = $request->user();
+        $forPartner = $side === 'partner';
+        $partners = Partner::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name', 'status']);
+        $branches = Branch::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name', 'status']);
+        $owners = $forPartner ? $partners : $branches;
+        $items = $forPartner ? $branches : $partners;
+        $asked = $request->query($side);
+        $selected = is_string($asked) && $owners->contains('id', $asked) ? $asked : $owners->first()?->id;
+        $ownerColumn = $forPartner ? 'partner_id' : 'branch_id';
+        $itemColumn = $forPartner ? 'branch_id' : 'partner_id';
+        $selectedIds = $selected === null ? [] : PartnerBranchMapping::query()
+            ->where($ownerColumn, $selected)
+            ->where('status', 'active')
+            ->whereIn($itemColumn, $items->pluck('id'))
+            ->orderBy($itemColumn)
+            ->pluck($itemColumn)
+            ->all();
+        $counts = PartnerBranchMapping::query()
+            ->where('status', 'active')
+            ->whereIn($itemColumn, $items->pluck('id'))
+            ->toBase()
+            ->selectRaw($ownerColumn.' as owner_id, count(*) as total')
+            ->groupBy('owner_id')
+            ->pluck('total', 'owner_id');
+        $rateSubject = $forPartner ? 'branch' : 'partner';
+        $rates = $this->rates->currentForMany($rateSubject, $items->pluck('id')->all(), $rateSubject);
+
+        return Inertia::render('admin/mappings/assign', [
+            'side' => $side,
+            'owners' => $owners->map(fn (Partner|Branch $org) => [
+                'id' => $org->id,
+                'code' => $org->code,
+                'name' => $org->name,
+                'status' => $org->status->value,
+                'assigned' => (int) ($counts[$org->id] ?? 0),
+            ])->values(),
+            'selected' => $selected,
+            'items' => $items->map(fn (Partner|Branch $org) => [
+                'id' => $org->id,
+                'code' => $org->code,
+                'name' => $org->name,
+                'status' => $org->status->value,
+                'rates' => $rates[$org->id] ?? (object) [],
+            ])->values(),
+            'selected_ids' => $selectedIds,
+            'can' => ['update' => $actor->can('mappings.update')],
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -181,7 +181,7 @@ export default function Mappings({
             <Head title="Branch mapping" />
             <PageHeader
                 title="Partner ↔ branch mapping"
-                description="Which branches serve which partners, per direction, and the rates that apply to each pair. A pair rate (◆) overrides the partner’s or branch’s own rate for that pair only."
+                description="Rates and limits for each partner–branch pair. Tick many branches for one partner under Partner → branches, or many partners for one branch under Branch → partners. A pair rate (◆) overrides the partner’s or branch’s own rate for that pair only."
                 actions={
                     can.update && (
                         <PgButton

@@ -138,6 +138,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'branches.view',
                 },
                 {
+                    label: 'Partner → branches',
+                    href: adminMappings.byPartner(),
+                    permission: 'mappings.view',
+                },
+                {
+                    label: 'Branch → partners',
+                    href: adminMappings.byBranch(),
+                    permission: 'mappings.view',
+                },
+                {
                     label: 'Branch mapping',
                     href: adminMappings.index(),
                     permission: 'mappings.view',

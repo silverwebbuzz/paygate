@@ -144,6 +144,10 @@ Route::controller(BranchController::class)->prefix('branches')->name('branches.'
 Route::controller(MappingController::class)->prefix('mappings')->name('mappings.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('/', 'store')->name('store');
+    Route::get('by-partner', 'byPartner')->name('by-partner');
+    Route::put('by-partner', 'updateByPartner')->name('by-partner.update');
+    Route::get('by-branch', 'byBranch')->name('by-branch');
+    Route::put('by-branch', 'updateByBranch')->name('by-branch.update');
     Route::put('{mapping}', 'update')->name('update');
 });
 

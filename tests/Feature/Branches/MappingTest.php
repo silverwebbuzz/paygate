@@ -103,6 +103,57 @@ class MappingTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'mapping.negative_margin', 'subject_id' => $mapping->id]);
     }
 
+    public function test_a_partner_is_ticked_onto_many_branches_and_unticking_stops_that_pair()
+    {
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $partner = Partner::factory()->create();
+        $other = Partner::factory()->create();
+        $kept = Branch::factory()->create();
+        $added = Branch::factory()->create();
+        $removed = Branch::factory()->create();
+        PartnerBranchMapping::create(['partner_id' => $partner->id, 'branch_id' => $removed->id, 'status' => 'active']);
+        PartnerBranchMapping::create(['partner_id' => $other->id, 'branch_id' => $removed->id, 'status' => 'active']);
+
+        $this->actingAs($admin)->get(route('admin.mappings.by-partner', ['partner' => $partner->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('admin/mappings/assign')
+                ->where('side', 'partner')
+                ->where('selected', $partner->id)
+                ->where('selected_ids', [$removed->id]));
+
+        $this->actingAs($admin)->put(route('admin.mappings.by-partner.update'), [
+            'partner_id' => $partner->id,
+            'branch_ids' => [$kept->id, $added->id],
+        ])->assertRedirect(route('admin.mappings.by-partner', ['partner' => $partner->id]));
+
+        $this->assertSame('inactive', PartnerBranchMapping::query()->where(['partner_id' => $partner->id, 'branch_id' => $removed->id])->value('status'));
+        $this->assertSame('active', PartnerBranchMapping::query()->where(['partner_id' => $other->id, 'branch_id' => $removed->id])->value('status'));
+        $this->assertSame(2, PartnerBranchMapping::query()->where(['partner_id' => $partner->id, 'status' => 'active'])->count());
+    }
+
+    public function test_a_branch_is_ticked_onto_many_partners()
+    {
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $branch = Branch::factory()->create();
+        $first = Partner::factory()->create();
+        $second = Partner::factory()->create();
+
+        $this->actingAs($admin)->put(route('admin.mappings.by-branch.update'), [
+            'branch_id' => $branch->id,
+            'partner_ids' => [$first->id, $second->id],
+        ])->assertRedirect(route('admin.mappings.by-branch', ['branch' => $branch->id]));
+
+        $this->actingAs($admin)->get(route('admin.mappings.by-branch', ['branch' => $branch->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('side', 'branch')
+                ->where('selected_ids', fn ($ids) => collect($ids)->sort()->values()->all() === collect([$first->id, $second->id])->sort()->values()->all()));
+
+        $this->actingAs(User::factory()->branch()->withTwoFactor()->create())
+            ->get(route('admin.mappings.by-partner'))
+            ->assertForbidden();
+    }
+
     public function test_admins_without_commission_rights_cannot_set_pair_rates()
     {
         $partner = Partner::factory()->create();

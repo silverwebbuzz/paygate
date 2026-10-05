@@ -47,6 +47,8 @@ class SectionRollout
             'Network' => [
                 'partners' => ['label' => 'Partners', 'paths' => ['/admin/partners']],
                 'branches' => ['label' => 'Branches', 'paths' => ['/admin/branches']],
+                'partner_branches' => ['label' => 'Partner → branches', 'paths' => ['/admin/mappings/by-partner']],
+                'branch_partners' => ['label' => 'Branch → partners', 'paths' => ['/admin/mappings/by-branch']],
                 'mappings' => ['label' => 'Branch mapping', 'paths' => ['/admin/mappings']],
                 'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/admin/accounts']],
             ],
