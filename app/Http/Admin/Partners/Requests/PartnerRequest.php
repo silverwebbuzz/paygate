@@ -19,8 +19,6 @@ use Illuminate\Validation\Validator;
  */
 class PartnerRequest extends FormRequest
 {
-    private const NO_LIMIT = '-1';
-
     public function authorize(): bool
     {
         $partner = $this->partner();
@@ -36,8 +34,8 @@ class PartnerRequest extends FormRequest
     public function rules(): array
     {
         $url = ['nullable', 'string', 'max:255', app()->isLocal() ? 'url:http,https' : 'url:https'];
-        $requiredOnCreate = [$this->partner() === null ? 'required' : 'nullable', ...array_slice($url, 1)];
-        $amount = ['required', 'string', 'regex:/^('.self::NO_LIMIT.'|\d{1,11}(\.\d{1,2})?)$/'];
+        $requiredUrl = ['required', ...array_slice($url, 1)];
+        $amount = ['required', 'string', Money::LIMIT_RULE];
         $rate = ['nullable', 'string', 'regex:'.RatePercent::PATTERN, 'numeric', 'max:100'];
 
         return [
@@ -49,9 +47,9 @@ class PartnerRequest extends FormRequest
             'website_url' => $url,
 
             // 2. API & security
-            'return_url' => $requiredOnCreate,
-            'callback_url' => $requiredOnCreate,
-            'payin_webhook_url' => $requiredOnCreate,
+            'return_url' => $requiredUrl,
+            'callback_url' => $requiredUrl,
+            'payin_webhook_url' => $requiredUrl,
             'payout_webhook_url' => $url,
             'ip_addresses' => ['nullable', 'string', new IpAddressList],
 

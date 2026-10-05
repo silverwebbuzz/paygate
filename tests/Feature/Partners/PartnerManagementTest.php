@@ -136,21 +136,27 @@ class PartnerManagementTest extends TestCase
         $this->assertSame(1, Partner::count());
     }
 
-    public function test_endpoints_are_required_on_create_but_the_website_is_optional()
+    public function test_endpoints_are_required_but_the_website_is_optional()
     {
         $admin = $this->admin();
-
-        $this->actingAs($admin)->post(route('admin.partners.store'), $this->payload([
+        $missing = [
             'return_url' => '',
             'callback_url' => '',
             'payin_webhook_url' => '',
             'deposit_min_amount' => '',
-        ]))->assertSessionHasErrors(['return_url', 'callback_url', 'payin_webhook_url', 'deposit_min_amount']);
+        ];
+
+        $this->actingAs($admin)->post(route('admin.partners.store'), $this->payload($missing))
+            ->assertSessionHasErrors(array_keys($missing));
 
         $this->actingAs($admin)->post(route('admin.partners.store'), $this->payload(['website_url' => '']))
             ->assertSessionHasNoErrors();
 
-        $this->assertNull(Partner::where('code', 'ATOZ')->firstOrFail()->website_url);
+        $partner = Partner::where('code', 'ATOZ')->firstOrFail();
+        $this->assertNull($partner->website_url);
+
+        $this->actingAs($admin)->put(route('admin.partners.update', $partner), $this->payload($missing))
+            ->assertSessionHasErrors(array_keys($missing));
     }
 
     public function test_whole_internet_ranges_are_refused()

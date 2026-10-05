@@ -39,12 +39,12 @@ class BranchRequest extends FormRequest
             'is_deposit_enabled' => ['boolean'],
             'is_withdrawal_enabled' => ['boolean'],
             'deposit_limit_type' => ['required', Rule::in(['daily_reset', 'topup'])],
-            'deposit_min_amount' => $this->amountRules(),
-            'deposit_max_amount' => $this->amountRules(),
-            'deposit_daily_limit' => $this->amountRules(),
-            'withdrawal_min_amount' => $this->amountRules(),
-            'withdrawal_max_amount' => $this->amountRules(),
-            'withdrawal_daily_limit' => $this->amountRules(),
+            'deposit_min_amount' => $this->limitRules(),
+            'deposit_max_amount' => $this->limitRules(),
+            'deposit_daily_limit' => $this->limitRules(),
+            'withdrawal_min_amount' => $this->limitRules(),
+            'withdrawal_max_amount' => $this->limitRules(),
+            'withdrawal_daily_limit' => $this->limitRules(),
             'deposit_rate' => $rate,
             'withdrawal_rate' => $rate,
             'partner_ids' => ['array'],
@@ -59,7 +59,7 @@ class BranchRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
-        $validator->after(fn (Validator $validator) => $this->checkRanges($validator, ['deposit', 'withdrawal']));
+        $validator->after(fn (Validator $validator) => $this->checkRanges($validator, ['deposit', 'withdrawal'], minusOneIsUnlimited: true));
     }
 
     public function actor(): User

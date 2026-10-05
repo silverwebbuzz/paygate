@@ -49,6 +49,8 @@ type Props = {
     can: { update: boolean; rates: boolean };
 };
 
+const NO_LIMIT = '-1';
+
 const pct = (rate: string | null) => (rate === null ? '—' : `${Number(rate)}%`);
 
 export default function Mappings({
@@ -356,7 +358,7 @@ function EditDialog({
     onClose: () => void;
 }) {
     const rupees = (paise: number | null) =>
-        paise === null ? '' : String(paise / 100);
+        paise === null ? NO_LIMIT : String(paise / 100);
     const form = useForm({
         status: mapping.status,
         is_deposit_enabled: mapping.is_deposit_enabled,
@@ -461,12 +463,15 @@ function EditDialog({
                 />
                 <Field
                     label="Pair daily deposit limit (₹)"
-                    hint="Empty = no pair limit"
+                    hint={`Enter ${NO_LIMIT} for unlimited`}
                     error={errors.deposit_daily_limit}
+                    required
                 >
                     <TextInput
                         inputMode="decimal"
-                        placeholder="No limit"
+                        required
+                        pattern="-1|\d{1,11}(\.\d{1,2})?"
+                        placeholder={NO_LIMIT}
                         value={form.data.deposit_daily_limit}
                         onChange={(event) =>
                             form.setData(
@@ -478,12 +483,15 @@ function EditDialog({
                 </Field>
                 <Field
                     label="Pair daily withdrawal limit (₹)"
-                    hint="Empty = no pair limit"
+                    hint={`Enter ${NO_LIMIT} for unlimited`}
                     error={errors.withdrawal_daily_limit}
+                    required
                 >
                     <TextInput
                         inputMode="decimal"
-                        placeholder="No limit"
+                        required
+                        pattern="-1|\d{1,11}(\.\d{1,2})?"
+                        placeholder={NO_LIMIT}
                         value={form.data.withdrawal_daily_limit}
                         onChange={(event) =>
                             form.setData(

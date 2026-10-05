@@ -13,6 +13,10 @@ final class Money
     /** Validation rule for a rupee amount typed in a form ("1500" or "1500.50"). */
     public const RUPEES_RULE = 'regex:/^\d{1,11}(\.\d{1,2})?$/';
 
+    public const NO_LIMIT = '-1';
+
+    public const LIMIT_RULE = 'regex:/^(-1|\d{1,11}(\.\d{1,2})?)$/';
+
     public static function toPaise(string $rupees): int
     {
         $rupees = str_replace([',', ' ', '₹'], '', trim($rupees));

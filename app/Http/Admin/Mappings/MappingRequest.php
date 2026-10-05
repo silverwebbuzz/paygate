@@ -35,8 +35,8 @@ class MappingRequest extends FormRequest
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'is_deposit_enabled' => ['boolean'],
             'is_withdrawal_enabled' => ['boolean'],
-            'deposit_daily_limit' => $this->amountRules(),
-            'withdrawal_daily_limit' => $this->amountRules(),
+            'deposit_daily_limit' => $this->limitRules(),
+            'withdrawal_daily_limit' => $this->limitRules(),
             'overrides' => ['nullable', 'array'],
         ];
 

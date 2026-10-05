@@ -7,7 +7,7 @@ use Illuminate\Validation\Validator;
 
 /**
  * For form requests with rupee amount fields: validation rules and
- * conversion to paise (empty = null = no limit).
+ * conversion to paise (empty or -1 = null = no limit).
  */
 trait ReadsMoney
 {
@@ -17,6 +17,14 @@ trait ReadsMoney
     protected function amountRules(): array
     {
         return ['nullable', 'string', Money::RUPEES_RULE];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function limitRules(): array
+    {
+        return ['required', 'string', Money::LIMIT_RULE];
     }
 
     protected function paise(string $field): ?int
@@ -33,8 +41,12 @@ trait ReadsMoney
      * @param  list<string>  $prefixes
      * @param  list<string>  $fields
      */
-    protected function checkRanges(Validator $validator, array $prefixes, array $fields = ['min_amount', 'max_amount', 'daily_limit']): void
+    protected function checkRanges(Validator $validator, array $prefixes, array $fields = ['min_amount', 'max_amount', 'daily_limit'], bool $minusOneIsUnlimited = false): void
     {
+        $zeroMessage = $minusOneIsUnlimited
+            ? __('Enter -1 for unlimited, or an amount above zero.')
+            : __('Leave empty for no limit, or enter an amount above zero.');
+
         foreach ($prefixes as $prefix) {
             $name = fn (string $field) => $prefix === '' ? $field : "{$prefix}_{$field}";
             $min = $this->paise($name('min_amount'));
@@ -46,7 +58,7 @@ trait ReadsMoney
 
             foreach ($fields as $field) {
                 if ($this->paise($name($field)) === 0) {
-                    $validator->errors()->add($name($field), __('Leave empty for no limit, or enter an amount above zero.'));
+                    $validator->errors()->add($name($field), $zeroMessage);
                 }
             }
         }

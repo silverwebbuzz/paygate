@@ -54,6 +54,8 @@ type Props = {
     };
 };
 
+const NO_LIMIT = '-1';
+
 const str = (value: unknown, fallback = '') =>
     typeof value === 'string' || typeof value === 'number'
         ? String(value)
@@ -78,12 +80,12 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                 ? branch.is_withdrawal_enabled
                 : false,
         deposit_limit_type: str(branch?.deposit_limit_type, 'daily_reset'),
-        deposit_min_amount: str(branch?.deposit_min_amount),
-        deposit_max_amount: str(branch?.deposit_max_amount),
-        deposit_daily_limit: str(branch?.deposit_daily_limit),
-        withdrawal_min_amount: str(branch?.withdrawal_min_amount),
-        withdrawal_max_amount: str(branch?.withdrawal_max_amount),
-        withdrawal_daily_limit: str(branch?.withdrawal_daily_limit),
+        deposit_min_amount: str(branch?.deposit_min_amount, NO_LIMIT),
+        deposit_max_amount: str(branch?.deposit_max_amount, NO_LIMIT),
+        deposit_daily_limit: str(branch?.deposit_daily_limit, NO_LIMIT),
+        withdrawal_min_amount: str(branch?.withdrawal_min_amount, NO_LIMIT),
+        withdrawal_max_amount: str(branch?.withdrawal_max_amount, NO_LIMIT),
+        withdrawal_daily_limit: str(branch?.withdrawal_daily_limit, NO_LIMIT),
         deposit_rate: str(branch?.deposit_rate),
         withdrawal_rate: str(branch?.withdrawal_rate),
         partner_ids: Array.isArray(branch?.partner_ids)
@@ -140,7 +142,12 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
         const { hint, ...rest } = props;
 
         return (
-            <Field label={label} hint={hint} error={errors[key]}>
+            <Field
+                label={label}
+                hint={hint}
+                error={errors[key]}
+                required={!!rest.required}
+            >
                 <TextInput
                     value={data[key] as string}
                     invalid={!!errors[key]}
@@ -154,12 +161,13 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
     const money = (
         key: keyof BranchForm,
         label: string,
-        hint = 'Empty = no limit',
+        hint = `Enter ${NO_LIMIT} for unlimited`,
     ) =>
         input(key, label, {
             inputMode: 'decimal',
-            pattern: '\\d{1,11}(\\.\\d{1,2})?',
-            placeholder: 'No limit',
+            pattern: '-1|\\d{1,11}(\\.\\d{1,2})?',
+            placeholder: NO_LIMIT,
+            required: true,
             hint,
             onChange: (event) =>
                 setData(key, event.target.value.replace(/[,₹\s]/g, '')),
@@ -234,6 +242,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                     </div>
                     <Field
                         label="Limit type"
+                        required
                         error={errors.deposit_limit_type}
                         hint={
                             data.deposit_limit_type === 'topup'

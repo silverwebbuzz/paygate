@@ -65,7 +65,7 @@ class MappingTest extends TestCase
         $this->rate('partner', $partner->id, 'deposit', '6');
         $this->rate('branch', $branch->id, 'deposit', '4');
         $mapping = PartnerBranchMapping::create(['partner_id' => $partner->id, 'branch_id' => $branch->id, 'status' => 'active']);
-        $base = ['status' => 'active', 'is_deposit_enabled' => true, 'is_withdrawal_enabled' => false, 'deposit_daily_limit' => '100000', 'withdrawal_daily_limit' => ''];
+        $base = ['status' => 'active', 'is_deposit_enabled' => true, 'is_withdrawal_enabled' => false, 'deposit_daily_limit' => '100000', 'withdrawal_daily_limit' => '-1'];
 
         $this->actingAs($admin)->put(route('admin.mappings.update', $mapping), [
             ...$base,
@@ -96,7 +96,7 @@ class MappingTest extends TestCase
         $mapping = PartnerBranchMapping::create(['partner_id' => $partner->id, 'branch_id' => $branch->id, 'status' => 'active']);
 
         $this->actingAs($admin)->put(route('admin.mappings.update', $mapping), [
-            'status' => 'active', 'is_deposit_enabled' => true, 'is_withdrawal_enabled' => true,
+            'status' => 'active', 'is_deposit_enabled' => true, 'is_withdrawal_enabled' => true, 'deposit_daily_limit' => '-1', 'withdrawal_daily_limit' => '-1',
             'overrides' => ['partner' => ['deposit' => '', 'withdrawal' => ''], 'branch' => ['deposit' => '3.5', 'withdrawal' => '']],
         ])->assertSessionHasNoErrors()->assertInertiaFlash('toast.type', 'warning');
 
@@ -111,7 +111,7 @@ class MappingTest extends TestCase
         $ops = User::factory()->admin(SystemRoles::ADMIN_OPS)->withTwoFactor()->create();
 
         $this->actingAs($ops)->put(route('admin.mappings.update', $mapping), [
-            'status' => 'active', 'is_deposit_enabled' => true, 'is_withdrawal_enabled' => true,
+            'status' => 'active', 'is_deposit_enabled' => true, 'is_withdrawal_enabled' => true, 'deposit_daily_limit' => '-1', 'withdrawal_daily_limit' => '-1',
             'overrides' => ['partner' => ['deposit' => '1', 'withdrawal' => ''], 'branch' => ['deposit' => '', 'withdrawal' => '']],
         ])->assertSessionHasNoErrors();
 

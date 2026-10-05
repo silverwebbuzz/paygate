@@ -462,13 +462,13 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                                 </Field>
                                 {input('return_url', 'Return URL', {
                                     type: 'url',
-                                    required: !editing,
+                                    required: true,
                                     placeholder: 'https://',
                                     hint: 'Where the customer goes after paying.',
                                 })}
                                 {input('callback_url', 'Pay-in callback URL', {
                                     type: 'url',
-                                    required: !editing,
+                                    required: true,
                                     placeholder: 'https://',
                                 })}
                                 {input(
@@ -476,7 +476,7 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                                     'Pay-in webhook URL',
                                     {
                                         type: 'url',
-                                        required: !editing,
+                                        required: true,
                                         placeholder: 'https://',
                                         hint: 'We POST signed status updates here.',
                                     },
