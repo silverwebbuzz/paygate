@@ -40,7 +40,7 @@ type Row = {
 
 type Detail = {
     id: string;
-    website_url: string;
+    website_url: string | null;
     callback_url: string | null;
     payin_webhook_url: string | null;
     payout_webhook_url: string | null;

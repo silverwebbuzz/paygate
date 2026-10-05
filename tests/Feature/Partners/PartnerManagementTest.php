@@ -37,6 +37,7 @@ class PartnerManagementTest extends TestCase
             'email' => 'Ops@Atoz.example',
             'website_url' => 'https://atoz.example',
             'return_url' => 'https://atoz.example/return',
+            'callback_url' => 'https://atoz.example/callback',
             'payin_webhook_url' => 'https://atoz.example/hooks/payin',
             'ip_addresses' => "52.66.45.184, 52.66.164.33\n10.0.0.0/24",
             'is_payin_enabled' => true,
@@ -47,14 +48,14 @@ class PartnerManagementTest extends TestCase
             'session_ttl_minutes' => 15,
             'deposit_min_amount' => '100',
             'deposit_max_amount' => '50000.50',
-            'deposit_daily_limit' => '',
+            'deposit_daily_limit' => '-1',
             'deposit_rate' => '6',
             'withdrawal_rate' => '2.5',
             'payout_limit_type' => 'daily_reset',
             'is_payout_enabled' => true,
             'withdrawal_min_amount' => '100',
-            'withdrawal_max_amount' => '',
-            'withdrawal_daily_limit' => '',
+            'withdrawal_max_amount' => '-1',
+            'withdrawal_daily_limit' => '-1',
             'is_auto_withdrawal' => false,
             'is_partial_withdrawal' => false,
             'branch_ids' => [],
@@ -133,6 +134,23 @@ class PartnerManagementTest extends TestCase
         ]))->assertSessionHasErrors(['code', 'ip_addresses', 'deposit_max_amount', 'withdrawal_rate', 'return_url']);
 
         $this->assertSame(1, Partner::count());
+    }
+
+    public function test_endpoints_are_required_on_create_but_the_website_is_optional()
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)->post(route('admin.partners.store'), $this->payload([
+            'return_url' => '',
+            'callback_url' => '',
+            'payin_webhook_url' => '',
+            'deposit_min_amount' => '',
+        ]))->assertSessionHasErrors(['return_url', 'callback_url', 'payin_webhook_url', 'deposit_min_amount']);
+
+        $this->actingAs($admin)->post(route('admin.partners.store'), $this->payload(['website_url' => '']))
+            ->assertSessionHasNoErrors();
+
+        $this->assertNull(Partner::where('code', 'ATOZ')->firstOrFail()->website_url);
     }
 
     public function test_whole_internet_ranges_are_refused()

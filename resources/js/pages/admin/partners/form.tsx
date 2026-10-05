@@ -147,6 +147,8 @@ const PAYMENT_TYPES = [
     ['dynamic_qr', 'Dynamic QR'],
 ] as const;
 
+const NO_LIMIT = '-1';
+
 const text = (value: unknown, fallback = '') =>
     typeof value === 'string' || typeof value === 'number'
         ? String(value)
@@ -175,18 +177,18 @@ function initial(partner: ExistingPartner | null): PartnerForm {
         allow_bank_transfer: flag('allow_bank_transfer', true),
         is_h2h_enabled: flag('is_h2h_enabled', false),
         session_ttl_minutes: text(p.session_ttl_minutes, '15'),
-        deposit_min_amount: text(p.deposit_min_amount),
-        deposit_max_amount: text(p.deposit_max_amount),
-        deposit_daily_limit: text(p.deposit_daily_limit),
+        deposit_min_amount: text(p.deposit_min_amount, NO_LIMIT),
+        deposit_max_amount: text(p.deposit_max_amount, NO_LIMIT),
+        deposit_daily_limit: text(p.deposit_daily_limit, NO_LIMIT),
         deposit_rate: text(p.deposit_rate),
         withdrawal_rate: text(p.withdrawal_rate),
         payout_limit_type: text(p.payout_limit_type, 'daily_reset'),
         is_payout_enabled: flag('is_payout_enabled', false),
         withdraw_url: text(p.withdraw_url),
         payout_group: text(p.payout_group),
-        withdrawal_min_amount: text(p.withdrawal_min_amount),
-        withdrawal_max_amount: text(p.withdrawal_max_amount),
-        withdrawal_daily_limit: text(p.withdrawal_daily_limit),
+        withdrawal_min_amount: text(p.withdrawal_min_amount, NO_LIMIT),
+        withdrawal_max_amount: text(p.withdrawal_max_amount, NO_LIMIT),
+        withdrawal_daily_limit: text(p.withdrawal_daily_limit, NO_LIMIT),
         is_auto_withdrawal: flag('is_auto_withdrawal', false),
         is_partial_withdrawal: flag('is_partial_withdrawal', false),
         branch_ids: Array.isArray(p.branch_ids)
@@ -283,17 +285,18 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
     const money = (
         key: keyof PartnerForm,
         label: string,
-        hint = 'Empty = no limit',
+        hint = `Enter ${NO_LIMIT} for unlimited`,
     ) => (
-        <Field label={label} hint={hint} error={errors[key]}>
+        <Field label={label} hint={hint} error={errors[key]} required>
             <div className="relative">
                 <span className="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-tx3">
                     ₹
                 </span>
                 <TextInput
                     inputMode="decimal"
-                    pattern="\d{1,11}(\.\d{1,2})?"
-                    placeholder="No limit"
+                    pattern="-1|\d{1,11}(\.\d{1,2})?"
+                    placeholder={NO_LIMIT}
+                    required
                     className="pl-7"
                     value={data[key] as string}
                     invalid={!!errors[key]}
@@ -315,7 +318,12 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
         const { hint, ...rest } = props;
 
         return (
-            <Field label={label} hint={hint} error={errors[key]}>
+            <Field
+                label={label}
+                hint={hint}
+                error={errors[key]}
+                required={!!rest.required}
+            >
                 <TextInput
                     value={data[key] as string}
                     invalid={!!errors[key]}
@@ -422,7 +430,6 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                                 })}
                                 {input('website_url', 'Website URL', {
                                     type: 'url',
-                                    required: true,
                                     placeholder: 'https://',
                                 })}
                                 <div className="sm:col-span-2">
@@ -455,11 +462,13 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                                 </Field>
                                 {input('return_url', 'Return URL', {
                                     type: 'url',
+                                    required: !editing,
                                     placeholder: 'https://',
                                     hint: 'Where the customer goes after paying.',
                                 })}
                                 {input('callback_url', 'Pay-in callback URL', {
                                     type: 'url',
+                                    required: !editing,
                                     placeholder: 'https://',
                                 })}
                                 {input(
@@ -467,6 +476,7 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                                     'Pay-in webhook URL',
                                     {
                                         type: 'url',
+                                        required: !editing,
                                         placeholder: 'https://',
                                         hint: 'We POST signed status updates here.',
                                     },
@@ -606,6 +616,7 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                                 )}
                                 <Field
                                     label="Payout limit type"
+                                    required
                                     hint={
                                         data.payout_limit_type === 'topup'
                                             ? 'Payouts use a balance Admin tops up.'

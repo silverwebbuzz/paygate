@@ -16,16 +16,25 @@ export function Field({
     label,
     hint,
     error,
+    required,
     children,
 }: {
     label: string;
     hint?: ReactNode;
     error?: string;
+    required?: boolean;
     children: ReactNode;
 }) {
     return (
         <label className="flex flex-col gap-1.5 text-[12.5px] font-medium text-tx2">
-            {label}
+            <span>
+                {label}
+                {required && (
+                    <span aria-hidden="true" className="ml-0.5 text-er">
+                        *
+                    </span>
+                )}
+            </span>
             {children}
             {error ? (
                 <span className="text-xs font-normal text-er">{error}</span>

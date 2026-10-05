@@ -12,7 +12,7 @@ type Props = {
         code: string;
         email: string;
         description: string | null;
-        website_url: string;
+        website_url: string | null;
         api_version: string;
         status: string;
         verified_at: string | null;

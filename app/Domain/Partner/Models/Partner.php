@@ -26,7 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $email
  * @property string|null $description
- * @property string $website_url
+ * @property string|null $website_url
  * @property string|null $return_url
  * @property string|null $callback_url
  * @property string|null $payin_webhook_url

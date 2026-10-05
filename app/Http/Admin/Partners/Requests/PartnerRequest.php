@@ -14,11 +14,13 @@ use Illuminate\Validation\Validator;
 
 /**
  * The partner wizard (create and edit). Amounts arrive in rupees and are
- * stored in paise; empty limits mean "no limit". Sections the admin has no
+ * stored in paise; a limit of -1 means "no limit". Sections the admin has no
  * permission for (commission, branch mapping, IPs) are ignored.
  */
 class PartnerRequest extends FormRequest
 {
+    private const NO_LIMIT = '-1';
+
     public function authorize(): bool
     {
         $partner = $this->partner();
@@ -34,7 +36,8 @@ class PartnerRequest extends FormRequest
     public function rules(): array
     {
         $url = ['nullable', 'string', 'max:255', app()->isLocal() ? 'url:http,https' : 'url:https'];
-        $amount = ['nullable', 'string', Money::RUPEES_RULE];
+        $requiredOnCreate = [$this->partner() === null ? 'required' : 'nullable', ...array_slice($url, 1)];
+        $amount = ['required', 'string', 'regex:/^('.self::NO_LIMIT.'|\d{1,11}(\.\d{1,2})?)$/'];
         $rate = ['nullable', 'string', 'regex:'.RatePercent::PATTERN, 'numeric', 'max:100'];
 
         return [
@@ -43,12 +46,12 @@ class PartnerRequest extends FormRequest
             'code' => ['required', 'string', 'max:30', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/', Rule::unique('partners', 'code')->ignore($this->partner()?->id)],
             'email' => ['required', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'website_url' => ['required', ...array_slice($url, 1)],
+            'website_url' => $url,
 
             // 2. API & security
-            'return_url' => $url,
-            'callback_url' => $url,
-            'payin_webhook_url' => $url,
+            'return_url' => $requiredOnCreate,
+            'callback_url' => $requiredOnCreate,
+            'payin_webhook_url' => $requiredOnCreate,
             'payout_webhook_url' => $url,
             'ip_addresses' => ['nullable', 'string', new IpAddressList],
 
@@ -100,7 +103,7 @@ class PartnerRequest extends FormRequest
 
                 foreach (["{$kind}_min_amount", "{$kind}_max_amount", "{$kind}_daily_limit"] as $field) {
                     if ($this->paise($field) === 0) {
-                        $validator->errors()->add($field, __('Leave empty for no limit, or enter an amount above zero.'));
+                        $validator->errors()->add($field, __('Enter -1 for unlimited, or an amount above zero.'));
                     }
                 }
             }
@@ -144,7 +147,7 @@ class PartnerRequest extends FormRequest
             ...$data,
             'code' => $this->string('code')->value(),
             'email' => $this->string('email')->lower()->value(),
-            'website_url' => $this->string('website_url')->value(),
+            'website_url' => $this->filled('website_url') ? $this->string('website_url')->value() : null,
         ];
     }
 
