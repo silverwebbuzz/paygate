@@ -29,6 +29,7 @@ import partner, {
     apiLogs as partnerApiLogs,
     profile as partnerProfile,
 } from '@/routes/partner';
+import partnerAccounts from '@/routes/partner/accounts';
 import partnerDevelopers from '@/routes/partner/developers';
 import partnerPayins from '@/routes/partner/payins';
 import partnerPayouts from '@/routes/partner/payouts';
@@ -327,6 +328,16 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     label: 'Pay-out',
                     href: partnerPayouts.index(),
                     permission: 'payouts.view',
+                },
+            ],
+        },
+        {
+            label: 'Accounts',
+            items: [
+                {
+                    label: 'Bank & UPI Accounts',
+                    href: partnerAccounts.index(),
+                    permission: 'accounts.view',
                 },
             ],
         },

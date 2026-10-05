@@ -96,6 +96,9 @@ class SectionRollout
                 'payins' => ['label' => 'Pay-in', 'paths' => ['/partner/payins', '/partner/webhooks']],
                 'payouts' => ['label' => 'Pay-out', 'paths' => ['/partner/payouts']],
             ],
+            'Accounts' => [
+                'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/partner/accounts']],
+            ],
             'Finance' => [
                 'settlements' => ['label' => 'Settlements', 'paths' => ['/partner/settlements']],
                 'balance' => ['label' => 'Balance', 'paths' => ['/partner/balance']],

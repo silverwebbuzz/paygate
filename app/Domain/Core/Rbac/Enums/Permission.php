@@ -123,6 +123,7 @@ enum Permission: string
             self::PayinsCreate, self::PayoutsCreate => [UserType::Admin, UserType::Partner],
             self::PayinsApprove, self::PayoutsProcess => [UserType::Admin, UserType::Branch],
             // Branches add their accounts; only Admin verifies them.
+            self::AccountsCreate, self::AccountsUpdate => [UserType::Admin, UserType::Branch],
             self::AccountsVerify => [UserType::Admin],
             // Settlements are calculated and ticked by Admin only.
             self::SettlementsCreate, self::SettlementsUpdate => [UserType::Admin],

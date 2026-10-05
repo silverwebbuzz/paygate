@@ -85,8 +85,8 @@ enum Menu: string
         $all = [UserType::Admin, UserType::Partner, UserType::Branch];
 
         return match ($this) {
-            self::Payins, self::Payouts, self::Balances, self::Settlements, self::Reports, self::Users => $all,
-            self::Accounts, self::Statements, self::Reconciliation, self::AuditLogs => [UserType::Admin, UserType::Branch],
+            self::Accounts, self::Payins, self::Payouts, self::Balances, self::Settlements, self::Reports, self::Users => $all,
+            self::Statements, self::Reconciliation, self::AuditLogs => [UserType::Admin, UserType::Branch],
             self::ApiKeys, self::Webhooks, self::IpRules, self::ApiLogs => [UserType::Admin, UserType::Partner],
             default => [UserType::Admin],
         };
