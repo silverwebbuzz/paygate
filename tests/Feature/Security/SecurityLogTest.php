@@ -17,7 +17,7 @@ class SecurityLogTest extends TestCase
 
     public function test_failed_login_is_logged_with_the_attempted_email()
     {
-        $this->post(route('login.store'), ['email' => 'nobody@example.com', 'password' => 'wrong']);
+        $this->post(route('login.store'), ['login' => 'nobody@example.com', 'password' => 'wrong']);
 
         $this->assertDatabaseHas('security_logs', [
             'event' => SecurityEvent::LoginFailed->value,
@@ -30,7 +30,7 @@ class SecurityLogTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password']);
+        $this->post(route('login.store'), ['login' => $user->email, 'password' => 'password']);
 
         $this->assertAuthenticatedAs($user);
         $this->assertDatabaseHas('security_logs', [
@@ -43,7 +43,7 @@ class SecurityLogTest extends TestCase
 
     public function test_log_entries_carry_the_request_id()
     {
-        $this->post(route('login.store'), ['email' => 'nobody@example.com', 'password' => 'wrong'], [
+        $this->post(route('login.store'), ['login' => 'nobody@example.com', 'password' => 'wrong'], [
             'X-Request-Id' => 'test-request-0001',
         ])->assertHeader('X-Request-Id', 'test-request-0001');
 

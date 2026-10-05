@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
  */
 class CreateUser
 {
-    public function handle(User $actor, UserType $type, ?string $organisationId, string $name, string $email, Role $role, string $password): User
+    public function handle(User $actor, UserType $type, ?string $organisationId, string $name, string $username, string $email, Role $role, string $password): User
     {
         if (! $actor->isType(UserType::Admin)) {
             $type = $actor->type;
@@ -36,9 +36,10 @@ class CreateUser
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $type, $organisationId, $name, $email, $role, $password) {
+        return DB::transaction(function () use ($actor, $type, $organisationId, $name, $username, $email, $role, $password) {
             $user = User::create([
                 'name' => $name,
+                'username' => Str::lower($username),
                 'email' => Str::lower($email),
                 'password' => $password,
                 'type' => $type,
@@ -52,6 +53,7 @@ class CreateUser
 
             AuditLog::record('user.created', $user, [], [
                 'name' => $user->name,
+                'username' => $user->username,
                 'email' => $user->email,
                 'type' => $type->value,
                 'role' => $role->name,

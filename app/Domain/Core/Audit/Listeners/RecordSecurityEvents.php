@@ -13,6 +13,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
 use Laravel\Fortify\Events\TwoFactorAuthenticationDisabled;
 use Laravel\Fortify\Events\TwoFactorAuthenticationFailed;
+use Laravel\Fortify\Fortify;
 
 /**
  * Writes authentication events to the append-only security log.
@@ -39,13 +40,13 @@ class RecordSecurityEvents
         SecurityLog::record(
             SecurityEvent::LoginFailed,
             $event->user instanceof User ? $event->user : null,
-            email: isset($event->credentials['email']) ? (string) $event->credentials['email'] : null,
+            email: isset($event->credentials[Fortify::username()]) ? (string) $event->credentials[Fortify::username()] : null,
         );
     }
 
     public function handleLockout(Lockout $event): void
     {
-        SecurityLog::record(SecurityEvent::LoginLockedOut, email: (string) $event->request->input('email'));
+        SecurityLog::record(SecurityEvent::LoginLockedOut, email: (string) $event->request->input(Fortify::username()));
     }
 
     public function handleLogout(Logout $event): void

@@ -10,13 +10,13 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Changes a user's name, email or role. The portal and organisation of a
+ * Changes a user's name, username, email or role. The portal and organisation of a
  * user never change: add a new user instead. As when creating a user, the
  * person making the change vouches for a new email address.
  */
 class UpdateUser
 {
-    public function handle(User $actor, User $user, string $name, string $email, Role $role): User
+    public function handle(User $actor, User $user, string $name, string $username, string $email, Role $role): User
     {
         if ($role->id !== $user->role_id) {
             $role->ensureAssignableBy($actor, $user->type);
@@ -26,9 +26,9 @@ class UpdateUser
             }
         }
 
-        $old = ['name' => $user->name, 'email' => $user->email, 'role' => $user->role->name];
+        $old = ['name' => $user->name, 'username' => $user->username, 'email' => $user->email, 'role' => $user->role->name];
 
-        $user->fill(['name' => $name, 'email' => Str::lower($email), 'role_id' => $role->id]);
+        $user->fill(['name' => $name, 'username' => Str::lower($username), 'email' => Str::lower($email), 'role_id' => $role->id]);
 
         if (! $user->isDirty()) {
             return $user;
@@ -37,7 +37,7 @@ class UpdateUser
         DB::transaction(function () use ($actor, $user, $old, $role) {
             $user->save();
 
-            AuditLog::record('user.updated', $user, $old, ['name' => $user->name, 'email' => $user->email, 'role' => $role->name], $actor);
+            AuditLog::record('user.updated', $user, $old, ['name' => $user->name, 'username' => $user->username, 'email' => $user->email, 'role' => $role->name], $actor);
         });
 
         return $user->setRelation('role', $role);

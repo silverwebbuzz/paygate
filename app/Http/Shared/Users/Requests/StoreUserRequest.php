@@ -3,6 +3,7 @@
 namespace App\Http\Shared\Users\Requests;
 
 use App\Domain\Core\Identity\Concerns\PasswordValidationRules;
+use App\Domain\Core\Identity\Concerns\ProfileValidationRules;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Models\Role;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -15,7 +16,7 @@ use Illuminate\Validation\Rule;
  */
 class StoreUserRequest extends FormRequest
 {
-    use PasswordValidationRules;
+    use PasswordValidationRules, ProfileValidationRules;
 
     public function authorize(): bool
     {
@@ -29,6 +30,7 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'username' => $this->usernameRules(),
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users')],
             'role_id' => ['required', 'uuid', Rule::exists('roles', 'id')],
             'password' => $this->passwordRules(),

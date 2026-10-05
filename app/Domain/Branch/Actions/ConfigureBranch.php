@@ -37,7 +37,7 @@ class ConfigureBranch
      * @param  array<string, mixed>  $attributes  branch columns (amounts in paise)
      * @param  array<string, string>|null  $rates  direction value => rate percent
      * @param  list<string>|null  $partnerIds
-     * @param  array{name: string, email: string, password: string}|null  $admin  branch admin to create (create only)
+     * @param  array{name: string, username: string, email: string, password: string}|null  $admin  branch admin to create (create only)
      * @return array{branch: Branch, negative_margins: array<string, mixed>}
      */
     public function handle(User $actor, ?Branch $branch, array $attributes, ?array $rates, ?array $partnerIds, ?array $admin = null, bool $activate = false): array
@@ -48,7 +48,7 @@ class ConfigureBranch
                 AuditLog::record('branch.created', $branch, [], $branch->only(array_keys($attributes)), $actor);
 
                 if ($admin !== null) {
-                    $this->createUser->handle($actor, UserType::Branch, $branch->id, $admin['name'], $admin['email'], Role::bySlug(SystemRoles::BRANCH_OWNER), $admin['password']);
+                    $this->createUser->handle($actor, UserType::Branch, $branch->id, $admin['name'], $admin['username'], $admin['email'], Role::bySlug(SystemRoles::BRANCH_OWNER), $admin['password']);
                 }
             } else {
                 $this->update($actor, $branch, $attributes);

@@ -13,13 +13,14 @@ class CreateAdminCommandTest extends TestCase
 
     public function test_it_creates_a_verified_super_admin_and_audits_it()
     {
-        $this->artisan('paygate:create-admin', ['--name' => 'Root', '--email' => 'root@example.com'])
+        $this->artisan('paygate:create-admin', ['--name' => 'Root', '--username' => 'root', '--email' => 'root@example.com'])
             ->expectsQuestion('Password', 'a-long-Secret-123!')
             ->assertSuccessful();
 
         $user = User::where('email', 'root@example.com')->firstOrFail();
 
         $this->assertSame(SystemRoles::ADMIN_SUPER, $user->role->slug);
+        $this->assertSame('root', $user->username);
         $this->assertNotNull($user->email_verified_at);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.created', 'subject_id' => $user->id]);
     }
@@ -28,7 +29,7 @@ class CreateAdminCommandTest extends TestCase
     {
         User::factory()->create(['email' => 'root@example.com']);
 
-        $this->artisan('paygate:create-admin', ['--name' => 'Root', '--email' => 'root@example.com'])
+        $this->artisan('paygate:create-admin', ['--name' => 'Root', '--username' => 'root', '--email' => 'root@example.com'])
             ->expectsQuestion('Password', 'a-long-Secret-123!')
             ->assertFailed();
     }

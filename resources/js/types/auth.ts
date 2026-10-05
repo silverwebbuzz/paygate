@@ -8,6 +8,7 @@ export type User = {
     branch_id: string | null;
     status: 'active' | 'suspended';
     name: string;
+    username: string | null;
     email: string;
     avatar?: string;
     email_verified_at: string | null;

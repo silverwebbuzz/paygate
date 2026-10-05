@@ -47,7 +47,8 @@ class FortifyServiceProvider extends ServiceProvider
 
         // Same as Fortify's default credential check, plus: suspended users cannot log in.
         Fortify::authenticateUsing(function (Request $request): ?User {
-            $user = User::where('email', $request->string(Fortify::username()))->first();
+            $login = $request->string(Fortify::username())->trim()->lower()->value();
+            $user = User::where(str_contains($login, '@') ? 'email' : 'username', $login)->first();
 
             if (! $user || ! Hash::check($request->string('password'), $user->password)) {
                 return null;

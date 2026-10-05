@@ -32,6 +32,7 @@ type BranchForm = {
     withdrawal_rate: string;
     partner_ids: string[];
     admin_name: string;
+    admin_username: string;
     admin_email: string;
     admin_password: string;
     admin_password_confirmation: string;
@@ -92,6 +93,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
             ? (branch.partner_ids as string[])
             : [],
         admin_name: '',
+        admin_username: '',
         admin_email: '',
         admin_password: '',
         admin_password_confirmation: '',
@@ -119,6 +121,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
             ...(editing
                 ? {
                       admin_name: undefined,
+                      admin_username: undefined,
                       admin_email: undefined,
                       admin_password: undefined,
                       admin_password_confirmation: undefined,
@@ -328,9 +331,22 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                 {!editing && can.add_admin && (
                     <Section
                         title="Branch admin"
-                        description="Optional. They can log in straight away with this email and password, then add accounts and their operators. More users can be added later from the branch’s Users page."
+                        description="Optional. They can log in straight away with this username or email and password, then add accounts and their operators. More users can be added later from the branch’s Users page."
                     >
                         {input('admin_name', 'Full name')}
+                        {input('admin_username', 'Username', {
+                            minLength: 3,
+                            maxLength: 50,
+                            pattern: '[a-z0-9._\\-]+',
+                            autoCapitalize: 'none',
+                            autoComplete: 'off',
+                            hint: '3–50 characters: lowercase letters, numbers, dot, underscore or hyphen.',
+                            onChange: (event) =>
+                                setData(
+                                    'admin_username',
+                                    event.target.value.toLowerCase().trim(),
+                                ),
+                        })}
                         {input('admin_email', 'Email', { type: 'email' })}
                         <Field
                             label="Password"

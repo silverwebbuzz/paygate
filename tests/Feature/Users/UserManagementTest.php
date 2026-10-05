@@ -74,12 +74,14 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.branches.users.store', $branch), [
             'name' => 'Ravi Operator',
+            'username' => 'ravi',
             'email' => 'ravi@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
             ...self::PASSWORD,
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $user = User::where('email', 'ravi@example.com')->firstOrFail();
+        $this->assertSame('ravi', $user->username);
         $this->assertSame(UserType::Branch, $user->type);
         $this->assertSame($branch->id, $user->branch_id);
         $this->assertTrue(Hash::check('Str0ng-pass!word', $user->password));
@@ -93,12 +95,14 @@ class UserManagementTest extends TestCase
     {
         $this->actingAs($this->superAdmin())->post(route('admin.users.store'), [
             'name' => 'No Password',
+            'username' => 'nopass',
             'email' => 'nopass@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
         ])->assertSessionHasErrors('password');
 
         $this->actingAs($this->superAdmin())->post(route('admin.users.store'), [
             'name' => 'Mismatch',
+            'username' => 'mismatch',
             'email' => 'mismatch@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
             'password' => 'Str0ng-pass!word',
@@ -107,6 +111,25 @@ class UserManagementTest extends TestCase
 
         $this->assertDatabaseMissing('users', ['email' => 'nopass@example.com']);
         $this->assertDatabaseMissing('users', ['email' => 'mismatch@example.com']);
+    }
+
+    public function test_a_new_user_needs_a_unique_valid_username()
+    {
+        User::factory()->create(['username' => 'taken']);
+        $payload = fn (string $username) => [
+            'name' => 'New Person',
+            'username' => $username,
+            'email' => 'new@example.com',
+            'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
+            ...self::PASSWORD,
+        ];
+
+        foreach (['', 'ab', 'taken', 'Has Space', 'who@where', 'UPPER'] as $username) {
+            $this->actingAs($this->superAdmin())->post(route('admin.users.store'), $payload($username))
+                ->assertSessionHasErrors('username');
+        }
+
+        $this->assertDatabaseMissing('users', ['email' => 'new@example.com']);
     }
 
     public function test_admin_sets_another_users_password()
@@ -135,6 +158,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($actor)->post(route('admin.users.store'), [
             'name' => 'Promoted',
+            'username' => 'promoted',
             'email' => 'promoted@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
             ...self::PASSWORD,
@@ -146,6 +170,7 @@ class UserManagementTest extends TestCase
         // Other admins, including other Admin-role users, are fine.
         $this->actingAs($actor)->post(route('admin.users.store'), [
             'name' => 'Second Admin',
+            'username' => 'second',
             'email' => 'second@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_FULL)->id,
             ...self::PASSWORD,
@@ -196,6 +221,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.users.store'), [
             'name' => 'Partner Via Users',
+            'username' => 'noorg',
             'email' => 'noorg@example.com',
             'role_id' => Role::bySlug(SystemRoles::PARTNER_VIEWER)->id,
             ...self::PASSWORD,
@@ -203,6 +229,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.users.store'), [
             'name' => 'New Viewer',
+            'username' => 'viewer',
             'email' => 'viewer@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
             ...self::PASSWORD,
@@ -227,6 +254,7 @@ class UserManagementTest extends TestCase
         // A branch role can't be added to a partner.
         $this->actingAs($admin)->post(route('admin.partners.users.store', $partner), [
             'name' => 'Wrong Role',
+            'username' => 'wrong',
             'email' => 'wrong@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
             ...self::PASSWORD,
@@ -234,6 +262,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.partners.users.store', $partner), [
             'name' => 'Dev',
+            'username' => 'dev',
             'email' => 'dev@example.com',
             'role_id' => Role::bySlug(SystemRoles::PARTNER_DEVELOPER)->id,
             ...self::PASSWORD,
@@ -254,6 +283,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($owner)->post(route('branch.users.store'), [
             'name' => 'New Operator',
+            'username' => 'operator2',
             'email' => 'operator2@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
             ...self::PASSWORD,
@@ -264,6 +294,7 @@ class UserManagementTest extends TestCase
         // A branch owner can't create admins, and always adds to their own branch.
         $this->actingAs($owner)->post(route('branch.users.store'), [
             'name' => 'Sneaky',
+            'username' => 'sneaky',
             'email' => 'sneaky@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
             ...self::PASSWORD,
@@ -271,6 +302,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($owner)->post(route('branch.users.store'), [
             'name' => 'Elsewhere',
+            'username' => 'elsewhere',
             'email' => 'elsewhere@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OPERATOR)->id,
             'organisation_id' => Branch::factory()->create()->id,
@@ -307,6 +339,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($actor)->post(route('admin.users.store'), [
             'name' => 'Promoted',
+            'username' => 'promoted',
             'email' => 'promoted@example.com',
             'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
             ...self::PASSWORD,
@@ -362,6 +395,7 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($admin)->put(route('admin.users.update', $user), [
             'name' => $user->name,
+            'username' => 'changed',
             'email' => 'changed@example.com',
             'role_id' => Role::bySlug(SystemRoles::BRANCH_OWNER)->id,
         ])->assertSessionHasNoErrors();
@@ -375,6 +409,7 @@ class UserManagementTest extends TestCase
         // The role must stay within the user's portal.
         $this->actingAs($admin)->put(route('admin.users.update', $user), [
             'name' => $user->name,
+            'username' => $user->username,
             'email' => $user->email,
             'role_id' => Role::bySlug(SystemRoles::ADMIN_VIEWER)->id,
         ])->assertSessionHasErrors('role_id');

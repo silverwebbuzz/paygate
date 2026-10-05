@@ -2,6 +2,7 @@
 
 namespace App\Http\Shared\Users\Requests;
 
+use App\Domain\Core\Identity\Concerns\ProfileValidationRules;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Models\Role;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -10,6 +11,8 @@ use Illuminate\Validation\Rule;
 
 class UpdateUserRequest extends FormRequest
 {
+    use ProfileValidationRules;
+
     public function authorize(): bool
     {
         return $this->actor()->can('update', $this->target());
@@ -22,6 +25,7 @@ class UpdateUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'username' => $this->usernameRules($this->target()->id),
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users')->ignore($this->target()->id)],
             'role_id' => ['required', 'uuid', Rule::exists('roles', 'id')],
         ];

@@ -41,6 +41,7 @@ type RoleOption = { id: string; name: string; user_type: UserType };
 type UserRow = {
     id: string;
     name: string;
+    username: string | null;
     email: string;
     type: UserType;
     organisation: { name: string; code: string } | null;
@@ -177,7 +178,10 @@ export default function UsersIndex({
             cell: (user) => (
                 <div className="min-w-0">
                     <div className="font-medium">{user.name}</div>
-                    <div className="text-xs text-tx3">{user.email}</div>
+                    <div className="text-xs text-tx3">
+                        {user.username && `${user.username} · `}
+                        {user.email}
+                    </div>
                 </div>
             ),
         },
@@ -307,7 +311,7 @@ export default function UsersIndex({
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search name or email"
+                            placeholder="Search name, username or email"
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
@@ -413,6 +417,7 @@ export default function UsersIndex({
                                     ? `${open.organisation.name} (${open.organisation.code})`
                                     : null,
                             },
+                            { label: 'Username', value: open.username },
                             { label: 'Email', value: open.email },
                             {
                                 label: 'Last login at',
@@ -560,7 +565,7 @@ export default function UsersIndex({
     );
 }
 
-/** Add a new user with a password, or edit one (name, email, role). */
+/** Add a new user with a password, or edit one (name, username, email, role). */
 function UserFormDialog({
     addType,
     organisation,
@@ -580,6 +585,7 @@ function UserFormDialog({
     const type = user?.type ?? addType;
     const form = useForm({
         name: user?.name ?? '',
+        username: user?.username ?? '',
         email: user?.email ?? '',
         role_id: user?.role.id ?? '',
         password: '',
@@ -601,6 +607,7 @@ function UserFormDialog({
 
         form.transform((data) => ({
             name: data.name,
+            username: data.username,
             email: data.email,
             role_id: data.role_id,
             ...(!editing
@@ -633,14 +640,14 @@ function UserFormDialog({
             }
             description={
                 editing
-                    ? 'They log in with the new email address from now on.'
-                    : 'They can log in straight away with this email and password. Pass the password on securely; they can change it under Profile & settings.'
+                    ? 'They log in with this username or email from now on.'
+                    : 'They can log in straight away with this username or email and password. Pass the password on securely; they can change it under Profile & settings.'
             }
             submitLabel={editing ? 'Save' : 'Add user'}
             processing={form.processing}
             onSubmit={submit}
         >
-            <Field label="Full name" error={errors.name}>
+            <Field label="Full name" error={errors.name} required>
                 <TextInput
                     autoFocus
                     required
@@ -651,7 +658,30 @@ function UserFormDialog({
                     }
                 />
             </Field>
-            <Field label="Email" error={errors.email}>
+            <Field
+                label="Username"
+                hint="3–50 characters: lowercase letters, numbers, dot, underscore or hyphen."
+                error={errors.username}
+                required
+            >
+                <TextInput
+                    required
+                    minLength={3}
+                    maxLength={50}
+                    pattern="[a-z0-9._\-]+"
+                    autoCapitalize="none"
+                    autoComplete="off"
+                    value={form.data.username}
+                    invalid={!!errors.username}
+                    onChange={(event) =>
+                        form.setData(
+                            'username',
+                            event.target.value.toLowerCase().trim(),
+                        )
+                    }
+                />
+            </Field>
+            <Field label="Email" error={errors.email} required>
                 <TextInput
                     type="email"
                     required
@@ -666,6 +696,7 @@ function UserFormDialog({
                 label="Role"
                 hint="Only roles with permissions you hold yourself are listed."
                 error={errors.role_id}
+                required
             >
                 <SelectInput
                     required
@@ -752,6 +783,7 @@ function PasswordFields({
                 label="Password"
                 hint="At least 12 characters with upper and lower case letters, a number and a symbol."
                 error={error}
+                required
             >
                 <PasswordTextInput
                     required
@@ -763,7 +795,7 @@ function PasswordFields({
                     }
                 />
             </Field>
-            <Field label="Confirm password">
+            <Field label="Confirm password" required>
                 <PasswordTextInput
                     required
                     autoComplete="new-password"

@@ -90,6 +90,7 @@ class LocalDemoUserSeeder extends Seeder
 
             User::updateOrCreate(['email' => $email], [
                 'name' => $role->user_type->label().' '.$role->name,
+                'username' => strstr($email, '@', true),
                 'type' => $role->user_type,
                 'role_id' => $role->id,
                 'partner_id' => $role->user_type->value === 'partner' ? $partner->id : null,

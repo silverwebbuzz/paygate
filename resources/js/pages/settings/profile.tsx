@@ -33,7 +33,7 @@ export default function Profile({
                 <Heading
                     variant="small"
                     title="Profile"
-                    description="Update your name. Your email address is your login and can only be changed by an administrator."
+                    description="Update your name. You log in with your username or email address; only an administrator can change them."
                 />
 
                 <Form
@@ -61,6 +61,19 @@ export default function Profile({
                                 <InputError
                                     className="mt-2"
                                     message={errors.name}
+                                />
+                            </div>
+
+                            <div className="grid gap-2">
+                                <Label htmlFor="username">Username</Label>
+
+                                <Input
+                                    id="username"
+                                    className="mt-1 block w-full"
+                                    value={auth.user.username ?? ''}
+                                    placeholder="Not set"
+                                    readOnly
+                                    disabled
                                 />
                             </div>
 
