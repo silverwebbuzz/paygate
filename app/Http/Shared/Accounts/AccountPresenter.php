@@ -4,6 +4,7 @@ namespace App\Http\Shared\Accounts;
 
 use App\Domain\Allocation\UsageCounters;
 use App\Domain\Commission\Enums\Direction;
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
@@ -11,7 +12,7 @@ use Illuminate\Support\Collection;
 
 /**
  * The account row both account screens (Admin, branch portal) show.
- * Numbers are masked; full numbers are never sent to the browser here.
+ * Admin sees the full account number and UPI ID. A branch sees them masked.
  */
 class AccountPresenter
 {
@@ -25,6 +26,8 @@ class AccountPresenter
     {
         $usage = $this->usage->today('account', $accounts->pluck('id')->all(), Direction::Deposit);
 
+        $full = $actor->isType(UserType::Admin);
+
         return $accounts->map(fn (PaymentAccount $account) => [
             'id' => $account->id,
             'label' => $account->label,
@@ -33,10 +36,15 @@ class AccountPresenter
             'is_bank_enabled' => $account->is_bank_enabled,
             'bank_name' => $account->bank_name,
             'ifsc' => $account->ifsc,
-            'account_number' => $account->maskedAccountNumber(),
+            'account_number' => $full && is_string($account->account_number_encrypted) && $account->account_number_encrypted !== ''
+                ? $account->account_number_encrypted
+                : $account->maskedAccountNumber(),
             'is_upi_enabled' => $account->is_upi_enabled,
-            'upi_id' => $account->maskedUpiId(),
+            'upi_id' => $full && is_string($account->upi_id_encrypted) && $account->upi_id_encrypted !== ''
+                ? $account->upi_id_encrypted
+                : $account->maskedUpiId(),
             'upi_display_name' => $account->upi_display_name,
+            'upi_code' => $account->upi_code,
             'is_qr_enabled' => $account->is_qr_enabled,
             'is_intent_enabled' => $account->is_intent_enabled,
             'min_amount' => $account->min_amount,
@@ -50,10 +58,15 @@ class AccountPresenter
             'verified_at' => $account->verified_at?->toIso8601String(),
             'created_at' => $account->created_at?->toIso8601String(),
             'can' => [
-                'update' => $actor->can('accounts.update') && $account->status !== AccountStatus::Disabled,
+                'update' => $actor->can('accounts.update') && ($full || $account->status !== AccountStatus::Disabled),
                 'verify' => $actor->can('accounts.verify') && $account->status === AccountStatus::VerificationPending,
                 'switch_to' => $actor->can('accounts.update')
-                    ? array_map(fn (AccountStatus $status) => $status->value, $account->status->switchableTo())
+                    ? ($full
+                        ? array_values(array_map(
+                            fn (AccountStatus $status) => $status->value,
+                            array_filter(AccountStatus::cases(), fn (AccountStatus $status) => $status !== AccountStatus::New && $status !== $account->status),
+                        ))
+                        : array_map(fn (AccountStatus $status) => $status->value, $account->status->switchableTo()))
                     : [],
             ],
         ])->values()->all();

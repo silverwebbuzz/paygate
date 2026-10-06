@@ -7,22 +7,40 @@ import type { Column } from './data-table';
 import { EmptyState } from './empty-state';
 import { StatusBadge } from './status-badge';
 
-/**
- * Bank & UPI accounts table (design: account, bank, UPI, branch, per-txn
- * limit, used today against the daily limit, methods, status, actions).
- */
 export function AccountTable({
     accounts,
     showBranch,
+    detailed = false,
+    onStatus,
     actions,
     empty,
 }: {
     accounts: AccountRow[];
     showBranch: boolean;
+    detailed?: boolean;
+    onStatus?: (account: AccountRow) => void;
     actions: (account: AccountRow) => ReactNode;
     empty: ReactNode;
 }) {
-    const columns: Column<AccountRow>[] = [
+    const columns = detailed
+        ? detailedColumns(onStatus, actions)
+        : compactColumns(showBranch, actions);
+
+    return (
+        <DataTable
+            columns={columns}
+            rows={accounts}
+            rowKey={(a) => a.id}
+            empty={<EmptyState title="No accounts yet" description={empty} />}
+        />
+    );
+}
+
+function compactColumns(
+    showBranch: boolean,
+    actions: (account: AccountRow) => ReactNode,
+): Column<AccountRow>[] {
+    return [
         {
             key: 'account',
             header: 'Account',
@@ -111,18 +129,131 @@ export function AccountTable({
         {
             key: 'status',
             header: 'Status',
+            cell: (a) => <StatusCell account={a} />,
+        },
+        {
+            key: 'actions',
+            header: '',
+            align: 'right',
+            cell: (a) => (
+                <div className="flex justify-end gap-1.5">{actions(a)}</div>
+            ),
+        },
+    ];
+}
+
+function detailedColumns(
+    onStatus: ((account: AccountRow) => void) | undefined,
+    actions: (account: AccountRow) => ReactNode,
+): Column<AccountRow>[] {
+    return [
+        {
+            key: 'account',
+            header: 'Account',
+            className: 'min-w-[160px]',
             cell: (a) => (
                 <div>
-                    <StatusBadge
-                        status={a.status}
-                        label={a.status === 'rejected' ? 'Rejected' : undefined}
-                    />
-                    {a.status === 'rejected' && a.rejected_reason && (
-                        <div className="mt-1 max-w-[200px] text-[11px] text-er">
-                            {a.rejected_reason}
-                        </div>
-                    )}
+                    <div className="font-medium">{a.label}</div>
+                    <div className="text-xs text-tx2">{a.holder}</div>
+                    <div className="mt-1 text-xs text-tx3">
+                        {a.branch.code} · {a.branch.name}
+                    </div>
                 </div>
+            ),
+        },
+        {
+            key: 'limits',
+            header: 'Deposit limits',
+            className: 'min-w-[150px]',
+            cell: (a) => (
+                <div>
+                    <Line label="Minimum" value={formatLimit(a.min_amount)} />
+                    <Line label="Maximum" value={formatLimit(a.max_amount)} />
+                    <Line
+                        label="Per day"
+                        value={formatLimit(a.daily_amount_limit)}
+                    />
+                    <Line
+                        label="Count"
+                        value={
+                            a.daily_count_limit === null
+                                ? 'Any'
+                                : String(a.daily_count_limit)
+                        }
+                    />
+                    <div className="mt-1 text-[11px] text-tx3">
+                        Used today {formatPaise(a.used_today.amount, 0)} ·{' '}
+                        {a.used_today.count} payments · {a.max_open_sessions}{' '}
+                        open at once
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: 'credentials',
+            header: 'Credentials',
+            className: 'min-w-[280px]',
+            cell: (a) => (
+                <div>
+                    {a.is_bank_enabled && (
+                        <>
+                            <Line label="Bank" value={a.bank_name} />
+                            <Line label="Holder" value={a.holder} />
+                            <Line
+                                label="Account"
+                                value={a.account_number}
+                                mono
+                            />
+                            <Line label="IFSC" value={a.ifsc} mono />
+                        </>
+                    )}
+                    {a.is_upi_enabled && (
+                        <>
+                            <Line label="UPI" value={a.upi_id} mono />
+                            <Line label="Shown as" value={a.upi_display_name} />
+                            <Line label="UPI code" value={a.upi_code} mono />
+                        </>
+                    )}
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                        <Method on={a.is_bank_enabled}>Bank</Method>
+                        <Method on={a.is_upi_enabled}>UPI</Method>
+                        <Method on={a.is_qr_enabled}>QR</Method>
+                        <Method on={a.is_intent_enabled}>Intent</Method>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            key: 'intent',
+            header: 'UPI intent',
+            cell: (a) => (
+                <span
+                    className={cn(
+                        'text-xs font-medium',
+                        a.is_intent_enabled ? 'text-ok' : 'text-tx3',
+                    )}
+                >
+                    {a.is_intent_enabled ? 'Allowed' : 'Off'}
+                </span>
+            ),
+        },
+        {
+            key: 'verification',
+            header: 'Verification',
+            cell: (a) => <Verification account={a} />,
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            cell: (a) => (
+                <StatusCell
+                    account={a}
+                    onClick={
+                        onStatus && a.can.switch_to.length > 0
+                            ? () => onStatus(a)
+                            : undefined
+                    }
+                />
             ),
         },
         {
@@ -134,14 +265,89 @@ export function AccountTable({
             ),
         },
     ];
+}
+
+function StatusCell({
+    account,
+    onClick,
+}: {
+    account: AccountRow;
+    onClick?: () => void;
+}) {
+    const badge = (
+        <div>
+            <StatusBadge
+                status={account.status}
+                label={account.status === 'rejected' ? 'Rejected' : undefined}
+            />
+            {account.status === 'rejected' && account.rejected_reason && (
+                <div className="mt-1 max-w-[180px] text-[11px] text-er">
+                    {account.rejected_reason}
+                </div>
+            )}
+        </div>
+    );
+
+    if (!onClick) {
+        return badge;
+    }
 
     return (
-        <DataTable
-            columns={columns}
-            rows={accounts}
-            rowKey={(a) => a.id}
-            empty={<EmptyState title="No accounts yet" description={empty} />}
-        />
+        <button
+            type="button"
+            onClick={onClick}
+            className="rounded-md text-left hover:bg-sf2"
+        >
+            {badge}
+        </button>
+    );
+}
+
+function Verification({ account }: { account: AccountRow }) {
+    if (account.status === 'rejected') {
+        return <StatusBadge status="rejected" label="Rejected" />;
+    }
+
+    if (
+        account.status === 'verification_pending' ||
+        account.status === 'new'
+    ) {
+        return (
+            <StatusBadge
+                status="verification_pending"
+                label="Pending"
+            />
+        );
+    }
+
+    if (
+        account.verified_at ||
+        account.status === 'verified' ||
+        account.status === 'active' ||
+        account.status === 'paused'
+    ) {
+        return <StatusBadge status="verified" label="Verified" />;
+    }
+
+    return <StatusBadge status="new" label="Not verified" />;
+}
+
+function Line({
+    label,
+    value,
+    mono = false,
+}: {
+    label: string;
+    value: string | null | undefined;
+    mono?: boolean;
+}) {
+    return (
+        <div className="flex gap-2 text-xs leading-5">
+            <span className="w-[64px] shrink-0 text-tx3">{label}</span>
+            <span className={cn('break-all', mono && 'font-mono')}>
+                {value && value !== '' ? value : '—'}
+            </span>
+        </div>
     );
 }
 

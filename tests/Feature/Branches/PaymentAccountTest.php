@@ -189,8 +189,14 @@ class PaymentAccountTest extends TestCase
 
         $this->actingAs($admin)->get(route('admin.accounts.index'))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('accounts.data.0.account_number', 'XXXX 6640')
-                ->where('accounts.data.0.upi_id', '••••nali@hdfcbank'));
+                ->where('accounts.data.0.account_number', '50100482716640')
+                ->where('accounts.data.0.upi_id', 'ashanali@hdfcbank')
+                ->where('accounts.data.0.can.switch_to', ['verified', 'active', 'paused', 'disabled', 'rejected']));
+
+        $this->actingAs($this->owner)->get(route('branch.accounts.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('accounts.0.account_number', 'XXXX 6640')
+                ->where('accounts.0.upi_id', '••••nali@hdfcbank'));
 
         $this->actingAs($admin)
             ->get(route('admin.accounts.index', ['reveal' => $account->id]), [
@@ -202,5 +208,39 @@ class PaymentAccountTest extends TestCase
             ->assertJsonPath('props.reveal.account_number', '50100482716640');
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'payment_account.revealed', 'subject_id' => $account->id, 'actor_id' => $admin->id]);
+    }
+
+    public function test_an_admin_can_change_an_account_to_any_status_and_turn_a_disabled_one_back_on()
+    {
+        $account = $this->add();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'active'])
+            ->assertSessionHasErrors('reason');
+
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), [
+            'status' => 'disabled',
+            'reason' => 'Closed by the bank',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::Disabled, $account->fresh()?->status);
+
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
+            'status' => 'active',
+            'reason' => 'Please turn it back on',
+        ])->assertSessionHasErrors('status');
+
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), [
+            'status' => 'active',
+            'reason' => 'Bank confirmed it is open again',
+        ])->assertSessionHasNoErrors();
+
+        $account->refresh();
+        $this->assertSame(AccountStatus::Active, $account->status);
+        $this->assertNotNull($account->verified_at);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'payment_account.status_changed',
+            'subject_id' => $account->id,
+            'actor_id' => $admin->id,
+        ]);
     }
 }

@@ -8,7 +8,7 @@ import { AccountTable } from '@/components/pg/account-table';
 import { PgButton } from '@/components/pg/button';
 import { Panel } from '@/components/pg/data-table';
 import { KeyValues } from '@/components/pg/drawer';
-import { SelectInput, TextInput } from '@/components/pg/field';
+import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
@@ -52,6 +52,9 @@ export default function AdminAccounts({
     const [search, setSearch] = useState(filters.search);
     const [editing, setEditing] = useState<AccountRow | 'new' | null>(null);
     const [reviewing, setReviewing] = useState<AccountRow | null>(null);
+    const [statusAccount, setStatusAccount] = useState<AccountRow | null>(
+        null,
+    );
 
     const visit = (next: Partial<Props['filters']>) => {
         const query = Object.fromEntries(
@@ -80,7 +83,7 @@ export default function AdminAccounts({
 
             <PageHeader
                 title="Bank & UPI Accounts"
-                description="Collection accounts of every branch. New and changed accounts wait for your verification; only active ones receive customers. Limits reset daily at 00:00 IST."
+                description="Collection accounts of every branch. The full bank and UPI details are shown here. Click a status to change it; a reason is kept in the account log, and a disabled account can be turned back on."
                 actions={
                     <>
                         <Link
@@ -172,6 +175,8 @@ export default function AdminAccounts({
                 <AccountTable
                     accounts={accounts.data}
                     showBranch
+                    detailed
+                    onStatus={setStatusAccount}
                     empty="Branches add their accounts in the branch portal; you can also add one here."
                     actions={(account) => (
                         <>
@@ -192,6 +197,7 @@ export default function AdminAccounts({
                             )}
                             <AccountActions
                                 account={account}
+                                hideStatus
                                 statusUrl={
                                     accountsRoutes.status(account.id).url
                                 }
@@ -226,6 +232,13 @@ export default function AdminAccounts({
                 />
             )}
 
+            {statusAccount && (
+                <StatusDialog
+                    account={statusAccount}
+                    onClose={() => setStatusAccount(null)}
+                />
+            )}
+
             {reviewing && (
                 <ReviewDialog
                     account={reviewing}
@@ -239,10 +252,95 @@ export default function AdminAccounts({
     );
 }
 
+const STATUS_OPTIONS = [
+    ['verification_pending', 'Needs verification'],
+    ['verified', 'Verified, not receiving customers'],
+    ['active', 'Active'],
+    ['paused', 'Paused'],
+    ['rejected', 'Rejected'],
+    ['disabled', 'Disabled'],
+] as const;
+
 /**
  * Verification: the full numbers (loaded on request and audited), then
  * approve, or reject with a reason the branch will see.
  */
+function StatusDialog({
+    account,
+    onClose,
+}: {
+    account: AccountRow;
+    onClose: () => void;
+}) {
+    const choices = STATUS_OPTIONS.filter(([value]) =>
+        account.can.switch_to.includes(value),
+    );
+    const [status, setStatus] = useState(choices[0]?.[0] ?? 'active');
+    const [reason, setReason] = useState('');
+    const [error, setError] = useState<string | undefined>();
+    const [processing, setProcessing] = useState(false);
+
+    return (
+        <FormDialog
+            open
+            width={480}
+            onOpenChange={(open) => !open && onClose()}
+            title={`Change status of ${account.label}`}
+            description={`${account.branch.code} · ${account.branch.name}. Only an active account receives customers. You can change this again later, including turning a disabled account back on.`}
+            submitLabel="Save status"
+            processing={processing || reason.trim() === ''}
+            onSubmit={() =>
+                router.put(
+                    accountsRoutes.status(account.id).url,
+                    { status, reason },
+                    {
+                        preserveScroll: true,
+                        onStart: () => setProcessing(true),
+                        onFinish: () => setProcessing(false),
+                        onSuccess: onClose,
+                        onError: (errors: Record<string, string>) =>
+                            setError(Object.values(errors)[0]),
+                    },
+                )
+            }
+        >
+            <Field label="New status" required>
+                <SelectInput
+                    value={status}
+                    onChange={(event) =>
+                        setStatus(
+                            event.target.value as (typeof STATUS_OPTIONS)[number][0],
+                        )
+                    }
+                >
+                    {choices.map(([value, label]) => (
+                        <option key={value} value={value}>
+                            {label}
+                        </option>
+                    ))}
+                </SelectInput>
+            </Field>
+            <Field
+                label="Reason"
+                required
+                hint={
+                    status === 'rejected'
+                        ? 'The branch sees this reason.'
+                        : 'Kept in the account log.'
+                }
+            >
+                <TextInput
+                    autoFocus
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    placeholder="Why this status is changing"
+                />
+            </Field>
+            {error && <p className="text-xs text-er">{error}</p>}
+        </FormDialog>
+    );
+}
+
 function ReviewDialog({
     account,
     numbers,

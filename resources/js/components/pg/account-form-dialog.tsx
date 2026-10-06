@@ -17,6 +17,7 @@ export type AccountRow = {
     is_upi_enabled: boolean;
     upi_id: string | null;
     upi_display_name: string | null;
+    upi_code: string | null;
     is_qr_enabled: boolean;
     is_intent_enabled: boolean;
     min_amount: number | null;

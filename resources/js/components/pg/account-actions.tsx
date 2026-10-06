@@ -12,10 +12,12 @@ export function AccountActions({
     account,
     statusUrl,
     onEdit,
+    hideStatus = false,
 }: {
     account: AccountRow;
     statusUrl: string;
     onEdit: () => void;
+    hideStatus?: boolean;
 }) {
     const [confirm, setConfirm] = useState<'paused' | 'disabled' | null>(null);
 
@@ -33,7 +35,7 @@ export function AccountActions({
                     Edit
                 </PgButton>
             )}
-            {account.can.switch_to.includes('active') && (
+            {!hideStatus && account.can.switch_to.includes('active') && (
                 <PgButton
                     className="h-7 text-xs"
                     variant="primary"
@@ -42,7 +44,7 @@ export function AccountActions({
                     Activate
                 </PgButton>
             )}
-            {account.can.switch_to.includes('paused') && (
+            {!hideStatus && account.can.switch_to.includes('paused') && (
                 <PgButton
                     className="h-7 text-xs"
                     onClick={() => setConfirm('paused')}
@@ -50,7 +52,7 @@ export function AccountActions({
                     Pause
                 </PgButton>
             )}
-            {account.can.switch_to.includes('disabled') && (
+            {!hideStatus && account.can.switch_to.includes('disabled') && (
                 <PgButton
                     className="h-7 text-xs"
                     variant="danger"

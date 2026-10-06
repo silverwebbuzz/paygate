@@ -133,7 +133,7 @@ class AccountController extends Controller
 
         /** @var User $actor */
         $actor = $request->user();
-        $change->handle($actor, $account, AccountStatus::from($data['status']), $data['reason'] ?? null);
+        $change->handle($actor, $account, AccountStatus::from($data['status']), $data['reason'] ?? null, true);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('“:label” is now :status.', ['label' => $account->label, 'status' => $data['status']])]);
 
