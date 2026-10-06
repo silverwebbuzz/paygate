@@ -55,14 +55,21 @@ final class Period
      */
     private static function custom(?string $from, ?string $to, string $zone): array
     {
-        $valid = fn (?string $date) => is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1;
+        // A date ("2026-09-25", the whole day) or a date and time ("2026-09-25T14:30").
+        $valid = fn (?string $date) => is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/', $date) === 1;
 
         if (! $valid($from) || ! $valid($to) || $from > $to) {
             throw ValidationException::withMessages(['from' => __('Choose a start and an end date (the start on or before the end).')]);
         }
 
-        $start = CarbonImmutable::parse((string) $from, $zone)->startOfDay();
-        $end = CarbonImmutable::parse((string) $to, $zone)->addDay()->startOfDay();
+        $start = CarbonImmutable::parse((string) $from, $zone);
+        $start = strlen((string) $from) === 10 ? $start->startOfDay() : $start;
+        $end = CarbonImmutable::parse((string) $to, $zone);
+        $end = strlen((string) $to) === 10 ? $end->addDay()->startOfDay() : $end->addMinute();
+
+        if ($start >= $end) {
+            throw ValidationException::withMessages(['from' => __('Choose a start and an end date (the start on or before the end).')]);
+        }
 
         if ($start->diffInDays($end) > 366) {
             throw ValidationException::withMessages(['from' => __('Choose at most one year.')]);

@@ -11,24 +11,10 @@ import { logout } from '@/routes';
  * menu text with an icon per group. Planned items render dimmed with the
  * phase that delivers them.
  *
- * Each group folds open and closed from its heading. Only the group of the
- * current page starts open; groups the person opens stay open (remembered
- * in this browser). The icon-only sidebar shows one icon per group.
+ * Each group folds open and closed from its heading. Only one group starts
+ * open: the group of the current page, or else the first group. The
+ * icon-only sidebar shows one icon per group.
  */
-const OPEN_GROUPS_KEY = 'pg.sidebar.open-groups';
-
-function readOpenGroups(): string[] {
-    try {
-        const stored = JSON.parse(
-            window.localStorage.getItem(OPEN_GROUPS_KEY) ?? '[]',
-        );
-
-        return Array.isArray(stored) ? stored : [];
-    } catch {
-        return [];
-    }
-}
-
 export function PortalSidebar({
     groups,
     activeKey,
@@ -42,8 +28,14 @@ export function PortalSidebar({
 }) {
     const { auth } = usePage().props;
     const initials = useInitials();
-    const [openGroups, setOpenGroups] = useState<string[]>(readOpenGroups);
     const activeGroup = activeKey?.split('/')[0] ?? null;
+    const [openGroups, setOpenGroups] = useState<string[]>(() => {
+        const foldable = groups.filter((group) => group.items.length > 1);
+
+        return foldable.some((group) => group.label === activeGroup)
+            ? []
+            : foldable.slice(0, 1).map((group) => group.label);
+    });
     const isOpen = (label: string) =>
         label === activeGroup || openGroups.includes(label);
     const toggleGroup = (label: string) => {
@@ -51,18 +43,12 @@ export function PortalSidebar({
             ? openGroups.filter((group) => group !== label)
             : [...openGroups, label];
         setOpenGroups(next);
-
-        try {
-            window.localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(next));
-        } catch {
-            // Storage blocked: the choice lasts until the next page load.
-        }
     };
 
     return (
         <aside
             className={cn(
-                'sticky top-0 z-10 flex h-screen flex-none flex-col overflow-hidden bg-nav text-white/80 transition-[width] duration-200',
+                'sticky top-0 z-10 flex h-screen flex-none flex-col overflow-hidden bg-nav text-white transition-[width] duration-200',
                 collapsed ? 'w-16' : 'w-[260px]',
             )}
         >
@@ -105,7 +91,7 @@ export function PortalSidebar({
                             active
                                 ? 'bg-linear-to-r from-ac to-ac2 text-white shadow-lg shadow-ac/30'
                                 : item.href
-                                  ? 'text-white/80 hover:bg-white/[.06] hover:text-white'
+                                  ? 'text-white hover:bg-white/[.06]'
                                   : 'cursor-default text-white/40',
                         );
                         const content = (
@@ -153,7 +139,7 @@ export function PortalSidebar({
                                     'flex h-10 w-full items-center gap-3 rounded-[9px] px-3 text-left font-medium',
                                     group.label === activeGroup
                                         ? 'text-white'
-                                        : 'text-white/80 hover:bg-white/[.06] hover:text-white',
+                                        : 'text-white hover:bg-white/[.06]',
                                 )}
                             >
                                 <Icon className="size-[18px] flex-none" />
@@ -163,7 +149,7 @@ export function PortalSidebar({
                                 {group.label !== activeGroup && (
                                     <ChevronDown
                                         className={cn(
-                                            'size-4 flex-none text-white/60 transition-transform',
+                                            'size-4 flex-none text-white transition-transform',
                                             !open && '-rotate-90',
                                         )}
                                     />
@@ -204,7 +190,7 @@ export function PortalSidebar({
                                             active
                                                 ? 'bg-white/10 font-semibold text-white'
                                                 : item.href
-                                                  ? 'text-white/75 hover:bg-white/[.06] hover:text-white'
+                                                  ? 'text-[#DDD3EC] hover:bg-white/[.06] hover:text-white'
                                                   : 'cursor-default text-white/40',
                                         );
 

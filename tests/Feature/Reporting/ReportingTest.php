@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Reporting;
 
+use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Reporting\Actions\ManageReportExports;
@@ -89,6 +90,38 @@ class ReportingTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('metrics.outcome.total', 0)->where('metrics.chart.payin_total', 0));
     }
 
+    public function test_the_overview_counts_total_successful_and_failed_and_admins_can_filter()
+    {
+        $this->actingAs($this->admin)->get(route('admin.dashboard'))
+            ->assertInertia(function ($page) {
+                $overview = $page->toArray()['props']['overview'];
+
+                $this->assertSame('payin', $overview['direction']);
+                $this->assertSame([
+                    'total_count' => 4, 'total_amount' => 1670000,
+                    'success_count' => 2, 'success_amount' => 1250000,
+                    'failed_count' => 1, 'failed_amount' => 300000,
+                ], $overview['summary']);
+                $this->assertSame(4, array_sum(array_column($overview['points'], 'total_count')));
+                $this->assertSame(1250000, array_sum(array_column($overview['methods'], 'amount')));
+                $this->assertCount(1, $page->toArray()['props']['options']['branches']);
+            });
+
+        // Another branch only: nothing. Payouts: nothing yet.
+        $other = Branch::factory()->create();
+        $this->actingAs($this->admin)->get(route('admin.dashboard', ['branches' => [$other->id]]))
+            ->assertInertia(fn ($page) => $page->where('overview.summary.total_count', 0)->where('filters.branches', [$other->id]));
+        $this->actingAs($this->admin)->get(route('admin.dashboard', ['partners' => [$this->partner->id], 'branches' => [$this->branch->id]]))
+            ->assertInertia(fn ($page) => $page->where('overview.summary.total_count', 4));
+        $this->actingAs($this->admin)->get(route('admin.dashboard', ['direction' => 'payout']))
+            ->assertInertia(fn ($page) => $page->where('overview.direction', 'payout')->where('overview.summary.total_count', 0));
+
+        // Partners see their own figures; filters and the lists are admin only.
+        $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
+        $this->actingAs($partnerUser)->get(route('partner.dashboard', ['branches' => [$other->id]]))
+            ->assertInertia(fn ($page) => $page->where('overview.summary.total_count', 4)->where('filters.branches', [])->where('options', null));
+    }
+
     public function test_partners_and_branches_see_their_own_side_only()
     {
         $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
@@ -126,6 +159,10 @@ class ReportingTest extends TestCase
         $this->assertSame('hour', $yesterday->bucket());
         $this->assertSame('day', Period::resolve('30d', now: $now)->bucket());
         $this->assertSame('2026-08-31T18:30:00+00:00', Period::resolve('custom', '2026-09-01', '2026-09-30')->from->toIso8601String());
+        // Date and time: from that minute up to the end of the "to" minute.
+        $minutes = Period::resolve('custom', '2026-09-25T09:00', '2026-09-25T17:30');
+        $this->assertSame('2026-09-25T03:30:00+00:00', $minutes->from->toIso8601String());
+        $this->assertSame('2026-09-25T12:01:00+00:00', $minutes->to->toIso8601String());
 
         $this->expectException(ValidationException::class);
         Period::resolve('custom', '2026-09-30', '2026-09-01');

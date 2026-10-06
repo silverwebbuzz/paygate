@@ -10,6 +10,12 @@ import branch from '@/routes/branch';
 import partner from '@/routes/partner';
 import type { UserType } from '@/types';
 import { Panel } from './data-table';
+import { DashboardOverview } from './dashboard-overview';
+import type {
+    Overview,
+    OverviewFilters,
+    OverviewOptions,
+} from './dashboard-overview';
 import { StatusBadge } from './status-badge';
 
 /** Shapes from App\Domain\Reporting\DashboardMetrics. */
@@ -59,19 +65,10 @@ export type DashboardProps = {
     period: { range: string; from: string; to: string; label: string };
     metrics: Metrics;
     organisation: string | null;
+    filters: OverviewFilters;
+    options: OverviewOptions;
+    overview: Overview;
 };
-
-const RANGES: [string, string][] = [
-    ['today', 'Today'],
-    ['yesterday', 'Yesterday'],
-    ['1h', '1h'],
-    ['24h', '24h'],
-    ['7d', '7d'],
-    ['30d', '30d'],
-    ['this_month', 'This month'],
-    ['prev_month', 'Prev month'],
-    ['custom', 'Custom'],
-];
 
 const SUB_TONES = {
     up: 'text-ok',
@@ -141,14 +138,18 @@ function duration(seconds: number | null): string {
 }
 
 /**
- * The live dashboard of every portal (design: range buttons, KPI tiles,
- * pay-in vs payout volume, outcome, needs attention, a table). Figures
- * refresh every 30 seconds.
+ * The live dashboard of every portal: the client's familiar overview on top
+ * (range buttons, filters, total / successful / failed, charts), then KPI
+ * tiles, pay-in vs payout volume, outcome, needs attention and a table.
+ * Figures refresh every 30 seconds.
  */
 export function LiveDashboard({
     portal,
     period,
     metrics,
+    filters,
+    options,
+    overview,
     title,
     description,
     tableCell,
@@ -161,16 +162,11 @@ export function LiveDashboard({
     ) => ReactNode;
 }) {
     const home = { admin, branch, partner }[portal].dashboard;
-    const [custom, setCustom] = useState({
-        from: period.from.slice(0, 10),
-        to: period.to.slice(0, 10),
-    });
-    const [showCustom, setShowCustom] = useState(period.range === 'custom');
     const [, tick] = useState(0);
 
     useEffect(() => {
         const refresh = setInterval(
-            () => router.reload({ only: ['metrics'] }),
+            () => router.reload({ only: ['metrics', 'overview'] }),
             30000,
         );
         const clock = setInterval(() => tick((n) => n + 1), 5000);
@@ -180,9 +176,6 @@ export function LiveDashboard({
             clearInterval(clock);
         };
     }, []);
-
-    const go = (query: Record<string, string>) =>
-        router.get(home({ query }).url, {}, { preserveState: true });
 
     const o = metrics.outcome;
     const decided = o.success + o.failed + o.pending;
@@ -203,72 +196,20 @@ export function LiveDashboard({
                     </h1>
                     <p className="mt-1 text-[13px] text-tx2">{description}</p>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                    <div className="flex flex-wrap gap-0.5 rounded-lg border border-ln bg-sf p-0.5">
-                        {RANGES.map(([key, label]) => (
-                            <button
-                                key={key}
-                                type="button"
-                                onClick={() =>
-                                    key === 'custom'
-                                        ? setShowCustom(true)
-                                        : (setShowCustom(false),
-                                          go({ range: key }))
-                                }
-                                className={cn(
-                                    'h-7 rounded-md px-2.5 text-[12.5px] font-medium',
-                                    (showCustom ? 'custom' : period.range) ===
-                                        key
-                                        ? 'bg-linear-to-r from-ac to-ac2 text-white shadow-sm shadow-ac/30'
-                                        : 'text-tx2 hover:bg-sf2',
-                                )}
-                            >
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-                    {showCustom && (
-                        <form
-                            className="flex items-center gap-1.5 text-[12.5px]"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                go({ range: 'custom', ...custom });
-                            }}
-                        >
-                            <input
-                                type="date"
-                                value={custom.from}
-                                onChange={(event) =>
-                                    setCustom({
-                                        ...custom,
-                                        from: event.target.value,
-                                    })
-                                }
-                                className="h-7 rounded-md border border-ln bg-sf px-2"
-                            />
-                            –
-                            <input
-                                type="date"
-                                value={custom.to}
-                                onChange={(event) =>
-                                    setCustom({
-                                        ...custom,
-                                        to: event.target.value,
-                                    })
-                                }
-                                className="h-7 rounded-md border border-ln bg-sf px-2"
-                            />
-                            <button
-                                type="submit"
-                                className="h-7 rounded-md bg-linear-to-r from-ac to-ac2 px-2.5 font-medium text-white"
-                            >
-                                Show
-                            </button>
-                        </form>
-                    )}
-                </div>
             </div>
 
+            <DashboardOverview
+                portal={portal}
+                home={home().url}
+                period={period}
+                filters={filters}
+                options={options}
+                overview={overview}
+            />
+
+            <div className="mt-2 text-sm font-semibold text-tx2">
+                Balances, settlement and operations
+            </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-2.5">
                 {metrics.kpis.map((kpi) => (
                     <div
