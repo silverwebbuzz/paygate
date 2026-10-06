@@ -75,7 +75,7 @@ export function CredentialsDialog({
                                 Download partner file
                             </a>
                             <p className="text-xs text-tx3">
-                                This copy includes the secret. A later download
+                                This PDF includes the secret. A later download
                                 from the partner list does not.
                             </p>
                         </div>

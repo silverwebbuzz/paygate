@@ -12,10 +12,12 @@ use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Actions\ChangePartnerStatus;
 use App\Domain\Partner\Actions\ConfigurePartner;
+use App\Domain\Partner\Actions\SetPartnerDirection;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Partner\Models\PartnerIpRule;
 use App\Domain\Partner\PartnerIntegrationFile;
+use App\Http\Admin\Partners\Requests\ChangePartnerDirectionRequest;
 use App\Http\Admin\Partners\Requests\ChangePartnerStatusRequest;
 use App\Http\Admin\Partners\Requests\PartnerRequest;
 use App\Http\Controller;
@@ -71,6 +73,7 @@ class PartnerController extends Controller
                 'is_payin_enabled' => $partner->is_payin_enabled,
                 'is_payout_enabled' => $partner->is_payout_enabled,
                 'key' => $partner->activeApiKey ? ['key_id' => $partner->activeApiKey->key_id, 'last4' => $partner->activeApiKey->secret_last4] : null,
+                'file_ready' => PartnerIntegrationFile::ready($partner),
                 'rates' => $rates[$partner->id] ?? (object) [],
                 'branches_count' => $partner->branches_count,
                 'users_count' => $partner->users_count,
@@ -154,6 +157,21 @@ class PartnerController extends Controller
         $change->handle($request->actor(), $partner, $status, $request->string('reason')->value());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('“:name” is now :status.', ['name' => $partner->name, 'status' => str_replace('_', ' ', $status->value)])]);
+
+        return back();
+    }
+
+    public function direction(ChangePartnerDirectionRequest $request, Partner $partner, SetPartnerDirection $change): RedirectResponse
+    {
+        $direction = $request->string('direction')->value();
+        $enabled = $request->boolean('enabled');
+        $change->handle($request->actor(), $partner, $direction, $enabled, $request->string('reason')->value());
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':direction for “:name” is now :state.', [
+            'direction' => $direction === 'payin' ? 'Pay-in' : 'Pay-out',
+            'name' => $partner->name,
+            'state' => $enabled ? 'enabled' : 'disabled',
+        ])]);
 
         return back();
     }

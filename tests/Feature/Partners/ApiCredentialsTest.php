@@ -73,7 +73,23 @@ class ApiCredentialsTest extends TestCase
 
         $this->assertSame('revoked', $key->fresh()?->status);
         $this->assertFalse($key->fresh()?->isUsable());
-        $this->assertDatabaseHas('audit_logs', ['action' => 'api_key.revoked', 'subject_id' => $partner->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'api_key.revoked', 'subject_id' => $partner->id, 'actor_id' => $admin->id]);
+    }
+
+    public function test_rotating_a_key_is_audited()
+    {
+        $partner = Partner::factory()->create();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+
+        $this->actingAs($admin)->post(route('admin.partners.api-keys.store', $partner), ['password' => 'password'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('admin.partners.api-keys.store', $partner), ['password' => 'password'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('audit_logs', ['action' => 'api_key.issued', 'subject_id' => $partner->id, 'actor_id' => $admin->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'api_key.rotated', 'subject_id' => $partner->id, 'actor_id' => $admin->id]);
+        $this->assertSame(1, $partner->apiKeys()->where('status', 'active')->count());
+        $this->assertSame(1, $partner->apiKeys()->where('status', 'rotating')->count());
     }
 
     public function test_a_key_of_another_partner_cannot_be_revoked_through_this_partner()

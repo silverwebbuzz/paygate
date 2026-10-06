@@ -13,6 +13,7 @@ class PartnerIntegrationFileController extends Controller
     public function download(Partner $partner, PartnerIntegrationFile $file): Response
     {
         Gate::authorize('partners.view');
+        abort_unless(PartnerIntegrationFile::ready($partner), 404);
 
         return $file->download($partner, null);
     }

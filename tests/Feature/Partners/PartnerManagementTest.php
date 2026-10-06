@@ -244,6 +244,42 @@ class PartnerManagementTest extends TestCase
         $this->assertSame(0, CommissionRate::count());
     }
 
+    public function test_payin_and_payout_toggles_from_the_list_are_audited()
+    {
+        $admin = $this->admin();
+        $partner = Partner::factory()->create(['is_payin_enabled' => true, 'is_payout_enabled' => true]);
+
+        $this->actingAs($admin)->put(route('admin.partners.direction', $partner), ['direction' => 'payin', 'enabled' => false])
+            ->assertSessionHasErrors('reason');
+        $this->assertTrue($partner->fresh()?->is_payin_enabled);
+
+        $this->actingAs($admin)->put(route('admin.partners.direction', $partner), [
+            'direction' => 'payin',
+            'enabled' => false,
+            'reason' => 'Paused for the weekend',
+        ])->assertSessionHasNoErrors();
+        $this->assertFalse($partner->fresh()?->is_payin_enabled);
+
+        $this->actingAs($admin)->put(route('admin.partners.direction', $partner), [
+            'direction' => 'payout',
+            'enabled' => false,
+            'reason' => 'Balance review',
+        ])->assertSessionHasNoErrors();
+
+        $log = AuditLog::query()->where(['action' => 'partner.direction_changed', 'subject_id' => $partner->id, 'actor_id' => $admin->id])->first();
+        $this->assertNotNull($log);
+        $this->assertSame('payin', $log->new_values['direction']);
+        $this->assertFalse($log->new_values['enabled']);
+        $this->assertSame('Paused for the weekend', $log->new_values['reason']);
+
+        $this->actingAs($this->admin(SystemRoles::ADMIN_OPS))->put(route('admin.partners.direction', $partner), [
+            'direction' => 'payin',
+            'enabled' => true,
+            'reason' => 'Back',
+        ])->assertForbidden();
+        $this->assertFalse($partner->fresh()?->is_payin_enabled);
+    }
+
     public function test_status_changes_follow_the_lifecycle_and_need_a_reason()
     {
         $admin = $this->admin();

@@ -33,6 +33,7 @@ type Row = {
     is_payin_enabled: boolean;
     is_payout_enabled: boolean;
     key: { key_id: string; last4: string } | null;
+    file_ready: boolean;
     rates: { deposit?: string; withdrawal?: string };
     branches_count: number;
     users_count: number;
@@ -176,6 +177,11 @@ export default function PartnersIndex({
     const [keyAction, setKeyAction] = useState<
         null | { type: 'issue' } | { type: 'revoke'; key: ApiKey }
     >(null);
+    const [direction, setDirection] = useState<null | {
+        partner: Row;
+        direction: 'payin' | 'payout';
+        enabled: boolean;
+    }>(null);
     const [, copy] = useClipboard();
 
     const open = partners.data.find((partner) => partner.id === openId) ?? null;
@@ -268,21 +274,32 @@ export default function PartnersIndex({
             header: 'API key',
             cell: (p) =>
                 p.key ? (
-                    <span className="inline-flex items-center gap-1.5 font-mono text-xs">
-                        {p.key.key_id.slice(0, 12)}…{' '}
-                        <span className="text-tx3">••••{p.key.last4}</span>
-                        <button
-                            type="button"
-                            title="Copy key ID"
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                void copy(p.key!.key_id);
-                            }}
-                            className="text-tx3 hover:text-tx"
-                        >
-                            <Copy className="size-3.5" />
-                        </button>
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                        <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                            {p.key.key_id.slice(0, 12)}…{' '}
+                            <span className="text-tx3">••••{p.key.last4}</span>
+                            <button
+                                type="button"
+                                title="Copy key ID"
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    void copy(p.key!.key_id);
+                                }}
+                                className="text-tx3 hover:text-tx"
+                            >
+                                <Copy className="size-3.5" />
+                            </button>
+                        </span>
+                        {p.file_ready && (
+                            <a
+                                href={partnersRoutes.integrationFile(p.id).url}
+                                onClick={(event) => event.stopPropagation()}
+                                className="text-xs font-medium text-ac hover:underline"
+                            >
+                                Download partner file
+                            </a>
+                        )}
+                    </div>
                 ) : (
                     <span className="text-xs text-tx3">No key</span>
                 ),
@@ -299,12 +316,40 @@ export default function PartnersIndex({
         {
             key: 'payin',
             header: 'Pay-in',
-            cell: (p) => <Enabled on={p.is_payin_enabled} />,
+            cell: (p) => (
+                <Enabled
+                    on={p.is_payin_enabled}
+                    onClick={
+                        can.update
+                            ? () =>
+                                  setDirection({
+                                      partner: p,
+                                      direction: 'payin',
+                                      enabled: !p.is_payin_enabled,
+                                  })
+                            : undefined
+                    }
+                />
+            ),
         },
         {
             key: 'payout',
             header: 'Pay-out',
-            cell: (p) => <Enabled on={p.is_payout_enabled} />,
+            cell: (p) => (
+                <Enabled
+                    on={p.is_payout_enabled}
+                    onClick={
+                        can.update
+                            ? () =>
+                                  setDirection({
+                                      partner: p,
+                                      direction: 'payout',
+                                      enabled: !p.is_payout_enabled,
+                                  })
+                            : undefined
+                    }
+                />
+            ),
         },
         {
             key: 'commission',
@@ -358,13 +403,6 @@ export default function PartnersIndex({
                             Users
                         </Link>
                     )}
-                    <a
-                        href={partnersRoutes.integrationFile(p.id).url}
-                        onClick={(event) => event.stopPropagation()}
-                        className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
-                    >
-                        Download partner file
-                    </a>
                     {can.update && (
                         <Link
                             href={partnersRoutes.edit(p.id).url}
@@ -830,6 +868,39 @@ export default function PartnersIndex({
                 </Drawer>
             )}
 
+            {direction && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => !next && setDirection(null)}
+                    title={`${direction.enabled ? 'Enable' : 'Disable'} ${direction.direction === 'payin' ? 'pay-in' : 'pay-out'} for ${direction.partner.name}?`}
+                    description={
+                        direction.enabled
+                            ? 'New requests will be accepted. This is recorded with your name.'
+                            : 'New requests will be refused. Ones already in progress are left as they are. This is recorded with your name.'
+                    }
+                    confirmLabel={direction.enabled ? 'Enable' : 'Disable'}
+                    tone={direction.enabled ? 'primary' : 'warning'}
+                    input={{
+                        label: 'Reason (kept in the audit log)',
+                        required: true,
+                    }}
+                    onConfirm={(reason) =>
+                        router.put(
+                            partnersRoutes.direction(direction.partner.id).url,
+                            {
+                                direction: direction.direction,
+                                enabled: direction.enabled,
+                                reason,
+                            },
+                            {
+                                preserveScroll: true,
+                                onFinish: () => setDirection(null),
+                            },
+                        )
+                    }
+                />
+            )}
+
             {open && transition && (
                 <ConfirmDialog
                     open
@@ -916,11 +987,27 @@ export default function PartnersIndex({
     );
 }
 
-function Enabled({ on }: { on: boolean }) {
-    return on ? (
-        <span className="text-xs font-medium text-ok">● Enabled</span>
-    ) : (
-        <span className="text-xs text-tx3">○ Disabled</span>
+function Enabled({ on, onClick }: { on: boolean; onClick?: () => void }) {
+    const className = on
+        ? 'text-xs font-medium text-ok'
+        : 'text-xs text-tx3';
+    const label = on ? '● Enabled' : '○ Disabled';
+
+    if (!onClick) {
+        return <span className={className}>{label}</span>;
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={(event) => {
+                event.stopPropagation();
+                onClick();
+            }}
+            className={`${className} rounded px-1 hover:bg-sf2`}
+        >
+            {label}
+        </button>
     );
 }
 

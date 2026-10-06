@@ -128,6 +128,7 @@ Route::controller(PartnerController::class)->prefix('partners')->name('partners.
     Route::get('{partner}/edit', 'edit')->name('edit');
     Route::put('{partner}', 'update')->name('update');
     Route::put('{partner}/status', 'status')->name('status');
+    Route::put('{partner}/direction', 'direction')->name('direction');
 });
 Route::post('partners/{partner}/api-keys', [PartnerKeyController::class, 'store'])->middleware('throttle:10,1')->name('partners.api-keys.store');
 Route::delete('partners/{partner}/api-keys/{key}', [PartnerKeyController::class, 'destroy'])->middleware('throttle:10,1')->name('partners.api-keys.destroy');
