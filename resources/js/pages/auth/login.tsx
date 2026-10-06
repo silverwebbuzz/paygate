@@ -32,7 +32,7 @@ export default function Login({ status, canResetPassword }: Props) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="login">Username or email</Label>
+                                <Label htmlFor="login" className="text-[14px]">Username or email</Label>
                                 <Input
                                     id="login"
                                     type="text"
@@ -43,17 +43,18 @@ export default function Login({ status, canResetPassword }: Props) {
                                     autoCapitalize="none"
                                     autoComplete="username"
                                     placeholder="username or email@example.com"
+                                    className="h-11 px-3.5 text-[14px] md:text-[14px]"
                                 />
                                 <InputError message={errors.login} />
                             </div>
 
                             <div className="grid gap-2">
                                 <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
+                                    <Label htmlFor="password" className="text-[14px]">Password</Label>
                                     {canResetPassword && (
                                         <TextLink
                                             href={request()}
-                                            className="ml-auto text-sm"
+                                            className="ml-auto text-[13.5px] text-tx"
                                             tabIndex={5}
                                         >
                                             Forgot your password?
@@ -67,6 +68,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={2}
                                     autoComplete="current-password"
                                     placeholder="Password"
+                                    className="h-11 px-3.5 text-[14px] md:text-[14px]"
                                 />
                                 <InputError message={errors.password} />
                             </div>
@@ -77,12 +79,12 @@ export default function Login({ status, canResetPassword }: Props) {
                                     name="remember"
                                     tabIndex={3}
                                 />
-                                <Label htmlFor="remember">Remember me</Label>
+                                <Label htmlFor="remember" className="text-[14px]">Remember me</Label>
                             </div>
 
                             <Button
                                 type="submit"
-                                className="mt-4 w-full"
+                                className="mt-4 h-11 w-full bg-linear-to-r from-[#e0287d] via-[#8e2479] to-[#3e1264] text-[15px] shadow-lg shadow-[#e0287d]/25 transition-[filter,box-shadow] hover:bg-transparent hover:brightness-110"
                                 tabIndex={4}
                                 disabled={processing}
                                 data-test="login-button"
@@ -105,6 +107,7 @@ export default function Login({ status, canResetPassword }: Props) {
 }
 
 Login.layout = {
-    title: 'Log in to your account',
-    description: 'Enter your username or email and password below to log in',
+    title: 'Welcome back',
+    description:
+        'Log in to your PayGate console with your username or email and password',
 };
