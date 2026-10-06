@@ -43,6 +43,8 @@ class PartnerIntegrationFileTest extends TestCase
         $this->assertStringContainsString('/v1/payouts', $html);
         $this->assertStringContainsString('Method', $html);
         $this->assertStringContainsString('100 INR', $html);
+        $this->assertStringContainsString('not replaced every 24 hours', $html);
+        $this->assertStringNotContainsString('Secret rotation', $html);
 
         $again = $this->actingAs($admin)->get(route('admin.partners.integration-file.issued', $partner));
         $this->assertPdf($again, 'ATOZ-paygate.pdf');
@@ -52,6 +54,9 @@ class PartnerIntegrationFileTest extends TestCase
         $this->assertPdf($list, 'ATOZ-paygate.pdf');
         $listHtml = app(PartnerIntegrationFile::class)->html($partner->fresh(), null);
         $this->assertStringContainsString('https://shop.example/hooks/payin', $listHtml);
+        $this->assertStringContainsString('You will receive it separately', $listHtml);
+        $this->assertStringContainsString('not replaced every 24 hours', $listHtml);
+        $this->assertStringNotContainsString('Secret rotation', $listHtml);
         $this->assertStringContainsString('ends with '.substr($secret, -4), $listHtml);
         $this->assertStringNotContainsString($secret, $listHtml);
     }

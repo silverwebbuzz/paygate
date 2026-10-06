@@ -62,7 +62,7 @@
         <tr><td class="k">Key ID</td><td class="mono">{{ $keyId ?? 'No key yet' }}</td></tr>
         <tr><td class="k">Allowed IPs</td><td>{{ $ips ?? 'None' }}</td></tr>
         <tr><td class="k">Rate limit</td><td>{{ $rateLimit }} requests per minute</td></tr>
-        <tr><td class="k">Secret rotation</td><td>The previous key keeps working for {{ $overlapHours }} hours. After that, sign with the new secret, including webhooks.</td></tr>
+        <tr><td class="k">Secret key</td><td>@if ($secret)Printed below. Store it on your server.@else You will receive it separately. This file does not include it.@endif</td></tr>
     </table>
 
     @if ($secret)
@@ -73,8 +73,8 @@
         </div>
     @elseif ($last4)
         <div class="box warn">
-            <strong>Secret not included.</strong>
-            The secret is shown only once, when the key is generated. It ends with {{ $last4 }}.
+            <strong>Secret key.</strong>
+            You will receive it separately. This file does not include it. It ends with {{ $last4 }}.
         </div>
     @else
         <div class="box warn">
@@ -345,6 +345,15 @@ sha256 hex of the exact body</div>
 
     <div>
         <h2>Notes</h2>
+        <div class="box note">
+            <strong>Secret key.</strong>
+            @if ($secret)
+                Store the secret shown above on your server.
+            @else
+                You will receive the secret key separately. This file does not include it.@if ($last4) It ends with {{ $last4 }}.@endif
+            @endif
+            It stays the same until PayGate sends you a new one. It is not replaced every 24 hours. Use it to sign API calls and to check webhook signatures.
+        </div>
         <div class="box note">
             <strong>Transaction id.</strong> Your order_id may be a GUID, for example 00000000-0000-0000-0000-000000000001. PayGate’s own id is separate and is not a GUID. A pay-in id looks like PI260406AB23CD45. A payout id looks like PO260406AB23CD45.
         </div>

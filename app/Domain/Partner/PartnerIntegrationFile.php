@@ -2,7 +2,6 @@
 
 namespace App\Domain\Partner;
 
-use App\Domain\Partner\Actions\IssueApiKey;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PartnerApi\ApiAuthenticator;
 use App\Support\Hosts;
@@ -89,7 +88,6 @@ class PartnerIntegrationFile
             'last4' => $key?->secret_last4,
             'ips' => $ips === '' ? null : $ips,
             'rateLimit' => (int) config('paygate.api.rate_limit'),
-            'overlapHours' => IssueApiKey::OVERLAP_HOURS,
             'clockMinutes' => (int) (ApiAuthenticator::MAX_CLOCK_SKEW / 60),
             'returnUrl' => $this->shown($partner->return_url),
             'callbackUrl' => $this->shown($partner->callback_url),
