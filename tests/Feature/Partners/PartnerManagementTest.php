@@ -266,11 +266,16 @@ class PartnerManagementTest extends TestCase
             'reason' => 'Balance review',
         ])->assertSessionHasNoErrors();
 
-        $log = AuditLog::query()->where(['action' => 'partner.direction_changed', 'subject_id' => $partner->id, 'actor_id' => $admin->id])->first();
+        $log = AuditLog::query()->where(['action' => 'partner.direction_changed', 'subject_id' => $partner->id, 'actor_id' => $admin->id])->get()->first(fn ($entry) => ($entry->new_values['direction'] ?? null) === 'payin');
         $this->assertNotNull($log);
         $this->assertSame('payin', $log->new_values['direction']);
         $this->assertFalse($log->new_values['enabled']);
         $this->assertSame('Paused for the weekend', $log->new_values['reason']);
+        $this->assertSame('Pay-in disabled', $log->summary());
+
+        $payout = AuditLog::query()->where(['action' => 'partner.direction_changed', 'subject_id' => $partner->id])->get()->first(fn ($entry) => ($entry->new_values['direction'] ?? null) === 'payout');
+        $this->assertNotNull($payout);
+        $this->assertSame('Pay-out disabled', $payout->summary());
 
         $this->actingAs($this->admin(SystemRoles::ADMIN_OPS))->put(route('admin.partners.direction', $partner), [
             'direction' => 'payin',

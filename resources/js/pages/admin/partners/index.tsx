@@ -72,6 +72,7 @@ type Detail = {
     }[];
     activity: {
         action: string;
+        summary: string;
         actor: string;
         at: string;
         reason: string | null;
@@ -849,8 +850,8 @@ export default function PartnersIndex({
                                     headers={['What', 'Who', 'When']}
                                     rows={loaded.activity.map((a) => [
                                         <span key="a">
-                                            <span className="font-mono text-xs">
-                                                {a.action}
+                                            <span className="text-xs font-medium">
+                                                {a.summary}
                                             </span>
                                             {a.reason && (
                                                 <span className="block text-xs text-tx3">

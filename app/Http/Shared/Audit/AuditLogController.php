@@ -69,6 +69,7 @@ class AuditLogController extends Controller
                 ->through(fn ($log) => $log instanceof AuditLog ? [
                     'id' => $log->id,
                     'action' => $log->action,
+                    'summary' => $log->summary(),
                     'who' => $log->actor->name ?? 'System',
                     'subject' => $log->subject_type === null ? null : $log->subject_type.' '.substr((string) $log->subject_id, -8),
                     'old' => $log->old_values,

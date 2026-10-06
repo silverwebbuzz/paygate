@@ -320,6 +320,7 @@ class PartnerController extends Controller
                 ->get()
                 ->map(fn (AuditLog $log) => [
                     'action' => $log->action,
+                    'summary' => $log->summary(),
                     'actor' => $log->actor->name ?? 'System',
                     'at' => $log->created_at->toIso8601String(),
                     'reason' => $log->new_values['reason'] ?? null,

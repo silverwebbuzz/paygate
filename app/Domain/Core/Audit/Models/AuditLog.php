@@ -65,6 +65,25 @@ class AuditLog extends Model
         ]);
     }
 
+    public function summary(): string
+    {
+        $new = $this->new_values ?? [];
+        $old = $this->old_values ?? [];
+
+        return match ($this->action) {
+            'partner.direction_changed' => match ($new['direction'] ?? null) {
+                'payin' => 'Pay-in '.(($new['enabled'] ?? false) ? 'enabled' : 'disabled'),
+                'payout' => 'Pay-out '.(($new['enabled'] ?? false) ? 'enabled' : 'disabled'),
+                default => $this->action,
+            },
+            'api_key.issued' => 'API key generated',
+            'api_key.rotated' => 'API secret rotated',
+            'api_key.revoked' => isset($old['key_id']) ? 'API key revoked · '.$old['key_id'] : 'API key revoked',
+            'partner.status_changed' => isset($new['status']) ? 'Partner status set to '.$new['status'] : $this->action,
+            default => $this->action,
+        };
+    }
+
     /**
      * @return BelongsTo<User, $this>
      */

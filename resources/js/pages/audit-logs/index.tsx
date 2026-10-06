@@ -14,6 +14,7 @@ import type { UserType } from '@/types';
 type Row = {
     id: string;
     action?: string;
+    summary?: string;
     event?: string;
     who: string | null;
     subject?: string | null;
@@ -93,9 +94,16 @@ export default function AuditLogs({ portal, tab, items, filters }: Props) {
             header: tab === 'security' ? 'Event' : 'Action',
             cell: (row) => (
                 <div>
-                    <div className="font-mono text-xs font-medium">
-                        {row.action ?? row.event}
+                    <div className="text-xs font-medium">
+                        {row.summary ?? row.action ?? row.event}
                     </div>
+                    {row.summary &&
+                        row.action &&
+                        row.summary !== row.action && (
+                            <div className="font-mono text-[11px] text-tx3">
+                                {row.action}
+                            </div>
+                        )}
                     {row.subject && (
                         <div className="text-xs text-tx3">{row.subject}</div>
                     )}
