@@ -15,6 +15,7 @@ use App\Domain\Partner\Actions\ConfigurePartner;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Partner\Models\PartnerIpRule;
+use App\Domain\Partner\PartnerIntegrationFile;
 use App\Http\Admin\Partners\Requests\ChangePartnerStatusRequest;
 use App\Http\Admin\Partners\Requests\PartnerRequest;
 use App\Http\Controller;
@@ -110,11 +111,14 @@ class PartnerController extends Controller
 
         $partner = $result['partner'];
 
-        Inertia::flash('credentials', [
-            'partner' => $partner->name,
-            'key_id' => $partner->activeApiKey()->value('key_id'),
-            'secret' => $result['secret'],
-        ]);
+        if (is_string($result['secret'])) {
+            PartnerIntegrationFile::flashCredentials(
+                $partner,
+                (string) $partner->activeApiKey()->value('key_id'),
+                $result['secret'],
+                route('admin.partners.integration-file.issued', $partner),
+            );
+        }
         $this->flashResult(__('Partner “:name” created.', ['name' => $partner->name]), $result['negative_margins']);
 
         return to_route('admin.partners.index', ['partner' => $partner->id]);

@@ -7,6 +7,7 @@ export type Credentials = {
     partner: string;
     key_id: string | null;
     secret: string | null;
+    file_url?: string | null;
 };
 
 /**
@@ -65,6 +66,20 @@ export function CredentialsDialog({
                         label="Secret"
                         value={credentials?.secret ?? ''}
                     />
+                    {credentials?.file_url && (
+                        <div className="flex flex-col items-start gap-1">
+                            <a
+                                href={credentials.file_url}
+                                className="inline-flex h-8 items-center justify-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
+                            >
+                                Download partner file
+                            </a>
+                            <p className="text-xs text-tx3">
+                                This copy includes the secret. A later download
+                                from the partner list does not.
+                            </p>
+                        </div>
+                    )}
                     <label className="flex items-center gap-2 text-[13px]">
                         <input
                             type="checkbox"

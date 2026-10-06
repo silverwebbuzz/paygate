@@ -39,6 +39,8 @@ Route::get('api-logs', [ApiLogController::class, 'index'])->name('api-logs');
 // API & Webhooks: credentials, endpoints, allowed IPs.
 Route::controller(DeveloperController::class)->prefix('developers')->name('developers.')->group(function () {
     Route::get('/', 'show')->name('show');
+    Route::get('integration-file', 'integrationFile')->name('integration-file');
+    Route::get('integration-file/issued', 'issuedIntegrationFile')->name('integration-file.issued');
     Route::post('api-keys', 'issueKey')->middleware('throttle:10,1')->name('api-keys.store');
     Route::delete('api-keys/{key}', 'revokeKey')->middleware('throttle:10,1')->name('api-keys.destroy');
     Route::put('endpoints', 'updateEndpoints')->name('endpoints');

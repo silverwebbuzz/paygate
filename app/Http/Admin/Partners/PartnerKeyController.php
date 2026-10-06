@@ -6,6 +6,7 @@ use App\Domain\Partner\Actions\IssueApiKey;
 use App\Domain\Partner\Actions\RevokeApiKey;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
+use App\Domain\Partner\PartnerIntegrationFile;
 use App\Http\Controller;
 use App\Http\Shared\Credentials\ApiKeyRequest;
 use Illuminate\Http\RedirectResponse;
@@ -20,11 +21,7 @@ class PartnerKeyController extends Controller
     {
         $result = $issue->handle($request->actor(), $partner);
 
-        Inertia::flash('credentials', [
-            'partner' => $partner->name,
-            'key_id' => $result['key']->key_id,
-            'secret' => $result['secret'],
-        ]);
+        PartnerIntegrationFile::flashCredentials($partner, $result['key']->key_id, $result['secret'], route('admin.partners.integration-file.issued', $partner));
 
         return back();
     }

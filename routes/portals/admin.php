@@ -6,6 +6,7 @@ use App\Http\Admin\Branches\BranchController;
 use App\Http\Admin\Commissions\CommissionController;
 use App\Http\Admin\Mappings\MappingController;
 use App\Http\Admin\Partners\PartnerController;
+use App\Http\Admin\Partners\PartnerIntegrationFileController;
 use App\Http\Admin\Partners\PartnerKeyController;
 use App\Http\Admin\Platform\IpManagementController;
 use App\Http\Admin\Platform\PageController;
@@ -122,6 +123,8 @@ Route::controller(PartnerController::class)->prefix('partners')->name('partners.
     Route::get('/', 'index')->name('index');
     Route::get('create', 'create')->name('create');
     Route::post('/', 'store')->name('store');
+    Route::get('{partner}/integration-file', [PartnerIntegrationFileController::class, 'download'])->name('integration-file');
+    Route::get('{partner}/integration-file/issued', [PartnerIntegrationFileController::class, 'issued'])->name('integration-file.issued');
     Route::get('{partner}/edit', 'edit')->name('edit');
     Route::put('{partner}', 'update')->name('update');
     Route::put('{partner}/status', 'status')->name('status');

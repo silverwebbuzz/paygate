@@ -112,7 +112,7 @@ final class Checklist
             self::section('partners', 'Partners', [
                 self::item('partners.list', 'Partner list & drawer', '/admin/partners',
                     'All partners with status; click a row for the drawer (keys, rates, branches, activity).',
-                    ['Open Partners and click a partner: the drawer shows API keys, rates, mapped branches and activity.', 'Search by code or name.', 'As branch@ or partner@, /admin/partners is refused.'],
+                    ['Open Partners and click a partner: the drawer shows API keys, rates, mapped branches and activity.', 'Search by code or name.', 'Download partner file: it has the base URL, key id, saved URLs and how to call pay-in and payout. It does not contain the secret.', 'As branch@ or partner@, /admin/partners is refused.'],
                     ['admin'],
                     ['PartnerManagementTest::test_partner_list_and_wizard_open_for_admins', 'PartnerManagementTest::test_the_drawer_detail_loads_on_demand', 'PartnerManagementTest::test_partners_and_branches_cannot_open_partner_management']),
                 self::item('partners.wizard', 'New partner wizard (7 steps)', '/admin/partners/create',
@@ -132,9 +132,9 @@ final class Checklist
                     ['PartnerManagementTest::test_status_changes_follow_the_lifecycle_and_need_a_reason', 'PartnerManagementTest::test_unmapping_a_branch_deactivates_rather_than_deletes']),
                 self::item('partners.keys_admin', 'API keys (Admin)', '/admin/partners',
                     'Generate (needs your password), rotate (old key keeps working for the overlap window) and revoke (password + reason) a partner’s keys.',
-                    ['In the partner drawer, generate a key: your password is asked; the secret shows once.', 'Generate another: the old one shows "Rotating out".', 'Revoke one with a reason: status Revoked, recorded in Audit Logs.'],
+                    ['In the partner drawer, generate a key: your password is asked; the secret shows once, with Download partner file. That file contains the secret.', 'Download it again from the partner list: the secret is not in the file.', 'Generate another: the old one shows "Rotating out".', 'Revoke one with a reason: status Revoked, recorded in Audit Logs.'],
                     ['admin'],
-                    ['ApiCredentialsTest::test_rotation_keeps_the_old_key_working_for_the_overlap_window', 'ApiCredentialsTest::test_generating_a_key_needs_the_persons_password', 'ApiCredentialsTest::test_revoking_needs_password_and_reason_and_is_audited', 'ApiCredentialsTest::test_a_key_of_another_partner_cannot_be_revoked_through_this_partner']),
+                    ['ApiCredentialsTest::test_rotation_keeps_the_old_key_working_for_the_overlap_window', 'ApiCredentialsTest::test_generating_a_key_needs_the_persons_password', 'ApiCredentialsTest::test_revoking_needs_password_and_reason_and_is_audited', 'ApiCredentialsTest::test_a_key_of_another_partner_cannot_be_revoked_through_this_partner', 'PartnerIntegrationFileTest']),
             ]),
 
             self::section('branches', 'Branches, mapping & accounts', [

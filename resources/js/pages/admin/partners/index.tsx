@@ -358,6 +358,13 @@ export default function PartnersIndex({
                             Users
                         </Link>
                     )}
+                    <a
+                        href={partnersRoutes.integrationFile(p.id).url}
+                        onClick={(event) => event.stopPropagation()}
+                        className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium hover:bg-sf2"
+                    >
+                        Download partner file
+                    </a>
                     {can.update && (
                         <Link
                             href={partnersRoutes.edit(p.id).url}

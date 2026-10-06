@@ -10,6 +10,7 @@ use App\Domain\Partner\Actions\SyncIpRules;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Partner\Models\PartnerIpRule;
+use App\Domain\Partner\PartnerIntegrationFile;
 use App\Http\Controller;
 use App\Http\Partner\Developers\Requests\UpdateEndpointsRequest;
 use App\Http\Partner\Developers\Requests\UpdateIpRulesRequest;
@@ -19,6 +20,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Partner portal: API & Webhooks (design: credentials, endpoints, allowed
@@ -62,16 +64,29 @@ class DeveloperController extends Controller
         ]);
     }
 
+    public function integrationFile(Request $request, PartnerIntegrationFile $file): HttpResponse
+    {
+        $actor = $this->actor($request);
+        abort_unless($actor->can('api_keys.view') || $actor->can('api_keys.create'), 403);
+
+        return $file->download($this->partner($actor), null);
+    }
+
+    public function issuedIntegrationFile(Request $request, PartnerIntegrationFile $file): HttpResponse
+    {
+        $actor = $this->actor($request);
+        abort_unless($actor->can('api_keys.view') || $actor->can('api_keys.create'), 403);
+        $partner = $this->partner($actor);
+
+        return $file->download($partner, PartnerIntegrationFile::takeSecret($partner));
+    }
+
     public function issueKey(ApiKeyRequest $request, IssueApiKey $issue): RedirectResponse
     {
         $partner = $this->partner($request->actor());
         $result = $issue->handle($request->actor(), $partner);
 
-        Inertia::flash('credentials', [
-            'partner' => $partner->name,
-            'key_id' => $result['key']->key_id,
-            'secret' => $result['secret'],
-        ]);
+        PartnerIntegrationFile::flashCredentials($partner, $result['key']->key_id, $result['secret'], route('partner.developers.integration-file.issued'));
 
         return back();
     }
