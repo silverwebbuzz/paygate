@@ -219,7 +219,7 @@ export function LiveDashboard({
                                     'h-7 rounded-md px-2.5 text-[12.5px] font-medium',
                                     (showCustom ? 'custom' : period.range) ===
                                         key
-                                        ? 'bg-acs text-act'
+                                        ? 'bg-linear-to-r from-ac to-ac2 text-white shadow-sm shadow-ac/30'
                                         : 'text-tx2 hover:bg-sf2',
                                 )}
                             >
@@ -260,7 +260,7 @@ export function LiveDashboard({
                             />
                             <button
                                 type="submit"
-                                className="h-7 rounded-md bg-ac px-2.5 font-medium text-white"
+                                className="h-7 rounded-md bg-linear-to-r from-ac to-ac2 px-2.5 font-medium text-white"
                             >
                                 Show
                             </button>

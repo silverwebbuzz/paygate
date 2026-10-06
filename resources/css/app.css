@@ -9,7 +9,7 @@
 
 @theme {
     --font-sans:
-        'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Poppins', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
         'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
     --font-display:
         'Poppins', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
@@ -81,6 +81,7 @@
     --color-ac: var(--pg-ac);
     --color-acs: var(--pg-acs);
     --color-act: var(--pg-act);
+    --color-ac2: var(--pg-ac2);
     --color-ok: var(--pg-ok);
     --color-okb: var(--pg-okb);
     --color-wn: var(--pg-wn);
@@ -95,7 +96,7 @@
     --color-rvb: var(--pg-rvb);
     --color-nt: var(--pg-nt);
     --color-ntb: var(--pg-ntb);
-    --color-nav: #0b1220;
+    --color-nav: #240c33;
     --spacing-rp: var(--pg-rp);
 }
 
@@ -125,10 +126,11 @@
     --pg-ntb: #f1f5f9;
     /* Row padding: compact 9px / comfortable 13px */
     --pg-rp: 9px;
-    /* Accent: admin indigo by default; each portal overrides below */
-    --pg-ac: #4f46e5;
-    --pg-acs: #eef2ff;
-    --pg-act: #3730a3;
+    /* Accent: PayGate magenta, with plum as the gradient end (ac → ac2) */
+    --pg-ac: #d6287f;
+    --pg-ac2: #3e1264;
+    --pg-acs: #fdf0f6;
+    --pg-act: #9d1a5c;
 
     /* shadcn/ui variables mapped onto the PayGate palette */
     --background: var(--pg-bg);
@@ -156,7 +158,7 @@
     --chart-4: var(--pg-rv);
     --chart-5: var(--pg-hd);
     --radius: 0.5rem;
-    --sidebar: #0b1220;
+    --sidebar: #240c33;
     --sidebar-foreground: #c8d1df;
     --sidebar-primary: var(--pg-ac);
     --sidebar-primary-foreground: #ffffff;
@@ -189,54 +191,17 @@
     --pg-rvb: rgba(139, 92, 246, 0.15);
     --pg-nt: #a7b1c4;
     --pg-ntb: rgba(148, 163, 184, 0.12);
-    --pg-acs: rgba(99, 102, 241, 0.16);
-    --pg-act: #a5b4fc;
 }
 
-/* Portal accents (Admin indigo · Branch emerald · Partner & checkout violet).
-   Set on the layout and on <html> (so dialogs portalled to <body> match). */
-[data-portal='admin'] {
-    --pg-ac: #4f46e5;
-    --pg-acs: #eef2ff;
-    --pg-act: #3730a3;
-}
-[data-portal='branch'] {
-    --pg-ac: #059669;
-    --pg-acs: #ecfdf5;
-    --pg-act: #065f46;
-}
-[data-portal='partner'],
-[data-portal='checkout'] {
-    --pg-ac: #7c3aed;
-    --pg-acs: #f5f3ff;
-    --pg-act: #5b21b6;
-}
-/* Sign-in screens: magenta → plum brand gradient. */
-[data-portal='auth'] {
-    --pg-ac: #d6287f;
-    --pg-acs: #fdf0f6;
-    --pg-act: #9d1a5c;
-}
-.dark [data-portal='auth'] {
+/* One brand accent for every portal and the sign-in screens. Set on the
+   layout and on <html> (so dialogs portalled to <body> match). */
+.dark,
+.dark [data-portal],
+.dark[data-portal] {
     --pg-ac: #e0479a;
+    --pg-ac2: #6b2a9e;
     --pg-acs: rgba(214, 40, 127, 0.16);
     --pg-act: #f9a8d4;
-}
-.dark [data-portal='admin'],
-.dark[data-portal='admin'] {
-    --pg-acs: rgba(99, 102, 241, 0.16);
-    --pg-act: #a5b4fc;
-}
-.dark [data-portal='branch'],
-.dark[data-portal='branch'] {
-    --pg-acs: rgba(16, 185, 129, 0.14);
-    --pg-act: #6ee7b7;
-}
-.dark [data-portal='partner'],
-.dark[data-portal='partner'],
-.dark [data-portal='checkout'] {
-    --pg-acs: rgba(139, 92, 246, 0.16);
-    --pg-act: #c4b5fd;
 }
 
 [data-density='comfortable'] {

@@ -1,4 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
+import { Code, FlaskConical } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PortalSidebar } from '@/components/pg/portal-sidebar';
 import { PortalTopbar } from '@/components/pg/portal-topbar';
@@ -44,6 +45,7 @@ export default function PortalLayout({
             ? [
                   {
                       label: 'Testing',
+                      icon: FlaskConical,
                       items: [
                           ...(qaChecklist
                               ? [
@@ -65,6 +67,7 @@ export default function PortalLayout({
             ? [
                   {
                       label: 'Developer',
+                      icon: Code,
                       items: [{ label: 'UI kit', href: admin.uiKit() }],
                   },
               ]

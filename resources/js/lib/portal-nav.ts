@@ -1,4 +1,20 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
+import {
+    ArrowLeftRight,
+    Code,
+    CreditCard,
+    FileText,
+    GitCompareArrows,
+    History,
+    Landmark,
+    LayoutDashboard,
+    Network,
+    Settings,
+    ShieldCheck,
+    User,
+    Wallet,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import admin from '@/routes/admin';
 import adminAccounts from '@/routes/admin/accounts';
 import adminCases from '@/routes/admin/cases';
@@ -53,7 +69,11 @@ export type NavLink = {
     permission?: string;
 };
 
-export type NavGroup = { label: string; items: NavLink[] };
+/**
+ * A group with one item shows as a single link (e.g. Dashboard); larger
+ * groups fold open under their heading.
+ */
+export type NavGroup = { label: string; icon: LucideIcon; items: NavLink[] };
 
 export const PORTAL_LABELS: Record<UserType, string> = {
     admin: 'Admin',
@@ -63,6 +83,7 @@ export const PORTAL_LABELS: Record<UserType, string> = {
 
 const account: NavGroup = {
     label: 'Account',
+    icon: User,
     items: [{ label: 'Profile & settings', href: profile() }],
 };
 
@@ -70,62 +91,12 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
     admin: [
         {
             label: 'Overview',
+            icon: LayoutDashboard,
             items: [{ label: 'Dashboard', href: admin.dashboard() }],
         },
         {
-            label: 'Payments',
-            items: [
-                {
-                    label: 'Transactions',
-                    href: adminTransactions.index(),
-                    permission: 'payins.view',
-                },
-                {
-                    label: 'Manual Deposit',
-                    href: adminDeposits.index(),
-                    permission: 'payins.view',
-                },
-                {
-                    label: 'Manual Payout',
-                    href: adminPayouts.index(),
-                    permission: 'payouts.view',
-                },
-                {
-                    label: 'Refunds',
-                    href: admin.refunds.index(),
-                    permission: 'reversals.view',
-                },
-                {
-                    label: 'Chargebacks',
-                    href: admin.chargebacks.index(),
-                    permission: 'reversals.view',
-                },
-            ],
-        },
-        {
-            label: 'Reconciliation',
-            items: [
-                {
-                    label: 'Manual A/C Statement',
-                    href: adminStatements.index(),
-                    permission: 'statements.view',
-                },
-                // Source not decided yet (bank API, email, SMS…; G-27).
-                { label: 'Auto A/C Statement', soon: 'later' },
-                {
-                    label: 'UTR Reconciliation',
-                    href: adminReconciliation.index(),
-                    permission: 'reconciliation.view',
-                },
-                {
-                    label: 'Unsettled UTR',
-                    href: adminCases.index(),
-                    permission: 'reconciliation.view',
-                },
-            ],
-        },
-        {
             label: 'Network',
+            icon: Network,
             items: [
                 {
                     label: 'Partners',
@@ -160,7 +131,62 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
+            label: 'Payments',
+            icon: Wallet,
+            items: [
+                {
+                    label: 'Transactions',
+                    href: adminTransactions.index(),
+                    permission: 'payins.view',
+                },
+                {
+                    label: 'Manual Deposit',
+                    href: adminDeposits.index(),
+                    permission: 'payins.view',
+                },
+                {
+                    label: 'Manual Payout',
+                    href: adminPayouts.index(),
+                    permission: 'payouts.view',
+                },
+                {
+                    label: 'Refunds',
+                    href: admin.refunds.index(),
+                    permission: 'reversals.view',
+                },
+                {
+                    label: 'Chargebacks',
+                    href: admin.chargebacks.index(),
+                    permission: 'reversals.view',
+                },
+            ],
+        },
+        {
+            label: 'Reconciliation',
+            icon: GitCompareArrows,
+            items: [
+                {
+                    label: 'Manual A/C Statement',
+                    href: adminStatements.index(),
+                    permission: 'statements.view',
+                },
+                // Source not decided yet (bank API, email, SMS…; G-27).
+                { label: 'Auto A/C Statement', soon: 'later' },
+                {
+                    label: 'UTR Reconciliation',
+                    href: adminReconciliation.index(),
+                    permission: 'reconciliation.view',
+                },
+                {
+                    label: 'Unsettled UTR',
+                    href: adminCases.index(),
+                    permission: 'reconciliation.view',
+                },
+            ],
+        },
+        {
             label: 'Finance',
+            icon: Landmark,
             items: [
                 {
                     label: 'Settlement',
@@ -181,6 +207,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'System',
+            icon: Settings,
             items: [
                 {
                     label: 'Users',
@@ -214,10 +241,12 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
     branch: [
         {
             label: 'Overview',
+            icon: LayoutDashboard,
             items: [{ label: 'Dashboard', href: branch.dashboard() }],
         },
         {
             label: 'Accounts',
+            icon: CreditCard,
             items: [
                 {
                     label: 'Bank & UPI Accounts',
@@ -228,6 +257,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Operations',
+            icon: ArrowLeftRight,
             items: [
                 {
                     label: 'Manual Deposit',
@@ -248,6 +278,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Statements',
+            icon: FileText,
             items: [
                 {
                     label: 'A/C Statement Entry',
@@ -264,6 +295,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'History',
+            icon: History,
             items: [
                 {
                     label: 'Pay-in History',
@@ -284,6 +316,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Finance',
+            icon: Landmark,
             items: [
                 {
                     label: 'Branch Balance',
@@ -304,6 +337,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Admin',
+            icon: ShieldCheck,
             items: [
                 {
                     label: 'Users',
@@ -322,10 +356,12 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
     partner: [
         {
             label: 'Overview',
+            icon: LayoutDashboard,
             items: [{ label: 'Dashboard', href: partner.dashboard() }],
         },
         {
             label: 'Payments',
+            icon: Wallet,
             items: [
                 // Manual payment links are out of v1 (OOS-13).
                 { label: 'Create Payment', soon: 'later' },
@@ -343,6 +379,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Accounts',
+            icon: CreditCard,
             items: [
                 {
                     label: 'Bank & UPI Accounts',
@@ -353,6 +390,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Finance',
+            icon: Landmark,
             items: [
                 {
                     label: 'Settlements',
@@ -373,6 +411,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Developers',
+            icon: Code,
             items: [
                 {
                     label: 'API & Webhooks',
@@ -393,6 +432,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Admin',
+            icon: ShieldCheck,
             items: [
                 {
                     label: 'Users',
@@ -403,6 +443,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
         },
         {
             label: 'Account',
+            icon: User,
             items: [
                 { label: 'Business profile', href: partnerProfile() },
                 ...account.items,

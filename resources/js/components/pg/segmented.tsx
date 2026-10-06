@@ -20,7 +20,7 @@ export function Segmented<T extends string>({
                     className={cn(
                         'h-[26px] rounded-md px-2.5 text-xs font-medium whitespace-nowrap',
                         option.value === value
-                            ? 'bg-acs text-act'
+                            ? 'bg-linear-to-r from-ac to-ac2 text-white shadow-sm shadow-ac/30'
                             : 'text-tx2 hover:text-tx',
                     )}
                 >
