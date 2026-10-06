@@ -31,6 +31,19 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
+    optimizeDeps: {
+        include: [
+            'apexcharts/core',
+            'apexcharts/line',
+            'apexcharts/bar',
+            'apexcharts/features/legend',
+            'apexcharts/features/toolbar',
+            'apexcharts/features/exports',
+        ],
+    },
+    build: {
+        chunkSizeWarningLimit: 750,
+    },
     // Vite runs in Docker: listen on all interfaces, but tell the browser to
     // load assets and HMR from the host name it uses for the app.
     server: {

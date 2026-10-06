@@ -1,12 +1,17 @@
-import ApexCharts from 'apexcharts';
+import ApexCharts from 'apexcharts/core';
 import type { ApexOptions } from 'apexcharts';
 import { useEffect, useRef } from 'react';
+import 'apexcharts/line';
+import 'apexcharts/bar';
+import 'apexcharts/features/legend';
+import 'apexcharts/features/toolbar';
+import 'apexcharts/features/exports';
 
 /**
  * One dashboard chart (ApexCharts, as in the client's existing system):
  * a smooth filled area per time slot, or bars per category, with value
- * labels, a zoom / pan / download toolbar and axis titles. Loaded lazily so
- * the chart library only downloads with the dashboard.
+ * labels, a zoom / pan / download toolbar and axis titles. Loaded lazily,
+ * and only those chart types and tools are downloaded with the dashboard.
  */
 export default function ApexChart({
     type,
