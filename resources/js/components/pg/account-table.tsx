@@ -1,5 +1,13 @@
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { formatLimit, formatPaise } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import type { AccountRow } from './account-form-dialog';
@@ -19,7 +27,7 @@ export function AccountTable({
     accounts: AccountRow[];
     showBranch: boolean;
     detailed?: boolean;
-    onStatus?: (account: AccountRow) => void;
+    onStatus?: (account: AccountRow, status: AccountStatus) => void;
     actions: (account: AccountRow) => ReactNode;
     empty: ReactNode;
 }) {
@@ -144,7 +152,9 @@ function compactColumns(
 }
 
 function detailedColumns(
-    onStatus: ((account: AccountRow) => void) | undefined,
+    onStatus:
+        | ((account: AccountRow, status: AccountStatus) => void)
+        | undefined,
     actions: (account: AccountRow) => ReactNode,
 ): Column<AccountRow>[] {
     const top = { valign: 'top' as const };
@@ -275,10 +285,8 @@ function detailedColumns(
             cell: (a) => (
                 <StatusCell
                     account={a}
-                    onClick={
-                        onStatus && a.can.switch_to.length > 0
-                            ? () => onStatus(a)
-                            : undefined
+                    onChange={
+                        onStatus ? (status) => onStatus(a, status) : undefined
                     }
                 />
             ),
@@ -295,44 +303,70 @@ function detailedColumns(
     ];
 }
 
+/** Account statuses in the order the "Change status" menu lists them. */
+export const ACCOUNT_STATUSES = [
+    ['verification_pending', 'Needs verification'],
+    ['verified', 'Verified, not active'],
+    ['active', 'Active'],
+    ['paused', 'Paused'],
+    ['rejected', 'Rejected'],
+    ['disabled', 'Disabled'],
+] as const;
+
+export type AccountStatus = (typeof ACCOUNT_STATUSES)[number][0];
+
+/**
+ * The current status as a label, with a separate "Change status" menu below
+ * it listing only the statuses this account can move to.
+ */
 function StatusCell({
     account,
-    onClick,
+    onChange,
 }: {
     account: AccountRow;
-    onClick?: () => void;
+    onChange?: (status: AccountStatus) => void;
 }) {
-    const badge = (
-        <div>
+    const choices = ACCOUNT_STATUSES.filter(
+        ([value]) =>
+            value !== account.status && account.can.switch_to.includes(value),
+    );
+
+    return (
+        <div className="flex min-w-[170px] flex-col items-start gap-2">
             <StatusBadge
                 status={account.status}
                 label={account.status === 'rejected' ? 'Rejected' : undefined}
+                className="h-[26px] px-2.5 text-[12.5px]"
             />
             {account.status === 'rejected' && account.rejected_reason && (
-                <div className="mt-1 max-w-[180px] text-[11px] text-er">
+                <div className="max-w-[180px] text-[11px] text-er">
                     {account.rejected_reason}
                 </div>
             )}
+            {onChange && choices.length > 0 && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex h-7 items-center gap-1.5 rounded-md border border-ln bg-sf px-2.5 text-xs font-medium text-tx2 hover:border-ac/50 hover:text-tx data-[state=open]:border-ac data-[state=open]:text-tx">
+                        Change status
+                        <ChevronDown className="size-3.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-52">
+                        <DropdownMenuLabel className="text-xs font-medium text-tx3">
+                            Move to
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {choices.map(([value, label]) => (
+                            <DropdownMenuItem
+                                key={value}
+                                onSelect={() => onChange(value)}
+                                className="cursor-pointer"
+                            >
+                                <StatusBadge status={value} label={label} />
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
         </div>
-    );
-
-    if (!onClick) {
-        return badge;
-    }
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-label="Change status"
-            className="inline-flex flex-col items-start gap-1 rounded-lg border border-ln bg-sf px-2 py-1.5 text-left shadow-[0_1px_0_rgba(15,23,42,.04)] hover:border-ac hover:bg-acs"
-        >
-            {badge}
-            <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-ac">
-                Change
-                <ChevronDown className="size-3" />
-            </span>
-        </button>
     );
 }
 

@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { AccountActions } from '@/components/pg/account-actions';
 import { AccountFormDialog } from '@/components/pg/account-form-dialog';
 import type { AccountRow } from '@/components/pg/account-form-dialog';
-import { AccountTable } from '@/components/pg/account-table';
+import { ACCOUNT_STATUSES, AccountTable } from '@/components/pg/account-table';
+import type { AccountStatus } from '@/components/pg/account-table';
 import { PgButton } from '@/components/pg/button';
 import { Panel } from '@/components/pg/data-table';
 import { KeyValues } from '@/components/pg/drawer';
@@ -52,9 +53,10 @@ export default function AdminAccounts({
     const [search, setSearch] = useState(filters.search);
     const [editing, setEditing] = useState<AccountRow | 'new' | null>(null);
     const [reviewing, setReviewing] = useState<AccountRow | null>(null);
-    const [statusAccount, setStatusAccount] = useState<AccountRow | null>(
-        null,
-    );
+    const [statusChange, setStatusChange] = useState<{
+        account: AccountRow;
+        status: AccountStatus;
+    } | null>(null);
 
     const visit = (next: Partial<Props['filters']>) => {
         const query = Object.fromEntries(
@@ -176,7 +178,9 @@ export default function AdminAccounts({
                     accounts={accounts.data}
                     showBranch
                     detailed
-                    onStatus={setStatusAccount}
+                    onStatus={(account, status) =>
+                        setStatusChange({ account, status })
+                    }
                     empty="Branches add their accounts in the branch portal; you can also add one here."
                     actions={(account) => (
                         <>
@@ -232,10 +236,12 @@ export default function AdminAccounts({
                 />
             )}
 
-            {statusAccount && (
+            {statusChange && (
                 <StatusDialog
-                    account={statusAccount}
-                    onClose={() => setStatusAccount(null)}
+                    key={`${statusChange.account.id}-${statusChange.status}`}
+                    account={statusChange.account}
+                    initial={statusChange.status}
+                    onClose={() => setStatusChange(null)}
                 />
             )}
 
@@ -252,30 +258,23 @@ export default function AdminAccounts({
     );
 }
 
-const STATUS_OPTIONS = [
-    ['verification_pending', 'Needs verification'],
-    ['verified', 'Verified, not receiving customers'],
-    ['active', 'Active'],
-    ['paused', 'Paused'],
-    ['rejected', 'Rejected'],
-    ['disabled', 'Disabled'],
-] as const;
-
 /**
  * Verification: the full numbers (loaded on request and audited), then
  * approve, or reject with a reason the branch will see.
  */
 function StatusDialog({
     account,
+    initial,
     onClose,
 }: {
     account: AccountRow;
+    initial: AccountStatus;
     onClose: () => void;
 }) {
-    const choices = STATUS_OPTIONS.filter(([value]) =>
+    const choices = ACCOUNT_STATUSES.filter(([value]) =>
         account.can.switch_to.includes(value),
     );
-    const [status, setStatus] = useState(choices[0]?.[0] ?? 'active');
+    const [status, setStatus] = useState<AccountStatus>(initial);
     const [reason, setReason] = useState('');
     const [error, setError] = useState<string | undefined>();
     const [processing, setProcessing] = useState(false);
@@ -308,9 +307,7 @@ function StatusDialog({
                 <SelectInput
                     value={status}
                     onChange={(event) =>
-                        setStatus(
-                            event.target.value as (typeof STATUS_OPTIONS)[number][0],
-                        )
+                        setStatus(event.target.value as AccountStatus)
                     }
                 >
                     {choices.map(([value, label]) => (
