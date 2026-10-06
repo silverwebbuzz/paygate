@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { formatLimit, formatPaise } from '@/lib/money';
 import { cn } from '@/lib/utils';
@@ -146,34 +147,46 @@ function detailedColumns(
     onStatus: ((account: AccountRow) => void) | undefined,
     actions: (account: AccountRow) => ReactNode,
 ): Column<AccountRow>[] {
+    const top = { valign: 'top' as const };
+
     return [
         {
+            ...top,
             key: 'account',
             header: 'Account',
-            className: 'min-w-[160px]',
+            className: 'min-w-[180px]',
             cell: (a) => (
-                <div>
-                    <div className="font-medium">{a.label}</div>
-                    <div className="text-xs text-tx2">{a.holder}</div>
-                    <div className="mt-1 text-xs text-tx3">
-                        {a.branch.code} · {a.branch.name}
+                <div className="flex items-start gap-2.5">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-sm font-semibold text-white">
+                        {(a.bank_name || a.label)
+                            .trim()
+                            .charAt(0)
+                            .toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
+                        <div className="font-semibold">{a.label}</div>
+                        <div className="text-xs text-tx2">{a.holder}</div>
+                        <div className="mt-1 inline-flex rounded-md bg-sf2 px-1.5 py-0.5 text-[11px] text-tx3">
+                            {a.branch.code} · {a.branch.name}
+                        </div>
                     </div>
                 </div>
             ),
         },
         {
+            ...top,
             key: 'limits',
             header: 'Deposit limits',
-            className: 'min-w-[150px]',
+            className: 'min-w-[148px]',
             cell: (a) => (
-                <div>
-                    <Line label="Minimum" value={formatLimit(a.min_amount)} />
-                    <Line label="Maximum" value={formatLimit(a.max_amount)} />
-                    <Line
+                <div className="space-y-1">
+                    <Limit label="Minimum" value={formatLimit(a.min_amount)} />
+                    <Limit label="Maximum" value={formatLimit(a.max_amount)} />
+                    <Limit
                         label="Per day"
                         value={formatLimit(a.daily_amount_limit)}
                     />
-                    <Line
+                    <Limit
                         label="Count"
                         value={
                             a.daily_count_limit === null
@@ -181,40 +194,49 @@ function detailedColumns(
                                 : String(a.daily_count_limit)
                         }
                     />
-                    <div className="mt-1 text-[11px] text-tx3">
+                    <div className="pt-1 text-[11px] text-tx3">
                         Used today {formatPaise(a.used_today.amount, 0)} ·{' '}
-                        {a.used_today.count} payments · {a.max_open_sessions}{' '}
-                        open at once
+                        {a.used_today.count} · {a.max_open_sessions} open
                     </div>
                 </div>
             ),
         },
         {
+            ...top,
             key: 'credentials',
             header: 'Credentials',
-            className: 'min-w-[280px]',
+            className: 'min-w-[240px]',
             cell: (a) => (
-                <div>
+                <div className="rounded-lg border border-ln2 bg-sf2 px-3 py-2">
                     {a.is_bank_enabled && (
-                        <>
-                            <Line label="Bank" value={a.bank_name} />
-                            <Line label="Holder" value={a.holder} />
-                            <Line
-                                label="Account"
-                                value={a.account_number}
-                                mono
-                            />
-                            <Line label="IFSC" value={a.ifsc} mono />
-                        </>
-                    )}
-                    {a.is_upi_enabled && (
-                        <>
-                            <Line label="UPI" value={a.upi_id} mono />
-                            <Line label="Shown as" value={a.upi_display_name} />
-                            <Line label="UPI code" value={a.upi_code} mono />
-                        </>
+                        <div>
+                            <div className="text-xs font-medium">
+                                {a.bank_name}
+                            </div>
+                            <div className="font-mono text-sm font-semibold tracking-wide">
+                                {a.account_number}
+                            </div>
+                        </div>
                     )}
                     <div className="mt-1.5 flex flex-wrap gap-1">
+                        {a.is_bank_enabled && a.ifsc && (
+                            <Mark label="IFSC" value={a.ifsc} tone="in" mono />
+                        )}
+                        {a.is_upi_enabled && a.upi_id && (
+                            <Mark label="UPI" value={a.upi_id} tone="brand" mono />
+                        )}
+                        {a.upi_display_name && (
+                            <Mark
+                                label="Shown as"
+                                value={a.upi_display_name}
+                                tone="ok"
+                            />
+                        )}
+                        {a.upi_code && (
+                            <Mark label="UPI code" value={a.upi_code} tone="nt" mono />
+                        )}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
                         <Method on={a.is_bank_enabled}>Bank</Method>
                         <Method on={a.is_upi_enabled}>UPI</Method>
                         <Method on={a.is_qr_enabled}>QR</Method>
@@ -224,13 +246,16 @@ function detailedColumns(
             ),
         },
         {
+            ...top,
             key: 'intent',
             header: 'UPI intent',
             cell: (a) => (
                 <span
                     className={cn(
-                        'text-xs font-medium',
-                        a.is_intent_enabled ? 'text-ok' : 'text-tx3',
+                        'inline-flex h-[22px] items-center rounded-md px-2 text-xs font-medium',
+                        a.is_intent_enabled
+                            ? 'bg-okb text-ok'
+                            : 'bg-ntb text-nt',
                     )}
                 >
                     {a.is_intent_enabled ? 'Allowed' : 'Off'}
@@ -238,11 +263,13 @@ function detailedColumns(
             ),
         },
         {
+            ...top,
             key: 'verification',
             header: 'Verification',
             cell: (a) => <Verification account={a} />,
         },
         {
+            ...top,
             key: 'status',
             header: 'Status',
             cell: (a) => (
@@ -257,6 +284,7 @@ function detailedColumns(
             ),
         },
         {
+            ...top,
             key: 'actions',
             header: '',
             align: 'right',
@@ -296,9 +324,14 @@ function StatusCell({
         <button
             type="button"
             onClick={onClick}
-            className="rounded-md text-left hover:bg-sf2"
+            aria-label="Change status"
+            className="inline-flex flex-col items-start gap-1 rounded-lg border border-ln bg-sf px-2 py-1.5 text-left shadow-[0_1px_0_rgba(15,23,42,.04)] hover:border-ac hover:bg-acs"
         >
             {badge}
+            <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-ac">
+                Change
+                <ChevronDown className="size-3" />
+            </span>
         </button>
     );
 }
@@ -332,21 +365,44 @@ function Verification({ account }: { account: AccountRow }) {
     return <StatusBadge status="new" label="Not verified" />;
 }
 
-function Line({
+function Mark({
     label,
     value,
+    tone,
     mono = false,
 }: {
     label: string;
-    value: string | null | undefined;
+    value: string;
+    tone: 'in' | 'brand' | 'ok' | 'nt';
     mono?: boolean;
 }) {
+    const toneClass = {
+        in: 'bg-inb text-in',
+        brand: 'bg-acs text-ac',
+        ok: 'bg-okb text-ok',
+        nt: 'bg-sf text-tx2',
+    }[tone];
+
     return (
-        <div className="flex gap-2 text-xs leading-5">
-            <span className="w-[64px] shrink-0 text-tx3">{label}</span>
-            <span className={cn('break-all', mono && 'font-mono')}>
-                {value && value !== '' ? value : '—'}
+        <span
+            className={cn(
+                'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold',
+                toneClass,
+            )}
+        >
+            <span className="uppercase tracking-wide opacity-80">{label}</span>
+            <span className={cn('font-medium text-tx', mono && 'font-mono')}>
+                {value}
             </span>
+        </span>
+    );
+}
+
+function Limit({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-baseline justify-between gap-3 text-xs">
+            <span className="text-tx3">{label}</span>
+            <span className="font-semibold tabular-nums">{value}</span>
         </div>
     );
 }
@@ -399,7 +455,7 @@ function Method({ on, children }: { on: boolean; children: ReactNode }) {
         <span
             className={cn(
                 'rounded-[5px] border border-ln px-1.5 py-px text-[11px]',
-                on ? 'text-tx2' : 'text-tx3 line-through opacity-60',
+                on ? 'border-ln bg-sf font-medium text-tx' : 'text-tx3 line-through opacity-60',
             )}
         >
             {children}

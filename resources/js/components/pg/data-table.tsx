@@ -7,6 +7,7 @@ export type Column<T> = {
     header: ReactNode;
     cell: (row: T) => ReactNode;
     align?: 'left' | 'right';
+    valign?: 'top' | 'middle';
     className?: string;
 };
 
@@ -65,7 +66,10 @@ export function DataTable<T>({
                                 <td
                                     key={column.key}
                                     className={cn(
-                                        'border-b border-ln2 px-2.5 py-rp align-middle',
+                                        'border-b border-ln2 px-2.5 py-rp',
+                                        column.valign === 'top'
+                                            ? 'align-top'
+                                            : 'align-middle',
                                         column.align === 'right' &&
                                             'text-right tabular-nums',
                                         column.className,
