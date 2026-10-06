@@ -19,7 +19,6 @@ export type AccountRow = {
     upi_display_name: string | null;
     upi_code: string | null;
     is_qr_enabled: boolean;
-    is_intent_enabled: boolean;
     min_amount: number | null;
     max_amount: number | null;
     daily_amount_limit: number | null;
@@ -67,7 +66,6 @@ export function AccountFormDialog({
         upi_id: '',
         upi_display_name: account?.upi_display_name ?? '',
         is_qr_enabled: account?.is_qr_enabled ?? false,
-        is_intent_enabled: account?.is_intent_enabled ?? false,
         min_amount: rupees(account?.min_amount ?? null),
         max_amount: rupees(account?.max_amount ?? null),
         daily_amount_limit: rupees(account?.daily_amount_limit ?? null),
@@ -198,7 +196,7 @@ export function AccountFormDialog({
                 <div className="sm:col-span-2">
                     <SwitchField
                         label="UPI"
-                        hint="Customers can pay to a UPI ID (QR code and app intent)."
+                        hint="Customers can pay to a UPI ID, including a QR code for the exact amount."
                         checked={data.is_upi_enabled}
                         onChange={(checked) =>
                             setData('is_upi_enabled', checked)
@@ -222,13 +220,6 @@ export function AccountFormDialog({
                             checked={data.is_qr_enabled}
                             onChange={(checked) =>
                                 setData('is_qr_enabled', checked)
-                            }
-                        />
-                        <SwitchField
-                            label="UPI app intent"
-                            checked={data.is_intent_enabled}
-                            onChange={(checked) =>
-                                setData('is_intent_enabled', checked)
                             }
                         />
                     </>

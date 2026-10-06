@@ -20,7 +20,6 @@ type Account = {
     upi_id: string | null;
     upi_display_name: string | null;
     is_qr_enabled: boolean;
-    is_intent_enabled: boolean;
     min_amount: number | null;
     max_amount: number | null;
     daily_amount_limit: number | null;
@@ -110,7 +109,6 @@ export default function PartnerAccounts({ accounts }: Props) {
                     <Method on={a.is_bank_enabled}>Bank</Method>
                     <Method on={a.is_upi_enabled}>UPI</Method>
                     <Method on={a.is_qr_enabled}>QR</Method>
-                    <Method on={a.is_intent_enabled}>Intent</Method>
                 </div>
             ),
         },

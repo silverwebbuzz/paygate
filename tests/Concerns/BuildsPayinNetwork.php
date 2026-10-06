@@ -81,7 +81,6 @@ trait BuildsPayinNetwork
             'is_upi_enabled' => true,
             'upi_id' => "holder{$this->accountSeq}@hdfcbank",
             'is_qr_enabled' => true,
-            'is_intent_enabled' => true,
             'max_open_sessions' => 5,
             ...$overrides,
         ]);

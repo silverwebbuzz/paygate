@@ -46,7 +46,6 @@ class PaymentAccountTest extends TestCase
             'upi_id' => 'AshanAli@HDFCBank',
             'upi_display_name' => 'Ashan Ali',
             'is_qr_enabled' => true,
-            'is_intent_enabled' => false,
             'min_amount' => '500',
             'max_amount' => '50000',
             'daily_amount_limit' => '200000',

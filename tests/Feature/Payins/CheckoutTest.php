@@ -3,6 +3,7 @@
 namespace Tests\Feature\Payins;
 
 use App\Domain\Allocation\UsageCounters;
+use App\Http\Checkout\UpiLinks;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\PaymentAccount\Actions\ChangeAccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
@@ -88,7 +89,28 @@ class CheckoutTest extends TestCase
             ->where('account.ifsc', 'HDFC0001203')
             ->where('account.upi_id', 'holder1@hdfcbank')
             ->has('account.qr_svg')
-            ->has('account.apps', 4));
+            ->missing('account.apps'));
+    }
+
+    public function test_the_checkout_qr_is_built_for_that_payins_amount()
+    {
+        $account = $this->activeAccount();
+        [$reference, $token] = $this->createPayin(['amount' => 500000]);
+
+        $this->choose($token, 'qr')->assertRedirect($this->page($token));
+
+        $payin = $this->payin($reference);
+        $link = UpiLinks::link($account, $payin);
+
+        $this->assertSame('qr', $payin->method);
+        $this->assertStringContainsString('pa=holder1%40hdfcbank', $link);
+        $this->assertStringContainsString('am=5000.00', $link);
+        $this->assertStringContainsString('cu=INR', $link);
+        $this->assertStringContainsString('tr='.$reference, $link);
+
+        $this->get($this->page($token))->assertInertia(fn (Assert $page) => $page
+            ->where('payin.method', 'qr')
+            ->where('account.qr_svg', fn ($svg) => is_string($svg) && str_contains($svg, '<svg')));
     }
 
     public function test_accounts_are_used_in_turn()
@@ -134,7 +156,7 @@ class CheckoutTest extends TestCase
     {
         $unmapped = Branch::factory()->create();
         $this->activeAccount($unmapped);
-        $noUpi = $this->activeAccount(overrides: ['is_upi_enabled' => false, 'upi_id' => null, 'is_qr_enabled' => false, 'is_intent_enabled' => false]);
+        $noUpi = $this->activeAccount(overrides: ['is_upi_enabled' => false, 'upi_id' => null, 'is_qr_enabled' => false]);
 
         [, $token] = $this->createPayin();
         $this->choose($token, 'upi')->assertSessionHasErrors('method');

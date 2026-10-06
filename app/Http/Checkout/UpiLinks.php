@@ -12,9 +12,9 @@ use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
 
 /**
- * UPI payment links (NPCI "upi://pay" format) for the checkout page: the
- * amount and our reference are pre-filled so the customer can't mistype
- * them. The same link drives the QR code and the "open in app" buttons.
+ * UPI payment link (NPCI "upi://pay") for the checkout QR. The amount and
+ * our reference are written into the code when the customer reaches checkout,
+ * so a scan opens that exact price.
  */
 final class UpiLinks
 {
@@ -36,23 +36,6 @@ final class UpiLinks
     public static function link(PaymentAccount $account, Transaction $payin): string
     {
         return 'upi://pay?'.http_build_query(self::params($account, $payin), '', '&', PHP_QUERY_RFC3986);
-    }
-
-    /**
-     * Links that open a specific app (Android). "Any UPI app" uses the plain link.
-     *
-     * @return list<array{app: string, label: string, url: string}>
-     */
-    public static function apps(PaymentAccount $account, Transaction $payin): array
-    {
-        $query = http_build_query(self::params($account, $payin), '', '&', PHP_QUERY_RFC3986);
-
-        return [
-            ['app' => 'gpay', 'label' => 'GPay', 'url' => 'tez://upi/pay?'.$query],
-            ['app' => 'phonepe', 'label' => 'PhonePe', 'url' => 'phonepe://pay?'.$query],
-            ['app' => 'paytm', 'label' => 'Paytm', 'url' => 'paytmmp://pay?'.$query],
-            ['app' => 'any', 'label' => 'Any UPI app', 'url' => 'upi://pay?'.$query],
-        ];
     }
 
     public static function qrSvg(PaymentAccount $account, Transaction $payin): string

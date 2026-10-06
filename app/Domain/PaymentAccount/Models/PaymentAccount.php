@@ -33,7 +33,6 @@ use Illuminate\Support\Carbon;
  * @property string|null $upi_display_name
  * @property string|null $upi_code
  * @property bool $is_qr_enabled
- * @property bool $is_intent_enabled
  * @property AccountStatus $status
  * @property CarbonInterface|null $verified_at
  * @property string|null $verified_by
@@ -65,7 +64,6 @@ class PaymentAccount extends Model
             'is_bank_enabled' => 'boolean',
             'is_upi_enabled' => 'boolean',
             'is_qr_enabled' => 'boolean',
-            'is_intent_enabled' => 'boolean',
             'min_amount' => 'integer',
             'max_amount' => 'integer',
             'daily_amount_limit' => 'integer',

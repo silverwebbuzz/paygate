@@ -84,7 +84,6 @@ class CheckoutController extends Controller
                 'upi_name' => $account->upi_display_name ?? $account->account_holder_name,
                 'supports' => array_values(array_filter(AllocateAccount::METHODS, fn (string $method) => AllocateAccount::supports($account, $method))),
                 'qr_svg' => $account->is_upi_enabled && $account->is_qr_enabled ? UpiLinks::qrSvg($account, $payin) : null,
-                'apps' => $account->is_upi_enabled && $account->is_intent_enabled ? UpiLinks::apps($account, $payin) : [],
             ] : null,
             'return_url' => $this->returnUrl($payin, $partner),
             'proof' => [

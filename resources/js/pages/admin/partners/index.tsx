@@ -142,7 +142,6 @@ const TRANSITION_LABELS: Record<
 
 const PAYMENT_TYPES: Record<string, string> = {
     bank_details: 'Manual bank details',
-    intent: 'UPI intent',
     dynamic_qr: 'Dynamic QR',
 };
 
@@ -989,9 +988,7 @@ export default function PartnersIndex({
 }
 
 function Enabled({ on, onClick }: { on: boolean; onClick?: () => void }) {
-    const className = on
-        ? 'text-xs font-medium text-ok'
-        : 'text-xs text-tx3';
+    const className = on ? 'text-xs font-medium text-ok' : 'text-xs text-tx3';
     const label = on ? '● Enabled' : '○ Disabled';
 
     if (!onClick) {

@@ -55,7 +55,7 @@ class PartnerRequest extends FormRequest
 
             // 3. Payment configuration
             'is_payin_enabled' => ['boolean'],
-            'manual_payment_type' => ['nullable', Rule::in(['bank_details', 'intent', 'dynamic_qr'])],
+            'manual_payment_type' => ['nullable', Rule::in(['bank_details', 'dynamic_qr'])],
             'allow_qr' => ['boolean'],
             'allow_upi' => ['boolean'],
             'allow_bank_transfer' => ['boolean'],

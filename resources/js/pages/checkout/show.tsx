@@ -39,7 +39,6 @@ type Props = {
         upi_name: string;
         supports: Method[];
         qr_svg: string | null;
-        apps: { app: string; label: string; url: string }[];
     } | null;
     return_url: string | null;
     proof: { max_kb: number; types: string[] };
@@ -515,27 +514,6 @@ function PayView({
                             copyValue={(payin.amount / 100).toFixed(2)}
                         />
                     </div>
-                    {account!.apps.length > 0 && (
-                        <>
-                            <div className="text-xs font-medium text-[#64748B]">
-                                Open in app
-                            </div>
-                            <div className="grid grid-cols-4 gap-2">
-                                {account!.apps.map((app) => (
-                                    <a
-                                        key={app.app}
-                                        href={app.url}
-                                        className="flex flex-col items-center gap-1 rounded-xl border border-[#E4E7EC] px-1 py-2.5 text-[11.5px] font-medium hover:border-ac"
-                                    >
-                                        <span className="grid size-8 place-items-center rounded-lg bg-acs text-[11px] font-bold text-act">
-                                            {app.label.slice(0, 2)}
-                                        </span>
-                                        {app.label}
-                                    </a>
-                                ))}
-                            </div>
-                        </>
-                    )}
                     <Note>
                         Pay the exact amount. Your UPI app will show a 12-digit
                         UTR / reference number after paying.

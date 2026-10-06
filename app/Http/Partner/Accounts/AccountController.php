@@ -37,7 +37,6 @@ class AccountController extends Controller
                 'upi_id' => $account->maskedUpiId(),
                 'upi_display_name' => $account->upi_display_name,
                 'is_qr_enabled' => $account->is_qr_enabled,
-                'is_intent_enabled' => $account->is_intent_enabled,
                 'min_amount' => $account->min_amount,
                 'max_amount' => $account->max_amount,
                 'daily_amount_limit' => $account->daily_amount_limit,

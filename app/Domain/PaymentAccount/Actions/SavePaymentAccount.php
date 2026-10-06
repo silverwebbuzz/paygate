@@ -60,7 +60,6 @@ class SavePaymentAccount
 
         if (! $account->is_upi_enabled) {
             $account->is_qr_enabled = false;
-            $account->is_intent_enabled = false;
         }
 
         $this->ensureComplete($account);

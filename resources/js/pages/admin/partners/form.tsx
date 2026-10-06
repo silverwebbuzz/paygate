@@ -143,7 +143,6 @@ const STEPS: {
 
 const PAYMENT_TYPES = [
     ['bank_details', 'Manual bank details'],
-    ['intent', 'UPI intent'],
     ['dynamic_qr', 'Dynamic QR'],
 ] as const;
 

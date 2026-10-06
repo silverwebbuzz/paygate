@@ -121,7 +121,6 @@ class LocalDemoUserSeeder extends Seeder
             'upi_id' => 'demo.branch@hdfcbank',
             'upi_display_name' => 'Demo Branch',
             'is_qr_enabled' => true,
-            'is_intent_enabled' => true,
             'daily_amount_limit' => 50000000,
             'max_open_sessions' => 5,
         ]);

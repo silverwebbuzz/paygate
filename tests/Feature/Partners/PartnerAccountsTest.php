@@ -42,7 +42,6 @@ class PartnerAccountsTest extends TestCase
             'account_number' => '123456789012',
             'is_upi_enabled' => false,
             'is_qr_enabled' => false,
-            'is_intent_enabled' => false,
             'max_open_sessions' => 5,
         ]);
 

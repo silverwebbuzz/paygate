@@ -131,7 +131,6 @@ function compactColumns(
                     <Method on={a.is_bank_enabled}>Bank</Method>
                     <Method on={a.is_upi_enabled}>UPI</Method>
                     <Method on={a.is_qr_enabled}>QR</Method>
-                    <Method on={a.is_intent_enabled}>Intent</Method>
                 </div>
             ),
         },
@@ -233,7 +232,12 @@ function detailedColumns(
                             <Mark label="IFSC" value={a.ifsc} tone="in" mono />
                         )}
                         {a.is_upi_enabled && a.upi_id && (
-                            <Mark label="UPI" value={a.upi_id} tone="brand" mono />
+                            <Mark
+                                label="UPI"
+                                value={a.upi_id}
+                                tone="brand"
+                                mono
+                            />
                         )}
                         {a.upi_display_name && (
                             <Mark
@@ -243,33 +247,20 @@ function detailedColumns(
                             />
                         )}
                         {a.upi_code && (
-                            <Mark label="UPI code" value={a.upi_code} tone="nt" mono />
+                            <Mark
+                                label="UPI code"
+                                value={a.upi_code}
+                                tone="nt"
+                                mono
+                            />
                         )}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
                         <Method on={a.is_bank_enabled}>Bank</Method>
                         <Method on={a.is_upi_enabled}>UPI</Method>
                         <Method on={a.is_qr_enabled}>QR</Method>
-                        <Method on={a.is_intent_enabled}>Intent</Method>
                     </div>
                 </div>
-            ),
-        },
-        {
-            ...top,
-            key: 'intent',
-            header: 'UPI intent',
-            cell: (a) => (
-                <span
-                    className={cn(
-                        'inline-flex h-[22px] items-center rounded-md px-2 text-xs font-medium',
-                        a.is_intent_enabled
-                            ? 'bg-okb text-ok'
-                            : 'bg-ntb text-nt',
-                    )}
-                >
-                    {a.is_intent_enabled ? 'Allowed' : 'Off'}
-                </span>
             ),
         },
         {
@@ -375,16 +366,8 @@ function Verification({ account }: { account: AccountRow }) {
         return <StatusBadge status="rejected" label="Rejected" />;
     }
 
-    if (
-        account.status === 'verification_pending' ||
-        account.status === 'new'
-    ) {
-        return (
-            <StatusBadge
-                status="verification_pending"
-                label="Pending"
-            />
-        );
+    if (account.status === 'verification_pending' || account.status === 'new') {
+        return <StatusBadge status="verification_pending" label="Pending" />;
     }
 
     if (
@@ -424,7 +407,7 @@ function Mark({
                 toneClass,
             )}
         >
-            <span className="uppercase tracking-wide opacity-80">{label}</span>
+            <span className="tracking-wide uppercase opacity-80">{label}</span>
             <span className={cn('font-medium text-tx', mono && 'font-mono')}>
                 {value}
             </span>
@@ -489,7 +472,9 @@ function Method({ on, children }: { on: boolean; children: ReactNode }) {
         <span
             className={cn(
                 'rounded-[5px] border border-ln px-1.5 py-px text-[11px]',
-                on ? 'border-ln bg-sf font-medium text-tx' : 'text-tx3 line-through opacity-60',
+                on
+                    ? 'border-ln bg-sf font-medium text-tx'
+                    : 'text-tx3 line-through opacity-60',
             )}
         >
             {children}
