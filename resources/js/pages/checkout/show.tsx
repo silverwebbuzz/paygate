@@ -625,7 +625,7 @@ function PayView({
                         (form.data.utr.trim() === '' &&
                             form.data.photo === null)
                     }
-                    className="h-12 rounded-xl bg-ac text-[15px] font-semibold text-white disabled:opacity-50"
+                    className="h-12 rounded-xl bg-brand text-[15px] font-semibold text-white disabled:opacity-50"
                 >
                     I’ve made the payment
                 </button>
@@ -771,7 +771,7 @@ function Result({
             {action && (
                 <a
                     href={action.href}
-                    className="mt-1 grid h-12 w-full place-items-center rounded-xl bg-ac text-[15px] font-semibold text-white"
+                    className="mt-1 grid h-12 w-full place-items-center rounded-xl bg-brand text-[15px] font-semibold text-white"
                 >
                     {action.label}
                 </a>

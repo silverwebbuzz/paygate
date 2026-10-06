@@ -347,7 +347,7 @@ export default function UiKit() {
                             <button
                                 type="button"
                                 onClick={() => setModal('approve')}
-                                className="h-8 rounded-[7px] bg-ac px-3 text-[12.5px] font-medium text-white"
+                                className="h-8 rounded-[7px] bg-brand px-3 text-[12.5px] font-medium text-white"
                             >
                                 Approve
                             </button>

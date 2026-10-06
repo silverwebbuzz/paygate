@@ -77,7 +77,7 @@ export function CredentialsDialog({
                     <div className="flex justify-end">
                         <DialogPrimitive.Close
                             disabled={!saved}
-                            className="h-8 rounded-[7px] bg-ac px-3.5 text-[13px] font-medium text-white disabled:opacity-50"
+                            className="h-8 rounded-[7px] bg-brand px-3.5 text-[13px] font-medium text-white disabled:opacity-50"
                         >
                             Done
                         </DialogPrimitive.Close>

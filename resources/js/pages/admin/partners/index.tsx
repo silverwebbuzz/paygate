@@ -386,7 +386,7 @@ export default function PartnersIndex({
                     can.create && (
                         <Link
                             href={partnersRoutes.create().url}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-ac px-3 text-[13px] font-medium text-white"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
                         >
                             <Plus className="size-4" /> Create partner
                         </Link>

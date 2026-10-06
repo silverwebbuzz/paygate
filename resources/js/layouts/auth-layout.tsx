@@ -44,10 +44,7 @@ export default function AuthLayout({
                     </div>
                     <ul className="mt-7 flex flex-col gap-3.5 text-[14px]">
                         {points.map((point) => (
-                            <li
-                                key={point}
-                                className="flex items-center gap-3"
-                            >
+                            <li key={point} className="flex items-center gap-3">
                                 <span className="grid size-[22px] place-items-center rounded-md bg-white/15 text-[11px] text-white">
                                     ✓
                                 </span>

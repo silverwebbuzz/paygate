@@ -623,7 +623,7 @@ export default function Statements(props: Props) {
                                             query: { case: open.case.id },
                                         }).url
                                     }
-                                    className="inline-flex h-8 items-center rounded-[7px] bg-ac px-3 text-[13px] font-medium text-white"
+                                    className="inline-flex h-8 items-center rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
                                 >
                                     Match to transaction
                                 </Link>

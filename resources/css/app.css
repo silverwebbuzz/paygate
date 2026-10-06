@@ -218,6 +218,14 @@
     }
 }
 
+/* Brand fill for primary buttons and active menu items: magenta → plum
+   with a soft magenta glow (design: Dashboard, Today, Submit). */
+@utility bg-brand {
+    background-image: linear-gradient(90deg, var(--pg-ac), var(--pg-ac2));
+    box-shadow: 0 8px 18px -10px
+        color-mix(in srgb, var(--pg-ac) 90%, transparent);
+}
+
 @layer base {
     * {
         @apply border-border;

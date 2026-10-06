@@ -65,7 +65,7 @@ export function FormDialog({
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="h-8 rounded-[7px] bg-ac px-3.5 text-[13px] font-medium text-white disabled:opacity-50"
+                                className="h-8 rounded-[7px] bg-brand px-3.5 text-[13px] font-medium text-white disabled:opacity-50"
                             >
                                 {submitLabel}
                             </button>

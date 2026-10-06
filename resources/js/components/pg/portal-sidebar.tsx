@@ -89,7 +89,7 @@ export function PortalSidebar({
                         const classes = cn(
                             'flex h-10 w-full flex-none items-center gap-3 rounded-[9px] px-3 font-medium',
                             active
-                                ? 'bg-linear-to-r from-ac to-ac2 text-white shadow-lg shadow-ac/30'
+                                ? 'bg-brand text-white'
                                 : item.href
                                   ? 'text-white hover:bg-white/[.06]'
                                   : 'cursor-default text-white/40',
@@ -167,7 +167,7 @@ export function PortalSidebar({
                                                     className={cn(
                                                         'size-1.5 flex-none rounded-[2px]',
                                                         active
-                                                            ? 'bg-ac'
+                                                            ? 'bg-white'
                                                             : item.href
                                                               ? 'bg-white/35'
                                                               : 'bg-white/15',
@@ -188,7 +188,7 @@ export function PortalSidebar({
                                         const classes = cn(
                                             'flex h-9 w-full items-center gap-3 rounded-[8px] pr-3 pl-[42px] text-left',
                                             active
-                                                ? 'bg-white/10 font-semibold text-white'
+                                                ? 'bg-brand font-semibold text-white'
                                                 : item.href
                                                   ? 'text-[#DDD3EC] hover:bg-white/[.06] hover:text-white'
                                                   : 'cursor-default text-white/40',

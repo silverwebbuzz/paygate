@@ -31,9 +31,11 @@ export function ConfirmDialog({
     const [value, setValue] = useState('');
     const blocked =
         processing || (input?.required === true && value.trim() === '');
-    const toneClass = { primary: 'bg-ac', danger: 'bg-er', warning: 'bg-hd' }[
-        tone
-    ];
+    const toneClass = {
+        primary: 'bg-brand',
+        danger: 'bg-er',
+        warning: 'bg-hd',
+    }[tone];
 
     return (
         <DialogPrimitive.Root

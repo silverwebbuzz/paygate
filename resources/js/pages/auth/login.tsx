@@ -32,7 +32,9 @@ export default function Login({ status, canResetPassword }: Props) {
                     <>
                         <div className="grid gap-6">
                             <div className="grid gap-2">
-                                <Label htmlFor="login" className="text-[14px]">Username or email</Label>
+                                <Label htmlFor="login" className="text-[14px]">
+                                    Username or email
+                                </Label>
                                 <Input
                                     id="login"
                                     type="text"
@@ -50,7 +52,12 @@ export default function Login({ status, canResetPassword }: Props) {
 
                             <div className="grid gap-2">
                                 <div className="flex items-center">
-                                    <Label htmlFor="password" className="text-[14px]">Password</Label>
+                                    <Label
+                                        htmlFor="password"
+                                        className="text-[14px]"
+                                    >
+                                        Password
+                                    </Label>
                                     {canResetPassword && (
                                         <TextLink
                                             href={request()}
@@ -79,7 +86,12 @@ export default function Login({ status, canResetPassword }: Props) {
                                     name="remember"
                                     tabIndex={3}
                                 />
-                                <Label htmlFor="remember" className="text-[14px]">Remember me</Label>
+                                <Label
+                                    htmlFor="remember"
+                                    className="text-[14px]"
+                                >
+                                    Remember me
+                                </Label>
                             </div>
 
                             <Button

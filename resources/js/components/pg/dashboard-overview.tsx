@@ -141,7 +141,7 @@ export function DashboardOverview({
                         className={cn(
                             'h-9 rounded-lg border px-4 text-[13px] font-medium transition-colors',
                             period.range === key
-                                ? 'border-transparent bg-linear-to-r from-ac to-ac2 text-white shadow-[0_6px_14px_-8px_rgba(197,26,128,.8)]'
+                                ? 'border-transparent bg-brand text-white'
                                 : 'border-ln bg-sf text-tx2 hover:border-ac/40 hover:text-tx',
                         )}
                     >
@@ -204,7 +204,7 @@ export function DashboardOverview({
                 />
                 <button
                     type="submit"
-                    className="h-10 min-w-[140px] rounded-lg bg-linear-to-r from-ac to-ac2 px-6 text-[13px] font-semibold text-white shadow-[0_8px_18px_-10px_rgba(197,26,128,.9)] hover:opacity-95"
+                    className="h-10 min-w-[140px] rounded-lg bg-brand px-6 text-[13px] font-semibold text-white hover:brightness-110"
                 >
                     Submit
                 </button>

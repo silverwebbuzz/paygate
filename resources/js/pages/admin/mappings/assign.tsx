@@ -214,7 +214,7 @@ function AssignmentForm({
                 <span className="text-xs font-medium text-tx2">
                     Selected {ownerNoun}
                 </span>
-                <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-linear-to-r from-ac to-ac2 px-3 py-1.5 text-[13px] font-semibold text-white shadow-sm shadow-ac/30">
+                <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-brand px-3 py-1.5 text-[13px] font-semibold text-white">
                     <span className="font-mono text-xs opacity-85">
                         {owner.code}
                     </span>

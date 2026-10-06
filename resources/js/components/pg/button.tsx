@@ -2,8 +2,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 const VARIANTS = {
-    primary:
-        'border-transparent bg-linear-to-r from-ac to-ac2 text-white shadow-md shadow-ac/25 hover:brightness-110',
+    primary: 'border-transparent bg-brand text-white hover:brightness-110',
     secondary: 'border-ln bg-sf text-tx hover:bg-sf2',
     danger: 'border-ln bg-sf text-er hover:bg-erb',
     ghost: 'border-transparent bg-transparent text-tx2 hover:bg-sf2',
