@@ -51,10 +51,8 @@ class BranchRequest extends FormRequest
             'partner_ids' => ['array'],
             'partner_ids.*' => ['uuid', Rule::exists('partners', 'id')],
             // Optional branch admin, created (active, with this password) with the branch.
-            'admin_name' => $creating ? ['nullable', 'required_with:admin_email', 'string', 'max:255'] : ['prohibited'],
-            'admin_username' => $creating ? ['nullable', 'required_with:admin_email', ...array_slice($this->usernameRules(), 1)] : ['prohibited'],
-            'admin_email' => $creating ? ['nullable', 'required_with:admin_name,admin_username', 'email', 'max:255', Rule::unique('users', 'email')] : ['prohibited'],
-            'admin_password' => $creating ? ['nullable', 'required_with:admin_email', 'string', Password::default(), 'confirmed'] : ['prohibited'],
+            'admin_username' => $creating ? ['nullable', 'required_with:admin_password', ...array_slice($this->usernameRules(), 1)] : ['prohibited'],
+            'admin_password' => $creating ? ['nullable', 'required_with:admin_username', 'string', Password::default(), 'confirmed'] : ['prohibited'],
             'activate' => ['boolean'],
         ];
     }
@@ -121,15 +119,13 @@ class BranchRequest extends FormRequest
     }
 
     /**
-     * @return array{name: string, username: string, email: string, password: string}|null
+     * @return array{username: string, password: string}|null
      */
     public function admin(): ?array
     {
-        return $this->filled('admin_email') && $this->actor()->can('users.create')
+        return $this->filled('admin_username') && $this->actor()->can('users.create')
             ? [
-                'name' => $this->string('admin_name')->value(),
                 'username' => $this->string('admin_username')->lower()->value(),
-                'email' => $this->string('admin_email')->lower()->value(),
                 'password' => $this->string('admin_password')->value(),
             ]
             : null;

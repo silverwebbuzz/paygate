@@ -246,8 +246,7 @@ class BranchController extends Controller
                 'withdrawal' => $mapping->is_withdrawal_enabled,
             ]),
             'users' => $branch->users()->with('role')->orderBy('name')->get()->map(fn (User $user) => [
-                'name' => $user->name,
-                'email' => $user->email,
+                'name' => $user->username ?? $user->name,
                 'role' => $user->role->name,
                 'status' => $user->displayStatus(),
             ]),

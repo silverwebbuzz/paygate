@@ -33,7 +33,7 @@ export default function Profile({
                 <Heading
                     variant="small"
                     title="Profile"
-                    description="Update your name. You log in with your username or email address; only an administrator can change them."
+                    description="You log in with your username. Only an administrator can change it."
                 />
 
                 <Form
@@ -77,24 +77,22 @@ export default function Profile({
                                 />
                             </div>
 
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                {auth.user.email && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="email">
+                                            Email address
+                                        </Label>
 
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    className="mt-1 block w-full"
-                                    value={auth.user.email}
-                                    readOnly
-                                    disabled
-                                    autoComplete="username"
-                                />
-
-                                <InputError
-                                    className="mt-2"
-                                    message={errors.email}
-                                />
-                            </div>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            className="mt-1 block w-full"
+                                            value={auth.user.email}
+                                            readOnly
+                                            disabled
+                                        />
+                                    </div>
+                                )}
 
                             {mustVerifyEmail &&
                                 auth.user.email_verified_at === null && (

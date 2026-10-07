@@ -25,25 +25,19 @@ class CreateAdminCommand extends Command
     use ProfileValidationRules;
 
     protected $signature = 'paygate:create-admin
-        {--name= : Full name}
-        {--username= : Login username}
-        {--email= : Login email}';
+        {--username= : Login username}';
 
     protected $description = 'Create a super admin user';
 
     public function handle(): int
     {
-        $name = $this->option('name') ?: text('Name', required: true);
         $username = Str::lower($this->option('username') ?: text('Username', required: true, hint: '3-50 characters: lowercase letters, numbers, dot, underscore or hyphen.'));
-        $email = Str::lower($this->option('email') ?: text('Email', required: true));
         $password = password('Password', required: true, hint: 'At least 6 characters.');
 
         $validator = Validator::make(
-            ['name' => $name, 'username' => $username, 'email' => $email, 'password' => $password],
+            ['username' => $username, 'password' => $password],
             [
-                'name' => ['required', 'string', 'max:255'],
                 'username' => $this->usernameRules(),
-                'email' => ['required', 'email', 'max:255', 'unique:users,email'],
                 'password' => ['required', Password::defaults()],
             ],
         );
@@ -57,9 +51,9 @@ class CreateAdminCommand extends Command
         }
 
         $user = User::create([
-            'name' => $name,
+            'name' => $username,
             'username' => $username,
-            'email' => $email,
+            'email' => null,
             'password' => Hash::make($password),
             'type' => UserType::Admin,
             'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
@@ -68,12 +62,11 @@ class CreateAdminCommand extends Command
 
         AuditLog::record('user.created', $user, new: [
             'username' => $user->username,
-            'email' => $user->email,
             'role' => SystemRoles::ADMIN_SUPER,
             'via' => 'cli',
         ]);
 
-        $this->components->info("Super admin {$username} ({$email}) created. Two-factor setup will be required at first login.");
+        $this->components->info("Super admin {$username} created. Two-factor setup will be required at first login.");
 
         return self::SUCCESS;
     }

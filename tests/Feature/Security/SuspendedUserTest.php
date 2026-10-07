@@ -16,7 +16,7 @@ class SuspendedUserTest extends TestCase
     {
         $user = User::factory()->suspended()->create();
 
-        $this->post(route('login.store'), ['login' => $user->email, 'password' => 'password'])
+        $this->post(route('login.store'), ['login' => $user->username, 'password' => 'password'])
             ->assertSessionHasErrors('login');
 
         $this->assertGuest();

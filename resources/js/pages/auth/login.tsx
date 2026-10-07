@@ -33,7 +33,7 @@ export default function Login({ status, canResetPassword }: Props) {
                         <div className="grid gap-6">
                             <div className="grid gap-2">
                                 <Label htmlFor="login" className="text-[14px]">
-                                    Username or email
+                                    Username
                                 </Label>
                                 <Input
                                     id="login"
@@ -44,7 +44,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                     tabIndex={1}
                                     autoCapitalize="none"
                                     autoComplete="username"
-                                    placeholder="username or email@example.com"
+                                    placeholder="username"
                                     className="h-11 px-3.5 text-[14px] md:text-[14px]"
                                 />
                                 <InputError message={errors.login} />
@@ -121,5 +121,5 @@ export default function Login({ status, canResetPassword }: Props) {
 Login.layout = {
     title: 'Welcome back',
     description:
-        'Log in to your PayGate console with your username or email and password',
+        'Log in to your PayGate console with your username and password',
 };

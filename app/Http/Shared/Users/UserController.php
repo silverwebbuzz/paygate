@@ -95,9 +95,8 @@ class UserController extends Controller
             ->when($type, fn (Builder $query) => $query->where('type', $type))
             ->when($status, fn (Builder $query) => $this->whereDisplayStatus($query, (string) $status))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
-                ->whereLike('name', "%{$search}%")
-                ->orWhereLike('username', "%{$search}%")
-                ->orWhereLike('email', "%{$search}%")))
+                ->whereLike('username', "%{$search}%")
+                ->orWhereLike('name', "%{$search}%")))
             ->orderBy('name')
             ->paginate(25)
             ->withQueryString()
@@ -105,7 +104,6 @@ class UserController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'username' => $user->username,
-                'email' => $user->email,
                 'type' => $user->type->value,
                 'organisation' => ($org = $user->partner ?? $user->branch) ? ['name' => $org->name, 'code' => $org->code] : null,
                 'role' => ['id' => $user->role->id, 'name' => $user->role->name],
@@ -148,23 +146,21 @@ class UserController extends Controller
             $request->actor(),
             $type,
             $organisationId,
-            $request->string('name')->value(),
             $request->string('username')->value(),
-            $request->string('email')->value(),
             $request->role(),
             $request->string('password')->value(),
         );
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':name can now log in as :username or :email.', ['name' => $user->name, 'username' => $user->username, 'email' => $user->email])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':username can now log in.', ['username' => $user->username])]);
 
         return back();
     }
 
     public function update(UpdateUserRequest $request, User $user, UpdateUser $update): RedirectResponse
     {
-        $update->handle($request->actor(), $user, $request->string('name')->value(), $request->string('username')->value(), $request->string('email')->value(), $request->role());
+        $update->handle($request->actor(), $user, $request->string('username')->value(), $request->role());
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':name updated.', ['name' => $user->name])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':username updated.', ['username' => $user->username])]);
 
         return back();
     }

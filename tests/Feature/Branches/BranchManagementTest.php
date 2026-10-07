@@ -68,9 +68,7 @@ class BranchManagementTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.branches.store'), $this->payload([
             'partner_ids' => [$partner->id],
-            'admin_name' => 'Delux Admin',
             'admin_username' => 'delux.admin',
-            'admin_email' => 'Admin@Delux.example',
             'admin_password' => 'Str0ng-pass!word',
             'admin_password_confirmation' => 'Str0ng-pass!word',
         ]))->assertSessionHasNoErrors();
@@ -83,8 +81,8 @@ class BranchManagementTest extends TestCase
         $this->assertSame('3.5000', app(RateBook::class)->branchRate($branch, Direction::Deposit));
         $this->assertTrue($branch->partners()->whereKey($partner->id)->exists());
 
-        $branchAdmin = User::where('email', 'admin@delux.example')->firstOrFail();
-        $this->assertSame('delux.admin', $branchAdmin->username);
+        $branchAdmin = User::where('username', 'delux.admin')->firstOrFail();
+        $this->assertNull($branchAdmin->email);
         $this->assertSame($branch->id, $branchAdmin->branch_id);
         $this->assertSame(SystemRoles::BRANCH_OWNER, $branchAdmin->role->slug);
         $this->assertSame('active', $branchAdmin->displayStatus());

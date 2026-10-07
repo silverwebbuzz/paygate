@@ -30,7 +30,7 @@ class SecurityLogTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post(route('login.store'), ['login' => $user->email, 'password' => 'password']);
+        $this->post(route('login.store'), ['login' => $user->username, 'password' => 'password']);
 
         $this->assertAuthenticatedAs($user);
         $this->assertDatabaseHas('security_logs', [

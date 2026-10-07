@@ -58,7 +58,7 @@ type Detail = {
         deposit: boolean;
         withdrawal: boolean;
     }[];
-    users: { name: string; email: string; role: string; status: string }[];
+    users: { name: string; role: string; status: string }[];
     topups: {
         amount: number;
         balance_after: number;
@@ -672,14 +672,9 @@ export default function BranchesIndex({
                             {tab === 'users' && (
                                 <SimpleTable
                                     empty="No users yet. Add them with the Users button above."
-                                    headers={['Name', 'Role', 'Status']}
+                                    headers={['Username', 'Role', 'Status']}
                                     rows={loaded.users.map((u) => [
-                                        <span key="n">
-                                            {u.name}
-                                            <span className="block text-xs text-tx3">
-                                                {u.email}
-                                            </span>
-                                        </span>,
+                                        u.name,
                                         u.role,
                                         <StatusBadge
                                             key="s"

@@ -15,11 +15,12 @@ use Illuminate\Validation\ValidationException;
  * Creates an active user with the password the creator sets; the creator
  * passes it on. Admin adds admin users on the Users screen and partner /
  * branch users on that partner's or branch's own Users screen; partner and
- * branch owners add users to their own organisation only.
+ * branch owners add users to their own organisation only. They sign in
+ * with a username and password; there is no name or email to collect.
  */
 class CreateUser
 {
-    public function handle(User $actor, UserType $type, ?string $organisationId, string $name, string $username, string $email, Role $role, string $password): User
+    public function handle(User $actor, UserType $type, ?string $organisationId, string $username, Role $role, string $password): User
     {
         if (! $actor->isType(UserType::Admin)) {
             $type = $actor->type;
@@ -36,11 +37,13 @@ class CreateUser
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $type, $organisationId, $name, $username, $email, $role, $password) {
+        $username = Str::lower($username);
+
+        return DB::transaction(function () use ($actor, $type, $organisationId, $username, $role, $password) {
             $user = User::create([
-                'name' => $name,
-                'username' => Str::lower($username),
-                'email' => Str::lower($email),
+                'name' => $username,
+                'username' => $username,
+                'email' => null,
                 'password' => $password,
                 'type' => $type,
                 'role_id' => $role->id,
@@ -48,13 +51,10 @@ class CreateUser
                 'branch_id' => $type === UserType::Branch ? $organisationId : null,
                 'status' => UserStatus::Active,
             ]);
-            // The creator vouches for the address; there is no email to confirm.
             $user->forceFill(['email_verified_at' => now()])->save();
 
             AuditLog::record('user.created', $user, [], [
-                'name' => $user->name,
                 'username' => $user->username,
-                'email' => $user->email,
                 'type' => $type->value,
                 'role' => $role->name,
                 'organisation_id' => $organisationId,

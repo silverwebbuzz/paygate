@@ -42,7 +42,6 @@ type UserRow = {
     id: string;
     name: string;
     username: string | null;
-    email: string;
     type: UserType;
     organisation: { name: string; code: string } | null;
     role: { id: string; name: string };
@@ -177,10 +176,8 @@ export default function UsersIndex({
             header: 'User',
             cell: (user) => (
                 <div className="min-w-0">
-                    <div className="font-medium">{user.name}</div>
-                    <div className="text-xs text-tx3">
-                        {user.username && `${user.username} · `}
-                        {user.email}
+                    <div className="font-medium">
+                        {user.username ?? user.name}
                     </div>
                 </div>
             ),
@@ -311,7 +308,7 @@ export default function UsersIndex({
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search name, username or email"
+                            placeholder="Search username"
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
@@ -388,10 +385,9 @@ export default function UsersIndex({
                     open
                     onOpenChange={(next) => !next && setOpenId(null)}
                     kind="User"
-                    title={open.name}
+                    title={open.username ?? open.name}
                     monoTitle={false}
                     status={<StatusBadge status={open.status} />}
-                    subtitle={open.email}
                     summaries={[
                         { label: 'Role', value: open.role.name },
                         {
@@ -418,7 +414,6 @@ export default function UsersIndex({
                                     : null,
                             },
                             { label: 'Username', value: open.username },
-                            { label: 'Email', value: open.email },
                             {
                                 label: 'Last login at',
                                 value: formatDateTime(open.last_login_at),
@@ -507,7 +502,7 @@ export default function UsersIndex({
                     <ConfirmDialog
                         open={dialog === 'deactivate'}
                         onOpenChange={(next) => !next && setDialog(null)}
-                        title={`Deactivate ${open.name}?`}
+                        title={`Deactivate ${open.username}?`}
                         description="They are logged out immediately and can’t log in until activated again. Their history is kept."
                         confirmLabel="Deactivate user"
                         tone="danger"
@@ -526,7 +521,7 @@ export default function UsersIndex({
                     <ConfirmDialog
                         open={dialog === 'activate'}
                         onOpenChange={(next) => !next && setDialog(null)}
-                        title={`Activate ${open.name}?`}
+                        title={`Activate ${open.username}?`}
                         description="They can log in again with their current role."
                         confirmLabel="Activate"
                         input={{
@@ -544,7 +539,7 @@ export default function UsersIndex({
                     <ConfirmDialog
                         open={dialog === 'two-factor'}
                         onOpenChange={(next) => !next && setDialog(null)}
-                        title={`Reset two-factor for ${open.name}?`}
+                        title={`Reset two-factor for ${open.username}?`}
                         description="Use this when they lost their phone. They must set up two-factor again at their next login."
                         confirmLabel="Reset two-factor"
                         tone="warning"
@@ -565,7 +560,7 @@ export default function UsersIndex({
     );
 }
 
-/** Add a new user with a password, or edit one (name, username, email, role). */
+/** Add a new user with a password, or edit one (username and role). */
 function UserFormDialog({
     addType,
     organisation,
@@ -584,9 +579,7 @@ function UserFormDialog({
     const editing = user !== undefined;
     const type = user?.type ?? addType;
     const form = useForm({
-        name: user?.name ?? '',
         username: user?.username ?? '',
-        email: user?.email ?? '',
         role_id: user?.role.id ?? '',
         password: '',
         password_confirmation: '',
@@ -606,9 +599,7 @@ function UserFormDialog({
         };
 
         form.transform((data) => ({
-            name: data.name,
             username: data.username,
-            email: data.email,
             role_id: data.role_id,
             ...(!editing
                 ? {
@@ -631,7 +622,7 @@ function UserFormDialog({
             onOpenChange={(next) => !next && onClose()}
             title={
                 editing
-                    ? `Edit ${user.name}`
+                    ? `Edit ${user.username}`
                     : organisation
                       ? `Add user to ${organisation.name}`
                       : type === 'admin'
@@ -640,24 +631,13 @@ function UserFormDialog({
             }
             description={
                 editing
-                    ? 'They log in with this username or email from now on.'
-                    : 'They can log in straight away with this username or email and password. Pass the password on securely; they can change it under Profile & settings.'
+                    ? 'They log in with this username from now on.'
+                    : 'They can log in straight away with this username and password. Pass the password on securely; they can change it under Profile & settings.'
             }
             submitLabel={editing ? 'Save' : 'Add user'}
             processing={form.processing}
             onSubmit={submit}
         >
-            <Field label="Full name" error={errors.name} required>
-                <TextInput
-                    autoFocus
-                    required
-                    value={form.data.name}
-                    invalid={!!errors.name}
-                    onChange={(event) =>
-                        form.setData('name', event.target.value)
-                    }
-                />
-            </Field>
             <Field
                 label="Username"
                 hint="3–50 characters: lowercase letters, numbers, dot, underscore or hyphen."
@@ -665,6 +645,7 @@ function UserFormDialog({
                 required
             >
                 <TextInput
+                    autoFocus
                     required
                     minLength={3}
                     maxLength={50}
@@ -678,17 +659,6 @@ function UserFormDialog({
                             'username',
                             event.target.value.toLowerCase().trim(),
                         )
-                    }
-                />
-            </Field>
-            <Field label="Email" error={errors.email} required>
-                <TextInput
-                    type="email"
-                    required
-                    value={form.data.email}
-                    invalid={!!errors.email}
-                    onChange={(event) =>
-                        form.setData('email', event.target.value.toLowerCase())
                     }
                 />
             </Field>
@@ -745,7 +715,7 @@ function PasswordDialog({
         <FormDialog
             open
             onOpenChange={(next) => !next && onClose()}
-            title={`Set password for ${user.name}`}
+            title={`Set password for ${user.username}`}
             description="Their current password stops working. Pass the new one on securely; they can change it under Profile & settings."
             submitLabel="Set password"
             processing={form.processing}

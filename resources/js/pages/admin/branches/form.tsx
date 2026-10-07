@@ -31,9 +31,7 @@ type BranchForm = {
     deposit_rate: string;
     withdrawal_rate: string;
     partner_ids: string[];
-    admin_name: string;
     admin_username: string;
-    admin_email: string;
     admin_password: string;
     admin_password_confirmation: string;
     activate: boolean;
@@ -92,9 +90,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
         partner_ids: Array.isArray(branch?.partner_ids)
             ? (branch.partner_ids as string[])
             : [],
-        admin_name: '',
         admin_username: '',
-        admin_email: '',
         admin_password: '',
         admin_password_confirmation: '',
         activate: false,
@@ -120,9 +116,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
             activate,
             ...(editing
                 ? {
-                      admin_name: undefined,
                       admin_username: undefined,
-                      admin_email: undefined,
                       admin_password: undefined,
                       admin_password_confirmation: undefined,
                   }
@@ -331,9 +325,8 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                 {!editing && can.add_admin && (
                     <Section
                         title="Branch admin"
-                        description="Optional. They can log in straight away with this username or email and password, then add accounts and their operators. More users can be added later from the branch’s Users page."
+                        description="Optional. They can log in straight away with this username and password, then add accounts and their operators. More users can be added later from the branch’s Users page."
                     >
-                        {input('admin_name', 'Full name')}
                         {input('admin_username', 'Username', {
                             minLength: 3,
                             maxLength: 50,
@@ -347,7 +340,6 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                                     event.target.value.toLowerCase().trim(),
                                 ),
                         })}
-                        {input('admin_email', 'Email', { type: 'email' })}
                         <Field
                             label="Password"
                             hint="At least 6 characters."
