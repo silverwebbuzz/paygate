@@ -230,8 +230,8 @@ function detailedColumns(
         },
         {
             ...top,
-            key: 'credentials',
-            header: 'Credentials',
+            key: 'details',
+            header: 'Bank/UPI details',
             className: 'min-w-[240px]',
             cell: (a) => (
                 <div className="rounded-lg border border-ln2 bg-sf2 px-3 py-2">

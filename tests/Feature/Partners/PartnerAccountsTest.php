@@ -29,7 +29,7 @@ class PartnerAccountsTest extends TestCase
         $this->owner = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->create();
     }
 
-    public function test_partners_see_the_masked_accounts_of_their_mapped_branches_without_branch_details()
+    public function test_partners_see_the_full_bank_and_upi_details_of_their_mapped_branches_without_branch_details()
     {
         $this->branch->update(['code' => 'BR-SECRET', 'name' => 'Hidden Branch Name']);
         $active = $this->activeAccount(null, ['label' => 'Branch label one', 'upi_display_name' => 'Shop UPI', 'daily_amount_limit' => 20000000]);
@@ -59,8 +59,8 @@ class PartnerAccountsTest extends TestCase
                 ->has('accounts', 1)
                 ->where('accounts.0.label', 'Branch label one')
                 ->where('accounts.0.holder', $active->account_holder_name)
-                ->where('accounts.0.account_number', $active->maskedAccountNumber())
-                ->where('accounts.0.upi_id', $active->maskedUpiId())
+                ->where('accounts.0.account_number', $active->account_number_encrypted)
+                ->where('accounts.0.upi_id', $active->upi_id_encrypted)
                 ->where('accounts.0.upi_display_name', 'Shop UPI')
                 ->where('accounts.0.daily_amount_limit', 20000000)
                 ->where('accounts.0.status', 'active')
@@ -70,7 +70,7 @@ class PartnerAccountsTest extends TestCase
                 ->missing('accounts.0.branch_id'));
 
         $html = $response->getContent() ?: '';
-        foreach (['BR-SECRET', 'Hidden Branch Name', 'Waiting account', 'Pending Holder', '123456789012', (string) $active->account_number_encrypted, (string) $active->upi_id_encrypted, 'Unmapped Holder', 'Inactive Pair Holder', 'Other Partner Holder'] as $hidden) {
+        foreach (['BR-SECRET', 'Hidden Branch Name', 'Waiting account', 'Pending Holder', '123456789012', 'Unmapped Holder', 'Inactive Pair Holder', 'Other Partner Holder'] as $hidden) {
             $this->assertStringNotContainsString($hidden, $html);
         }
     }

@@ -197,7 +197,7 @@ class PaymentAccountTest extends TestCase
         $this->actingAs($operator)->post(route('branch.accounts.store'), $this->payload())->assertForbidden();
     }
 
-    public function test_lists_show_masked_numbers_and_revealing_is_audited()
+    public function test_lists_show_the_full_bank_and_upi_details_and_revealing_is_audited()
     {
         $account = $this->add();
         $admin = User::factory()->admin()->withTwoFactor()->create();
@@ -210,8 +210,8 @@ class PaymentAccountTest extends TestCase
 
         $this->actingAs($this->owner)->get(route('branch.accounts.index'))
             ->assertInertia(fn (Assert $page) => $page
-                ->where('accounts.0.account_number', 'XXXX 6640')
-                ->where('accounts.0.upi_id', '••••nali@hdfcbank'));
+                ->where('accounts.0.account_number', '50100482716640')
+                ->where('accounts.0.upi_id', 'ashanali@hdfcbank'));
 
         $this->actingAs($admin)
             ->get(route('admin.accounts.index', ['reveal' => $account->id]), [

@@ -42,9 +42,13 @@ class AccountController extends Controller
                 'is_bank_enabled' => $account->is_bank_enabled,
                 'bank_name' => $account->bank_name,
                 'ifsc' => $account->ifsc,
-                'account_number' => $account->maskedAccountNumber(),
+                'account_number' => is_string($account->account_number_encrypted) && $account->account_number_encrypted !== ''
+                    ? $account->account_number_encrypted
+                    : $account->maskedAccountNumber(),
                 'is_upi_enabled' => $account->is_upi_enabled,
-                'upi_id' => $account->maskedUpiId(),
+                'upi_id' => is_string($account->upi_id_encrypted) && $account->upi_id_encrypted !== ''
+                    ? $account->upi_id_encrypted
+                    : $account->maskedUpiId(),
                 'upi_display_name' => $account->upi_display_name,
                 'upi_code' => $account->upi_code,
                 'is_qr_enabled' => $account->is_qr_enabled,
