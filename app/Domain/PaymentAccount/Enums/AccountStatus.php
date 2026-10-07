@@ -24,18 +24,20 @@ enum AccountStatus: string
 
     /**
      * Statuses reachable by switching (verify / reject are separate Admin
-     * decisions, see VerifyPaymentAccount).
+     * decisions, see VerifyPaymentAccount). A disabled account that was
+     * already verified can be turned straight back on. One that was never
+     * verified goes back to PayGate for verification.
      *
      * @return list<self>
      */
-    public function switchableTo(): array
+    public function switchableTo(bool $wasVerified = false): array
     {
         return match ($this) {
             self::Verified => [self::Active, self::Disabled],
             self::Active => [self::Paused, self::Disabled],
             self::Paused => [self::Active, self::Disabled],
             self::New, self::VerificationPending, self::Rejected => [self::Disabled],
-            self::Disabled => [],
+            self::Disabled => $wasVerified ? [self::Active] : [self::VerificationPending],
         };
     }
 

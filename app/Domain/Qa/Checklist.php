@@ -159,7 +159,7 @@ final class Checklist
                     ['admin', 'ops'],
                     ['MappingTest']),
                 self::item('branches.accounts_branch', 'Bank & UPI accounts (branch)', '/branch/accounts',
-                    'The branch adds its bank accounts / UPI IDs with limits; they wait for Admin verification. Numbers are stored encrypted and shown masked.',
+                    'The branch adds its bank accounts / UPI IDs with limits; they wait for Admin verification. After an account is verified, the branch can pause it, disable it and turn it back on. Changing the bank or UPI details sends it for verification again. Numbers are stored encrypted and shown masked.',
                     ['As branch@, click "Add account", enter bank details and a UPI ID with limits.', 'It shows "Pending verification".', 'Add the same account number again (even from another branch): refused.', 'Limits above the branch limits are refused.', 'As operator@: you can see the list but not add.'],
                     ['branch', 'operator'],
                     ['PaymentAccountTest::test_a_branch_adds_an_account_stored_encrypted_and_waiting_for_verification', 'PaymentAccountTest::test_the_same_account_or_upi_id_cannot_be_registered_twice_even_by_another_branch', 'PaymentAccountTest::test_limits_must_sit_inside_the_branch_limits', 'PaymentAccountTest::test_operators_can_view_but_not_add_accounts', 'PaymentAccountTest::test_branches_only_see_and_change_their_own_accounts']),

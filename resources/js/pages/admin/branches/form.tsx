@@ -60,9 +60,6 @@ const str = (value: unknown, fallback = '') =>
         ? String(value)
         : fallback;
 
-const num = (value: string | undefined) =>
-    value === undefined || value === '' ? null : Number(value);
-
 export default function BranchFormPage({ branch, partners, can }: Props) {
     const editing = branch !== null;
     const isDraft = !editing || branch.status === 'draft';
@@ -182,7 +179,6 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                 : 'You don’t have permission to change commission.',
         });
 
-    const selected = partners.filter((p) => data.partner_ids.includes(p.id));
     const title = editing ? `Edit ${str(branch.name)}` : 'Create branch';
 
     return (
@@ -293,17 +289,10 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
 
                 <Section
                     title="Commission"
-                    description="What PayGate pays the branch. Partners pay PayGate their own rate; the difference is the platform margin."
+                    description="What PayGate pays this branch, as a % of the gross amount."
                 >
                     {rate('deposit_rate', 'Deposit commission (%)')}
                     {rate('withdrawal_rate', 'Withdrawal commission (%)')}
-                    <div className="sm:col-span-2">
-                        <Margins
-                            partners={selected}
-                            deposit={num(data.deposit_rate)}
-                            withdrawal={num(data.withdrawal_rate)}
-                        />
-                    </div>
                 </Section>
 
                 <Section
@@ -441,77 +430,5 @@ function Section({
                 {children}
             </div>
         </Panel>
-    );
-}
-
-/** Margin per selected partner: partner rate − this branch's rate. */
-function Margins({
-    partners,
-    deposit,
-    withdrawal,
-}: {
-    partners: PickerItem[];
-    deposit: number | null;
-    withdrawal: number | null;
-}) {
-    if (partners.length === 0) {
-        return (
-            <p className="text-xs text-tx3">
-                Select partners below to see the platform’s margin with each.
-            </p>
-        );
-    }
-
-    const cell = (
-        partnerRate: string | undefined,
-        branchRate: number | null,
-    ) => {
-        if (partnerRate === undefined)
-            return <span className="text-tx3">No partner rate</span>;
-        if (branchRate === null)
-            return (
-                <span className="text-tx3">{Number(partnerRate)}% partner</span>
-            );
-        const margin =
-            Math.round((Number(partnerRate) - branchRate) * 10000) / 10000;
-
-        return (
-            <span className={margin < 0 ? 'font-medium text-er' : ''}>
-                {margin > 0 ? '+' : ''}
-                {margin}%{' '}
-                <span className="text-tx3">
-                    ({Number(partnerRate)}% from partner)
-                </span>
-            </span>
-        );
-    };
-
-    return (
-        <div className="overflow-hidden rounded-lg border border-ln">
-            <div className="bg-sf2 px-3 py-2 text-xs font-medium text-tx2">
-                Platform margin per partner (partner rate − branch rate)
-            </div>
-            <table className="w-full text-[13px]">
-                <tbody>
-                    {partners.map((p) => (
-                        <tr key={p.id} className="border-t border-ln2">
-                            <td className="px-3 py-1.5">
-                                <span className="font-mono text-xs text-tx3">
-                                    {p.code}
-                                </span>{' '}
-                                {p.name}
-                            </td>
-                            <td className="px-3 py-1.5">
-                                Deposit {cell(p.rates.deposit, deposit)}
-                            </td>
-                            <td className="px-3 py-1.5">
-                                Withdrawal{' '}
-                                {cell(p.rates.withdrawal, withdrawal)}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
     );
 }

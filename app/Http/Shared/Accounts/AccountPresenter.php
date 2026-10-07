@@ -57,7 +57,7 @@ class AccountPresenter
             'verified_at' => $account->verified_at?->toIso8601String(),
             'created_at' => $account->created_at?->toIso8601String(),
             'can' => [
-                'update' => $actor->can('accounts.update') && ($full || $account->status !== AccountStatus::Disabled),
+                'update' => $actor->can('accounts.update'),
                 'verify' => $actor->can('accounts.verify') && $account->status === AccountStatus::VerificationPending,
                 'switch_to' => $actor->can('accounts.update')
                     ? ($full
@@ -65,7 +65,7 @@ class AccountPresenter
                             fn (AccountStatus $status) => $status->value,
                             array_filter(AccountStatus::cases(), fn (AccountStatus $status) => $status !== AccountStatus::New && $status !== $account->status),
                         ))
-                        : array_map(fn (AccountStatus $status) => $status->value, $account->status->switchableTo()))
+                        : array_map(fn (AccountStatus $status) => $status->value, $account->status->switchableTo($account->verified_at !== null)))
                     : [],
             ],
         ])->values()->all();

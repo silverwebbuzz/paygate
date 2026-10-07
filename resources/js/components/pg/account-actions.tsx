@@ -44,6 +44,16 @@ export function AccountActions({
                     Activate
                 </PgButton>
             )}
+            {!hideStatus &&
+                account.can.switch_to.includes('verification_pending') && (
+                    <PgButton
+                        className="h-7 text-xs"
+                        variant="primary"
+                        onClick={() => change('verification_pending')}
+                    >
+                        Send for verification
+                    </PgButton>
+                )}
             {!hideStatus && account.can.switch_to.includes('paused') && (
                 <PgButton
                     className="h-7 text-xs"
@@ -78,7 +88,7 @@ export function AccountActions({
                 open={confirm === 'disabled'}
                 onOpenChange={(open) => !open && setConfirm(null)}
                 title={`Disable ${account.label}?`}
-                description="Customers are no longer sent to this account. This can’t be undone; its history is kept."
+                description="Customers are no longer sent to this account. You can turn a verified account back on. One that is not verified goes back to PayGate for verification."
                 confirmLabel="Disable account"
                 tone="danger"
                 input={{

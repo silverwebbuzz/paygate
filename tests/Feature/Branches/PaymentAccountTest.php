@@ -244,6 +244,11 @@ class PaymentAccountTest extends TestCase
             'reason' => 'Please turn it back on',
         ])->assertSessionHasErrors('status');
 
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
+            'status' => 'verification_pending',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::VerificationPending, $account->fresh()?->status);
+
         $this->actingAs($admin)->put(route('admin.accounts.status', $account), [
             'status' => 'active',
             'reason' => 'Bank confirmed it is open again',
@@ -257,5 +262,50 @@ class PaymentAccountTest extends TestCase
             'subject_id' => $account->id,
             'actor_id' => $admin->id,
         ]);
+    }
+
+    public function test_a_branch_can_turn_a_verified_disabled_account_back_on()
+    {
+        $account = $this->add();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+
+        $this->actingAs($admin)->post(route('admin.accounts.approve', $account))->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), [
+            'status' => 'disabled',
+            'reason' => 'Closed by the bank',
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($this->owner)->get(route('branch.accounts.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('accounts.0.can.update', true)
+                ->where('accounts.0.can.switch_to', ['active']));
+
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
+        $account->refresh();
+        $this->assertSame(AccountStatus::Active, $account->status);
+        $this->assertNotNull($account->verified_at);
+
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
+            'status' => 'disabled',
+            'reason' => 'Paused the account ourselves',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::Active, $account->fresh()?->status);
+
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
+            'status' => 'disabled',
+            'reason' => 'Changing the account number',
+        ])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload([
+            'account_number' => '11112222333344',
+            'upi_id' => '',
+        ]))->assertSessionHasNoErrors();
+
+        $account->refresh();
+        $this->assertSame(AccountStatus::VerificationPending, $account->status);
+        $this->assertNull($account->verified_at);
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasErrors('status');
     }
 }

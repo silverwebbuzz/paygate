@@ -12,8 +12,10 @@ use Illuminate\Validation\ValidationException;
 /**
  * Activates, pauses or disables an account (AccountStatus::switchableTo).
  * Pausing stops new customers being sent to it; payments already on their
- * way are unaffected. A branch cannot turn a disabled account back on.
- * Admin can set any status, and every admin change needs a reason.
+ * way are unaffected. A branch can turn a previously verified account back
+ * on after it is disabled. Admin can set any status, and every admin
+ * change needs a reason. Changing bank or UPI details is a separate save
+ * and still waits for verification.
  */
 class ChangeAccountStatus
 {
@@ -21,7 +23,7 @@ class ChangeAccountStatus
     {
         $allowed = $unrestricted
             ? array_values(array_filter(AccountStatus::cases(), fn (AccountStatus $next) => $next !== AccountStatus::New && $next !== $account->status))
-            : $account->status->switchableTo();
+            : $account->status->switchableTo($account->verified_at !== null);
 
         if (! in_array($status, $allowed, true)) {
             throw ValidationException::withMessages(['status' => __('A :from account can’t become :to.', [

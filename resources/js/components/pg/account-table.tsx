@@ -175,10 +175,19 @@ function detailedColumns(
                     <div className="min-w-0">
                         <div className="font-semibold">{a.label}</div>
                         <div className="text-xs text-tx2">{a.holder}</div>
-                        <div className="mt-1 inline-flex rounded-md bg-sf2 px-1.5 py-0.5 text-[11px] text-tx3">
-                            {a.branch.code} · {a.branch.name}
-                        </div>
                     </div>
+                </div>
+            ),
+        },
+        {
+            ...top,
+            key: 'branch',
+            header: 'Branch',
+            className: 'whitespace-nowrap',
+            cell: (a) => (
+                <div>
+                    <div className="font-medium">{a.branch.code}</div>
+                    <div className="text-xs text-tx3">{a.branch.name}</div>
                 </div>
             ),
         },

@@ -66,7 +66,7 @@ class SavePaymentAccount
         $this->ensureUnique($account);
         $this->ensureInsideBranchLimits($account, $branch);
 
-        $needsVerification = $isNew || ($account->status !== AccountStatus::Disabled && $account->isDirty(self::VERIFIED_DETAILS)) || $account->status === AccountStatus::Rejected;
+        $needsVerification = $isNew || $account->isDirty(self::VERIFIED_DETAILS) || $account->status === AccountStatus::Rejected;
 
         if ($needsVerification) {
             $account->status = AccountStatus::VerificationPending;

@@ -81,7 +81,11 @@ class AccountController extends Controller
 
         $change->handle($actor, $account, AccountStatus::from($data['status']), $data['reason'] ?? null);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('“:label” is now :status.', ['label' => $account->label, 'status' => $data['status']])]);
+        $message = $data['status'] === AccountStatus::VerificationPending->value
+            ? __('“:label” is waiting for PayGate to verify it.', ['label' => $account->label])
+            : __('“:label” is now :status.', ['label' => $account->label, 'status' => str_replace('_', ' ', $data['status'])]);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 
         return back();
     }
