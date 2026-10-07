@@ -158,7 +158,9 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
     const money = (
         key: keyof BranchForm,
         label: string,
-        hint = `Enter ${NO_LIMIT} for unlimited`,
+        hint: ReactNode = (
+            <span className="text-er">Note: -1 is unlimited</span>
+        ),
     ) =>
         input(key, label, {
             inputMode: 'decimal',

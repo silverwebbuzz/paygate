@@ -44,10 +44,10 @@ class PaymentAccountRequest extends FormRequest
             'upi_id' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9.-]{1,63}$/'],
             'upi_display_name' => ['nullable', 'string', 'max:255'],
             'is_qr_enabled' => ['boolean'],
-            'min_amount' => $this->amountRules(),
-            'max_amount' => $this->amountRules(),
-            'daily_amount_limit' => $this->amountRules(),
-            'daily_count_limit' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'min_amount' => $this->limitRules(),
+            'max_amount' => $this->limitRules(),
+            'daily_amount_limit' => $this->limitRules(),
+            'daily_count_limit' => ['required', 'integer', 'between:-1,100000', 'not_in:0'],
             'max_open_sessions' => ['required', 'integer', 'min:1', 'max:100'],
         ];
     }
@@ -58,13 +58,20 @@ class PaymentAccountRequest extends FormRequest
             'ifsc.regex' => __('An IFSC has 11 characters, like HDFC0001203.'),
             'account_number.regex' => __('Digits only, 8 to 25 of them.'),
             'upi_id.regex' => __('A UPI ID looks like name@bank.'),
+            'daily_count_limit.not_in' => __('Enter -1 for unlimited, or a number above zero.'),
+            'daily_count_limit.between' => __('Enter -1 for unlimited, or a number above zero.'),
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $this->checkRanges($validator, [''], ['min_amount', 'max_amount', 'daily_amount_limit']);
+            $this->checkRanges(
+                $validator,
+                [''],
+                ['min_amount', 'max_amount', 'daily_amount_limit'],
+                minusOneIsUnlimited: true,
+            );
 
             // A new account needs the numbers for each enabled method.
             if ($this->account() === null) {
@@ -113,7 +120,9 @@ class PaymentAccountRequest extends FormRequest
             'min_amount' => $this->paise('min_amount'),
             'max_amount' => $this->paise('max_amount'),
             'daily_amount_limit' => $this->paise('daily_amount_limit'),
-            'daily_count_limit' => $this->filled('daily_count_limit') ? $this->integer('daily_count_limit') : null,
+            'daily_count_limit' => (int) $this->input('daily_count_limit') === -1
+                ? null
+                : $this->integer('daily_count_limit'),
             'max_open_sessions' => $this->integer('max_open_sessions'),
         ];
     }

@@ -49,7 +49,7 @@ class PaymentAccountTest extends TestCase
             'min_amount' => '500',
             'max_amount' => '50000',
             'daily_amount_limit' => '200000',
-            'daily_count_limit' => '',
+            'daily_count_limit' => '-1',
             'max_open_sessions' => 5,
             ...$overrides,
         ];
@@ -73,6 +73,7 @@ class PaymentAccountTest extends TestCase
         $this->assertSame('ashanali@hdfcbank', $account->upi_id_encrypted);
         $this->assertSame(BlindIndex::of('bank_account', '50100482716640'), $account->account_number_hash);
         $this->assertSame(50000, $account->min_amount);
+        $this->assertNull($account->daily_count_limit);
 
         // Nothing readable in the database row itself.
         $raw = (array) DB::table('payment_accounts')->where('id', $account->id)->first();
@@ -83,6 +84,21 @@ class PaymentAccountTest extends TestCase
         $audit = DB::table('audit_logs')->where(['action' => 'payment_account.created', 'subject_id' => $account->id])->first();
         $this->assertNotNull($audit);
         $this->assertStringNotContainsString('50100482716640', (string) $audit->new_values);
+    }
+
+    public function test_minus_one_means_the_account_has_no_limit()
+    {
+        $account = $this->add([
+            'min_amount' => '-1',
+            'max_amount' => '-1',
+            'daily_amount_limit' => '-1',
+            'daily_count_limit' => '-1',
+        ]);
+
+        $this->assertNull($account->min_amount);
+        $this->assertNull($account->max_amount);
+        $this->assertNull($account->daily_amount_limit);
+        $this->assertNull($account->daily_count_limit);
     }
 
     public function test_the_same_account_or_upi_id_cannot_be_registered_twice_even_by_another_branch()

@@ -43,7 +43,7 @@ class AccountLogTest extends TestCase
             'min_amount' => '500',
             'max_amount' => '50000',
             'daily_amount_limit' => '200000',
-            'daily_count_limit' => '',
+            'daily_count_limit' => '-1',
             'max_open_sessions' => 5,
         ])->assertSessionHasNoErrors();
 
@@ -70,7 +70,7 @@ class AccountLogTest extends TestCase
     {
         $account = $this->activeAccount();
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused', 'reason' => 'Bank asked us to stop for a day'])->assertSessionHasNoErrors();
-        $this->actingAs($this->admin)->put(route('admin.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->put(route('admin.accounts.status', $account), ['status' => 'active', 'reason' => 'Branch confirmed the account is ready'])->assertSessionHasNoErrors();
 
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index'))
             ->assertOk()
@@ -113,7 +113,7 @@ class AccountLogTest extends TestCase
             'min_amount' => '500',
             'max_amount' => '40000',
             'daily_amount_limit' => '200000',
-            'daily_count_limit' => '',
+            'daily_count_limit' => '-1',
             'max_open_sessions' => 5,
         ])->assertSessionHasNoErrors();
 

@@ -463,7 +463,9 @@ function EditDialog({
                 />
                 <Field
                     label="Pair daily deposit limit (₹)"
-                    hint={`Enter ${NO_LIMIT} for unlimited`}
+                    hint={
+                        <span className="text-er">Note: -1 is unlimited</span>
+                    }
                     error={errors.deposit_daily_limit}
                     required
                 >
@@ -483,7 +485,9 @@ function EditDialog({
                 </Field>
                 <Field
                     label="Pair daily withdrawal limit (₹)"
-                    hint={`Enter ${NO_LIMIT} for unlimited`}
+                    hint={
+                        <span className="text-er">Note: -1 is unlimited</span>
+                    }
                     error={errors.withdrawal_daily_limit}
                     required
                 >

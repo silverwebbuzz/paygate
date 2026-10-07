@@ -284,7 +284,9 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
     const money = (
         key: keyof PartnerForm,
         label: string,
-        hint = `Enter ${NO_LIMIT} for unlimited`,
+        hint: ReactNode = (
+            <span className="text-er">Note: -1 is unlimited</span>
+        ),
     ) => (
         <Field label={label} hint={hint} error={errors[key]} required>
             <div className="relative">

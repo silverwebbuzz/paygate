@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Field, SelectInput, TextInput } from './field';
 import { FormDialog } from './form-dialog';
 import { SwitchField } from './switch-field';
@@ -32,8 +32,10 @@ export type AccountRow = {
     can: { update: boolean; verify: boolean; switch_to: string[] };
 };
 
+const NO_LIMIT = '-1';
+
 const rupees = (paise: number | null) =>
-    paise === null ? '' : (paise / 100).toFixed(2).replace(/\.00$/, '');
+    paise === null ? NO_LIMIT : (paise / 100).toFixed(2).replace(/\.00$/, '');
 
 /**
  * Add or edit a bank / UPI account. On edit the numbers are never shown;
@@ -69,7 +71,7 @@ export function AccountFormDialog({
         min_amount: rupees(account?.min_amount ?? null),
         max_amount: rupees(account?.max_amount ?? null),
         daily_amount_limit: rupees(account?.daily_amount_limit ?? null),
-        daily_count_limit: account?.daily_count_limit?.toString() ?? '',
+        daily_count_limit: account?.daily_count_limit?.toString() ?? NO_LIMIT,
         max_open_sessions: (account?.max_open_sessions ?? 5).toString(),
     });
     const { data, setData } = form;
@@ -89,12 +91,17 @@ export function AccountFormDialog({
     const text = (
         key: keyof typeof data,
         label: string,
-        props: ComponentProps<typeof TextInput> & { hint?: string } = {},
+        props: ComponentProps<typeof TextInput> & { hint?: ReactNode } = {},
     ) => {
         const { hint, ...rest } = props;
 
         return (
-            <Field label={label} hint={hint} error={errors[key]}>
+            <Field
+                label={label}
+                hint={hint}
+                error={errors[key]}
+                required={!!rest.required}
+            >
                 <TextInput
                     value={data[key] as string}
                     invalid={!!errors[key]}
@@ -105,11 +112,15 @@ export function AccountFormDialog({
         );
     };
 
+    const unlimited = <span className="text-er">Note: -1 is unlimited</span>;
+
     const money = (key: keyof typeof data, label: string) =>
         text(key, label, {
             inputMode: 'decimal',
-            placeholder: 'No limit',
-            hint: 'In rupees. Empty = no limit.',
+            required: true,
+            pattern: '-1|\\d{1,11}(\\.\\d{1,2})?',
+            placeholder: NO_LIMIT,
+            hint: unlimited,
         });
 
     return (
@@ -237,9 +248,11 @@ export function AccountFormDialog({
                 {money('max_amount', 'Maximum per payment')}
                 {money('daily_amount_limit', 'Daily amount limit')}
                 {text('daily_count_limit', 'Daily number of payments', {
-                    type: 'number',
-                    min: 1,
-                    placeholder: 'No limit',
+                    inputMode: 'numeric',
+                    required: true,
+                    pattern: '-1|[1-9]\\d*',
+                    placeholder: NO_LIMIT,
+                    hint: unlimited,
                 })}
                 {text(
                     'max_open_sessions',

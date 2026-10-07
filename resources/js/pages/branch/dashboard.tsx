@@ -23,7 +23,7 @@ export default function BranchDashboard(props: DashboardProps) {
                         value={row.rate === null ? null : Number(row.rate)}
                     />,
                     row.value === null
-                        ? 'No limit'
+                        ? 'Unlimited'
                         : formatPaise(Number(row.value)),
                 ][column]
             }
