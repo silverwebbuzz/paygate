@@ -56,21 +56,21 @@ class PartnerAccountsTest extends TestCase
         $response = $this->actingAs($this->owner)->get(route('partner.accounts.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page->component('partner/accounts')
-                ->has('accounts', 2)
+                ->has('accounts', 1)
+                ->where('accounts.0.label', 'Branch label one')
                 ->where('accounts.0.holder', $active->account_holder_name)
                 ->where('accounts.0.account_number', $active->maskedAccountNumber())
                 ->where('accounts.0.upi_id', $active->maskedUpiId())
-                ->missing('accounts.0.upi_display_name')
+                ->where('accounts.0.upi_display_name', 'Shop UPI')
                 ->where('accounts.0.daily_amount_limit', 20000000)
                 ->where('accounts.0.status', 'active')
-                ->where('accounts.1.holder', 'Pending Holder')
-                ->where('accounts.1.status', 'verification_pending')
+                ->where('accounts.0.can.update', false)
+                ->where('accounts.0.can.switch_to', [])
                 ->missing('accounts.0.branch')
-                ->missing('accounts.0.branch_id')
-                ->missing('accounts.0.label'));
+                ->missing('accounts.0.branch_id'));
 
         $html = $response->getContent() ?: '';
-        foreach (['BR-SECRET', 'Hidden Branch Name', 'Branch label one', 'Waiting account', '123456789012', (string) $active->account_number_encrypted, (string) $active->upi_id_encrypted, 'Unmapped Holder', 'Inactive Pair Holder', 'Other Partner Holder'] as $hidden) {
+        foreach (['BR-SECRET', 'Hidden Branch Name', 'Waiting account', 'Pending Holder', '123456789012', (string) $active->account_number_encrypted, (string) $active->upi_id_encrypted, 'Unmapped Holder', 'Inactive Pair Holder', 'Other Partner Holder'] as $hidden) {
             $this->assertStringNotContainsString($hidden, $html);
         }
     }

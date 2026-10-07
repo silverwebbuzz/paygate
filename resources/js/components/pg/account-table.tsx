@@ -28,12 +28,12 @@ export function AccountTable({
     showBranch: boolean;
     detailed?: boolean;
     onStatus?: (account: AccountRow, status: AccountStatus) => void;
-    actions: (account: AccountRow) => ReactNode;
+    actions?: (account: AccountRow) => ReactNode;
     empty: ReactNode;
 }) {
     const columns = detailed
-        ? detailedColumns(onStatus, actions)
-        : compactColumns(showBranch, actions);
+        ? detailedColumns(showBranch, onStatus, actions)
+        : compactColumns(showBranch, actions ?? (() => null));
 
     return (
         <DataTable
@@ -101,7 +101,7 @@ function compactColumns(
                       header: 'Branch',
                       cell: (a: AccountRow) => (
                           <span className="rounded-md bg-sf2 px-2 py-0.5 text-xs">
-                              {a.branch.code}
+                              {a.branch?.code}
                           </span>
                       ),
                   },
@@ -151,10 +151,11 @@ function compactColumns(
 }
 
 function detailedColumns(
+    showBranch: boolean,
     onStatus:
         | ((account: AccountRow, status: AccountStatus) => void)
         | undefined,
-    actions: (account: AccountRow) => ReactNode,
+    actions: ((account: AccountRow) => ReactNode) | undefined,
 ): Column<AccountRow>[] {
     const top = { valign: 'top' as const };
 
@@ -179,18 +180,26 @@ function detailedColumns(
                 </div>
             ),
         },
-        {
-            ...top,
-            key: 'branch',
-            header: 'Branch',
-            className: 'whitespace-nowrap',
-            cell: (a) => (
-                <div>
-                    <div className="font-medium">{a.branch.code}</div>
-                    <div className="text-xs text-tx3">{a.branch.name}</div>
-                </div>
-            ),
-        },
+        ...(showBranch
+            ? [
+                  {
+                      ...top,
+                      key: 'branch',
+                      header: 'Branch',
+                      className: 'whitespace-nowrap',
+                      cell: (a: AccountRow) => (
+                          <div>
+                              <div className="font-medium">
+                                  {a.branch?.code}
+                              </div>
+                              <div className="text-xs text-tx3">
+                                  {a.branch?.name}
+                              </div>
+                          </div>
+                      ),
+                  },
+              ]
+            : []),
         {
             ...top,
             key: 'limits',
@@ -291,15 +300,21 @@ function detailedColumns(
                 />
             ),
         },
-        {
-            ...top,
-            key: 'actions',
-            header: '',
-            align: 'right',
-            cell: (a) => (
-                <div className="flex justify-end gap-1.5">{actions(a)}</div>
-            ),
-        },
+        ...(actions
+            ? [
+                  {
+                      ...top,
+                      key: 'actions',
+                      header: '',
+                      align: 'right' as const,
+                      cell: (a: AccountRow) => (
+                          <div className="flex justify-end gap-1.5">
+                              {actions(a)}
+                          </div>
+                      ),
+                  },
+              ]
+            : []),
     ];
 }
 

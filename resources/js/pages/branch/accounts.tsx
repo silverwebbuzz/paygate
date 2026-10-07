@@ -93,6 +93,7 @@ export default function BranchAccounts({ branch, accounts, can }: Props) {
                 <AccountTable
                     accounts={accounts}
                     showBranch={false}
+                    detailed
                     empty="Add the bank accounts and UPI IDs your customers should pay into. PayGate verifies each one first."
                     actions={(account) => (
                         <AccountActions

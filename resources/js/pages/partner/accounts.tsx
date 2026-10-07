@@ -1,131 +1,18 @@
 import { Head } from '@inertiajs/react';
-import type { ReactNode } from 'react';
-import { DataTable, Panel } from '@/components/pg/data-table';
-import type { Column } from '@/components/pg/data-table';
+import { AccountTable } from '@/components/pg/account-table';
+import type { AccountRow } from '@/components/pg/account-form-dialog';
+import { Panel } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
-import { StatusBadge } from '@/components/pg/status-badge';
-import { formatLimit } from '@/lib/money';
-import { cn } from '@/lib/utils';
-
-type Account = {
-    id: string;
-    holder: string;
-    is_bank_enabled: boolean;
-    bank_name: string | null;
-    ifsc: string | null;
-    account_number: string | null;
-    is_upi_enabled: boolean;
-    upi_id: string | null;
-    is_qr_enabled: boolean;
-    min_amount: number | null;
-    max_amount: number | null;
-    daily_amount_limit: number | null;
-    daily_count_limit: number | null;
-    status: string;
-};
 
 type Props = {
-    accounts: Account[];
+    accounts: AccountRow[];
 };
 
 export default function PartnerAccounts({ accounts }: Props) {
-    const active = accounts.filter((a) => a.status === 'active').length;
     const banks = accounts.filter((a) => a.is_bank_enabled).length;
     const upis = accounts.filter((a) => a.is_upi_enabled).length;
-
-    const columns: Column<Account>[] = [
-        {
-            key: 'bank',
-            header: 'Bank',
-            className: 'min-w-[180px]',
-            cell: (a) =>
-                a.is_bank_enabled ? (
-                    <div>
-                        <div className="font-medium">{a.bank_name}</div>
-                        <div className="text-xs text-tx3">{a.holder}</div>
-                    </div>
-                ) : (
-                    <span className="text-tx3">—</span>
-                ),
-        },
-        {
-            key: 'number',
-            header: 'Account number',
-            className: 'whitespace-nowrap',
-            cell: (a) =>
-                a.account_number ? (
-                    <span className="font-mono text-xs">
-                        {a.account_number}
-                    </span>
-                ) : (
-                    <span className="text-tx3">—</span>
-                ),
-        },
-        {
-            key: 'ifsc',
-            header: 'IFSC',
-            className: 'whitespace-nowrap',
-            cell: (a) =>
-                a.ifsc ? (
-                    <span className="font-mono text-xs">{a.ifsc}</span>
-                ) : (
-                    <span className="text-tx3">—</span>
-                ),
-        },
-        {
-            key: 'upi',
-            header: 'UPI',
-            cell: (a) =>
-                a.is_upi_enabled && a.upi_id ? (
-                    <span className="font-mono text-xs">{a.upi_id}</span>
-                ) : (
-                    <span className="text-tx3">—</span>
-                ),
-        },
-        {
-            key: 'per_payment',
-            header: 'Per payment',
-            cell: (a) => (
-                <span className="text-xs whitespace-nowrap">
-                    {a.min_amount === null && a.max_amount === null
-                        ? 'Any amount'
-                        : `${formatLimit(a.min_amount)} – ${formatLimit(a.max_amount)}`}
-                </span>
-            ),
-        },
-        {
-            key: 'daily',
-            header: 'Daily limit',
-            cell: (a) => (
-                <div className="text-xs whitespace-nowrap">
-                    <div>{formatLimit(a.daily_amount_limit)}</div>
-                    <div className="text-tx3">
-                        {a.daily_count_limit === null
-                            ? 'Unlimited payments'
-                            : `${a.daily_count_limit} payments`}
-                    </div>
-                </div>
-            ),
-        },
-        {
-            key: 'methods',
-            header: 'Methods',
-            cell: (a) => (
-                <div className="flex flex-wrap gap-1">
-                    <Method on={a.is_bank_enabled}>Bank</Method>
-                    <Method on={a.is_upi_enabled}>UPI</Method>
-                    <Method on={a.is_qr_enabled}>QR</Method>
-                </div>
-            ),
-        },
-        {
-            key: 'status',
-            header: 'Status',
-            cell: (a) => <StatusBadge status={a.status} />,
-        },
-    ];
 
     return (
         <>
@@ -133,19 +20,13 @@ export default function PartnerAccounts({ accounts }: Props) {
 
             <PageHeader
                 title="Bank & UPI Accounts"
-                description="The bank accounts and UPI IDs assigned to you. Branch names are not shown. Only active accounts receive payments."
+                description="Active bank accounts and UPI IDs assigned to you."
             />
 
             <KpiGrid>
                 <StatTile
-                    label="Accounts"
-                    value={String(accounts.length)}
-                    icon="#"
-                    tone="in"
-                />
-                <StatTile
                     label="Active"
-                    value={String(active)}
+                    value={String(accounts.length)}
                     icon="●"
                     tone="ok"
                 />
@@ -158,31 +39,18 @@ export default function PartnerAccounts({ accounts }: Props) {
             </KpiGrid>
 
             <Panel className="overflow-hidden">
-                <DataTable
-                    columns={columns}
-                    rows={accounts}
-                    rowKey={(a) => a.id}
+                <AccountTable
+                    accounts={accounts}
+                    showBranch={false}
+                    detailed
                     empty={
                         <EmptyState
-                            title="No accounts yet"
-                            description="Bank accounts and UPI IDs appear here once PayGate assigns them to you."
+                            title="No active accounts"
+                            description="Active bank accounts and UPI IDs appear here once PayGate assigns them to you."
                         />
                     }
                 />
             </Panel>
         </>
-    );
-}
-
-function Method({ on, children }: { on: boolean; children: ReactNode }) {
-    return (
-        <span
-            className={cn(
-                'rounded-[5px] border border-ln px-1.5 py-px text-[11px]',
-                on ? 'text-tx2' : 'text-tx3 line-through opacity-60',
-            )}
-        >
-            {children}
-        </span>
     );
 }

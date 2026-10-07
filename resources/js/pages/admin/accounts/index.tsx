@@ -285,7 +285,7 @@ function StatusDialog({
             width={480}
             onOpenChange={(open) => !open && onClose()}
             title={`Change status of ${account.label}`}
-            description={`${account.branch.code} · ${account.branch.name}. Only an active account receives customers. You can change this again later, including turning a disabled account back on.`}
+            description={`${account.branch?.code} · ${account.branch?.name}. Only an active account receives customers. You can change this again later, including turning a disabled account back on.`}
             submitLabel="Save status"
             processing={processing || reason.trim() === ''}
             onSubmit={() =>
@@ -367,7 +367,7 @@ function ReviewDialog({
             width={560}
             onOpenChange={(open) => !open && onClose()}
             title={`Verify ${account.label}`}
-            description={`${account.branch.code} · ${account.branch.name}. Check these details against the branch's bank documents before approving.`}
+            description={`${account.branch?.code} · ${account.branch?.name}. Check these details against the branch's bank documents before approving.`}
             submitLabel={rejecting ? 'Reject account' : 'Approve'}
             processing={processing || (rejecting && reason.trim() === '')}
             onSubmit={() =>

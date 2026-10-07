@@ -9,7 +9,7 @@ export type AccountRow = {
     id: string;
     label: string;
     holder: string;
-    branch: { id: string; code: string; name: string };
+    branch?: { id: string; code: string; name: string };
     is_bank_enabled: boolean;
     bank_name: string | null;
     ifsc: string | null;
