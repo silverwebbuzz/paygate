@@ -198,7 +198,7 @@ final class Checklist
                     ['TransactionScreensTest::test_each_portal_sees_only_what_it_may', 'WebhookDeliveryTest::test_partners_and_admin_can_resend_but_not_other_partners']),
                 self::item('partner.accounts', 'Bank & UPI Accounts (partner)', '/partner/accounts',
                     'The bank accounts and UPI IDs of the branches mapped to this partner, read-only and masked; nothing about the branch itself is shown.',
-                    ['As partner@, open Bank & UPI Accounts: accounts of mapped branches are listed with bank, masked number, IFSC, UPI, limits, methods and status.', 'No branch name, code or account label appears anywhere on the page.', 'Unmap a branch in Branch mapping: its accounts disappear.', 'As developer@ (no account permission), the menu item is missing and the page is refused.', 'With Section rollout on, the page shows for partners only when "Bank & UPI Accounts" is opened under Partner.'],
+                    ['As partner@, open Bank & UPI Accounts: the banks assigned to this partner are listed with bank name, masked number, IFSC and UPI. No branch name is shown.', 'Unmap a branch in Branch mapping: its accounts disappear.', 'A partner developer and a partner viewer can open the same read-only list.', 'With Section rollout on, the page shows for partners only when "Bank & UPI Accounts" is opened under Partner.'],
                     ['partner', 'developer'],
                     ['PartnerAccountsTest']),
             ]),

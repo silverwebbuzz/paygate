@@ -23,6 +23,7 @@ class AccountController extends Controller
 
         $accounts = PaymentAccount::query()
             ->whereIn('branch_id', $partner->branches()->select('branches.id'))
+            ->orderBy('bank_name')
             ->orderBy('account_holder_name')
             ->orderBy('id')
             ->get()
@@ -35,7 +36,6 @@ class AccountController extends Controller
                 'account_number' => $account->maskedAccountNumber(),
                 'is_upi_enabled' => $account->is_upi_enabled,
                 'upi_id' => $account->maskedUpiId(),
-                'upi_display_name' => $account->upi_display_name,
                 'is_qr_enabled' => $account->is_qr_enabled,
                 'min_amount' => $account->min_amount,
                 'max_amount' => $account->max_amount,

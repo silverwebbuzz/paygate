@@ -18,7 +18,6 @@ type Account = {
     account_number: string | null;
     is_upi_enabled: boolean;
     upi_id: string | null;
-    upi_display_name: string | null;
     is_qr_enabled: boolean;
     min_amount: number | null;
     max_amount: number | null;
@@ -38,23 +37,39 @@ export default function PartnerAccounts({ accounts }: Props) {
 
     const columns: Column<Account>[] = [
         {
-            key: 'holder',
-            header: 'Account holder',
-            className: 'min-w-[160px]',
-            cell: (a) => <span className="font-medium">{a.holder}</span>,
-        },
-        {
             key: 'bank',
-            header: 'Bank · Number · IFSC',
-            className: 'whitespace-nowrap',
+            header: 'Bank',
+            className: 'min-w-[180px]',
             cell: (a) =>
                 a.is_bank_enabled ? (
                     <div>
-                        <div>{a.bank_name}</div>
-                        <div className="font-mono text-xs text-tx3">
-                            {a.account_number} · {a.ifsc}
-                        </div>
+                        <div className="font-medium">{a.bank_name}</div>
+                        <div className="text-xs text-tx3">{a.holder}</div>
                     </div>
+                ) : (
+                    <span className="text-tx3">—</span>
+                ),
+        },
+        {
+            key: 'number',
+            header: 'Account number',
+            className: 'whitespace-nowrap',
+            cell: (a) =>
+                a.account_number ? (
+                    <span className="font-mono text-xs">
+                        {a.account_number}
+                    </span>
+                ) : (
+                    <span className="text-tx3">—</span>
+                ),
+        },
+        {
+            key: 'ifsc',
+            header: 'IFSC',
+            className: 'whitespace-nowrap',
+            cell: (a) =>
+                a.ifsc ? (
+                    <span className="font-mono text-xs">{a.ifsc}</span>
                 ) : (
                     <span className="text-tx3">—</span>
                 ),
@@ -63,15 +78,8 @@ export default function PartnerAccounts({ accounts }: Props) {
             key: 'upi',
             header: 'UPI',
             cell: (a) =>
-                a.is_upi_enabled ? (
-                    <div>
-                        <div className="font-mono text-xs">{a.upi_id}</div>
-                        {a.upi_display_name && (
-                            <div className="text-xs text-tx3">
-                                {a.upi_display_name}
-                            </div>
-                        )}
-                    </div>
+                a.is_upi_enabled && a.upi_id ? (
+                    <span className="font-mono text-xs">{a.upi_id}</span>
                 ) : (
                     <span className="text-tx3">—</span>
                 ),
@@ -125,7 +133,7 @@ export default function PartnerAccounts({ accounts }: Props) {
 
             <PageHeader
                 title="Bank & UPI Accounts"
-                description="Bank accounts and UPI IDs your customers can be sent to pay into. Only active accounts receive payments. Limits reset daily at 00:00 IST."
+                description="The bank accounts and UPI IDs assigned to you. Branch names are not shown. Only active accounts receive payments."
             />
 
             <KpiGrid>

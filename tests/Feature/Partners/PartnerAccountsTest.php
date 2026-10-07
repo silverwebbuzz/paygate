@@ -60,7 +60,7 @@ class PartnerAccountsTest extends TestCase
                 ->where('accounts.0.holder', $active->account_holder_name)
                 ->where('accounts.0.account_number', $active->maskedAccountNumber())
                 ->where('accounts.0.upi_id', $active->maskedUpiId())
-                ->where('accounts.0.upi_display_name', 'Shop UPI')
+                ->missing('accounts.0.upi_display_name')
                 ->where('accounts.0.daily_amount_limit', 20000000)
                 ->where('accounts.0.status', 'active')
                 ->where('accounts.1.holder', 'Pending Holder')
@@ -83,7 +83,9 @@ class PartnerAccountsTest extends TestCase
                 && ! collect($permissions)->contains('accounts.update')));
 
         $developer = User::factory()->partner(SystemRoles::PARTNER_DEVELOPER, $this->partner)->create();
-        $this->actingAs($developer)->get(route('partner.accounts.index'))->assertForbidden();
+        $viewer = User::factory()->partner(SystemRoles::PARTNER_VIEWER, $this->partner)->create();
+        $this->actingAs($developer)->get(route('partner.accounts.index'))->assertOk();
+        $this->actingAs($viewer)->get(route('partner.accounts.index'))->assertOk();
 
         $this->assertSame([Permission::AccountsView], array_values(array_filter(
             Permission::forType(UserType::Partner),

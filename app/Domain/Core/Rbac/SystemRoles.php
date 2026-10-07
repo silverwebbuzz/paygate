@@ -103,6 +103,7 @@ final class SystemRoles
                 'name' => 'Developer',
                 'description' => 'Manages the API integration.',
                 'permissions' => [
+                    P::AccountsView,
                     P::PayinsView, P::PayoutsView,
                     P::ApiKeysView, P::ApiKeysCreate, P::ApiKeysDelete,
                     P::WebhooksView, P::WebhooksUpdate,
@@ -113,7 +114,7 @@ final class SystemRoles
                 'type' => UserType::Partner,
                 'name' => 'Viewer',
                 'description' => 'Views transactions, balance and reports.',
-                'permissions' => [P::PayinsView, P::PayoutsView, P::BalancesView, P::SettlementsView, P::ReportsView],
+                'permissions' => [P::AccountsView, P::PayinsView, P::PayoutsView, P::BalancesView, P::SettlementsView, P::ReportsView],
             ],
             self::BRANCH_OWNER => [
                 'type' => UserType::Branch,
