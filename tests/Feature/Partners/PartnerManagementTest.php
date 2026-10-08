@@ -337,4 +337,65 @@ class PartnerManagementTest extends TestCase
             ->assertJsonCount(1, 'props.detail.keys')
             ->assertJsonMissingPath('props.detail.keys.0.secret');
     }
+
+    public function test_limits_from_the_list_change_only_deposit_and_withdrawal_limits()
+    {
+        $admin = $this->admin();
+        $partner = Partner::factory()->create([
+            'name' => 'Atoz Gaming',
+            'code' => 'ATOZ',
+            'is_payin_enabled' => true,
+            'deposit_min_amount' => 10000,
+            'deposit_max_amount' => 5000000,
+            'withdrawal_min_amount' => 10000,
+        ]);
+        CommissionRate::create([
+            'subject_type' => 'partner', 'subject_id' => $partner->id, 'side' => 'partner', 'direction' => 'deposit',
+            'rate_percent' => '6', 'effective_from' => now()->subDay(),
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.partners.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('partners.data.0.limits.deposit_min_amount', '100.00')
+                ->where('partners.data.0.limits.deposit_max_amount', '50000.00')
+                ->where('partners.data.0.limits.deposit_daily_limit', '-1')
+                ->where('partners.data.0.limits.withdrawal_min_amount', '100.00')
+                ->where('partners.data.0.limits.withdrawal_daily_limit', '-1'));
+
+        $limits = [
+            'deposit_min_amount' => '200',
+            'deposit_max_amount' => '1000',
+            'deposit_daily_limit' => '5000',
+            'withdrawal_min_amount' => '-1',
+            'withdrawal_max_amount' => '2500.50',
+            'withdrawal_daily_limit' => '-1',
+        ];
+
+        $this->actingAs($admin)->put(route('admin.partners.limits', $partner), [
+            ...$limits,
+            'deposit_max_amount' => '100',
+            'withdrawal_min_amount' => '0',
+        ])->assertSessionHasErrors(['deposit_max_amount', 'withdrawal_min_amount']);
+        $this->assertSame(10000, $partner->fresh()?->deposit_min_amount);
+
+        $this->actingAs($admin)->put(route('admin.partners.limits', $partner), $limits)->assertSessionHasNoErrors();
+
+        $partner->refresh();
+        $this->assertSame(20000, $partner->deposit_min_amount);
+        $this->assertSame(100000, $partner->deposit_max_amount);
+        $this->assertSame(500000, $partner->deposit_daily_limit);
+        $this->assertNull($partner->withdrawal_min_amount);
+        $this->assertSame(250050, $partner->withdrawal_max_amount);
+        $this->assertNull($partner->withdrawal_daily_limit);
+        $this->assertSame('Atoz Gaming', $partner->name);
+        $this->assertSame('ATOZ', $partner->code);
+        $this->assertTrue($partner->is_payin_enabled);
+        $this->assertSame(1, CommissionRate::query()->where('subject_id', $partner->id)->count());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'partner.updated', 'subject_id' => $partner->id, 'actor_id' => $admin->id]);
+
+        $this->actingAs($this->admin(SystemRoles::ADMIN_OPS))
+            ->put(route('admin.partners.limits', $partner), $limits)
+            ->assertForbidden();
+        $this->assertSame(20000, $partner->fresh()?->deposit_min_amount);
+    }
 }

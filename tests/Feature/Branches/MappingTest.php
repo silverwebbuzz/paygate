@@ -42,6 +42,28 @@ class MappingTest extends TestCase
                 ->where('mappings.data.0.rates.withdrawal.margin', null));
     }
 
+    public function test_the_status_filter_uses_the_mapping_status()
+    {
+        $active = PartnerBranchMapping::create([
+            'partner_id' => Partner::factory()->create()->id,
+            'branch_id' => Branch::factory()->create()->id,
+            'status' => 'active',
+        ]);
+        PartnerBranchMapping::create([
+            'partner_id' => Partner::factory()->create()->id,
+            'branch_id' => Branch::factory()->create()->id,
+            'status' => 'inactive',
+        ]);
+
+        $this->actingAs(User::factory()->admin(SystemRoles::ADMIN_OPS)->withTwoFactor()->create())
+            ->get(route('admin.mappings.index', ['status' => 'active']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('mappings.data', 1)
+                ->where('mappings.data.0.id', $active->id)
+                ->where('mappings.data.0.status', 'active'));
+    }
+
     public function test_mapping_a_pair_twice_reactivates_the_same_mapping()
     {
         $admin = User::factory()->admin()->withTwoFactor()->create();

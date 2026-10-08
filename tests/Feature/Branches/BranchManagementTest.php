@@ -155,4 +155,68 @@ class BranchManagementTest extends TestCase
         $this->assertSame(OrganisationStatus::Suspended, $branch->fresh()?->status);
         $this->actingAs($admin)->put(route('admin.branches.status', $branch), ['status' => 'draft', 'reason' => 'x'])->assertSessionHasErrors('status');
     }
+
+    public function test_limits_from_the_list_change_only_deposit_and_withdrawal_limits()
+    {
+        $admin = $this->admin();
+        $branch = Branch::factory()->create([
+            'name' => 'Delux HP',
+            'code' => 'BR-297',
+            'deposit_limit_type' => 'topup',
+            'deposit_topup_balance' => 1500000,
+            'is_deposit_enabled' => true,
+            'is_withdrawal_enabled' => false,
+            'deposit_min_amount' => 50000,
+            'deposit_daily_limit' => 500000000,
+            'withdrawal_daily_limit' => null,
+        ]);
+        CommissionRate::create([
+            'subject_type' => 'branch', 'subject_id' => $branch->id, 'side' => 'branch', 'direction' => 'deposit',
+            'rate_percent' => '3.5', 'effective_from' => now()->subDay(),
+        ]);
+
+        $this->actingAs($admin)->get(route('admin.branches.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('branches.data.0.limits.deposit_min_amount', '500.00')
+                ->where('branches.data.0.limits.deposit_daily_limit', '5000000.00')
+                ->where('branches.data.0.limits.withdrawal_daily_limit', '-1'));
+
+        $limits = [
+            'deposit_min_amount' => '250',
+            'deposit_max_amount' => '8000',
+            'deposit_daily_limit' => '5000000',
+            'withdrawal_min_amount' => '100',
+            'withdrawal_max_amount' => '2000',
+            'withdrawal_daily_limit' => '10000',
+        ];
+
+        $this->actingAs($admin)->put(route('admin.branches.limits', $branch), [
+            ...$limits,
+            'withdrawal_max_amount' => '50',
+        ])->assertSessionHasErrors('withdrawal_max_amount');
+        $this->assertSame(50000, $branch->fresh()?->deposit_min_amount);
+
+        $this->actingAs($admin)->put(route('admin.branches.limits', $branch), $limits)->assertSessionHasNoErrors();
+
+        $branch->refresh();
+        $this->assertSame(25000, $branch->deposit_min_amount);
+        $this->assertSame(800000, $branch->deposit_max_amount);
+        $this->assertSame(500000000, $branch->deposit_daily_limit);
+        $this->assertSame(10000, $branch->withdrawal_min_amount);
+        $this->assertSame(200000, $branch->withdrawal_max_amount);
+        $this->assertSame(1000000, $branch->withdrawal_daily_limit);
+        $this->assertSame('Delux HP', $branch->name);
+        $this->assertSame('BR-297', $branch->code);
+        $this->assertSame('topup', $branch->deposit_limit_type);
+        $this->assertSame(1500000, $branch->deposit_topup_balance);
+        $this->assertTrue($branch->is_deposit_enabled);
+        $this->assertFalse($branch->is_withdrawal_enabled);
+        $this->assertSame('3.5000', app(RateBook::class)->branchRate($branch, Direction::Deposit));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'branch.updated', 'subject_id' => $branch->id, 'actor_id' => $admin->id]);
+
+        $this->actingAs($this->admin(SystemRoles::ADMIN_FINANCE))
+            ->put(route('admin.branches.limits', $branch), $limits)
+            ->assertForbidden();
+        $this->assertSame(25000, $branch->fresh()?->deposit_min_amount);
+    }
 }

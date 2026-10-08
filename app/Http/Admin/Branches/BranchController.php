@@ -22,6 +22,7 @@ use App\Http\Admin\Branches\Requests\BranchRequest;
 use App\Http\Admin\Branches\Requests\ChangeBranchStatusRequest;
 use App\Http\Admin\Branches\Requests\TopUpRequest;
 use App\Http\Controller;
+use App\Http\Shared\Requests\UpdateLimitsRequest;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -81,6 +82,7 @@ class BranchController extends Controller
                 'withdrawal_daily_limit' => $branch->withdrawal_daily_limit,
                 'withdrawal_min_amount' => $branch->withdrawal_min_amount,
                 'withdrawal_max_amount' => $branch->withdrawal_max_amount,
+                'limits' => UpdateLimitsRequest::formValues($branch),
                 'rates' => $rates[$branch->id] ?? (object) [],
                 'today' => [
                     'deposit' => $deposits[$branch->id]['amount'] ?? 0,
@@ -160,6 +162,15 @@ class BranchController extends Controller
             'branch' => $branch->code,
             'balance' => number_format($record->balance_after / 100, 2),
         ])]);
+
+        return back();
+    }
+
+    public function limits(UpdateLimitsRequest $request, Branch $branch, ConfigureBranch $configure): RedirectResponse
+    {
+        $configure->handle($this->actor($request), $branch, $request->limitAttributes(), null, null, null);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Limits for “:name” saved.', ['name' => $branch->name])]);
 
         return back();
     }

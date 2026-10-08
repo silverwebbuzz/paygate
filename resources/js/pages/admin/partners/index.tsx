@@ -11,6 +11,8 @@ import type { ApiKey } from '@/components/pg/api-key-table';
 import { DataTable, Panel } from '@/components/pg/data-table';
 import type { Column } from '@/components/pg/data-table';
 import { Drawer, KeyValues } from '@/components/pg/drawer';
+import { LimitsDialog } from '@/components/pg/limits-dialog';
+import type { LimitValues } from '@/components/pg/limits-dialog';
 import { EmptyState } from '@/components/pg/empty-state';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { PageHeader } from '@/components/pg/page-header';
@@ -35,6 +37,7 @@ type Row = {
     key: { key_id: string; last4: string } | null;
     file_ready: boolean;
     rates: { deposit?: string; withdrawal?: string };
+    limits: LimitValues;
     branches_count: number;
     users_count: number;
 };
@@ -182,6 +185,7 @@ export default function PartnersIndex({
         direction: 'payin' | 'payout';
         enabled: boolean;
     }>(null);
+    const [limitsPartner, setLimitsPartner] = useState<Row | null>(null);
     const [, copy] = useClipboard();
 
     const open = partners.data.find((partner) => partner.id === openId) ?? null;
@@ -404,6 +408,18 @@ export default function PartnersIndex({
                         </Link>
                     )}
                     {can.update && (
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setLimitsPartner(p);
+                            }}
+                            className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:bg-sf2"
+                        >
+                            Edit limits
+                        </button>
+                    )}
+                    {can.update && (
                         <Link
                             href={partnersRoutes.edit(p.id).url}
                             onClick={(event) => event.stopPropagation()}
@@ -536,6 +552,15 @@ export default function PartnersIndex({
                                 >
                                     Users ({open.users_count})
                                 </Link>
+                            )}
+                            {can.update && (
+                                <button
+                                    type="button"
+                                    onClick={() => setLimitsPartner(open)}
+                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
+                                >
+                                    Edit limits
+                                </button>
                             )}
                             {can.update && (
                                 <Link
@@ -866,6 +891,25 @@ export default function PartnersIndex({
                         </>
                     )}
                 </Drawer>
+            )}
+
+            {limitsPartner && (
+                <LimitsDialog
+                    key={limitsPartner.id}
+                    title={`Limits for ${limitsPartner.name}`}
+                    description="Only deposit and withdrawal limits change. Everything else stays as it is. Amounts are in rupees."
+                    limits={limitsPartner.limits}
+                    url={partnersRoutes.limits(limitsPartner.id).url}
+                    onClose={() => setLimitsPartner(null)}
+                    onSaved={() => {
+                        if (openId === limitsPartner.id) {
+                            router.reload({
+                                only: ['detail'],
+                                data: { partner: limitsPartner.id },
+                            });
+                        }
+                    }}
+                />
             )}
 
             {direction && (

@@ -10,6 +10,8 @@ import { EmptyState } from '@/components/pg/empty-state';
 import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
+import { LimitsDialog } from '@/components/pg/limits-dialog';
+import type { LimitValues } from '@/components/pg/limits-dialog';
 import { PageHeader } from '@/components/pg/page-header';
 import { SimpleTable } from '@/components/pg/simple-table';
 import { StatusBadge } from '@/components/pg/status-badge';
@@ -32,6 +34,7 @@ type Row = {
     withdrawal_daily_limit: number | null;
     withdrawal_min_amount: number | null;
     withdrawal_max_amount: number | null;
+    limits: LimitValues;
     rates: { deposit?: string; withdrawal?: string };
     today: { deposit: number; withdrawal: number };
     active_accounts: number;
@@ -148,6 +151,7 @@ export default function BranchesIndex({
     const [tab, setTab] = useState('overview');
     const [transition, setTransition] = useState<string | null>(null);
     const [topupOpen, setTopupOpen] = useState(false);
+    const [limitsBranch, setLimitsBranch] = useState<Row | null>(null);
     const open = branches.data.find((b) => b.id === openId) ?? null;
     const loaded = detail && detail.id === openId ? detail : null;
 
@@ -385,6 +389,18 @@ export default function BranchesIndex({
                                                     </Link>
                                                 )}
                                                 {can.update && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setLimitsBranch(b);
+                                                        }}
+                                                        className="rounded-[7px] border border-ln px-2.5 py-1 text-xs font-medium whitespace-nowrap hover:bg-sf2"
+                                                    >
+                                                        Edit limits
+                                                    </button>
+                                                )}
+                                                {can.update && (
                                                     <Link
                                                         href={
                                                             branchesRoutes.edit(
@@ -448,6 +464,15 @@ export default function BranchesIndex({
                                 >
                                     Users
                                 </Link>
+                            )}
+                            {can.update && (
+                                <button
+                                    type="button"
+                                    onClick={() => setLimitsBranch(open)}
+                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln px-3 text-[13px] font-medium hover:bg-sf2"
+                                >
+                                    Edit limits
+                                </button>
                             )}
                             {can.update && (
                                 <Link
@@ -788,6 +813,28 @@ export default function BranchesIndex({
                             },
                         )
                     }
+                />
+            )}
+
+            {limitsBranch && (
+                <LimitsDialog
+                    key={limitsBranch.id}
+                    title={`Limits for ${limitsBranch.name}`}
+                    description="Only deposit and withdrawal limits change. Everything else stays as it is. Amounts are in rupees."
+                    limits={limitsBranch.limits}
+                    url={branchesRoutes.limits(limitsBranch.id).url}
+                    showDailyDeposit={
+                        limitsBranch.deposit_limit_type !== 'topup'
+                    }
+                    onClose={() => setLimitsBranch(null)}
+                    onSaved={() => {
+                        if (openId === limitsBranch.id) {
+                            router.reload({
+                                only: ['detail'],
+                                data: { branch: limitsBranch.id },
+                            });
+                        }
+                    }}
                 />
             )}
 

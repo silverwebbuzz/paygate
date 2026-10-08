@@ -68,7 +68,7 @@ export function AccountFormDialog({
         upi_id: '',
         upi_display_name: account?.upi_display_name ?? '',
         is_qr_enabled: account?.is_qr_enabled ?? false,
-        min_amount: rupees(account?.min_amount ?? null),
+        min_amount: account ? rupees(account.min_amount) : '1',
         max_amount: rupees(account?.max_amount ?? null),
         daily_amount_limit: rupees(account?.daily_amount_limit ?? null),
         daily_count_limit: account?.daily_count_limit?.toString() ?? NO_LIMIT,

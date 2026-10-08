@@ -21,6 +21,7 @@ use App\Http\Admin\Partners\Requests\ChangePartnerDirectionRequest;
 use App\Http\Admin\Partners\Requests\ChangePartnerStatusRequest;
 use App\Http\Admin\Partners\Requests\PartnerRequest;
 use App\Http\Controller;
+use App\Http\Shared\Requests\UpdateLimitsRequest;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -75,6 +76,7 @@ class PartnerController extends Controller
                 'key' => $partner->activeApiKey ? ['key_id' => $partner->activeApiKey->key_id, 'last4' => $partner->activeApiKey->secret_last4] : null,
                 'file_ready' => PartnerIntegrationFile::ready($partner),
                 'rates' => $rates[$partner->id] ?? (object) [],
+                'limits' => UpdateLimitsRequest::formValues($partner),
                 'branches_count' => $partner->branches_count,
                 'users_count' => $partner->users_count,
             ]),
@@ -172,6 +174,15 @@ class PartnerController extends Controller
             'name' => $partner->name,
             'state' => $enabled ? 'enabled' : 'disabled',
         ])]);
+
+        return back();
+    }
+
+    public function limits(UpdateLimitsRequest $request, Partner $partner, ConfigurePartner $configure): RedirectResponse
+    {
+        $configure->handle($this->actor($request), $partner, $request->limitAttributes(), null, null, null);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Limits for “:name” saved.', ['name' => $partner->name])]);
 
         return back();
     }

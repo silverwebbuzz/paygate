@@ -129,6 +129,7 @@ Route::controller(PartnerController::class)->prefix('partners')->name('partners.
     Route::put('{partner}', 'update')->name('update');
     Route::put('{partner}/status', 'status')->name('status');
     Route::put('{partner}/direction', 'direction')->name('direction');
+    Route::put('{partner}/limits', 'limits')->name('limits');
 });
 Route::post('partners/{partner}/api-keys', [PartnerKeyController::class, 'store'])->middleware('throttle:10,1')->name('partners.api-keys.store');
 Route::delete('partners/{partner}/api-keys/{key}', [PartnerKeyController::class, 'destroy'])->middleware('throttle:10,1')->name('partners.api-keys.destroy');
@@ -141,6 +142,7 @@ Route::controller(BranchController::class)->prefix('branches')->name('branches.'
     Route::get('{branch}/edit', 'edit')->name('edit');
     Route::put('{branch}', 'update')->name('update');
     Route::put('{branch}/status', 'status')->name('status');
+    Route::put('{branch}/limits', 'limits')->name('limits');
     Route::post('{branch}/topups', 'topup')->name('topups.store');
 });
 

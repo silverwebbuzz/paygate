@@ -40,9 +40,9 @@ class MappingController extends Controller
 
         $mappings = PartnerBranchMapping::query()
             ->with(['partner', 'branch'])
-            ->when(is_string($partnerId) && $partnerId !== '', fn (Builder $query) => $query->where('partner_id', $partnerId))
-            ->when(is_string($branchId) && $branchId !== '', fn (Builder $query) => $query->where('branch_id', $branchId))
-            ->when($status, fn (Builder $query) => $query->where('status', $status))
+            ->when(is_string($partnerId) && $partnerId !== '', fn (Builder $query) => $query->where('partner_branch_mappings.partner_id', $partnerId))
+            ->when(is_string($branchId) && $branchId !== '', fn (Builder $query) => $query->where('partner_branch_mappings.branch_id', $branchId))
+            ->when($status, fn (Builder $query) => $query->where('partner_branch_mappings.status', $status))
             ->join('partners', 'partners.id', '=', 'partner_branch_mappings.partner_id')
             ->join('branches', 'branches.id', '=', 'partner_branch_mappings.branch_id')
             ->orderBy('partners.code')
