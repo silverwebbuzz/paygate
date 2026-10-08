@@ -7,7 +7,7 @@ use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Enums\Permission;
 use App\Domain\Notification\Enums\Alert;
-use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Settings;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
@@ -97,7 +97,10 @@ class AlertDispatcher
 
     public function accountSaved(PaymentAccount $account): void
     {
-        if ($account->status === AccountStatus::VerificationPending && $account->wasChanged('status') || ($account->wasRecentlyCreated && $account->status === AccountStatus::VerificationPending)) {
+        $waiting = $account->verification === AccountVerification::Pending
+            && ($account->wasChanged('verification') || $account->wasRecentlyCreated);
+
+        if ($waiting) {
             $this->alerts->send(
                 Alert::AccountVerification,
                 $this->alerts->recipients(Permission::AccountsVerify, UserType::Admin),
@@ -110,7 +113,7 @@ class AlertDispatcher
 
     public function accountReviewed(PaymentAccount $account): void
     {
-        $verified = $account->status === AccountStatus::Verified;
+        $verified = $account->verification === AccountVerification::Verified;
 
         $this->alerts->send(
             Alert::AccountReviewed,

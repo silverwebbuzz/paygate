@@ -1,38 +1,37 @@
-import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { formatLimit, formatPaise } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import type { AccountRow } from './account-form-dialog';
 import { DataTable } from './data-table';
 import type { Column } from './data-table';
 import { EmptyState } from './empty-state';
+import { SelectInput } from './field';
 import { StatusBadge } from './status-badge';
+
+export type AccountVerification = AccountRow['verification'];
 
 export function AccountTable({
     accounts,
     showBranch,
     detailed = false,
-    onStatus,
+    onVerification,
+    onActive,
     actions,
     empty,
 }: {
     accounts: AccountRow[];
     showBranch: boolean;
     detailed?: boolean;
-    onStatus?: (account: AccountRow, status: AccountStatus) => void;
+    onVerification?: (
+        account: AccountRow,
+        verification: AccountVerification,
+    ) => void;
+    onActive?: (account: AccountRow, active: boolean) => void;
     actions?: (account: AccountRow) => ReactNode;
     empty: ReactNode;
 }) {
     const columns = detailed
-        ? detailedColumns(showBranch, onStatus, actions)
+        ? detailedColumns(showBranch, onVerification, onActive, actions)
         : compactColumns(showBranch, actions ?? (() => null));
 
     return (
@@ -152,9 +151,10 @@ function compactColumns(
 
 function detailedColumns(
     showBranch: boolean,
-    onStatus:
-        | ((account: AccountRow, status: AccountStatus) => void)
+    onVerification:
+        | ((account: AccountRow, verification: AccountVerification) => void)
         | undefined,
+    onActive: ((account: AccountRow, active: boolean) => void) | undefined,
     actions: ((account: AccountRow) => ReactNode) | undefined,
 ): Column<AccountRow>[] {
     const top = { valign: 'top' as const };
@@ -285,20 +285,13 @@ function detailedColumns(
             ...top,
             key: 'verification',
             header: 'Verification',
-            cell: (a) => <Verification account={a} />,
+            cell: (a) => <Verification account={a} onChange={onVerification} />,
         },
         {
             ...top,
             key: 'status',
             header: 'Status',
-            cell: (a) => (
-                <StatusCell
-                    account={a}
-                    onChange={
-                        onStatus ? (status) => onStatus(a, status) : undefined
-                    }
-                />
-            ),
+            cell: (a) => <StatusCell account={a} onActive={onActive} />,
         },
         ...(actions
             ? [
@@ -318,92 +311,100 @@ function detailedColumns(
     ];
 }
 
-/** Account statuses in the order the "Change status" menu lists them. */
-export const ACCOUNT_STATUSES = [
-    ['verification_pending', 'Needs verification'],
-    ['verified', 'Verified, not active'],
-    ['active', 'Active'],
-    ['paused', 'Paused'],
-    ['rejected', 'Rejected'],
-    ['disabled', 'Disabled'],
+const VERIFICATION_OPTIONS = [
+    ['verified', 'Verified'],
+    ['pending', 'Pending'],
+    ['unverified', 'Unverified'],
 ] as const;
 
-export type AccountStatus = (typeof ACCOUNT_STATUSES)[number][0];
-
-/**
- * The current status as a label, with a separate "Change status" menu below
- * it listing only the statuses this account can move to.
- */
 function StatusCell({
     account,
-    onChange,
+    onActive,
 }: {
     account: AccountRow;
-    onChange?: (status: AccountStatus) => void;
+    onActive?: (account: AccountRow, active: boolean) => void;
 }) {
-    const choices = ACCOUNT_STATUSES.filter(
-        ([value]) =>
-            value !== account.status && account.can.switch_to.includes(value),
-    );
+    const active = account.status === 'active';
+
+    if (onActive && account.can.update) {
+        const locked = !active && account.verification !== 'verified';
+
+        return (
+            <button
+                type="button"
+                role="switch"
+                aria-checked={active}
+                aria-label={`${account.label} is ${active ? 'active' : 'inactive'}`}
+                disabled={locked}
+                title={
+                    locked
+                        ? 'Verify the account before making it active.'
+                        : undefined
+                }
+                onClick={() => onActive(account, !active)}
+                className={cn(
+                    'inline-flex items-center gap-2 text-xs font-medium',
+                    locked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                )}
+            >
+                <span
+                    className={cn(
+                        'relative h-5 w-9 flex-none rounded-full transition-colors',
+                        active ? 'bg-ac' : 'bg-ln',
+                    )}
+                >
+                    <span
+                        className={cn(
+                            'absolute top-0.5 size-4 rounded-full bg-white shadow transition-[left]',
+                            active ? 'left-[18px]' : 'left-0.5',
+                        )}
+                    />
+                </span>
+                {active ? 'Active' : 'Inactive'}
+            </button>
+        );
+    }
 
     return (
-        <div className="flex min-w-[170px] flex-col items-start gap-2">
-            <StatusBadge
-                status={account.status}
-                label={account.status === 'rejected' ? 'Rejected' : undefined}
-                className="h-[26px] px-2.5 text-[12.5px]"
-            />
-            {account.status === 'rejected' && account.rejected_reason && (
-                <div className="max-w-[180px] text-[11px] text-er">
-                    {account.rejected_reason}
-                </div>
-            )}
-            {onChange && choices.length > 0 && (
-                <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex h-7 items-center gap-1.5 rounded-md border border-ln bg-sf px-2.5 text-xs font-medium text-tx2 hover:border-ac/50 hover:text-tx data-[state=open]:border-ac data-[state=open]:text-tx">
-                        Change status
-                        <ChevronDown className="size-3.5" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="min-w-52">
-                        <DropdownMenuLabel className="text-xs font-medium text-tx3">
-                            Move to
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {choices.map(([value, label]) => (
-                            <DropdownMenuItem
-                                key={value}
-                                onSelect={() => onChange(value)}
-                                className="cursor-pointer"
-                            >
-                                <StatusBadge status={value} label={label} />
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )}
+        <div className="flex flex-col items-start gap-1">
+            <StatusBadge status={account.status} />
+            {account.verification === 'unverified' &&
+                account.rejected_reason && (
+                    <div className="max-w-[180px] text-[11px] text-er">
+                        {account.rejected_reason}
+                    </div>
+                )}
         </div>
     );
 }
 
-function Verification({ account }: { account: AccountRow }) {
-    if (account.status === 'rejected') {
-        return <StatusBadge status="rejected" label="Rejected" />;
+function Verification({
+    account,
+    onChange,
+}: {
+    account: AccountRow;
+    onChange?: (account: AccountRow, verification: AccountVerification) => void;
+}) {
+    if (onChange && account.can.set_verification) {
+        return (
+            <SelectInput
+                aria-label={`Verification for ${account.label}`}
+                className="h-8 w-[140px] text-xs"
+                value={account.verification}
+                onChange={(event) =>
+                    onChange(account, event.target.value as AccountVerification)
+                }
+            >
+                {VERIFICATION_OPTIONS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                        {label}
+                    </option>
+                ))}
+            </SelectInput>
+        );
     }
 
-    if (account.status === 'verification_pending' || account.status === 'new') {
-        return <StatusBadge status="verification_pending" label="Pending" />;
-    }
-
-    if (
-        account.verified_at ||
-        account.status === 'verified' ||
-        account.status === 'active' ||
-        account.status === 'paused'
-    ) {
-        return <StatusBadge status="verified" label="Verified" />;
-    }
-
-    return <StatusBadge status="new" label="Not verified" />;
+    return <StatusBadge status={account.verification} />;
 }
 
 function Mark({

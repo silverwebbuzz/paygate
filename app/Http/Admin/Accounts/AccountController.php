@@ -8,7 +8,9 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Actions\ChangeAccountStatus;
 use App\Domain\PaymentAccount\Actions\ReviewPaymentAccount;
 use App\Domain\PaymentAccount\Actions\SavePaymentAccount;
+use App\Domain\PaymentAccount\Actions\SetAccountVerification;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Http\Controller;
 use App\Http\Shared\Accounts\AccountPresenter;
@@ -27,7 +29,7 @@ use Inertia\Response;
  */
 class AccountController extends Controller
 {
-    public const STATUS_TABS = ['verification_pending', 'active', 'verified', 'paused', 'rejected', 'disabled'];
+    public const VIEWS = ['pending', 'verified', 'unverified', 'active', 'inactive'];
 
     public function index(Request $request, AccountPresenter $presenter): Response
     {
@@ -35,13 +37,14 @@ class AccountController extends Controller
 
         /** @var User $actor */
         $actor = $request->user();
-        $status = in_array($request->query('status'), self::STATUS_TABS, true) ? (string) $request->query('status') : null;
+        $status = in_array($request->query('status'), self::VIEWS, true) ? (string) $request->query('status') : null;
         $branchId = $request->query('branch');
         $search = trim((string) $request->query('search'));
 
         $accounts = PaymentAccount::query()
             ->with('branch')
-            ->when($status, fn (Builder $query) => $query->where('status', $status))
+            ->when(in_array($status, ['pending', 'verified', 'unverified'], true), fn (Builder $query) => $query->where('verification', $status))
+            ->when(in_array($status, ['active', 'inactive'], true), fn (Builder $query) => $query->where('status', $status))
             ->when(is_string($branchId) && $branchId !== '', fn (Builder $query) => $query->where('branch_id', $branchId))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->whereLike('label', "%{$search}%")
@@ -49,7 +52,7 @@ class AccountController extends Controller
                 ->orWhereLike('bank_name', "%{$search}%")
                 ->orWhere('account_number_last4', $search)
                 ->orWhere('upi_id_last4', $search)))
-            ->orderByRaw("CASE WHEN status = 'verification_pending' THEN 0 ELSE 1 END")
+            ->orderByRaw("CASE WHEN verification = 'pending' THEN 0 ELSE 1 END")
             ->orderBy('label')
             ->paginate(50)
             ->withQueryString();
@@ -62,7 +65,11 @@ class AccountController extends Controller
                 'data' => $presenter->rows($accounts->getCollection(), $actor),
             ],
             'filters' => ['status' => $status, 'branch' => $branchId, 'search' => $search],
-            'counts' => ['all' => PaymentAccount::query()->count(), ...PaymentAccount::query()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')->all()],
+            'counts' => [
+                'all' => PaymentAccount::query()->count(),
+                ...PaymentAccount::query()->toBase()->selectRaw('verification, count(*) as total')->groupBy('verification')->pluck('total', 'verification')->all(),
+                ...PaymentAccount::query()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
+            ],
             'branches' => Branch::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name']),
             // Full numbers for verification, loaded on request and audited.
             'reveal' => Inertia::optional(fn () => is_string($revealId) ? $this->reveal($actor, $revealId) : null),
@@ -87,7 +94,7 @@ class AccountController extends Controller
     {
         $save->handle($request->actor(), $account->branch, $account, $request->accountData());
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => $account->status === AccountStatus::VerificationPending
+        Inertia::flash('toast', ['type' => 'success', 'message' => $account->verification === AccountVerification::Pending
             ? __('Account saved. It needs verification before customers are sent to it.')
             : __('Account saved.')]);
 
@@ -122,6 +129,27 @@ class AccountController extends Controller
         return back();
     }
 
+    public function verification(Request $request, PaymentAccount $account, SetAccountVerification $set): RedirectResponse
+    {
+        Gate::authorize('accounts.verify');
+
+        $data = $request->validate([
+            'verification' => ['required', Rule::enum(AccountVerification::class)],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        /** @var User $actor */
+        $actor = $request->user();
+        $set->handle($actor, $account, AccountVerification::from($data['verification']), $data['reason'] ?? null);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('“:label” is now :verification.', [
+            'label' => $account->label,
+            'verification' => $data['verification'],
+        ])]);
+
+        return back();
+    }
+
     public function status(Request $request, PaymentAccount $account, ChangeAccountStatus $change): RedirectResponse
     {
         Gate::authorize('accounts.update');
@@ -133,7 +161,7 @@ class AccountController extends Controller
 
         /** @var User $actor */
         $actor = $request->user();
-        $change->handle($actor, $account, AccountStatus::from($data['status']), $data['reason'] ?? null, true);
+        $change->handle($actor, $account, AccountStatus::from($data['status']), $data['reason'] ?? null);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('“:label” is now :status.', ['label' => $account->label, 'status' => $data['status']])]);
 

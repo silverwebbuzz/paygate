@@ -6,6 +6,7 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Support\Crypto\BlindIndex;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -66,7 +67,8 @@ class PaymentAccountTest extends TestCase
     {
         $account = $this->add();
 
-        $this->assertSame(AccountStatus::VerificationPending, $account->status);
+        $this->assertSame(AccountVerification::Pending, $account->verification);
+        $this->assertSame(AccountStatus::Inactive, $account->status);
         $this->assertSame('HDFC0001203', $account->ifsc);
         $this->assertSame('50100482716640', $account->account_number_encrypted);
         $this->assertSame('6640', $account->account_number_last4);
@@ -130,16 +132,16 @@ class PaymentAccountTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.accounts.approve', $account))->assertSessionHasNoErrors();
         $account->refresh();
-        $this->assertSame(AccountStatus::Verified, $account->status);
+        $this->assertSame(AccountVerification::Verified, $account->verification);
+        $this->assertSame(AccountStatus::Inactive, $account->status);
         $this->assertSame($admin->id, $account->verified_by);
 
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused'])->assertSessionHasErrors('reason');
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'inactive'])->assertSessionHasErrors('reason');
         $this->assertSame(AccountStatus::Active, $account->fresh()?->status);
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused', 'reason' => 'Bank asked us to stop for a day'])->assertSessionHasNoErrors();
-        $this->assertSame(AccountStatus::Paused, $account->fresh()?->status);
-
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'disabled'])->assertSessionHasErrors('reason');
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'inactive', 'reason' => 'Bank asked us to stop for a day'])->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::Inactive, $account->fresh()?->status);
+        $this->assertSame(AccountVerification::Verified, $account->fresh()?->verification);
     }
 
     public function test_changing_payment_details_needs_verification_again_but_limits_do_not()
@@ -160,7 +162,8 @@ class PaymentAccountTest extends TestCase
         $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload(['account_number' => '11112222333344', 'upi_id' => '']))
             ->assertSessionHasNoErrors();
         $account->refresh();
-        $this->assertSame(AccountStatus::VerificationPending, $account->status);
+        $this->assertSame(AccountVerification::Pending, $account->verification);
+        $this->assertSame(AccountStatus::Inactive, $account->status);
         $this->assertNull($account->verified_at);
     }
 
@@ -171,11 +174,14 @@ class PaymentAccountTest extends TestCase
 
         $this->actingAs($admin)->post(route('admin.accounts.reject', $account), [])->assertSessionHasErrors('reason');
         $this->actingAs($admin)->post(route('admin.accounts.reject', $account), ['reason' => 'IFSC does not match'])->assertSessionHasNoErrors();
-        $this->assertSame(AccountStatus::Rejected, $account->fresh()?->status);
+        $account->refresh();
+        $this->assertSame(AccountVerification::Unverified, $account->verification);
+        $this->assertSame(AccountStatus::Inactive, $account->status);
+        $this->assertSame('IFSC does not match', $account->rejected_reason);
 
         $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload(['ifsc' => 'HDFC0001204', 'account_number' => '', 'upi_id' => '']))
             ->assertSessionHasNoErrors();
-        $this->assertSame(AccountStatus::VerificationPending, $account->fresh()?->status);
+        $this->assertSame(AccountVerification::Pending, $account->fresh()?->verification);
     }
 
     public function test_branches_only_see_and_change_their_own_accounts()
@@ -206,7 +212,9 @@ class PaymentAccountTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('accounts.data.0.account_number', '50100482716640')
                 ->where('accounts.data.0.upi_id', 'ashanali@hdfcbank')
-                ->where('accounts.data.0.can.switch_to', ['verified', 'active', 'paused', 'disabled', 'rejected']));
+                ->where('accounts.data.0.verification', 'pending')
+                ->where('accounts.data.0.can.set_verification', true)
+                ->where('accounts.data.0.can.switch_to', []));
 
         $this->actingAs($this->owner)->get(route('branch.accounts.index'))
             ->assertInertia(fn (Assert $page) => $page
@@ -231,31 +239,40 @@ class PaymentAccountTest extends TestCase
         $admin = User::factory()->admin()->withTwoFactor()->create();
 
         $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'active'])
-            ->assertSessionHasErrors('reason');
+            ->assertSessionHasErrors('status');
 
-        $this->actingAs($admin)->put(route('admin.accounts.status', $account), [
-            'status' => 'disabled',
-            'reason' => 'Closed by the bank',
+        $this->actingAs($admin)->put(route('admin.accounts.verification', $account), [
+            'verification' => 'verified',
         ])->assertSessionHasNoErrors();
-        $this->assertSame(AccountStatus::Disabled, $account->fresh()?->status);
+        $account->refresh();
+        $this->assertSame(AccountVerification::Verified, $account->verification);
+        $this->assertSame(AccountStatus::Inactive, $account->status);
 
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
-            'status' => 'active',
-            'reason' => 'Please turn it back on',
-        ])->assertSessionHasErrors('status');
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'active'])
+            ->assertSessionHasNoErrors();
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'inactive'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::Inactive, $account->fresh()?->status);
 
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
-            'status' => 'verification_pending',
+        $this->actingAs($admin)->put(route('admin.accounts.verification', $account), [
+            'verification' => 'unverified',
         ])->assertSessionHasNoErrors();
-        $this->assertSame(AccountStatus::VerificationPending, $account->fresh()?->status);
+        $account->refresh();
+        $this->assertSame(AccountVerification::Unverified, $account->verification);
+        $this->assertSame(AccountStatus::Inactive, $account->status);
 
-        $this->actingAs($admin)->put(route('admin.accounts.status', $account), [
-            'status' => 'active',
-            'reason' => 'Bank confirmed it is open again',
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'active'])
+            ->assertSessionHasErrors('status');
+
+        $this->actingAs($admin)->put(route('admin.accounts.verification', $account), [
+            'verification' => 'verified',
         ])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'active'])
+            ->assertSessionHasNoErrors();
 
         $account->refresh();
         $this->assertSame(AccountStatus::Active, $account->status);
+        $this->assertSame(AccountVerification::Verified, $account->verification);
         $this->assertNotNull($account->verified_at);
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'payment_account.status_changed',
@@ -273,8 +290,7 @@ class PaymentAccountTest extends TestCase
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
 
         $this->actingAs($admin)->put(route('admin.accounts.status', $account), [
-            'status' => 'disabled',
-            'reason' => 'Closed by the bank',
+            'status' => 'inactive',
         ])->assertSessionHasNoErrors();
 
         $this->actingAs($this->owner)->get(route('branch.accounts.index'))
@@ -288,14 +304,14 @@ class PaymentAccountTest extends TestCase
         $this->assertNotNull($account->verified_at);
 
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
-            'status' => 'disabled',
+            'status' => 'inactive',
             'reason' => 'Paused the account ourselves',
         ])->assertSessionHasNoErrors();
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasNoErrors();
         $this->assertSame(AccountStatus::Active, $account->fresh()?->status);
 
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), [
-            'status' => 'disabled',
+            'status' => 'inactive',
             'reason' => 'Changing the account number',
         ])->assertSessionHasNoErrors();
         $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload([
@@ -304,7 +320,8 @@ class PaymentAccountTest extends TestCase
         ]))->assertSessionHasNoErrors();
 
         $account->refresh();
-        $this->assertSame(AccountStatus::VerificationPending, $account->status);
+        $this->assertSame(AccountVerification::Pending, $account->verification);
+        $this->assertSame(AccountStatus::Inactive, $account->status);
         $this->assertNull($account->verified_at);
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasErrors('status');
     }

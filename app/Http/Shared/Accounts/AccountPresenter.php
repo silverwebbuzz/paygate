@@ -4,9 +4,9 @@ namespace App\Http\Shared\Accounts;
 
 use App\Domain\Allocation\UsageCounters;
 use App\Domain\Commission\Enums\Direction;
-use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use Illuminate\Support\Collection;
 
@@ -25,8 +25,6 @@ class AccountPresenter
     public function rows(Collection $accounts, User $actor): array
     {
         $usage = $this->usage->today('account', $accounts->pluck('id')->all(), Direction::Deposit);
-
-        $full = $actor->isType(UserType::Admin);
 
         return $accounts->map(fn (PaymentAccount $account) => [
             'id' => $account->id,
@@ -52,22 +50,32 @@ class AccountPresenter
             'daily_count_limit' => $account->daily_count_limit,
             'max_open_sessions' => $account->max_open_sessions,
             'used_today' => $usage[$account->id] ?? ['amount' => 0, 'count' => 0],
+            'verification' => $account->verification->value,
             'status' => $account->status->value,
             'rejected_reason' => $account->rejected_reason,
             'verified_at' => $account->verified_at?->toIso8601String(),
             'created_at' => $account->created_at?->toIso8601String(),
             'can' => [
                 'update' => $actor->can('accounts.update'),
-                'verify' => $actor->can('accounts.verify') && $account->status === AccountStatus::VerificationPending,
-                'switch_to' => $actor->can('accounts.update')
-                    ? ($full
-                        ? array_values(array_map(
-                            fn (AccountStatus $status) => $status->value,
-                            array_filter(AccountStatus::cases(), fn (AccountStatus $status) => $status !== AccountStatus::New && $status !== $account->status),
-                        ))
-                        : array_map(fn (AccountStatus $status) => $status->value, $account->status->switchableTo($account->verified_at !== null)))
-                    : [],
+                'verify' => $actor->can('accounts.verify') && $account->verification === AccountVerification::Pending,
+                'set_verification' => $actor->can('accounts.verify'),
+                'switch_to' => $actor->can('accounts.update') ? $this->switchTo($account) : [],
             ],
         ])->values()->all();
+    }
+
+    private function switchTo(PaymentAccount $account): array
+    {
+        $next = [];
+
+        if ($account->status !== AccountStatus::Active && $account->verification === AccountVerification::Verified) {
+            $next[] = AccountStatus::Active->value;
+        }
+
+        if ($account->status === AccountStatus::Active) {
+            $next[] = AccountStatus::Inactive->value;
+        }
+
+        return $next;
     }
 }

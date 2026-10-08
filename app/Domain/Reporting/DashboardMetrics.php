@@ -8,6 +8,7 @@ use App\Domain\Commission\Enums\Direction;
 use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Payout\PartnerBalance;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
@@ -286,7 +287,7 @@ class DashboardMetrics
 
         // Accounts belong to branches: Admin and the branch see them.
         if ($scope->partnerId === null) {
-            $pendingAccounts = $scope->apply(PaymentAccount::query())->where('status', 'verification_pending')->count();
+            $pendingAccounts = $scope->apply(PaymentAccount::query())->where('verification', AccountVerification::Pending)->count();
             $items[] = $this->item('accounts', 'Bank accounts awaiting verification', 'Added or changed, not yet approved', (string) $pendingAccounts, 'pending_verification', 'accounts');
         }
 
@@ -340,7 +341,7 @@ class DashboardMetrics
      */
     private function accountUsage(Scope $scope): array
     {
-        $accounts = PaymentAccount::query()->where('branch_id', $scope->branchId)->whereIn('status', ['active', 'paused'])->orderBy('label')->limit(8)->get();
+        $accounts = PaymentAccount::query()->where('branch_id', $scope->branchId)->where('verification', AccountVerification::Verified)->orderBy('label')->limit(8)->get();
         $used = $this->usage->today('account', $accounts->pluck('id')->all(), Direction::Deposit);
 
         return [

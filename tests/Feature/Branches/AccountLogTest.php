@@ -58,18 +58,17 @@ class AccountLogTest extends TestCase
     {
         $account = $this->activeAccount();
 
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused'])->assertSessionHasErrors('reason');
-        $this->actingAs($this->admin)->put(route('admin.accounts.status', $account), ['status' => 'paused', 'reason' => '  '])->assertSessionHasErrors('reason');
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'inactive'])->assertSessionHasErrors('reason');
         $this->assertSame(AccountStatus::Active, $account->fresh()?->status);
 
-        $this->actingAs($this->admin)->put(route('admin.accounts.status', $account), ['status' => 'paused', 'reason' => 'Bank flagged the account'])->assertSessionHasNoErrors();
-        $this->assertSame(AccountStatus::Paused, $account->fresh()?->status);
+        $this->actingAs($this->admin)->put(route('admin.accounts.status', $account), ['status' => 'inactive'])->assertSessionHasNoErrors();
+        $this->assertSame(AccountStatus::Inactive, $account->fresh()?->status);
     }
 
     public function test_the_log_shows_every_account_event_with_who_why_ip_and_branch()
     {
         $account = $this->activeAccount();
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused', 'reason' => 'Bank asked us to stop for a day'])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'inactive', 'reason' => 'Bank asked us to stop for a day'])->assertSessionHasNoErrors();
         $this->actingAs($this->admin)->put(route('admin.accounts.status', $account), ['status' => 'active', 'reason' => 'Branch confirmed the account is ready'])->assertSessionHasNoErrors();
 
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index'))
@@ -78,13 +77,13 @@ class AccountLogTest extends TestCase
                 ->component('admin/accounts/logs')
                 ->where('logs.total', 5)
                 ->where('logs.data.0.event', 'activated')
-                ->where('logs.data.0.from', 'paused')
+                ->where('logs.data.0.from', 'inactive')
                 ->where('logs.data.0.to', 'active')
                 ->where('logs.data.0.who.username', 'ops.admin')
                 ->where('logs.data.0.who.portal', 'admin')
-                ->where('logs.data.1.event', 'paused')
+                ->where('logs.data.1.event', 'deactivated')
                 ->where('logs.data.1.from', 'active')
-                ->where('logs.data.1.to', 'paused')
+                ->where('logs.data.1.to', 'inactive')
                 ->where('logs.data.1.reason', 'Bank asked us to stop for a day')
                 ->where('logs.data.1.who.name', 'Branch Owner')
                 ->where('logs.data.1.who.username', 'branch.owner')
@@ -128,22 +127,22 @@ class AccountLogTest extends TestCase
     {
         $first = $this->activeAccount();
         $second = $this->activeAccount('ICICI savings', '1234 5678 9012');
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $first), ['status' => 'paused', 'reason' => 'Limit reached early'])->assertSessionHasNoErrors();
-        $this->actingAs($this->admin)->put(route('admin.accounts.status', $second), ['status' => 'disabled', 'reason' => 'Closed by the bank'])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $first), ['status' => 'inactive', 'reason' => 'Limit reached early'])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->put(route('admin.accounts.verification', $second), ['verification' => 'unverified', 'reason' => 'Closed by the bank'])->assertSessionHasNoErrors();
 
         $other = Branch::factory()->create();
 
-        $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['event' => 'paused']))
+        $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['event' => 'deactivated']))
             ->assertInertia(fn (Assert $page) => $page->where('logs.total', 1)->where('logs.data.0.account.id', $first->id));
 
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['account' => $second->id]))
-            ->assertInertia(fn (Assert $page) => $page->where('logs.total', 4)->where('account.id', $second->id)->where('logs.data.0.event', 'disabled'));
+            ->assertInertia(fn (Assert $page) => $page->where('logs.total', 4)->where('account.id', $second->id)->where('logs.data.0.event', 'rejected'));
 
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['branch' => $other->id]))
             ->assertInertia(fn (Assert $page) => $page->where('logs.total', 0));
 
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['search' => 'Closed by']))
-            ->assertInertia(fn (Assert $page) => $page->where('logs.total', 1)->where('logs.data.0.event', 'disabled'));
+            ->assertInertia(fn (Assert $page) => $page->where('logs.total', 1)->where('logs.data.0.event', 'rejected'));
 
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['search' => '9012', 'event' => 'activated']))
             ->assertInertia(fn (Assert $page) => $page->where('logs.total', 1)->where('logs.data.0.account.id', $second->id));
@@ -158,16 +157,16 @@ class AccountLogTest extends TestCase
     public function test_export_streams_the_filtered_rows_as_safe_csv()
     {
         $account = $this->activeAccount();
-        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'paused', 'reason' => '=HYPERLINK("http://x")'])->assertSessionHasNoErrors();
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'inactive', 'reason' => '=HYPERLINK("http://x")'])->assertSessionHasNoErrors();
 
-        $response = $this->actingAs($this->admin)->get(route('admin.accounts.logs.export', ['event' => 'paused']));
+        $response = $this->actingAs($this->admin)->get(route('admin.accounts.logs.export', ['event' => 'deactivated']));
         $response->assertOk();
         $csv = $response->streamedContent();
         $lines = array_values(array_filter(explode("\n", trim($csv))));
 
         $this->assertCount(2, $lines);
         $this->assertStringContainsString('When,Event', $lines[0]);
-        $this->assertStringContainsString('Paused,active,paused', $lines[1]);
+        $this->assertStringContainsString('Inactive,active,inactive', $lines[1]);
         $this->assertStringContainsString('XXXX 6640', $lines[1]);
         $this->assertStringContainsString('branch.owner', $lines[1]);
         $this->assertStringContainsString('BR-LOG', $lines[1]);

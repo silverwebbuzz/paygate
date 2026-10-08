@@ -151,7 +151,7 @@ class StatementMatchingTest extends TestCase
         $this->mapPair($this->partner, $other);
         $otherAccount = $this->activeAccount($other);
         // Only the other branch's account can take the deposit.
-        $this->account->update(['status' => 'paused']);
+        $this->account->update(['status' => 'inactive']);
         $payin = $this->submittedPayin(['amount' => 500000]);
         $this->assertSame($otherAccount->id, $payin->payment_account_id);
         $this->account->update(['status' => 'active']);

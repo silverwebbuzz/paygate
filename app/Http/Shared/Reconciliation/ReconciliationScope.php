@@ -4,7 +4,7 @@ namespace App\Http\Shared\Reconciliation;
 
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
-use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
@@ -42,15 +42,15 @@ final class ReconciliationScope
     }
 
     /**
-     * Accounts a statement can be entered for: every account that was ever
-     * verified (paused or disabled ones still have statements).
+     * Accounts a statement can be entered for: every account that is verified,
+     * whether or not it is switched on.
      *
      * @return Builder<PaymentAccount>
      */
     public static function accounts(User $actor): Builder
     {
         return PaymentAccount::query()
-            ->whereIn('status', [AccountStatus::Verified->value, AccountStatus::Active->value, AccountStatus::Paused->value, AccountStatus::Disabled->value])
+            ->where('verification', AccountVerification::Verified)
             ->when(! $actor->isType(UserType::Admin), fn (Builder $query) => $query->where('branch_id', $actor->branch_id));
     }
 

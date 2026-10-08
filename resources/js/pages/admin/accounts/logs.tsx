@@ -66,8 +66,10 @@ const EVENT_STATUS: Record<string, string> = {
     verified: 'verified',
     rejected: 'rejected',
     activated: 'active',
+    deactivated: 'inactive',
     paused: 'paused',
     disabled: 'disabled',
+    verification_changed: 'pending',
     revealed: 'pending_review',
 };
 

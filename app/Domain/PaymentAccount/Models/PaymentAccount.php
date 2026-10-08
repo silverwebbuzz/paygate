@@ -4,6 +4,7 @@ namespace App\Domain\PaymentAccount\Models;
 
 use App\Domain\Branch\Models\Branch;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -33,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $upi_display_name
  * @property string|null $upi_code
  * @property bool $is_qr_enabled
+ * @property AccountVerification $verification
  * @property AccountStatus $status
  * @property CarbonInterface|null $verified_at
  * @property string|null $verified_by
@@ -58,6 +60,7 @@ class PaymentAccount extends Model
     protected function casts(): array
     {
         return [
+            'verification' => AccountVerification::class,
             'status' => AccountStatus::class,
             'account_number_encrypted' => 'encrypted',
             'upi_id_encrypted' => 'encrypted',

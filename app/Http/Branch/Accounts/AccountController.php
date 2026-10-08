@@ -7,6 +7,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Actions\ChangeAccountStatus;
 use App\Domain\PaymentAccount\Actions\SavePaymentAccount;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Http\Controller;
 use App\Http\Shared\Accounts\AccountPresenter;
@@ -60,7 +61,7 @@ class AccountController extends Controller
         $this->ensureOwn($request->actor(), $account);
         $save->handle($request->actor(), $this->branch($request->actor()), $account, $request->accountData());
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => $account->status === AccountStatus::VerificationPending
+        Inertia::flash('toast', ['type' => 'success', 'message' => $account->verification === AccountVerification::Pending
             ? __('Account saved and sent to PayGate for verification.')
             : __('Account saved.')]);
 
@@ -79,11 +80,10 @@ class AccountController extends Controller
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $change->handle($actor, $account, AccountStatus::from($data['status']), $data['reason'] ?? null);
+        $status = AccountStatus::from($data['status']);
+        $change->handle($actor, $account, $status, $data['reason'] ?? null, $status === AccountStatus::Inactive);
 
-        $message = $data['status'] === AccountStatus::VerificationPending->value
-            ? __('“:label” is waiting for PayGate to verify it.', ['label' => $account->label])
-            : __('“:label” is now :status.', ['label' => $account->label, 'status' => str_replace('_', ' ', $data['status'])]);
+        $message = __('“:label” is now :status.', ['label' => $account->label, 'status' => $status->value]);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
 

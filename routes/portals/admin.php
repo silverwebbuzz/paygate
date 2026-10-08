@@ -169,6 +169,7 @@ Route::controller(AccountController::class)->prefix('accounts')->name('accounts.
     Route::put('{account}', 'update')->name('update');
     Route::post('{account}/approve', 'approve')->name('approve');
     Route::post('{account}/reject', 'reject')->name('reject');
+    Route::put('{account}/verification', 'verification')->name('verification');
     Route::put('{account}/status', 'status')->name('status');
 });
 

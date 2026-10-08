@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { AccountActions } from '@/components/pg/account-actions';
 import { AccountFormDialog } from '@/components/pg/account-form-dialog';
 import type { AccountRow } from '@/components/pg/account-form-dialog';
-import { ACCOUNT_STATUSES, AccountTable } from '@/components/pg/account-table';
-import type { AccountStatus } from '@/components/pg/account-table';
+import { AccountTable } from '@/components/pg/account-table';
+import type { AccountVerification } from '@/components/pg/account-table';
 import { PgButton } from '@/components/pg/button';
 import { Panel } from '@/components/pg/data-table';
 import { KeyValues } from '@/components/pg/drawer';
-import { Field, SelectInput, TextInput } from '@/components/pg/field';
+import { SelectInput, TextInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
@@ -34,12 +34,11 @@ type Props = {
 
 const TABS = [
     ['all', 'All'],
-    ['verification_pending', 'Needs verification'],
+    ['pending', 'Pending'],
+    ['verified', 'Verified'],
+    ['unverified', 'Unverified'],
     ['active', 'Active'],
-    ['verified', 'Verified, not active'],
-    ['paused', 'Paused'],
-    ['rejected', 'Rejected'],
-    ['disabled', 'Disabled'],
+    ['inactive', 'Inactive'],
 ] as const;
 
 export default function AdminAccounts({
@@ -53,10 +52,6 @@ export default function AdminAccounts({
     const [search, setSearch] = useState(filters.search);
     const [editing, setEditing] = useState<AccountRow | 'new' | null>(null);
     const [reviewing, setReviewing] = useState<AccountRow | null>(null);
-    const [statusChange, setStatusChange] = useState<{
-        account: AccountRow;
-        status: AccountStatus;
-    } | null>(null);
 
     const visit = (next: Partial<Props['filters']>) => {
         const query = Object.fromEntries(
@@ -85,7 +80,7 @@ export default function AdminAccounts({
 
             <PageHeader
                 title="Bank & UPI Accounts"
-                description="Collection accounts of every branch. The full bank and UPI details are shown here. Click a status to change it; a reason is kept in the account log, and a disabled account can be turned back on."
+                description="Collection accounts of every branch. Set verification to verified, pending or unverified. Switch an account on only after it is verified. Only an active, verified account receives customers."
                 actions={
                     <>
                         <Link
@@ -114,22 +109,22 @@ export default function AdminAccounts({
                     tone="ok"
                 />
                 <StatTile
-                    label="Needs verification"
-                    value={String(counts.verification_pending ?? 0)}
+                    label="Pending"
+                    value={String(counts.pending ?? 0)}
                     icon="◷"
                     tone="wn"
                 />
                 <StatTile
-                    label="Paused"
-                    value={String(counts.paused ?? 0)}
-                    icon="‖"
-                    tone="hd"
+                    label="Verified"
+                    value={String(counts.verified ?? 0)}
+                    icon="✓"
+                    tone="ok"
                 />
                 <StatTile
-                    label="Rejected"
-                    value={String(counts.rejected ?? 0)}
-                    icon="✕"
-                    tone="er"
+                    label="Unverified"
+                    value={String(counts.unverified ?? 0)}
+                    icon="○"
+                    tone="nt"
                 />
             </KpiGrid>
 
@@ -178,9 +173,10 @@ export default function AdminAccounts({
                     accounts={accounts.data}
                     showBranch
                     detailed
-                    onStatus={(account, status) =>
-                        setStatusChange({ account, status })
+                    onVerification={(account, verification) =>
+                        setVerification(account, verification)
                     }
+                    onActive={(account, active) => setActive(account, active)}
                     empty="Branches add their accounts in the branch portal; you can also add one here."
                     actions={(account) => (
                         <>
@@ -236,15 +232,6 @@ export default function AdminAccounts({
                 />
             )}
 
-            {statusChange && (
-                <StatusDialog
-                    key={`${statusChange.account.id}-${statusChange.status}`}
-                    account={statusChange.account}
-                    initial={statusChange.status}
-                    onClose={() => setStatusChange(null)}
-                />
-            )}
-
             {reviewing && (
                 <ReviewDialog
                     account={reviewing}
@@ -258,83 +245,26 @@ export default function AdminAccounts({
     );
 }
 
-/**
- * Verification: the full numbers (loaded on request and audited), then
- * approve, or reject with a reason the branch will see.
- */
-function StatusDialog({
-    account,
-    initial,
-    onClose,
-}: {
-    account: AccountRow;
-    initial: AccountStatus;
-    onClose: () => void;
-}) {
-    const choices = ACCOUNT_STATUSES.filter(([value]) =>
-        account.can.switch_to.includes(value),
-    );
-    const [status, setStatus] = useState<AccountStatus>(initial);
-    const [reason, setReason] = useState('');
-    const [error, setError] = useState<string | undefined>();
-    const [processing, setProcessing] = useState(false);
+function setVerification(
+    account: AccountRow,
+    verification: AccountVerification,
+) {
+    if (verification === account.verification) {
+        return;
+    }
 
-    return (
-        <FormDialog
-            open
-            width={480}
-            onOpenChange={(open) => !open && onClose()}
-            title={`Change status of ${account.label}`}
-            description={`${account.branch?.code} · ${account.branch?.name}. Only an active account receives customers. You can change this again later, including turning a disabled account back on.`}
-            submitLabel="Save status"
-            processing={processing || reason.trim() === ''}
-            onSubmit={() =>
-                router.put(
-                    accountsRoutes.status(account.id).url,
-                    { status, reason },
-                    {
-                        preserveScroll: true,
-                        onStart: () => setProcessing(true),
-                        onFinish: () => setProcessing(false),
-                        onSuccess: onClose,
-                        onError: (errors: Record<string, string>) =>
-                            setError(Object.values(errors)[0]),
-                    },
-                )
-            }
-        >
-            <Field label="New status" required>
-                <SelectInput
-                    value={status}
-                    onChange={(event) =>
-                        setStatus(event.target.value as AccountStatus)
-                    }
-                >
-                    {choices.map(([value, label]) => (
-                        <option key={value} value={value}>
-                            {label}
-                        </option>
-                    ))}
-                </SelectInput>
-            </Field>
-            <Field
-                label="Reason"
-                required
-                hint={
-                    status === 'rejected'
-                        ? 'The branch sees this reason.'
-                        : 'Kept in the account log.'
-                }
-            >
-                <TextInput
-                    autoFocus
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                    placeholder="Why this status is changing"
-                />
-            </Field>
-            {error && <p className="text-xs text-er">{error}</p>}
-        </FormDialog>
+    router.put(
+        accountsRoutes.verification(account.id).url,
+        { verification },
+        { preserveScroll: true },
+    );
+}
+
+function setActive(account: AccountRow, active: boolean) {
+    router.put(
+        accountsRoutes.status(account.id).url,
+        { status: active ? 'active' : 'inactive' },
+        { preserveScroll: true },
     );
 }
 

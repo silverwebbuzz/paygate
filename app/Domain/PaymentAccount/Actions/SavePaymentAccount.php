@@ -7,6 +7,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Notification\AlertDispatcher;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Support\Crypto\BlindIndex;
 use Illuminate\Support\Facades\DB;
@@ -66,10 +67,11 @@ class SavePaymentAccount
         $this->ensureUnique($account);
         $this->ensureInsideBranchLimits($account, $branch);
 
-        $needsVerification = $isNew || $account->isDirty(self::VERIFIED_DETAILS) || $account->status === AccountStatus::Rejected;
+        $needsVerification = $isNew || $account->isDirty(self::VERIFIED_DETAILS) || $account->verification === AccountVerification::Unverified;
 
         if ($needsVerification) {
-            $account->status = AccountStatus::VerificationPending;
+            $account->verification = AccountVerification::Pending;
+            $account->status = AccountStatus::Inactive;
             $account->verified_at = null;
             $account->verified_by = null;
             $account->rejected_reason = null;
@@ -88,7 +90,7 @@ class SavePaymentAccount
 
             AuditLog::record($isNew ? 'payment_account.created' : 'payment_account.updated', $account, $old, $this->safe($account->only($changed)), $actor);
 
-            if (in_array('status', $changed, true) || $isNew) {
+            if (in_array('verification', $changed, true) || $isNew) {
                 app(AlertDispatcher::class)->accountSaved($account);
             }
         });

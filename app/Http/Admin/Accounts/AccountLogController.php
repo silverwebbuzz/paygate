@@ -23,14 +23,16 @@ class AccountLogController extends Controller
         'verified' => 'Verified',
         'rejected' => 'Rejected',
         'activated' => 'Activated',
+        'deactivated' => 'Inactive',
         'paused' => 'Paused',
         'disabled' => 'Disabled',
+        'verification_changed' => 'Marked pending',
         'revealed' => 'Full number viewed',
     ];
 
-    private const STATUS_EVENTS = ['activated' => 'active', 'paused' => 'paused', 'disabled' => 'disabled'];
+    private const STATUS_EVENTS = ['activated' => 'active', 'deactivated' => 'inactive', 'paused' => 'paused', 'disabled' => 'disabled'];
 
-    private const HIDDEN_FIELDS = ['status', 'verified_at', 'verified_by', 'rejected_reason', 'updated_at', 'created_at'];
+    private const HIDDEN_FIELDS = ['status', 'verification', 'verified_at', 'verified_by', 'rejected_reason', 'updated_at', 'created_at'];
 
     private const FIELD_LABELS = [
         'account_number_last4' => 'Account number',

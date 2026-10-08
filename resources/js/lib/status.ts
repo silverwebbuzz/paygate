@@ -39,6 +39,7 @@ const STATUSES: Record<string, StatusStyle> = {
     },
     new: { label: 'New', tone: 'nt', icon: '○' },
     verified: { label: 'Verified', tone: 'ok', icon: '✓' },
+    unverified: { label: 'Unverified', tone: 'nt', icon: '○' },
     active: { label: 'Active', tone: 'ok', icon: '●' },
     inactive: { label: 'Inactive', tone: 'nt', icon: '○' },
     paused: { label: 'Paused', tone: 'hd', icon: '‖' },

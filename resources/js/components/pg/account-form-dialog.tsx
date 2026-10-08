@@ -25,11 +25,17 @@ export type AccountRow = {
     daily_count_limit: number | null;
     max_open_sessions: number;
     used_today: { amount: number; count: number };
+    verification: 'pending' | 'verified' | 'unverified';
     status: string;
     rejected_reason: string | null;
     verified_at: string | null;
     created_at: string | null;
-    can: { update: boolean; verify: boolean; switch_to: string[] };
+    can: {
+        update: boolean;
+        verify: boolean;
+        set_verification: boolean;
+        switch_to: string[];
+    };
 };
 
 const NO_LIMIT = '-1';

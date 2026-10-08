@@ -29,6 +29,9 @@ export default function BranchAccounts({ branch, accounts, can }: Props) {
     const [editing, setEditing] = useState<AccountRow | 'new' | null>(null);
     const count = (status: string) =>
         accounts.filter((account) => account.status === status).length;
+    const countVerification = (verification: string) =>
+        accounts.filter((account) => account.verification === verification)
+            .length;
     const usedToday = accounts.reduce(
         (sum, account) => sum + account.used_today.amount,
         0,
@@ -62,15 +65,15 @@ export default function BranchAccounts({ branch, accounts, can }: Props) {
                 />
                 <StatTile
                     label="Waiting for PayGate"
-                    value={String(count('verification_pending'))}
+                    value={String(countVerification('pending'))}
                     icon="◷"
                     tone="wn"
                 />
                 <StatTile
-                    label="Rejected"
-                    value={String(count('rejected'))}
-                    icon="✕"
-                    tone="er"
+                    label="Unverified"
+                    value={String(countVerification('unverified'))}
+                    icon="○"
+                    tone="nt"
                 />
                 <StatTile
                     label={

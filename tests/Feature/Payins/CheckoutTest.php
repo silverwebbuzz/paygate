@@ -3,7 +3,6 @@
 namespace Tests\Feature\Payins;
 
 use App\Domain\Allocation\UsageCounters;
-use App\Http\Checkout\UpiLinks;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\PaymentAccount\Actions\ChangeAccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
@@ -11,6 +10,7 @@ use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Transaction\Actions\ClosePayin;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
+use App\Http\Checkout\UpiLinks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -144,7 +144,7 @@ class CheckoutTest extends TestCase
         $this->choose($tokenB, 'upi');
         $this->assertSame($big->id, $this->payin($b)->payment_account_id);
 
-        app(ChangeAccountStatus::class)->handle($this->networkAdmin, $big, AccountStatus::Paused, 'Too big for now');
+        app(ChangeAccountStatus::class)->handle($this->networkAdmin, $big, AccountStatus::Inactive, 'Too big for now');
 
         [$c, $tokenC] = $this->createPayin(['amount' => 500000]);
         $this->choose($tokenC, 'upi')->assertSessionHasErrors('method');
