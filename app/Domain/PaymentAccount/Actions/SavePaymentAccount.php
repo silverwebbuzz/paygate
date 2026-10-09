@@ -17,7 +17,9 @@ use Illuminate\Validation\ValidationException;
  * Adds or edits a branch's bank / UPI account.
  *
  * - Numbers are stored encrypted with a blind index (uniqueness across all
- *   branches) and last-4 digits for display; they are never logged.
+ *   branches) and last-4 digits for display. The activity log keeps the
+ *   readable account number and UPI ID when they change; the ciphertext
+ *   and blind index are not logged.
  * - A new account goes straight to Admin for verification.
  * - Changing the details customers pay to (holder, bank, IFSC, account
  *   number, UPI ID) sends a verified account back for verification.
@@ -42,6 +44,8 @@ class SavePaymentAccount
 
         $accountNumber = self::normaliseAccountNumber($data['account_number'] ?? null);
         $upiId = self::normaliseUpiId($data['upi_id'] ?? null);
+        $previousNumber = $isNew ? null : $account->account_number_encrypted;
+        $previousUpi = $isNew ? null : $account->upi_id_encrypted;
         unset($data['account_number'], $data['upi_id']);
 
         $account->fill($data);
@@ -84,11 +88,14 @@ class SavePaymentAccount
         }
 
         $old = $isNew ? [] : $this->safe(array_intersect_key($account->getOriginal(), array_flip($changed)));
+        $new = $this->safe($account->only($changed));
+        $this->rememberReadableNumber($old, $new, 'account_number', $previousNumber, $accountNumber, $isNew);
+        $this->rememberReadableNumber($old, $new, 'upi_id', $previousUpi, $upiId, $isNew);
 
-        DB::transaction(function () use ($actor, $account, $isNew, $changed, $old) {
+        DB::transaction(function () use ($actor, $account, $isNew, $changed, $old, $new) {
             $account->save();
 
-            AuditLog::record($isNew ? 'payment_account.created' : 'payment_account.updated', $account, $old, $this->safe($account->only($changed)), $actor);
+            AuditLog::record($isNew ? 'payment_account.created' : 'payment_account.updated', $account, $old, $new, $actor);
 
             if (in_array('verification', $changed, true) || $isNew) {
                 app(AlertDispatcher::class)->accountSaved($account);
@@ -156,7 +163,25 @@ class SavePaymentAccount
     }
 
     /**
-     * Audit values without secrets (the encrypted numbers and their hashes).
+     * @param  array<string, mixed>  $old
+     * @param  array<string, mixed>  $new
+     */
+    private function rememberReadableNumber(array &$old, array &$new, string $key, ?string $previous, ?string $current, bool $isNew): void
+    {
+        if ($current === null || (! $isNew && $previous === $current)) {
+            return;
+        }
+
+        if (! $isNew) {
+            $old[$key] = $previous;
+        }
+
+        $new[$key] = $current;
+        unset($old[$key.'_last4'], $new[$key.'_last4']);
+    }
+
+    /**
+     * Audit values without the ciphertext and blind index.
      *
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>

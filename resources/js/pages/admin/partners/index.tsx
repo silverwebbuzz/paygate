@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Copy, Plus, Search } from 'lucide-react';
+import { Copy, History, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { PgButton } from '@/components/pg/button';
@@ -76,6 +76,7 @@ type Detail = {
     activity: {
         action: string;
         summary: string;
+        changes: string[];
         actor: string;
         at: string;
         reason: string | null;
@@ -444,14 +445,22 @@ export default function PartnersIndex({
                 title="Partners"
                 description={`${counts.all ?? 0} merchants · ${counts.active ?? 0} active. Credentials, payment methods and branch routing per partner.`}
                 actions={
-                    can.create && (
+                    <>
                         <Link
-                            href={partnersRoutes.create().url}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
+                            href={partnersRoutes.logs().url}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
                         >
-                            <Plus className="size-4" /> Create partner
+                            <History className="size-3.5" /> Activity
                         </Link>
-                    )
+                        {can.create && (
+                            <Link
+                                href={partnersRoutes.create().url}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
+                            >
+                                <Plus className="size-4" /> Create partner
+                            </Link>
+                        )}
+                    </>
                 }
             />
 
@@ -877,6 +886,14 @@ export default function PartnersIndex({
                                             <span className="text-xs font-medium">
                                                 {a.summary}
                                             </span>
+                                            {a.changes.map((change) => (
+                                                <span
+                                                    key={change}
+                                                    className="block text-xs text-tx3"
+                                                >
+                                                    {change}
+                                                </span>
+                                            ))}
                                             {a.reason && (
                                                 <span className="block text-xs text-tx3">
                                                     {a.reason}

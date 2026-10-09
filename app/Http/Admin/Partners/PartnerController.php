@@ -6,7 +6,6 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Commission\Enums\Direction;
 use App\Domain\Commission\Models\CommissionRate;
 use App\Domain\Commission\RateBook;
-use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Network\Models\PartnerBranchMapping;
@@ -21,6 +20,7 @@ use App\Http\Admin\Partners\Requests\ChangePartnerDirectionRequest;
 use App\Http\Admin\Partners\Requests\ChangePartnerStatusRequest;
 use App\Http\Admin\Partners\Requests\PartnerRequest;
 use App\Http\Controller;
+use App\Http\Shared\Audit\ActivityFeed;
 use App\Http\Shared\Requests\UpdateLimitsRequest;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
@@ -323,19 +323,7 @@ class PartnerController extends Controller
                     'deposit' => $mapping->is_deposit_enabled,
                     'withdrawal' => $mapping->is_withdrawal_enabled,
                 ]),
-            'activity' => AuditLog::query()
-                ->where(['subject_type' => 'partner', 'subject_id' => $partner->id])
-                ->with('actor')
-                ->latest('created_at')
-                ->limit(15)
-                ->get()
-                ->map(fn (AuditLog $log) => [
-                    'action' => $log->action,
-                    'summary' => $log->summary(),
-                    'actor' => $log->actor->name ?? 'System',
-                    'at' => $log->created_at->toIso8601String(),
-                    'reason' => $log->new_values['reason'] ?? null,
-                ]),
+            'activity' => ActivityFeed::forPartner($partner),
             'transitions' => array_map(fn (OrganisationStatus $next) => $next->value, $partner->status->transitions()),
             'blockers' => $partner->status === OrganisationStatus::Active ? [] : $status->activationBlockers($partner),
         ];

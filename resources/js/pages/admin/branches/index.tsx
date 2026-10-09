@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Plus, Search } from 'lucide-react';
+import { History, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { PgButton } from '@/components/pg/button';
@@ -77,6 +77,8 @@ type Detail = {
     }[];
     activity: {
         action: string;
+        summary: string;
+        changes: string[];
         actor: string;
         at: string;
         reason: string | null;
@@ -199,14 +201,22 @@ export default function BranchesIndex({
                 title="Branches"
                 description={`${counts.all ?? 0} branches · ${counts.active ?? 0} active. Limits, commissions and volumes for today (India time).`}
                 actions={
-                    can.create && (
+                    <>
                         <Link
-                            href={branchesRoutes.create().url}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
+                            href={branchesRoutes.logs().url}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
                         >
-                            <Plus className="size-4" /> Create branch
+                            <History className="size-3.5" /> Activity
                         </Link>
-                    )
+                        {can.create && (
+                            <Link
+                                href={branchesRoutes.create().url}
+                                className="inline-flex h-8 items-center gap-1.5 rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
+                            >
+                                <Plus className="size-4" /> Create branch
+                            </Link>
+                        )}
+                    </>
                 }
             />
 
@@ -768,9 +778,17 @@ export default function BranchesIndex({
                                     headers={['What', 'Who', 'When']}
                                     rows={loaded.activity.map((a) => [
                                         <span key="a">
-                                            <span className="font-mono text-xs">
-                                                {a.action}
+                                            <span className="text-xs font-medium">
+                                                {a.summary}
                                             </span>
+                                            {a.changes.map((change) => (
+                                                <span
+                                                    key={change}
+                                                    className="block text-xs text-tx3"
+                                                >
+                                                    {change}
+                                                </span>
+                                            ))}
                                             {a.reason && (
                                                 <span className="block text-xs text-tx3">
                                                     {a.reason}

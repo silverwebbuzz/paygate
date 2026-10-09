@@ -213,6 +213,21 @@ class BranchManagementTest extends TestCase
         $this->assertFalse($branch->is_withdrawal_enabled);
         $this->assertSame('3.5000', app(RateBook::class)->branchRate($branch, Direction::Deposit));
         $this->assertDatabaseHas('audit_logs', ['action' => 'branch.updated', 'subject_id' => $branch->id, 'actor_id' => $admin->id]);
+        $log = AuditLog::query()->where(['action' => 'branch.updated', 'subject_id' => $branch->id])->latest('created_at')->first();
+        $this->assertNotNull($log);
+        $this->assertContains('Before Deposit minimum: ₹500.00. Now: ₹250.00', $log->changeLines());
+        $this->assertContains('Before Withdrawal minimum: Unlimited. Now: ₹100.00', $log->changeLines());
+
+        $this->actingAs($admin)->get(route('admin.branches.logs', ['search' => 'Delux', 'event' => 'branch.updated', 'party' => $branch->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('admin/activity/index')
+                ->where('kind', 'branch')
+                ->where('logs.data', function ($rows) {
+                    $changes = collect($rows)->flatMap(fn ($row) => $row['changes']);
+
+                    return $changes->contains(fn ($change) => $change['field'] === 'Deposit minimum' && $change['before'] === '₹500.00' && $change['now'] === '₹250.00');
+                }));
 
         $this->actingAs($this->admin(SystemRoles::ADMIN_FINANCE))
             ->put(route('admin.branches.limits', $branch), $limits)

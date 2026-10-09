@@ -8,7 +8,6 @@ import { SelectInput } from '@/components/pg/field';
 import { PageHeader } from '@/components/pg/page-header';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDateTime } from '@/lib/dates';
-import { statusStyle } from '@/lib/status';
 import accountsRoutes from '@/routes/admin/accounts';
 
 type Row = {
@@ -19,6 +18,7 @@ type Row = {
     from: string | null;
     to: string | null;
     fields: string[];
+    changes: { field: string; before: string | null; now: string }[];
     reason: string | null;
     ip: string | null;
     account: {
@@ -78,6 +78,33 @@ const PORTAL_LABEL: Record<string, string> = {
     partner: 'Partner',
     branch: 'Branch',
 };
+
+function ChangeValues({
+    changes,
+    side,
+}: {
+    changes: { field: string; before: string | null; now: string }[];
+    side: 'before' | 'now';
+}) {
+    if (changes.length === 0) {
+        return <span className="text-tx3">—</span>;
+    }
+
+    return (
+        <div className="max-w-[220px] space-y-2">
+            {changes.map((change, index) => (
+                <div key={`${change.field}-${index}`}>
+                    <div className="text-[11px] text-tx3">{change.field}</div>
+                    <div className="text-xs font-medium break-all">
+                        {side === 'before'
+                            ? (change.before ?? '—')
+                            : change.now}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
 
 export default function AccountLogs({
     logs,
@@ -153,25 +180,22 @@ export default function AccountLogs({
             header: 'Change',
             cell: (row) => (
                 <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <StatusBadge
-                            status={EVENT_STATUS[row.event] ?? 'pending'}
-                            label={row.event_label}
-                        />
-                    </div>
-                    {(row.from || row.to) && row.from !== row.to && (
-                        <div className="text-xs whitespace-nowrap text-tx3">
-                            {row.from ? statusStyle(row.from).label : '—'} →{' '}
-                            {row.to ? statusStyle(row.to).label : '—'}
-                        </div>
-                    )}
-                    {row.fields.length > 0 && (
-                        <div className="max-w-[260px] text-xs text-tx3">
-                            Changed: {row.fields.join(', ')}
-                        </div>
-                    )}
+                    <StatusBadge
+                        status={EVENT_STATUS[row.event] ?? 'pending'}
+                        label={row.event_label}
+                    />
                 </div>
             ),
+        },
+        {
+            key: 'before',
+            header: 'Before',
+            cell: (row) => <ChangeValues changes={row.changes} side="before" />,
+        },
+        {
+            key: 'now',
+            header: 'Now',
+            cell: (row) => <ChangeValues changes={row.changes} side="now" />,
         },
         {
             key: 'who',

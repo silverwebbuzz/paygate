@@ -3,6 +3,7 @@
 namespace Tests\Feature\Branches;
 
 use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
@@ -85,7 +86,8 @@ class PaymentAccountTest extends TestCase
         // Nor in the audit log.
         $audit = DB::table('audit_logs')->where(['action' => 'payment_account.created', 'subject_id' => $account->id])->first();
         $this->assertNotNull($audit);
-        $this->assertStringNotContainsString('50100482716640', (string) $audit->new_values);
+        $this->assertStringContainsString('50100482716640', (string) $audit->new_values);
+        $this->assertStringNotContainsString('account_number_encrypted', (string) $audit->new_values);
     }
 
     public function test_minus_one_means_the_account_has_no_limit()
@@ -165,6 +167,13 @@ class PaymentAccountTest extends TestCase
         $this->assertSame(AccountVerification::Pending, $account->verification);
         $this->assertSame(AccountStatus::Inactive, $account->status);
         $this->assertNull($account->verified_at);
+
+        $log = AuditLog::query()
+            ->where(['action' => 'payment_account.updated', 'subject_id' => $account->id])
+            ->latest('created_at')
+            ->first();
+        $this->assertNotNull($log);
+        $this->assertContains('Before Account number: 50100482716640. Now: 11112222333344', $log->changeLines());
     }
 
     public function test_rejection_needs_a_reason_and_editing_resubmits()

@@ -120,7 +120,10 @@ class AccountLogTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->where('logs.total', 1)
                 ->where('logs.data.0.event', 'updated')
-                ->where('logs.data.0.fields', ['Max amount']));
+                ->where('logs.data.0.fields.0', 'Before Maximum per payment: ₹50,000.00. Now: ₹40,000.00')
+                ->where('logs.data.0.changes.0.field', 'Maximum per payment')
+                ->where('logs.data.0.changes.0.before', '₹50,000.00')
+                ->where('logs.data.0.changes.0.now', '₹40,000.00'));
     }
 
     public function test_filters_narrow_the_log()

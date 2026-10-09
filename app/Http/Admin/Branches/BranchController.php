@@ -11,7 +11,6 @@ use App\Domain\Branch\Models\BranchLimitTopup;
 use App\Domain\Commission\Enums\Direction;
 use App\Domain\Commission\Models\CommissionRate;
 use App\Domain\Commission\RateBook;
-use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Organisation\Enums\OrganisationStatus;
 use App\Domain\Core\Rbac\SystemRoles;
@@ -22,6 +21,7 @@ use App\Http\Admin\Branches\Requests\BranchRequest;
 use App\Http\Admin\Branches\Requests\ChangeBranchStatusRequest;
 use App\Http\Admin\Branches\Requests\TopUpRequest;
 use App\Http\Controller;
+use App\Http\Shared\Audit\ActivityFeed;
 use App\Http\Shared\Requests\UpdateLimitsRequest;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
@@ -279,18 +279,7 @@ class BranchController extends Controller
                     'from' => $rate->effective_from->toIso8601String(),
                     'to' => $rate->effective_to?->toIso8601String(),
                 ]),
-            'activity' => AuditLog::query()
-                ->where(['subject_type' => 'branch', 'subject_id' => $branch->id])
-                ->with('actor')
-                ->latest('created_at')
-                ->limit(15)
-                ->get()
-                ->map(fn (AuditLog $log) => [
-                    'action' => $log->action,
-                    'actor' => $log->actor->name ?? 'System',
-                    'at' => $log->created_at->toIso8601String(),
-                    'reason' => $log->new_values['reason'] ?? null,
-                ]),
+            'activity' => ActivityFeed::forBranch($branch),
             'transitions' => array_map(fn (OrganisationStatus $next) => $next->value, $branch->status->transitions()),
             'blockers' => $branch->status === OrganisationStatus::Active ? [] : $status->activationBlockers($branch),
         ];

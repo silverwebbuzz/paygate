@@ -2,6 +2,7 @@
 
 use App\Http\Admin\Accounts\AccountController;
 use App\Http\Admin\Accounts\AccountLogController;
+use App\Http\Admin\Activity\OrganisationActivityController;
 use App\Http\Admin\Branches\BranchController;
 use App\Http\Admin\Commissions\CommissionController;
 use App\Http\Admin\Mappings\MappingController;
@@ -120,6 +121,7 @@ Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs
 
 // Partners (wizard, detail drawer, status, API keys).
 Route::controller(PartnerController::class)->prefix('partners')->name('partners.')->group(function () {
+    Route::get('logs', [OrganisationActivityController::class, 'partners'])->name('logs');
     Route::get('/', 'index')->name('index');
     Route::get('create', 'create')->name('create');
     Route::post('/', 'store')->name('store');
@@ -136,6 +138,7 @@ Route::delete('partners/{partner}/api-keys/{key}', [PartnerKeyController::class,
 
 // Branches (form, drawer, status, deposit allowance top-ups).
 Route::controller(BranchController::class)->prefix('branches')->name('branches.')->group(function () {
+    Route::get('logs', [OrganisationActivityController::class, 'branches'])->name('logs');
     Route::get('/', 'index')->name('index');
     Route::get('create', 'create')->name('create');
     Route::post('/', 'store')->name('store');

@@ -393,6 +393,17 @@ class PartnerManagementTest extends TestCase
         $this->assertSame(1, CommissionRate::query()->where('subject_id', $partner->id)->count());
         $this->assertDatabaseHas('audit_logs', ['action' => 'partner.updated', 'subject_id' => $partner->id, 'actor_id' => $admin->id]);
 
+        $this->actingAs($admin)->get(route('admin.partners.logs', ['search' => 'Atoz', 'event' => 'partner.updated', 'party' => $partner->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('admin/activity/index')
+                ->where('kind', 'partner')
+                ->where('logs.data', function ($rows) {
+                    $changes = collect($rows)->flatMap(fn ($row) => $row['changes']);
+
+                    return $changes->contains(fn ($change) => $change['field'] === 'Deposit minimum' && $change['before'] === '₹100.00' && $change['now'] === '₹200.00');
+                }));
+
         $this->actingAs($this->admin(SystemRoles::ADMIN_OPS))
             ->put(route('admin.partners.limits', $partner), $limits)
             ->assertForbidden();

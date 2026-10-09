@@ -34,16 +34,6 @@ class AccountLogController extends Controller
 
     private const HIDDEN_FIELDS = ['status', 'verification', 'verified_at', 'verified_by', 'rejected_reason', 'updated_at', 'created_at'];
 
-    private const FIELD_LABELS = [
-        'account_number_last4' => 'Account number',
-        'upi_id_last4' => 'UPI ID',
-        'ifsc' => 'IFSC',
-        'is_bank_enabled' => 'Bank transfer',
-        'is_upi_enabled' => 'UPI',
-        'is_qr_enabled' => 'QR',
-        'is_intent_enabled' => 'UPI intent',
-    ];
-
     public function index(Request $request): Response
     {
         Gate::authorize('accounts.view');
@@ -181,7 +171,7 @@ class AccountLogController extends Controller
     }
 
     /**
-     * @return array{id: string, at: string, event: string, event_label: string, from: string|null, to: string|null, fields: list<string>, reason: string|null, ip: string|null, account: array<string, string|null>|null, branch: array{code: string, name: string}|null, who: array{name: string, username: string|null, role: string|null, portal: string|null}}
+     * @return array{id: string, at: string, event: string, event_label: string, from: string|null, to: string|null, fields: list<string>, changes: list<array{field: string, before: string|null, now: string}>, reason: string|null, ip: string|null, account: array<string, string|null>|null, branch: array{code: string, name: string}|null, who: array{name: string, username: string|null, role: string|null, portal: string|null}}
      */
     private function row(AuditLog $log): array
     {
@@ -193,12 +183,18 @@ class AccountLogController extends Controller
             $event = array_search($new['status'] ?? null, self::STATUS_EVENTS, true) ?: 'status_changed';
         }
 
-        $fields = $event === 'updated'
-            ? array_values(array_map(
-                fn (string $field) => self::FIELD_LABELS[$field] ?? ucfirst(str_replace('_', ' ', $field)),
-                array_diff(array_keys($new), self::HIDDEN_FIELDS),
-            ))
-            : [];
+        $from = null;
+        $to = null;
+
+        if (isset($new['verification']) && is_string($new['verification']) && in_array($event, ['verified', 'rejected', 'verification_changed'], true)) {
+            $from = isset($old['verification']) && is_string($old['verification']) ? $old['verification'] : null;
+            $to = $new['verification'];
+        } elseif (isset($new['status']) && is_string($new['status'])) {
+            $from = isset($old['status']) && is_string($old['status']) ? $old['status'] : null;
+            $to = $new['status'];
+        }
+
+        $fields = $event === 'updated' ? $log->changeLines(self::HIDDEN_FIELDS) : [];
 
         $account = $log->subject instanceof PaymentAccount ? $log->subject : null;
         $actor = $log->actor;
@@ -208,9 +204,10 @@ class AccountLogController extends Controller
             'at' => $log->created_at->toIso8601String(),
             'event' => $event,
             'event_label' => self::EVENTS[$event] ?? ucfirst(str_replace('_', ' ', $event)),
-            'from' => isset($old['status']) && is_string($old['status']) ? $old['status'] : null,
-            'to' => isset($new['status']) && is_string($new['status']) ? $new['status'] : null,
+            'from' => $from,
+            'to' => $to,
             'fields' => $fields,
+            'changes' => $log->changePairs(['updated_at', 'created_at', 'rejected_reason']),
             'reason' => isset($new['reason']) && is_string($new['reason']) ? $new['reason'] : null,
             'ip' => $log->ip_address,
             'account' => $account === null ? null : [
