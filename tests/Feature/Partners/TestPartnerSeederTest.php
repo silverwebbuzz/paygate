@@ -30,7 +30,7 @@ class TestPartnerSeederTest extends TestCase
         $partner = Partner::query()->where('code', 'ECLINIC')->firstOrFail();
         $this->assertSame('active', $partner->status->value);
         $this->assertTrue($partner->is_payin_enabled);
-        $this->assertFalse($partner->is_payout_enabled);
+        $this->assertTrue($partner->is_payout_enabled);
         $this->assertNull($partner->withdraw_url);
         $this->assertNull($partner->payout_group);
         $this->assertSame(7, $partner->branches()->count());
@@ -38,6 +38,8 @@ class TestPartnerSeederTest extends TestCase
         $branch = Branch::query()->where('code', 'BRANCH1')->firstOrFail();
         $this->assertSame('active', $branch->status->value);
         $this->assertTrue($branch->is_deposit_enabled);
+        $this->assertTrue($branch->is_withdrawal_enabled);
+        $this->assertSame(0, RatePercent::compare('1', (string) app(RateBook::class)->current('branch', $branch->id, 'branch', Direction::Withdrawal)));
         $this->assertSame(3, PaymentAccount::query()->where('branch_id', $branch->id)->where('status', 'active')->where('is_bank_enabled', true)->where('is_upi_enabled', true)->where('is_qr_enabled', true)->count());
         $this->assertSame(0, RatePercent::compare('2', (string) app(RateBook::class)->current('branch', $branch->id, 'branch', Direction::Deposit)));
 

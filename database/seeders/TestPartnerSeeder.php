@@ -130,7 +130,7 @@ class TestPartnerSeeder extends Seeder
             'payout_webhook_url' => $entry['payout_webhook_url'],
             'status' => 'active',
             'is_payin_enabled' => true,
-            'is_payout_enabled' => false,
+            'is_payout_enabled' => true,
             'allow_upi' => true,
             'allow_qr' => true,
             'allow_bank_transfer' => true,
@@ -224,7 +224,7 @@ class TestPartnerSeeder extends Seeder
                 'name' => 'Test Branch '.$number,
                 'status' => 'active',
                 'is_deposit_enabled' => true,
-                'is_withdrawal_enabled' => false,
+                'is_withdrawal_enabled' => true,
                 'deposit_limit_type' => 'daily_reset',
                 'deposit_min_amount' => null,
                 'deposit_max_amount' => null,
@@ -232,6 +232,7 @@ class TestPartnerSeeder extends Seeder
             ]);
 
             $this->rate('branch', $branch->id, 'branch', Direction::Deposit, '2');
+            $this->rate('branch', $branch->id, 'branch', Direction::Withdrawal, '1');
             $this->login($branch, $role, 'branch'.$number, UserType::Branch);
 
             foreach ($banks as $index => [$bankName, $ifscPrefix, $upiBank]) {
