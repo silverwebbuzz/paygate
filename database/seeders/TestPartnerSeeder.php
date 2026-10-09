@@ -14,6 +14,10 @@ use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
+use App\Domain\PaymentAccount\Enums\AccountStatus;
+use App\Domain\PaymentAccount\Enums\AccountVerification;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Support\Crypto\BlindIndex;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -91,28 +95,27 @@ class TestPartnerSeeder extends Seeder
 
     public function run(): void
     {
-        $role = Role::bySlug(SystemRoles::PARTNER_OWNER);
-        $branches = Branch::query()->orderBy('code')->get();
+        $partnerRole = Role::bySlug(SystemRoles::PARTNER_OWNER);
+        $branchRole = Role::bySlug(SystemRoles::BRANCH_OWNER);
 
-        DB::transaction(function () use ($role, $branches): void {
+        DB::transaction(function () use ($partnerRole, $branchRole): void {
+            $this->testBranches($branchRole);
+            $branches = Branch::query()->orderBy('code')->get();
+
             foreach (self::PARTNERS as $entry) {
                 $partner = $this->partner($entry);
-                $this->rate($partner, Direction::Deposit, '5');
-                $this->rate($partner, Direction::Withdrawal, '4');
+                $this->rate('partner', $partner->id, 'partner', Direction::Deposit, '5');
+                $this->rate('partner', $partner->id, 'partner', Direction::Withdrawal, '4');
                 $this->branches($partner, $branches);
-                $this->login($partner, $role, $entry['username']);
+                $this->login($partner, $partnerRole, $entry['username'], UserType::Partner);
                 $this->key($partner, $entry['key_id'], $entry['secret']);
             }
         });
 
-        $count = $branches->count();
-        $this->command?->info("Seeded 5 test partners, deposit 5%, withdrawal 4%, {$count} branch".($count === 1 ? '' : 'es').' each.');
-        $this->command?->info('Logins: partner1 / partner1 through partner5 / partner5.');
-        $this->command?->info('API keys: pk_test_partner1 … pk_test_partner5, secrets sk_test_partner1 … sk_test_partner5.');
-
-        if ($count === 0) {
-            $this->command?->warn('No branches exist yet, so these partners have nowhere to send a payment.');
-        }
+        $this->command?->info('Seeded 5 test partners (deposit 5%, withdrawal 4%) and 5 test branches.');
+        $this->command?->info('Partner logins: partner1 / partner1 through partner5 / partner5.');
+        $this->command?->info('Branch logins: branch1 / branch1 through branch5 / branch5.');
+        $this->command?->info('Each test branch has 3 active accounts with bank, UPI and QR, mapped to every partner.');
     }
 
     private function partner(array $entry): Partner
@@ -145,11 +148,11 @@ class TestPartnerSeeder extends Seeder
         ]);
     }
 
-    private function rate(Partner $partner, Direction $direction, string $percent): void
+    private function rate(string $subjectType, string $subjectId, string $side, Direction $direction, string $percent): void
     {
         $percent = RatePercent::normalize($percent);
         $current = CommissionRate::query()
-            ->for('partner', $partner->id, 'partner', $direction)
+            ->for($subjectType, $subjectId, $side, $direction)
             ->whereNull('effective_to')
             ->lockForUpdate()
             ->first();
@@ -167,9 +170,9 @@ class TestPartnerSeeder extends Seeder
         }
 
         CommissionRate::query()->create([
-            'subject_type' => 'partner',
-            'subject_id' => $partner->id,
-            'side' => 'partner',
+            'subject_type' => $subjectType,
+            'subject_id' => $subjectId,
+            'side' => $side,
             'direction' => $direction,
             'fee_type' => 'percent',
             'rate_percent' => $percent,
@@ -187,11 +190,11 @@ class TestPartnerSeeder extends Seeder
         }
     }
 
-    private function login(Partner $partner, Role $role, string $username): void
+    private function login(Partner|Branch $organisation, Role $role, string $username, UserType $type): void
     {
         $existing = User::query()->where('username', $username)->first();
 
-        if ($existing !== null && $existing->type !== UserType::Partner) {
+        if ($existing !== null && $existing->type !== $type) {
             throw new RuntimeException("Username {$username} is already used by a {$existing->type->value} user.");
         }
 
@@ -199,13 +202,73 @@ class TestPartnerSeeder extends Seeder
             'name' => $username,
             'email' => null,
             'password' => $username,
-            'type' => UserType::Partner,
+            'type' => $type,
             'role_id' => $role->id,
-            'partner_id' => $partner->id,
-            'branch_id' => null,
+            'partner_id' => $type === UserType::Partner ? $organisation->id : null,
+            'branch_id' => $type === UserType::Branch ? $organisation->id : null,
             'status' => UserStatus::Active,
             'email_verified_at' => now(),
         ]);
+    }
+
+    private function testBranches(Role $role): void
+    {
+        $banks = [
+            ['HDFC Bank', 'HDFC', 'hdfcbank'],
+            ['ICICI Bank', 'ICIC', 'icici'],
+            ['State Bank of India', 'SBIN', 'sbi'],
+        ];
+
+        foreach (range(1, 5) as $number) {
+            $branch = Branch::query()->updateOrCreate(['code' => 'BRANCH'.$number], [
+                'name' => 'Test Branch '.$number,
+                'status' => 'active',
+                'is_deposit_enabled' => true,
+                'is_withdrawal_enabled' => false,
+                'deposit_limit_type' => 'daily_reset',
+                'deposit_min_amount' => null,
+                'deposit_max_amount' => null,
+                'deposit_daily_limit' => null,
+            ]);
+
+            $this->rate('branch', $branch->id, 'branch', Direction::Deposit, '2');
+            $this->login($branch, $role, 'branch'.$number, UserType::Branch);
+
+            foreach ($banks as $index => [$bankName, $ifscPrefix, $upiBank]) {
+                $slot = $index + 1;
+                $numberText = sprintf('%02d%02d', $number, $slot);
+                $accountNumber = '91'.$numberText.sprintf('%010d', $number * 10 + $slot);
+                $ifsc = $ifscPrefix.'0'.$numberText.'01';
+                $upiId = 'branch'.$number.'acc'.$slot.'@ok'.$upiBank;
+
+                PaymentAccount::query()->updateOrCreate(
+                    ['branch_id' => $branch->id, 'label' => $bankName.' '.$number.'-'.$slot],
+                    [
+                        'is_bank_enabled' => true,
+                        'is_upi_enabled' => true,
+                        'is_qr_enabled' => true,
+                        'bank_name' => $bankName,
+                        'ifsc' => $ifsc,
+                        'account_holder_name' => 'Test Branch '.$number,
+                        'account_number_encrypted' => $accountNumber,
+                        'account_number_hash' => BlindIndex::of('bank_account', $accountNumber),
+                        'account_number_last4' => substr($accountNumber, -4),
+                        'upi_id_encrypted' => $upiId,
+                        'upi_id_hash' => BlindIndex::of('upi_id', $upiId),
+                        'upi_id_last4' => substr('acc'.$slot, -4),
+                        'upi_display_name' => 'Test Branch '.$number,
+                        'verification' => AccountVerification::Verified,
+                        'status' => AccountStatus::Active,
+                        'verified_at' => now(),
+                        'min_amount' => null,
+                        'max_amount' => null,
+                        'daily_amount_limit' => null,
+                        'daily_count_limit' => null,
+                        'max_open_sessions' => 100,
+                    ],
+                );
+            }
+        }
     }
 
     private function key(Partner $partner, string $keyId, string $secret): void
