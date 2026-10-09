@@ -52,3 +52,6 @@ yarn-error.log
 
 # Server tools of a Webuzo install (Document/Webuzo-Server-Setup.md): never committed.
 /.server
+
+# Cashier test sites uploaded to other domains. Not part of PayGate.
+/partner-sites/
