@@ -45,6 +45,33 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
+    public function test_a_page_from_another_portal_is_not_used_after_login()
+    {
+        $user = User::factory()->partner()->create();
+
+        $response = $this->withSession(['url.intended' => url('/admin/partners')])
+            ->post(route('login.store'), [
+                'login' => $user->username,
+                'password' => 'password',
+            ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_a_page_from_the_users_own_portal_is_kept_after_login()
+    {
+        $user = User::factory()->partner()->create();
+
+        $response = $this->withSession(['url.intended' => url('/partner/payins')])
+            ->post(route('login.store'), [
+                'login' => $user->username,
+                'password' => 'password',
+            ]);
+
+        $response->assertRedirect(url('/partner/payins'));
+    }
+
     public function test_an_email_address_does_not_log_anyone_in()
     {
         $user = User::factory()->create(['username' => 'ravi', 'email' => 'someone@example.com']);

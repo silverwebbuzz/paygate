@@ -26,6 +26,10 @@ class TestPayoutsCommand extends Command
             return self::FAILURE;
         }
 
+        if (($note = TestCashierPartners::loosenRedis()) !== null) {
+            $this->warn($note);
+        }
+
         $codes = array_column(TestCashierPartners::all(), 'code');
         $partners = Partner::query()->with('activeApiKey')->whereIn('code', $codes)->get()->keyBy('code');
 

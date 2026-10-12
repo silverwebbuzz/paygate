@@ -9,6 +9,8 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\PartnerApi\Exceptions\ApiException;
 use App\Domain\Transaction\Actions\CreatePayin;
 use App\Domain\Transaction\Actions\SubmitPayinProof;
+use App\Domain\Transaction\Enums\PayinStatus;
+use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Console\Command;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -28,6 +30,10 @@ class TestPayinsCommand extends Command
 
         if ($paise === null || $limit === null) {
             return self::FAILURE;
+        }
+
+        if (($note = TestCashierPartners::loosenRedis()) !== null) {
+            $this->warn($note);
         }
 
         $partners = $this->partners();
@@ -50,16 +56,33 @@ class TestPayinsCommand extends Command
                 $orderId = $group['code'].'-PAY-'.$user['id'].'-'.$stamp;
 
                 try {
-                    $created = $create->handle($partner, [
-                        'order_id' => $orderId,
-                        'amount' => $paise,
-                        'customer' => $user,
-                        'return_url' => $partner->return_url,
-                        'metadata' => ['source' => 'paygate:test-payins', 'method' => $method],
-                    ], $keyId);
+                    $payin = Transaction::query()
+                        ->where('partner_id', $partner->id)
+                        ->where('direction', 'payin')
+                        ->whereIn('status', [PayinStatus::Created->value, PayinStatus::AwaitingPayment->value])
+                        ->where('metadata->source', 'paygate:test-payins')
+                        ->whereHas('customer', fn ($query) => $query->where('external_id', $user['id']))
+                        ->latest()
+                        ->first();
 
-                    $allocate->handle($created['payin'], $method);
-                    $payin = $proof->handle($created['payin'], strtoupper(substr(hash('sha256', $orderId), 0, 12)), null);
+                    if ($payin === null) {
+                        $payin = $create->handle($partner, [
+                            'order_id' => $orderId,
+                            'amount' => $paise,
+                            'customer' => $user,
+                            'return_url' => $partner->return_url,
+                            'metadata' => ['source' => 'paygate:test-payins', 'method' => $method],
+                        ], $keyId)['payin'];
+                    } elseif (is_string($payin->method) && $payin->method !== '') {
+                        $method = $payin->method;
+                    }
+
+                    if ($payin->payinStatus() === PayinStatus::Created) {
+                        $allocate->handle($payin, $method);
+                        $payin->refresh();
+                    }
+
+                    $payin = $proof->handle($payin, strtoupper(substr(hash('sha256', $payin->partner_transaction_id), 0, 12)), null);
                     $payin->load('paymentAccount');
 
                     $account = $payin->paymentAccount;

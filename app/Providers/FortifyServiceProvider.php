@@ -6,6 +6,7 @@ use App\Domain\Core\Audit\Enums\SecurityEvent;
 use App\Domain\Core\Audit\Models\SecurityLog;
 use App\Domain\Core\Identity\Actions\ResetUserPassword;
 use App\Domain\Core\Identity\Models\User;
+use App\Http\Responses\PortalLoginResponse;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
@@ -25,7 +28,8 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(LoginResponse::class, PortalLoginResponse::class);
+        $this->app->singleton(TwoFactorLoginResponse::class, PortalLoginResponse::class);
     }
 
     /**

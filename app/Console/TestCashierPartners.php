@@ -94,4 +94,27 @@ final class TestCashierPartners
 
         return '5010'.str_pad(substr($digits, 0, 6), 6, '0', STR_PAD_LEFT).'000001';
     }
+
+    public static function loosenRedis(): ?string
+    {
+        if (class_exists(\Redis::class)) {
+            return null;
+        }
+
+        if (config('queue.default') === 'redis') {
+            config(['queue.default' => 'database']);
+        }
+
+        if (config('cache.default') === 'redis') {
+            config(['cache.default' => 'file']);
+        }
+
+        foreach (['queue', 'queue.connection', 'cache', 'cache.store'] as $abstract) {
+            if (app()->resolved($abstract)) {
+                app()->forgetInstance($abstract);
+            }
+        }
+
+        return 'This PHP has no Redis extension, so webhooks and alerts are written to the database queue instead. Install the redis extension for the PHP that runs artisan, then restart Horizon, and those will send.';
+    }
 }
