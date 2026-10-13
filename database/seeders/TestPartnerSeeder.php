@@ -144,7 +144,7 @@ class TestPartnerSeeder extends Seeder
             'withdrawal_min_amount' => 10000,
             'withdrawal_max_amount' => 10000000,
             'withdrawal_daily_limit' => null,
-            'session_ttl_minutes' => 30,
+            'session_ttl_minutes' => 5,
         ]);
     }
 
