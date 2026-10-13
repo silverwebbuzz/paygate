@@ -397,7 +397,8 @@ function ChooseMethod({
             ))}
             {methods.length === 0 && (
                 <p className="text-[13px] text-[#64748B]">
-                    No payment method is available. Please contact the merchant.
+                    No payment method is available right now. Please try
+                    again in a few minutes or contact the merchant.
                 </p>
             )}
             {onCancel && (

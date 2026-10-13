@@ -33,7 +33,7 @@ use Illuminate\Validation\ValidationException;
  * - fail: the branch couldn't pay → failed, the hold is released and the
  *   partner is notified; the partner sends a new request to retry;
  * - cancel (partner, before the branch starts) and reassign (Admin, before
- *   the branch starts; the hold moves to the new branch).
+ *   the branch pays it; the hold moves to the new branch).
  */
 class ProcessPayout
 {
@@ -159,13 +159,13 @@ class ProcessPayout
     }
 
     /**
-     * Admin moves a waiting payout to another branch (decided 2026-09-27).
-     * The new branch must hold enough of the partner's balance.
+     * Admin moves a waiting or in-progress payout to another branch, e.g.
+     * when the branch says it has no money. No balance check.
      */
     public function reassign(User $actor, Transaction $payout, Branch $to, string $reason): Transaction
     {
         return DB::transaction(function () use ($actor, $payout, $to, $reason) {
-            $locked = $this->lock($payout, [PayoutStatus::Assigned]);
+            $locked = $this->lock($payout, [PayoutStatus::Assigned, PayoutStatus::Processing]);
 
             if ($locked->branch_id === $to->id) {
                 throw ValidationException::withMessages(['branch_id' => __('The payout is already with this branch.')]);
@@ -178,16 +178,17 @@ class ProcessPayout
             }
 
             $partner = Partner::query()->findOrFail($locked->partner_id);
-            $new = $this->router->assign($partner, $locked->amount, onlyBranchId: $to->id);
+            $new = $this->router->assign($partner, $locked->amount, onlyBranchId: $to->id, checkBalance: false);
 
             if ($new === null) {
-                throw ValidationException::withMessages(['branch_id' => __(':branch can’t take it: not mapped for withdrawals, over its limits, or not enough of this partner’s balance there.', ['branch' => $to->code])]);
+                throw ValidationException::withMessages(['branch_id' => __(':branch can’t take it: not mapped for withdrawals, no withdrawal rate, outside its amount range, or over today’s limits.', ['branch' => $to->code])]);
             }
 
             $fromBranch = $locked->branch_id;
-            $locked->forceFill(['branch_id' => $to->id])->save();
+            $fromStatus = $locked->status;
+            $locked->forceFill(['branch_id' => $to->id, 'status' => PayoutStatus::Assigned->value, 'decided_by' => null])->save();
 
-            TransactionEvent::record($locked, 'reassigned', $locked->status, $locked->status, 'user', $actor->id, $reason, [
+            TransactionEvent::record($locked, 'reassigned', $fromStatus, $locked->status, 'user', $actor->id, $reason, [
                 'from_branch_id' => $fromBranch,
                 'branch_id' => $to->id,
                 'reservation' => $new,

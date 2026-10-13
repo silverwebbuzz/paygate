@@ -277,7 +277,7 @@ sha256 hex of the exact body</div>
 }</div>
     <p class="small">fee in this example is 200 paisa, charged on top of amount. The live fee follows this partner’s rate.</p>
     <div class="lbl">Response failed</div>
-    <p class="small">Same error object. insufficient_balance means the amount plus the fee does not fit. duplicate_order_id is HTTP 409 when this order_id already exists with different details.</p>
+    <p class="small">Same error object. insufficient_balance means the amount plus the fee does not fit. no_branch_available means no branch can take it right now. duplicate_order_id is HTTP 409 when this order_id already exists with different details.</p>
     <p class="small">Payout status words: assigned, processing, success (utr is set), failed (the held amount is back in your balance), cancelled, returned. POST {{ $base }}/payouts/{id}/cancel while it is still assigned.</p>
 
     <h2>6. Payout webhook</h2>
@@ -373,6 +373,7 @@ sha256 hex of the exact body</div>
             <tr><td class="c">amount_out_of_range</td><td>Outside this partner’s minimum or maximum.</td></tr>
             <tr><td class="c">return_url_not_allowed</td><td>return_url is not on a registered domain.</td></tr>
             <tr><td class="c">insufficient_balance</td><td>Not enough balance for the payout plus the fee.</td></tr>
+            <tr><td class="c">no_branch_available</td><td>No branch can take this payout right now. Try again later.</td></tr>
             <tr><td class="c">not_found</td><td>No pay-in or payout with that id on this account.</td></tr>
             <tr><td class="c">not_cancellable</td><td>It can no longer be cancelled.</td></tr>
         </table>

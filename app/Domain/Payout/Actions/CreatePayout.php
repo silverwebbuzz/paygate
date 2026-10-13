@@ -17,10 +17,10 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * A partner asks us to pay its customer (Req §7.2, G-15). If a mapped branch
- * has enough of this partner's balance for amount + fee, the money is held
- * and the payout goes into that branch's queue (`assigned`). Otherwise it is
- * refused with "balance is low" and nothing is stored.
+ * A partner asks us to pay its customer (Req §7.2, G-15). If the partner's
+ * total balance covers amount + fee, the money is held and the payout goes
+ * into the next mapped branch's queue by round robin (`assigned`). Otherwise
+ * it is refused ("balance is low" or no branch available) and nothing is stored.
  *
  * Same order id + same details returns the original (safe retries); with
  * different details → 409, as for pay-ins.
@@ -54,7 +54,9 @@ class CreatePayout
                 $reservation = $this->router->assign($partner, (int) $data['amount']);
 
                 if ($reservation === null) {
-                    throw new ApiException('insufficient_balance', 'Balance is low: no branch holds enough of your balance for this amount plus the fee. Try a smaller amount, or settle / top up first.', 422);
+                    throw $this->router->refusal($partner, (int) $data['amount']) === 'insufficient_balance'
+                        ? new ApiException('insufficient_balance', 'Balance is low: your balance does not cover this amount plus the fee. Try a smaller amount, or settle / top up first.', 422)
+                        : new ApiException('no_branch_available', 'No branch can take this payout right now: none is set up for this amount, or all have reached today’s withdrawal limit.', 422);
                 }
 
                 $payout = Transaction::create([

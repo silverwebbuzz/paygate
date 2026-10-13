@@ -2,9 +2,11 @@
 
 namespace App\Http\Checkout;
 
+use App\Domain\Allocation\AccountAvailability;
 use App\Domain\Allocation\Actions\AllocateAccount;
 use App\Domain\Allocation\Exceptions\NoAccountAvailable;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\PaymentSession\Models\PaymentSession;
 use App\Domain\Platform\Models\Page;
 use App\Domain\Platform\Settings;
@@ -71,10 +73,7 @@ class CheckoutController extends Controller
                 'completed_at' => ($payin->succeeded_at ?? $payin->decided_at)?->toIso8601String(),
             ],
             'server_time' => now()->toIso8601String(),
-            'methods' => array_values(array_filter(
-                AllocateAccount::METHODS,
-                fn (string $method) => app(AllocateAccount::class)->partnerAllows($partner, $method),
-            )),
+            'methods' => $this->methods($payin, $partner, $showAccount ? $account : null),
             'account' => $showAccount ? [
                 'holder' => $account->account_holder_name,
                 'bank_name' => $account->is_bank_enabled ? $account->bank_name : null,
@@ -140,6 +139,28 @@ class CheckoutController extends Controller
         $session->load('transaction.partner', 'transaction.paymentAccount');
 
         return $session;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function methods(Transaction $payin, Partner $partner, ?PaymentAccount $account): array
+    {
+        $offered = array_values(array_filter(
+            AllocateAccount::METHODS,
+            fn (string $method) => app(AllocateAccount::class)->partnerAllows($partner, $method),
+        ));
+
+        if ($offered === [] || ! $payin->payinStatus()->isOpen()) {
+            return $offered;
+        }
+
+        $available = app(AccountAvailability::class)->methods($partner, $payin->amount);
+
+        return array_values(array_filter(
+            $offered,
+            fn (string $method) => in_array($method, $available, true) || ($account !== null && AllocateAccount::supports($account, $method)),
+        ));
     }
 
     private function initials(string $name): string

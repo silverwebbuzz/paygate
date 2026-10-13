@@ -65,11 +65,10 @@ export default function Balance({ balance, limits, payouts_enabled }: Props) {
                     </p>
                 )}
                 <p>
-                    Each payout is paid by one of the branches that collect for
-                    you, so it must fit the balance held at one branch,
-                    including the payout fee. That is why the largest single
-                    payout can be smaller than your total available balance.
-                    When no branch holds enough, the API answers{' '}
+                    Each payout goes to the next of your branches in turn. It
+                    must fit your total available balance, including the
+                    payout fee. When your balance is not enough, the API
+                    answers{' '}
                     <code className="rounded bg-sf2 px-1 font-mono text-[12px]">
                         insufficient_balance
                     </code>{' '}

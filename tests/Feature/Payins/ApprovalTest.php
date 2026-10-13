@@ -188,6 +188,19 @@ class ApprovalTest extends TestCase
         $this->assertSame(750000, $this->branch->fresh()?->deposit_topup_balance);
     }
 
+    public function test_a_topup_branch_can_use_what_is_left_after_approvals()
+    {
+        $this->branch->update(['deposit_limit_type' => 'topup', 'deposit_topup_balance' => 1000000]);
+        $this->approve($this->submittedPayin(['amount' => 600000]))->assertSessionHasNoErrors();
+        $this->assertSame(400000, $this->branch->fresh()?->deposit_topup_balance);
+
+        [, $fits] = $this->createPayin(['amount' => 400000]);
+        $this->post("http://pay.paygate.local/p/{$fits}/method", ['method' => 'upi'])->assertSessionHasNoErrors();
+
+        [, $over] = $this->createPayin(['amount' => 10000]);
+        $this->post("http://pay.paygate.local/p/{$over}/method", ['method' => 'upi'])->assertSessionHasErrors('method');
+    }
+
     public function test_partners_get_webhooks_for_submitted_and_decided_pay_ins_only_with_a_url()
     {
         $payin = $this->submittedPayin();

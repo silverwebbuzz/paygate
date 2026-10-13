@@ -117,7 +117,7 @@ export default function Payouts(props: Props) {
                 className="flex flex-wrap gap-1.5"
                 onClick={(event) => event.stopPropagation()}
             >
-                {portal === 'admin' && payout.status === 'assigned' && (
+                {portal === 'admin' && (
                     <PgButton
                         className="h-7 text-xs"
                         onClick={() => setDialog({ kind: 'reassign', payout })}
@@ -591,7 +591,7 @@ function ReassignDialog({
             open
             onOpenChange={(open) => !open && onClose()}
             title={`Move ${payout.reference} to another branch?`}
-            description={`Now with ${payout.branch?.code}. The new branch must be mapped to ${payout.partner?.name} for withdrawals and hold enough of its balance; the hold moves with it.`}
+            description={`Now with ${payout.branch?.code}. The new branch must be mapped to ${payout.partner?.name} for withdrawals; the hold moves with it and the payout waits in its "To pay" list.`}
             submitLabel="Move payout"
             processing={form.processing}
             onSubmit={() =>

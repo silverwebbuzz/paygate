@@ -23,7 +23,7 @@ class UsageCounters
 
     /**
      * @param  array<mixed>  $scopeIds
-     * @return array<string, array{amount: int, count: int}> scope id => usage today
+     * @return array<string, array{amount: int, count: int, reserved: int, sessions: int}> scope id => usage today
      */
     public function today(string $scopeType, array $scopeIds, Direction $direction): array
     {
@@ -34,10 +34,12 @@ class UsageCounters
         return DB::table('usage_counters')
             ->where(['scope_type' => $scopeType, 'business_date' => self::businessDate(), 'direction' => $direction->value])
             ->whereIn('scope_id', $scopeIds)
-            ->get(['scope_id', 'reserved_amount', 'confirmed_amount', 'reserved_count', 'confirmed_count'])
+            ->get(['scope_id', 'reserved_amount', 'confirmed_amount', 'reserved_count', 'confirmed_count', 'open_sessions'])
             ->mapWithKeys(fn (object $row) => [(string) $row->scope_id => [
                 'amount' => (int) $row->reserved_amount + (int) $row->confirmed_amount,
                 'count' => (int) $row->reserved_count + (int) $row->confirmed_count,
+                'reserved' => (int) $row->reserved_amount,
+                'sessions' => (int) $row->open_sessions,
             ]])
             ->all();
     }
@@ -47,17 +49,18 @@ class UsageCounters
      * only if it stays within the limits given (null = no limit). Returns
      * false, changing nothing, when a limit would be exceeded.
      */
-    public function reserve(string $scopeType, string $scopeId, string $date, Direction $direction, int $amount, ?int $amountLimit = null, ?int $countLimit = null, ?int $sessionLimit = null): bool
+    public function reserve(string $scopeType, string $scopeId, string $date, Direction $direction, int $amount, ?int $amountLimit = null, ?int $countLimit = null, ?int $sessionLimit = null, bool $countConfirmed = true): bool
     {
         $key = ['scope_type' => $scopeType, 'scope_id' => $scopeId, 'business_date' => $date, 'direction' => $direction->value];
 
         DB::table('usage_counters')->insertOrIgnore($key);
 
         $sessions = $sessionLimit === null ? 0 : 1;
+        $used = $countConfirmed ? 'reserved_amount + confirmed_amount' : 'reserved_amount';
 
         return DB::table('usage_counters')
             ->where($key)
-            ->when($amountLimit !== null, fn ($query) => $query->whereRaw('reserved_amount + confirmed_amount + ? <= ?', [$amount, $amountLimit]))
+            ->when($amountLimit !== null, fn ($query) => $query->whereRaw("{$used} + ? <= ?", [$amount, $amountLimit]))
             ->when($countLimit !== null, fn ($query) => $query->whereRaw('reserved_count + confirmed_count + 1 <= ?', [$countLimit]))
             ->when($sessionLimit !== null, fn ($query) => $query->whereRaw('open_sessions + 1 <= ?', [$sessionLimit]))
             ->incrementEach(

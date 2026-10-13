@@ -59,7 +59,12 @@ const ERRORS: [string, number, string][] = [
     [
         'insufficient_balance',
         422,
-        'Balance is low: no branch holds enough of your balance for amount + fee.',
+        'Balance is low: your balance doesn’t cover amount + fee.',
+    ],
+    [
+        'no_branch_available',
+        422,
+        'No branch can take this payout right now (amount range or daily limits).',
     ],
     [
         'daily_limit_reached',

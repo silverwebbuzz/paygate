@@ -13,8 +13,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * A partner's money with us, as the partner may see it (no branch detail):
  * total position, what open payouts hold, what's available, and the largest
- * single payout possible right now (a payout is paid by one branch, so it
- * must fit one pair's available balance including the fee — Req G-15).
+ * single payout possible right now (amount + fee must fit the total available).
  */
 class PartnerBalance
 {
@@ -35,11 +34,10 @@ class PartnerBalance
             ->get();
 
         $max = 0;
+        $available = $balance - $reserved;
 
-        foreach ($mappings as $mapping) {
-            $available = ($positions[$mapping->branch_id]['balance'] ?? 0) - ($positions[$mapping->branch_id]['reserved'] ?? 0);
-
-            if ($available > 0) {
+        if ($available > 0) {
+            foreach ($mappings as $mapping) {
                 $max = max($max, $this->largestPayout($mapping, $available));
             }
         }
@@ -48,7 +46,7 @@ class PartnerBalance
             $max = min($max, $partner->withdrawal_max_amount);
         }
 
-        return ['balance' => $balance, 'reserved' => $reserved, 'available' => $balance - $reserved, 'max_payout' => $max];
+        return ['balance' => $balance, 'reserved' => $reserved, 'available' => $available, 'max_payout' => $max];
     }
 
     /**

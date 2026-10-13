@@ -111,17 +111,9 @@ class Ledger
         return $journal->id;
     }
 
-    /**
-     * Holds `$amount` of a position for an open payout, only if what is left
-     * (balance − reserved) covers it. A conditional update, so concurrent
-     * payouts wait for each other instead of overdrawing (Database.md §4).
-     */
-    public function reserve(string $accountId, int $amount): bool
+    public function hold(string $accountId, int $amount): void
     {
-        return DB::update(
-            'UPDATE ledger_balances SET reserved = reserved + ?, updated_at = now() WHERE ledger_account_id = ? AND balance - reserved >= ?',
-            [$amount, $accountId, $amount],
-        ) === 1;
+        DB::update('UPDATE ledger_balances SET reserved = reserved + ?, updated_at = now() WHERE ledger_account_id = ?', [$amount, $accountId]);
     }
 
     /**

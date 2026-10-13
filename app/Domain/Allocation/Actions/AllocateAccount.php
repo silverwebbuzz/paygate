@@ -201,14 +201,14 @@ class AllocateAccount
                 $branchLimit = $branch->usesTopup() ? $branch->deposit_topup_balance : $branch->deposit_daily_limit;
 
                 $scopes = [
-                    ['account', $account->id, $account->daily_amount_limit, $account->daily_count_limit, $account->max_open_sessions],
-                    ['branch', $branch->id, $branchLimit, null, null],
-                    ['mapping', $mapping->id, $mapping->deposit_daily_limit, null, null],
-                    ['partner', $partner->id, $partner->deposit_daily_limit, null, null],
+                    ['account', $account->id, $account->daily_amount_limit, $account->daily_count_limit, $account->max_open_sessions, true],
+                    ['branch', $branch->id, $branchLimit, null, null, ! $branch->usesTopup()],
+                    ['mapping', $mapping->id, $mapping->deposit_daily_limit, null, null, true],
+                    ['partner', $partner->id, $partner->deposit_daily_limit, null, null, true],
                 ];
 
-                foreach ($scopes as [$type, $id, $amountLimit, $countLimit, $sessionLimit]) {
-                    if (! $this->usage->reserve($type, $id, $date, $in, $amount, $amountLimit, $countLimit, $sessionLimit)) {
+                foreach ($scopes as [$type, $id, $amountLimit, $countLimit, $sessionLimit, $countConfirmed]) {
+                    if (! $this->usage->reserve($type, $id, $date, $in, $amount, $amountLimit, $countLimit, $sessionLimit, $countConfirmed)) {
                         throw new LimitReached($type);
                     }
                 }

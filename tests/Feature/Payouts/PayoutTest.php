@@ -89,7 +89,7 @@ class PayoutTest extends TestCase
         $this->assertStringNotContainsString('50100482716640', (string) json_encode(DB::table('payout_beneficiaries')->first()));
     }
 
-    public function test_balance_is_low_when_no_branch_can_cover_amount_plus_fee()
+    public function test_balance_is_low_when_the_total_balance_cannot_cover_amount_plus_fee()
     {
         $this->fund($this->branch, 9400);
 
@@ -106,17 +106,37 @@ class PayoutTest extends TestCase
         $this->assertSame(0, $this->position()['balance'] - $this->position()['reserved']);
     }
 
-    public function test_the_branch_holding_enough_of_the_partners_balance_is_chosen()
+    public function test_branches_take_turns_whatever_balance_each_holds()
     {
-        $rich = Branch::factory()->create();
-        $this->mapPair($this->partner, $rich);
-        $this->rate('branch', $rich->id, 'withdrawal', '3');
-        $this->fund($this->branch, 1000);
-        $this->fund($rich, 500000);
+        $empty = Branch::factory()->create();
+        $this->mapPair($this->partner, $empty);
+        $this->rate('branch', $empty->id, 'withdrawal', '3');
+        $this->fund($this->branch, 100000);
 
-        $id = $this->api('POST', '/v1/payouts', $this->body(['amount' => 100000]))->assertCreated()->json('data.id');
+        $first = $this->api('POST', '/v1/payouts', $this->body())->assertCreated()->json('data.id');
+        $second = $this->api('POST', '/v1/payouts', $this->body())->assertCreated()->json('data.id');
 
-        $this->assertSame($rich->id, Transaction::where('reference', $id)->value('branch_id'));
+        $this->assertEqualsCanonicalizing(
+            [$this->branch->id, $empty->id],
+            Transaction::whereIn('reference', [$first, $second])->pluck('branch_id')->all(),
+        );
+        $this->assertSame(9450, $this->position($empty)['reserved']);
+        $this->assertSame(9450, $this->position()['reserved']);
+
+        $this->api('GET', '/v1/balance')->assertOk()->assertJsonPath('data.available', 100000 - 18900);
+        $this->api('POST', '/v1/payouts', $this->body(['amount' => 80000]))->assertStatus(422)->assertJsonPath('error.code', 'insufficient_balance');
+    }
+
+    public function test_no_branch_available_is_reported_separately()
+    {
+        $this->fund($this->branch, 500000);
+        $this->branch->update(['withdrawal_max_amount' => 5000]);
+
+        $this->api('POST', '/v1/payouts', $this->body(['amount' => 9000]))
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'no_branch_available');
+        $this->assertSame(0, Transaction::where('direction', 'payout')->count());
+        $this->assertSame(0, $this->position()['reserved']);
     }
 
     public function test_repeats_are_safe_and_changed_details_are_refused()
@@ -187,30 +207,35 @@ class PayoutTest extends TestCase
         $this->assertSame(9450, $this->position()['reserved']);
     }
 
-    public function test_admin_can_move_a_waiting_payout_and_its_hold_to_another_branch()
+    public function test_admin_can_move_a_waiting_or_started_payout_and_its_hold_to_another_branch()
     {
-        $other = Branch::factory()->create();
-        $this->mapPair($this->partner, $other);
-        $this->rate('branch', $other->id, 'withdrawal', '2');
-        $poor = Branch::factory()->create();
-        $this->mapPair($this->partner, $poor);
-        $this->rate('branch', $poor->id, 'withdrawal', '2');
         $this->fund($this->branch, 50000);
-        $this->fund($other, 50000);
-
         $id = $this->api('POST', '/v1/payouts', $this->body())->json('data.id');
         $payout = Transaction::where('reference', $id)->firstOrFail();
-        $from = $payout->branch_id;
-        $to = $from === $this->branch->id ? $other : $this->branch;
+        $this->assertSame($this->branch->id, $payout->branch_id);
+
+        $empty = Branch::factory()->create();
+        $this->mapPair($this->partner, $empty);
+        $this->rate('branch', $empty->id, 'withdrawal', '2');
+        $off = Branch::factory()->create();
+        $this->mapPair($this->partner, $off)->update(['is_withdrawal_enabled' => false]);
+        $this->rate('branch', $off->id, 'withdrawal', '2');
         $admin = User::factory()->admin(SystemRoles::ADMIN_OPS)->withTwoFactor()->create();
 
-        $this->actingAs($admin)->post(route('admin.payouts.reassign', $payout), ['branch_id' => $poor->id, 'reason' => 'x'])->assertSessionHasErrors('branch_id');
-        $this->actingAs($admin)->post(route('admin.payouts.reassign', $payout), ['branch_id' => $to->id, 'reason' => 'Faster bank'])->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.payouts.start', $payout))->assertSessionHasNoErrors();
+        $this->assertSame('processing', $payout->fresh()?->status);
 
-        $this->assertSame($to->id, $payout->fresh()?->branch_id);
-        $this->assertSame(0, app(Ledger::class)->partnerPositions($this->partner->id)[$from]['reserved']);
-        $this->assertSame(9450, app(Ledger::class)->partnerPositions($this->partner->id)[$to->id]['reserved']);
+        $this->actingAs($admin)->post(route('admin.payouts.reassign', $payout), ['branch_id' => $off->id, 'reason' => 'x'])->assertSessionHasErrors('branch_id');
+        $this->actingAs($admin)->post(route('admin.payouts.reassign', $payout), ['branch_id' => $empty->id, 'reason' => 'Branch has no money'])->assertSessionHasNoErrors();
+
+        $payout->refresh();
+        $this->assertSame($empty->id, $payout->branch_id);
+        $this->assertSame('assigned', $payout->status);
+        $this->assertSame(0, $this->position()['reserved']);
+        $this->assertSame(9450, $this->position($empty)['reserved']);
         $this->assertDatabaseHas('audit_logs', ['action' => 'payout.reassigned', 'subject_id' => $payout->id]);
+
+        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), ['bank_utr' => '526812820491'])->assertForbidden();
     }
 
     public function test_only_the_assigned_branch_or_admin_can_process_and_sees_the_full_details()

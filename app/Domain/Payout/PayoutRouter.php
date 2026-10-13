@@ -10,6 +10,7 @@ use App\Domain\Commission\Enums\Direction;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,11 +22,12 @@ use Illuminate\Validation\ValidationException;
  *   branches with withdrawals on whose per-payout range fits the amount,
  *   in round-robin order (the pair used longest ago first);
  * - needed = amount + the partner's withdrawal fee at that pair's rate;
- * - the pair balance (partner position minus what open payouts hold) must
- *   cover it: reserved with a conditional update that waits, never skips;
+ * - the partner's total balance over all branches (minus what open payouts
+ *   hold) must cover it, checked under a lock on the partner row; the hold
+ *   is placed on the chosen pair, whether or not that branch has the money;
  * - the branch, pair and partner daily withdrawal limits are reserved too.
  *
- * No branch fits → null ("balance is low"). Call inside a DB transaction.
+ * No branch fits → null. Call inside a DB transaction.
  */
 class PayoutRouter
 {
@@ -39,9 +41,61 @@ class PayoutRouter
      * @param  list<string>  $excludeBranchIds
      * @return array{branch_id: string, mapping_id: string, ledger_account_id: string, needed: int, fee: int, date: string, amount: int}|null
      */
-    public function assign(Partner $partner, int $amount, array $excludeBranchIds = [], ?string $onlyBranchId = null): ?array
+    public function assign(Partner $partner, int $amount, array $excludeBranchIds = [], ?string $onlyBranchId = null, bool $checkBalance = true): ?array
     {
-        $mappings = PartnerBranchMapping::query()
+        $available = $checkBalance ? $this->available($partner) : null;
+
+        foreach ($this->candidates($partner, $amount, $excludeBranchIds, $onlyBranchId) as $mapping) {
+            $fee = $this->fee($mapping, $amount);
+
+            if ($fee === null || ($available !== null && $available < $amount + $fee)) {
+                continue;
+            }
+
+            $reservation = $this->tryReserve($partner, $mapping, $amount, $amount + $fee, $fee);
+
+            if ($reservation !== null) {
+                return $reservation;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return 'insufficient_balance'|'no_branch_available'
+     */
+    public function refusal(Partner $partner, int $amount): string
+    {
+        $fees = $this->candidates($partner, $amount)
+            ->map(fn (PartnerBranchMapping $mapping) => $this->fee($mapping, $amount))
+            ->filter(fn (?int $fee) => $fee !== null);
+
+        if ($fees->isEmpty()) {
+            return 'no_branch_available';
+        }
+
+        $available = $this->available($partner);
+
+        return $fees->contains(fn (int $fee) => $available >= $amount + $fee) ? 'no_branch_available' : 'insufficient_balance';
+    }
+
+    public function available(Partner $partner): int
+    {
+        Partner::query()->whereKey($partner->id)->lockForUpdate()->value('id');
+
+        $positions = $this->ledger->partnerPositions($partner->id);
+
+        return array_sum(array_column($positions, 'balance')) - array_sum(array_column($positions, 'reserved'));
+    }
+
+    /**
+     * @param  list<string>  $excludeBranchIds
+     * @return Collection<int, PartnerBranchMapping>
+     */
+    private function candidates(Partner $partner, int $amount, array $excludeBranchIds = [], ?string $onlyBranchId = null): Collection
+    {
+        return PartnerBranchMapping::query()
             ->join('branches as b', 'b.id', '=', 'partner_branch_mappings.branch_id')
             ->where('partner_branch_mappings.partner_id', $partner->id)
             ->where('partner_branch_mappings.status', 'active')
@@ -55,22 +109,15 @@ class PayoutRouter
             ->orderBy('partner_branch_mappings.id')
             ->select('partner_branch_mappings.*')
             ->get();
+    }
 
-        foreach ($mappings as $mapping) {
-            try {
-                $fee = $this->commissions->calculate($mapping, Direction::Withdrawal, $amount)['partner_commission'];
-            } catch (ValidationException) {
-                continue; // no withdrawal rate for this pair: it can't take payouts
-            }
-
-            $reservation = $this->tryReserve($partner, $mapping, $amount, $amount + $fee, $fee);
-
-            if ($reservation !== null) {
-                return $reservation;
-            }
+    private function fee(PartnerBranchMapping $mapping, int $amount): ?int
+    {
+        try {
+            return $this->commissions->calculate($mapping, Direction::Withdrawal, $amount)['partner_commission'];
+        } catch (ValidationException) {
+            return null;
         }
-
-        return null;
     }
 
     /**
@@ -112,9 +159,7 @@ class PayoutRouter
 
         try {
             return DB::transaction(function () use ($partner, $mapping, $amount, $needed, $fee, $accountId, $date) {
-                if (! $this->ledger->reserve($accountId, $needed)) {
-                    throw new LimitReached('balance');
-                }
+                $this->ledger->hold($accountId, $needed);
 
                 /** @var Branch $branch */
                 $branch = Branch::query()->findOrFail($mapping->branch_id);

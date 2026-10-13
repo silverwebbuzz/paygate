@@ -54,6 +54,7 @@ class CheckoutTest extends TestCase
 
     public function test_the_page_shows_the_amount_and_methods_and_unknown_tokens_404()
     {
+        $this->activeAccount();
         [, $token] = $this->createPayin(['amount' => 1253400]);
 
         $this->get($this->page($token))
@@ -66,6 +67,24 @@ class CheckoutTest extends TestCase
                 ->where('account', null));
 
         $this->get($this->page('not-a-real-token'))->assertNotFound();
+    }
+
+    public function test_the_page_only_offers_methods_an_account_can_take_now()
+    {
+        $this->activeAccount(overrides: ['is_upi_enabled' => false, 'upi_id' => null, 'is_qr_enabled' => false, 'max_open_sessions' => 1]);
+
+        [, $token] = $this->createPayin(['amount' => 500000]);
+        $this->get($this->page($token))->assertInertia(fn (Assert $page) => $page->where('methods', ['bank_transfer']));
+
+        $this->choose($token, 'bank_transfer')->assertSessionHasNoErrors();
+        $this->get($this->page($token))->assertInertia(fn (Assert $page) => $page->where('methods', ['bank_transfer']));
+
+        [, $other] = $this->createPayin(['amount' => 500000]);
+        $this->get($this->page($other))->assertInertia(fn (Assert $page) => $page->where('methods', []));
+
+        $this->artisan('paygate:why-busy', ['--partner' => $this->partner->code, '--amount' => '5000'])
+            ->expectsOutputToContain('open-payment slots')
+            ->assertSuccessful();
     }
 
     public function test_choosing_a_method_allocates_an_account_and_reserves_its_capacity()
