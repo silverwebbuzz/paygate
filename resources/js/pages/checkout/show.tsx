@@ -1,6 +1,6 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { Check, Clock, Copy, ImageUp, ShieldCheck, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useClipboard } from '@/hooks/use-clipboard';
 import { formatDateTime } from '@/lib/dates';
@@ -20,6 +20,7 @@ type Props = {
         reference: string;
         order_id: string;
         amount: number;
+        customer_name: string | null;
         status: string;
         method: Method | null;
         utr: string | null;
@@ -105,6 +106,15 @@ export default function Checkout(props: Props) {
                         </div>
                     </div>
                 </header>
+
+                {payin.customer_name && (
+                    <div className="border-b border-[#EEF0F3] bg-[#F8FAFC] px-5 py-2 text-xs text-[#475569]">
+                        Paying from{' '}
+                        <b className="font-semibold text-[#0F172A]">
+                            {payin.customer_name}
+                        </b>
+                    </div>
+                )}
 
                 {(open || waiting) && <AmountCard {...props} ticking={open} />}
 
@@ -268,9 +278,8 @@ function AmountCard({
     server_time,
     ticking,
 }: Props & { ticking: boolean }) {
-    const offset = useMemo(
+    const [offset] = useState(
         () => new Date(server_time).getTime() - Date.now(),
-        [server_time],
     );
     const deadline = payin.expires_at
         ? new Date(payin.expires_at).getTime()

@@ -68,9 +68,13 @@ class CheckoutTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('checkout/show')
                 ->where('payin.amount', 1253400)
+                ->where('payin.customer_name', 'Ravi Kumar')
                 ->where('payin.status', 'created')
                 ->where('methods', ['upi', 'qr', 'bank_transfer'])
                 ->where('account', null));
+
+        [, $nameless] = $this->createPayin(['customer' => ['id' => 'cust-2']]);
+        $this->get($this->page($nameless))->assertInertia(fn (Assert $page) => $page->where('payin.customer_name', null));
 
         $this->get($this->page('not-a-real-token'))->assertNotFound();
     }

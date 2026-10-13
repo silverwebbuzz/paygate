@@ -65,6 +65,7 @@ class CheckoutController extends Controller
                 'reference' => $payin->reference,
                 'order_id' => $payin->partner_transaction_id,
                 'amount' => $payin->amount,
+                'customer_name' => $payin->customer->name ?? $payin->customer->username ?? null,
                 'status' => $payin->status,
                 'method' => $payin->method,
                 'utr' => $payin->customer_utr_normalized,
@@ -141,7 +142,7 @@ class CheckoutController extends Controller
 
         abort_if($session === null, 404);
 
-        $session->load('transaction.partner', 'transaction.paymentAccount');
+        $session->load('transaction.partner', 'transaction.paymentAccount', 'transaction.customer');
 
         return $session;
     }
