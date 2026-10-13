@@ -5,11 +5,15 @@ namespace Tests\Feature\Payouts;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
+use App\Domain\Customer\Models\PartnerCustomer;
 use App\Domain\Ledger\Ledger;
+use App\Domain\Notification\Enums\Alert;
+use App\Domain\Notification\Notifications\PortalAlert;
 use App\Domain\Payout\Models\PayoutBeneficiary;
 use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Concerns\BuildsPayinNetwork;
@@ -125,6 +129,50 @@ class PayoutTest extends TestCase
 
         $this->api('GET', '/v1/balance')->assertOk()->assertJsonPath('data.available', 100000 - 18900);
         $this->api('POST', '/v1/payouts', $this->body(['amount' => 80000]))->assertStatus(422)->assertJsonPath('error.code', 'insufficient_balance');
+    }
+
+    public function test_admin_is_alerted_about_short_branches_and_refused_payouts()
+    {
+        Notification::fake();
+        $admin = User::factory()->admin(SystemRoles::ADMIN_OPS)->withTwoFactor()->create();
+        $empty = Branch::factory()->create();
+        $this->mapPair($this->partner, $empty);
+        $this->rate('branch', $empty->id, 'withdrawal', '3');
+        $this->fund($this->branch, 100000);
+        $sent = fn (Alert $type) => Notification::sent($admin, PortalAlert::class, fn (PortalAlert $alert) => $alert->alert === $type);
+
+        $this->api('POST', '/v1/payouts', $this->body())->assertCreated();
+        $this->api('POST', '/v1/payouts', $this->body())->assertCreated();
+
+        $this->assertCount(1, $sent(Alert::PayoutShortBranch));
+        $this->assertStringContainsString($empty->code, $sent(Alert::PayoutShortBranch)->first()->body);
+
+        $this->branch->update(['withdrawal_max_amount' => 5000]);
+        $empty->update(['withdrawal_max_amount' => 5000]);
+        $this->api('POST', '/v1/payouts', $this->body())->assertJsonPath('error.code', 'no_branch_available');
+        $this->api('POST', '/v1/payouts', $this->body())->assertJsonPath('error.code', 'no_branch_available');
+
+        $this->assertCount(1, $sent(Alert::PayoutNoBranch));
+    }
+
+    public function test_branches_without_a_rate_or_with_withdrawals_off_are_skipped_and_blocked_customers_refused()
+    {
+        $this->fund($this->branch, 500000);
+        $this->mapPair($this->partner, Branch::factory()->create());
+        $off = Branch::factory()->create(['is_withdrawal_enabled' => false]);
+        $this->mapPair($this->partner, $off);
+        $this->rate('branch', $off->id, 'withdrawal', '3');
+        $pairOff = Branch::factory()->create();
+        $this->mapPair($this->partner, $pairOff)->update(['is_withdrawal_enabled' => false]);
+        $this->rate('branch', $pairOff->id, 'withdrawal', '3');
+
+        foreach (range(1, 3) as $i) {
+            $id = $this->api('POST', '/v1/payouts', $this->body())->assertCreated()->json('data.id');
+            $this->assertSame($this->branch->id, Transaction::where('reference', $id)->value('branch_id'));
+        }
+
+        PartnerCustomer::query()->where(['partner_id' => $this->partner->id, 'external_id' => 'cust-9'])->update(['is_blocked' => true]);
+        $this->api('POST', '/v1/payouts', $this->body())->assertForbidden()->assertJsonPath('error.code', 'customer_blocked');
     }
 
     public function test_no_branch_available_is_reported_separately()

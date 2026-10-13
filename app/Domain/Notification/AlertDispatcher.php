@@ -2,11 +2,14 @@
 
 namespace App\Domain\Notification;
 
+use App\Domain\Allocation\AccountAvailability;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\Enums\Permission;
+use App\Domain\Ledger\Ledger;
 use App\Domain\Notification\Enums\Alert;
+use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Settings;
@@ -17,6 +20,7 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Transaction\Models\TransactionReversal;
 use App\Domain\Webhook\Models\WebhookEvent;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Who hears about what (G-47). Each method picks the people who can act
@@ -25,7 +29,14 @@ use App\Domain\Webhook\Models\WebhookEvent;
  */
 class AlertDispatcher
 {
-    public function __construct(private Alerts $alerts, private Settings $settings) {}
+    private const REPEAT_MINUTES = 15;
+
+    public function __construct(
+        private Alerts $alerts,
+        private Settings $settings,
+        private Ledger $ledger,
+        private AccountAvailability $availability,
+    ) {}
 
     public function payoutAssigned(Transaction $payout): void
     {
@@ -35,6 +46,72 @@ class AlertDispatcher
             __('Payout to pay: ₹:amount', ['amount' => $this->money($payout->amount)]),
             __(':reference is waiting in Manual Payout.', ['reference' => $payout->reference]),
             Alerts::link('branch.payouts.index'),
+        );
+    }
+
+    /**
+     * @param  array{ledger_account_id: string, needed: int}  $reservation
+     */
+    public function payoutOnShortBranch(Transaction $payout, array $reservation): void
+    {
+        $figures = $this->ledger->figures($reservation['ledger_account_id']);
+
+        if ($figures['balance'] - $figures['reserved'] >= 0) {
+            return;
+        }
+
+        $branch = Branch::query()->whereKey($payout->branch_id)->value('code');
+        $partner = Partner::query()->whereKey($payout->partner_id)->value('name');
+        $held = max(0, $figures['balance'] - ($figures['reserved'] - $reservation['needed']));
+
+        $this->alerts->send(
+            Alert::PayoutShortBranch,
+            $this->alerts->recipients(Permission::PayoutsProcess, UserType::Admin),
+            __('Payout :reference may need moving', ['reference' => $payout->reference]),
+            __(':branch holds ₹:held of :partner’s balance, but this payout needs ₹:needed. If the branch tells you it has no money, move the payout to another branch in Manual Payout.', [
+                'branch' => $branch,
+                'held' => $this->money($held),
+                'partner' => $partner,
+                'needed' => $this->money($reservation['needed']),
+            ]),
+            Alerts::link('admin.payouts.index', ['txn' => $payout->id]),
+        );
+    }
+
+    public function payoutNoBranch(Partner $partner, int $amount): void
+    {
+        if (! Cache::add("alerts:payout-no-branch:{$partner->id}", true, now()->addMinutes(self::REPEAT_MINUTES))) {
+            return;
+        }
+
+        $this->alerts->send(
+            Alert::PayoutNoBranch,
+            $this->alerts->recipients(Permission::PayoutsProcess, UserType::Admin),
+            __(':partner payouts are being refused', ['partner' => $partner->name]),
+            __('No branch could take a ₹:amount payout. Check the mapped branches: withdrawals on, amount range, today’s withdrawal limits and withdrawal rates.', ['amount' => $this->money($amount)]),
+            Alerts::link('admin.branches.index'),
+        );
+    }
+
+    public function payinNoAccount(Transaction $payin, Partner $partner, ?string $method = null): void
+    {
+        if (! Cache::add("alerts:payin-no-account:{$partner->id}", true, now()->addMinutes(self::REPEAT_MINUTES))) {
+            return;
+        }
+
+        $reasons = $this->availability->reasons($partner, $payin->amount);
+
+        $this->alerts->send(
+            Alert::PayinNoAccount,
+            $this->alerts->recipients(Permission::AccountsVerify, UserType::Admin),
+            __('Customers of :partner can’t pay right now', ['partner' => $partner->name]),
+            __('Pay-in :reference (₹:amount:method): no bank account can take it. :reasons. On the server, php artisan paygate:why-busy :reference shows every account.', [
+                'reference' => $payin->reference,
+                'amount' => $this->money($payin->amount),
+                'method' => $method === null ? '' : ', '.str_replace('_', ' ', $method),
+                'reasons' => implode(' | ', $reasons),
+            ]),
+            Alerts::link('admin.accounts.index'),
         );
     }
 

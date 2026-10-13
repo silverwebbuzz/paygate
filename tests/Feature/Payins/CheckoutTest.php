@@ -4,6 +4,11 @@ namespace Tests\Feature\Payins;
 
 use App\Domain\Allocation\UsageCounters;
 use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Identity\Models\User;
+use App\Domain\Core\Rbac\SystemRoles;
+use App\Domain\Network\Models\PartnerBranchMapping;
+use App\Domain\Notification\Enums\Alert;
+use App\Domain\Notification\Notifications\PortalAlert;
 use App\Domain\PaymentAccount\Actions\ChangeAccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\Platform\Models\StoredFile;
@@ -14,6 +19,7 @@ use App\Http\Checkout\UpiLinks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Concerns\BuildsPayinNetwork;
@@ -85,6 +91,69 @@ class CheckoutTest extends TestCase
         $this->artisan('paygate:why-busy', ['--partner' => $this->partner->code, '--amount' => '5000'])
             ->expectsOutputToContain('open-payment slots')
             ->assertSuccessful();
+    }
+
+    public function test_every_switch_and_range_of_partner_branch_pair_and_account_is_respected()
+    {
+        $this->activeAccount(overrides: ['min_amount' => 20000, 'max_amount' => 800000, 'daily_count_limit' => 2]);
+        $mapping = PartnerBranchMapping::query()->where(['partner_id' => $this->partner->id, 'branch_id' => $this->branch->id])->sole();
+        $offered = function (int $amount = 500000): array {
+            [, $token] = $this->createPayin(['amount' => $amount]);
+
+            return $this->get($this->page($token))->viewData('page')['props']['methods'];
+        };
+        $all = ['upi', 'qr', 'bank_transfer'];
+
+        $this->assertSame($all, $offered());
+        $this->assertSame([], $offered(10000));
+        $this->assertSame([], $offered(900000));
+
+        $this->partner->update(['allow_qr' => false]);
+        $this->assertSame(['upi', 'bank_transfer'], $offered());
+        [, $token] = $this->createPayin(['amount' => 500000]);
+        $this->choose($token, 'qr')->assertSessionHasErrors('method');
+        $this->partner->update(['allow_qr' => true]);
+
+        foreach ([
+            [$this->branch, ['deposit_min_amount' => 600000], ['deposit_min_amount' => null]],
+            [$this->branch, ['deposit_max_amount' => 400000], ['deposit_max_amount' => null]],
+            [$this->branch, ['is_deposit_enabled' => false], ['is_deposit_enabled' => true]],
+            [$mapping, ['is_deposit_enabled' => false], ['is_deposit_enabled' => true]],
+            [$mapping, ['deposit_daily_limit' => 400000], ['deposit_daily_limit' => null]],
+        ] as [$model, $off, $on]) {
+            $model->update($off);
+            $this->assertSame([], $offered(), json_encode($off));
+            $model->update($on);
+            $this->assertSame($all, $offered());
+        }
+
+        foreach (range(1, 2) as $i) {
+            [, $token] = $this->createPayin(['amount' => 500000]);
+            $this->choose($token, 'upi')->assertSessionHasNoErrors();
+        }
+
+        [, $third] = $this->createPayin(['amount' => 500000]);
+        $this->assertSame([], $this->get($this->page($third))->viewData('page')['props']['methods']);
+        $this->choose($third, 'upi')->assertSessionHasErrors('method');
+    }
+
+    public function test_admin_is_alerted_once_when_customers_cannot_pay()
+    {
+        Notification::fake();
+        $admin = User::factory()->admin(SystemRoles::ADMIN_OPS)->withTwoFactor()->create();
+        $this->activeAccount(overrides: ['daily_amount_limit' => 600000]);
+
+        [, $first] = $this->createPayin(['amount' => 500000]);
+        $this->choose($first, 'upi')->assertSessionHasNoErrors();
+
+        [$reference, $second] = $this->createPayin(['amount' => 500000]);
+        $this->get($this->page($second))->assertInertia(fn (Assert $page) => $page->where('methods', []));
+        $this->choose($second, 'upi')->assertSessionHasErrors('method');
+
+        $alerts = Notification::sent($admin, PortalAlert::class, fn (PortalAlert $alert) => $alert->alert === Alert::PayinNoAccount);
+        $this->assertCount(1, $alerts);
+        $this->assertStringContainsString($reference, $alerts->first()->body);
+        $this->assertStringContainsString('account daily amount limit reached', $alerts->first()->body);
     }
 
     public function test_choosing_a_method_allocates_an_account_and_reserves_its_capacity()

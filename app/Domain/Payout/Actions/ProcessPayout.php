@@ -195,6 +195,7 @@ class ProcessPayout
             ]);
             AuditLog::record('payout.reassigned', $locked, ['branch_id' => $fromBranch], ['branch_id' => $to->id, 'reason' => $reason], $actor);
             $this->alerts->payoutAssigned($locked);
+            $this->alerts->payoutOnShortBranch($locked, $new);
 
             return $this->sync($payout, $locked);
         });

@@ -20,10 +20,16 @@ enum Alert: string
     case AccountVerification = 'account_verification';
     case AccountReviewed = 'account_reviewed';
     case Reversal = 'reversal';
+    case PayinNoAccount = 'payin_no_account';
+    case PayoutNoBranch = 'payout_no_branch';
+    case PayoutShortBranch = 'payout_short_branch';
 
     public function label(): string
     {
         return match ($this) {
+            self::PayinNoAccount => 'Customers can’t pay: no bank account free',
+            self::PayoutNoBranch => 'Payouts refused: no branch can take them',
+            self::PayoutShortBranch => 'Payout sent to a branch holding less of the partner’s balance',
             self::DepositsWaiting => 'Deposits waiting too long',
             self::UnsettledLines => 'New unsettled bank lines',
             self::PayoutAssigned => 'Payout to pay',
@@ -48,7 +54,8 @@ enum Alert: string
             self::DepositsWaiting, self::PayoutAssigned, self::AccountReviewed => [UserType::Branch],
             self::UnsettledLines => [UserType::Admin, UserType::Branch],
             self::WebhookFailed => [UserType::Partner],
-            self::AdjustmentRequested, self::AdjustmentDecided, self::AccountVerification => [UserType::Admin],
+            self::AdjustmentRequested, self::AdjustmentDecided, self::AccountVerification,
+            self::PayinNoAccount, self::PayoutNoBranch, self::PayoutShortBranch => [UserType::Admin],
             self::SettlementCalculated, self::Reversal => [UserType::Partner, UserType::Branch],
         };
     }

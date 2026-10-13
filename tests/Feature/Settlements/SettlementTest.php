@@ -169,11 +169,12 @@ class SettlementTest extends TestCase
         $this->assertSame('2026-09-27T06:00:00+00:00', app(Settings::class)->lastCutoff(CarbonImmutable::parse('2026-09-28T05:59:00Z'))->toIso8601String());
         $this->assertSame('2026-09-28T06:00:00+00:00', app(Settings::class)->lastCutoff(CarbonImmutable::parse('2026-09-28T06:00:00Z'))->toIso8601String());
 
-        $this->travelTo(CarbonImmutable::parse('2026-09-28T04:00:00Z'));
+        $day = CarbonImmutable::now('UTC')->addDay()->startOfDay();
+        $this->travelTo($day->setTime(4, 0));
         $this->approvedPayin(1000000, '626812820491');
         $idle = Branch::factory()->create();
 
-        $this->travelTo(CarbonImmutable::parse('2026-09-28T06:01:00Z'));
+        $this->travelTo($day->setTime(6, 1));
         $run = app(CalculateSettlement::class);
         $cutoff = app(Settings::class)->lastCutoff();
 

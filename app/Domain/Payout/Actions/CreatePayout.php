@@ -96,9 +96,16 @@ class CreatePayout
                     'reservation' => $reservation,
                 ]);
                 app(AlertDispatcher::class)->payoutAssigned($payout);
+                app(AlertDispatcher::class)->payoutOnShortBranch($payout, $reservation);
 
                 return ['payout' => $payout, 'created' => true];
             });
+        } catch (ApiException $exception) {
+            if ($exception->errorCode === 'no_branch_available') {
+                app(AlertDispatcher::class)->payoutNoBranch($partner, (int) $data['amount']);
+            }
+
+            throw $exception;
         } catch (QueryException $exception) {
             if ($exception->getCode() === '23505' && ($existing = $this->existing($partner, $data['order_id'])) !== null) {
                 return $this->replay($existing, $hash);

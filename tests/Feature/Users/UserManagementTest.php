@@ -111,6 +111,7 @@ class UserManagementTest extends TestCase
     public function test_a_new_user_needs_a_unique_valid_username()
     {
         User::factory()->create(['username' => 'taken']);
+        $admin = $this->superAdmin();
         $before = User::count();
         $payload = fn (string $username) => [
             'username' => $username,
@@ -119,7 +120,7 @@ class UserManagementTest extends TestCase
         ];
 
         foreach (['', 'ab', 'taken', 'Has Space', 'who@where', 'UPPER'] as $username) {
-            $this->actingAs($this->superAdmin())->post(route('admin.users.store'), $payload($username))
+            $this->actingAs($admin)->post(route('admin.users.store'), $payload($username))
                 ->assertSessionHasErrors('username');
         }
 

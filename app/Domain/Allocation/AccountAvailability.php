@@ -11,6 +11,8 @@ use stdClass;
 
 class AccountAvailability
 {
+    private const NOT_MAPPED = 'branch is not mapped to this partner';
+
     public function __construct(private UsageCounters $usage) {}
 
     /**
@@ -24,6 +26,32 @@ class AccountAvailability
             ->all();
 
         return array_values(array_filter(AllocateAccount::METHODS, fn (string $method) => in_array($method, $free, true)));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function reasons(Partner $partner, int $amount, int $limit = 5): array
+    {
+        $mapped = collect($this->accounts($partner, $amount))
+            ->reject(fn (array $row) => in_array(self::NOT_MAPPED, $row['blockers'], true));
+
+        if ($mapped->isEmpty()) {
+            return ['No bank account is set up at any branch mapped to this partner.'];
+        }
+
+        $blocked = $mapped
+            ->filter(fn (array $row) => $row['blockers'] !== [])
+            ->map(fn (array $row) => "{$row['branch']} · {$row['account']}: ".implode('; ', $row['blockers']));
+
+        if ($blocked->isEmpty()) {
+            return ['Every account was taken by other customers at that moment.'];
+        }
+
+        return [
+            ...$blocked->take($limit)->values()->all(),
+            ...($blocked->count() > $limit ? ['+'.($blocked->count() - $limit).' more'] : []),
+        ];
     }
 
     /**
@@ -87,7 +115,7 @@ class AccountAvailability
         $blockers = [];
 
         if ($row->mapping_id === null) {
-            $blockers[] = 'branch is not mapped to this partner';
+            $blockers[] = self::NOT_MAPPED;
         } else {
             if ($row->mapping_status !== 'active') {
                 $blockers[] = "partner mapping is {$row->mapping_status}";

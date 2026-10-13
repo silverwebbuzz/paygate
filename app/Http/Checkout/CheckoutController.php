@@ -5,6 +5,7 @@ namespace App\Http\Checkout;
 use App\Domain\Allocation\AccountAvailability;
 use App\Domain\Allocation\Actions\AllocateAccount;
 use App\Domain\Allocation\Exceptions\NoAccountAvailable;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\PaymentSession\Models\PaymentSession;
@@ -103,6 +104,10 @@ class CheckoutController extends Controller
         try {
             $allocate->handle($session->transaction, $data['method']);
         } catch (NoAccountAvailable $exception) {
+            if ($exception->reason === 'no_account') {
+                app(AlertDispatcher::class)->payinNoAccount($session->transaction, $session->transaction->partner, $data['method']);
+            }
+
             throw ValidationException::withMessages(['method' => match ($exception->reason) {
                 'method_not_offered' => __('This payment method isn’t available. Please choose another.'),
                 'closed' => __('This payment is no longer open.'),
@@ -157,10 +162,16 @@ class CheckoutController extends Controller
 
         $available = app(AccountAvailability::class)->methods($partner, $payin->amount);
 
-        return array_values(array_filter(
+        $methods = array_values(array_filter(
             $offered,
             fn (string $method) => in_array($method, $available, true) || ($account !== null && AllocateAccount::supports($account, $method)),
         ));
+
+        if ($methods === []) {
+            app(AlertDispatcher::class)->payinNoAccount($payin, $partner);
+        }
+
+        return $methods;
     }
 
     private function initials(string $name): string
