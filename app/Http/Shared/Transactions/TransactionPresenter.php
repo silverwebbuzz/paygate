@@ -63,6 +63,7 @@ class TransactionPresenter
                 'mobile' => $txn->customer->mobile,
             ] : null,
             'amount' => $txn->amount,
+            'order_amount' => $txn->order_amount,
             'net' => $net,
             'method' => $txn->method,
             'status' => $txn->status,

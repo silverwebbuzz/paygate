@@ -20,6 +20,7 @@ type Props = {
         reference: string;
         order_id: string;
         amount: number;
+        order_amount: number | null;
         customer_name: string | null;
         status: string;
         method: Method | null;
@@ -152,6 +153,14 @@ export default function Checkout(props: Props) {
                             body={`${formatPaise(payin.amount)} has been received by ${partner.name}.`}
                             rows={[
                                 ['Amount paid', formatPaise(payin.amount)],
+                                ...(payin.order_amount !== null
+                                    ? [
+                                          [
+                                              'Order amount',
+                                              formatPaise(payin.order_amount),
+                                          ] as [string, string],
+                                      ]
+                                    : []),
                                 ['Reference', payin.utr ?? payin.reference],
                                 ['Paid on', formatDateTime(payin.completed_at)],
                             ]}

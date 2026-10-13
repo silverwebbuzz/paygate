@@ -35,6 +35,7 @@ use Illuminate\Support\Str;
  * @property string|null $payment_account_id
  * @property string|null $method upi / qr / upi_intent / bank_transfer
  * @property int $amount
+ * @property int|null $order_amount
  * @property int|null $received_amount
  * @property string $currency
  * @property string $status
@@ -76,6 +77,7 @@ class Transaction extends Model
     {
         return [
             'amount' => 'integer',
+            'order_amount' => 'integer',
             'received_amount' => 'integer',
             'partner_commission' => 'integer',
             'branch_commission' => 'integer',
@@ -112,6 +114,11 @@ class Transaction extends Model
     public function isPayin(): bool
     {
         return $this->direction === 'payin';
+    }
+
+    public function orderAmount(): int
+    {
+        return $this->order_amount ?? $this->amount;
     }
 
     /**

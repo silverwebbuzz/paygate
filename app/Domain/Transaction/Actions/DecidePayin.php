@@ -9,6 +9,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
@@ -46,11 +47,12 @@ class DecidePayin
         private ReleaseAllocation $allocation,
         private QueueWebhook $webhooks,
         private StatementMatcher $matcher,
+        private AlertDispatcher $alerts,
     ) {}
 
-    public function approve(User $actor, Transaction $payin, string $bankUtr, ?string $note = null): Transaction
+    public function approve(User $actor, Transaction $payin, string $bankUtr, ?string $note = null, ?int $received = null): Transaction
     {
-        return $this->succeed($actor, $payin, $bankUtr, $note, late: false);
+        return $this->succeed($actor, $payin, $bankUtr, $note, late: false, received: $received);
     }
 
     /**
@@ -59,12 +61,12 @@ class DecidePayin
      * unsettled queue. Same bookings as approve; the partner receives
      * payin.success again with `late: true`.
      */
-    public function approveLate(User $actor, Transaction $payin, string $bankUtr, ?string $note = null): Transaction
+    public function approveLate(User $actor, Transaction $payin, string $bankUtr, ?string $note = null, ?int $received = null): Transaction
     {
-        return $this->succeed($actor, $payin, $bankUtr, $note, late: true);
+        return $this->succeed($actor, $payin, $bankUtr, $note, late: true, received: $received);
     }
 
-    private function succeed(User $actor, Transaction $payin, string $bankUtr, ?string $note, bool $late): Transaction
+    private function succeed(User $actor, Transaction $payin, string $bankUtr, ?string $note, bool $late, ?int $received): Transaction
     {
         $utr = Transaction::normaliseUtr($bankUtr);
 
@@ -72,14 +74,25 @@ class DecidePayin
             throw ValidationException::withMessages(['bank_utr' => __('Enter the UTR exactly as your bank statement shows it (6–22 letters or digits).')]);
         }
 
+        if ($received !== null && $received <= 0) {
+            throw ValidationException::withMessages(['received_amount' => __('Enter the amount that reached your bank account.')]);
+        }
+
         try {
-            return DB::transaction(function () use ($actor, $payin, $bankUtr, $utr, $note, $late) {
+            return DB::transaction(function () use ($actor, $payin, $bankUtr, $utr, $note, $late, $received) {
                 $locked = $this->lock($payin, $late ? self::LATE_APPROVABLE : self::DECIDABLE);
+                $order = $locked->orderAmount();
+                $received ??= $order;
+                $differs = $received !== $order;
+
+                if ($differs && trim((string) $note) === '') {
+                    throw ValidationException::withMessages(['note' => __('Say why the amount received differs from the order amount.')]);
+                }
 
                 $mapping = PartnerBranchMapping::query()
                     ->where(['partner_id' => $locked->partner_id, 'branch_id' => $locked->branch_id])
                     ->firstOrFail();
-                $commission = $this->commissions->calculate($mapping, Direction::Deposit, $locked->amount);
+                $commission = $this->commissions->calculate($mapping, Direction::Deposit, $received);
 
                 $from = $locked->status;
                 $locked->forceFill([
@@ -89,7 +102,9 @@ class DecidePayin
                     'status_reason_code' => $late ? 'late_payment' : null,
                     'bank_utr' => mb_substr(trim($bankUtr), 0, 50),
                     'bank_utr_normalized' => $utr,
-                    'received_amount' => $locked->amount,
+                    'amount' => $received,
+                    'order_amount' => $differs ? $order : null,
+                    'received_amount' => $received,
                     'status_note' => $note,
                     'decided_at' => now(),
                     'decided_by' => $actor->id,
@@ -120,10 +135,21 @@ class DecidePayin
                     'utr_differs' => $locked->customer_utr_normalized !== null && $locked->customer_utr_normalized !== $utr,
                     'partner_commission' => $commission['partner_commission'],
                     'branch_commission' => $commission['branch_commission'],
+                    ...($differs ? ['order_amount' => $order, 'received_amount' => $received] : []),
                 ]);
-                AuditLog::record($late ? 'payin.approved_late' : 'payin.approved', $locked, ['status' => $from], ['status' => $locked->status, 'bank_utr' => $utr], $actor);
+                AuditLog::record(
+                    $late ? 'payin.approved_late' : 'payin.approved',
+                    $locked,
+                    ['status' => $from, ...($differs ? ['amount' => $order] : [])],
+                    ['status' => $locked->status, 'bank_utr' => $utr, ...($differs ? ['amount' => $received] : [])],
+                    $actor,
+                );
                 $this->webhooks->forPayin($locked, 'payin.success');
                 $this->matcher->transactionApproved($locked, $actor);
+
+                if ($differs) {
+                    $this->alerts->payinAmountDiffers($locked, $actor);
+                }
 
                 $payin->setRawAttributes($locked->getAttributes(), true);
 

@@ -65,6 +65,7 @@ class CheckoutController extends Controller
                 'reference' => $payin->reference,
                 'order_id' => $payin->partner_transaction_id,
                 'amount' => $payin->amount,
+                'order_amount' => $payin->order_amount,
                 'customer_name' => $payin->customer->name ?? $payin->customer->username ?? null,
                 'status' => $payin->status,
                 'method' => $payin->method,

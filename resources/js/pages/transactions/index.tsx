@@ -220,6 +220,11 @@ export default function Transactions({
             cell: (t) => (
                 <div>
                     <div className="font-medium">{formatPaise(t.amount)}</div>
+                    {t.order_amount !== null && (
+                        <div className="text-[11px] text-wn">
+                            of {formatPaise(t.order_amount)} ordered
+                        </div>
+                    )}
                     <div className="text-xs text-tx3">
                         {t.net === null
                             ? '—'

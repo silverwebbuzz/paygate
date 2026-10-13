@@ -9,6 +9,7 @@ use App\Domain\Platform\Models\ReasonCode;
 use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -96,15 +97,22 @@ class DepositQueueController extends Controller
         $actor = $this->authorizeDecision($request, $transaction);
         $data = $request->validate([
             'bank_utr' => ['required', 'string', 'max:50'],
+            'received_amount' => ['nullable', 'string', Money::RUPEES_RULE],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $decide->approve($actor, $transaction, $data['bank_utr'], $data['note'] ?? null);
+        $decide->approve($actor, $transaction, $data['bank_utr'], $data['note'] ?? null, Money::toPaiseOrNull($data['received_amount'] ?? null));
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference approved · ₹:amount.', [
-            'reference' => $transaction->reference,
-            'amount' => number_format($transaction->amount / 100, 2),
-        ])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => $transaction->order_amount === null
+            ? __(':reference approved · ₹:amount.', [
+                'reference' => $transaction->reference,
+                'amount' => number_format($transaction->amount / 100, 2),
+            ])
+            : __(':reference approved · ₹:amount of ₹:order ordered.', [
+                'reference' => $transaction->reference,
+                'amount' => number_format($transaction->amount / 100, 2),
+                'order' => number_format($transaction->order_amount / 100, 2),
+            ])]);
 
         return back();
     }

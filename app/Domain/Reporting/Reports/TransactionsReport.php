@@ -52,6 +52,7 @@ class TransactionsReport extends Report
             $this->column('customer', 'Customer id'),
             $this->direction === 'payout' ? $this->column('beneficiary', 'Beneficiary') : $this->column('method', 'Method'),
             $this->column('amount', 'Amount', 'money'),
+            $this->direction === 'payin' ? $this->column('order_amount', 'Order amount', 'money') : null,
             $this->direction === 'payin' ? $this->column('customer_utr', 'Customer UTR') : null,
             $this->column('bank_utr', 'Bank UTR'),
             $this->column('status', 'Status', 'status'),
@@ -65,7 +66,7 @@ class TransactionsReport extends Report
     public function rows(Scope $scope, Period $period, array $filters): iterable
     {
         foreach ($this->query($scope, $period, $filters)->select([
-            't.reference', 't.partner_transaction_id', 't.created_at', 't.method', 't.amount', 't.customer_utr_normalized',
+            't.reference', 't.partner_transaction_id', 't.created_at', 't.method', 't.amount', 't.order_amount', 't.customer_utr_normalized',
             't.bank_utr_normalized', 't.status', 't.decided_at', 't.partner_commission', 't.branch_commission', 't.platform_margin',
             'p.code as partner_code', 'b.code as branch_code', 'c.external_id as customer_id', 'pb.account_holder_name as beneficiary',
         ])->orderBy('t.created_at')->orderBy('t.id')->lazy(1000) as $row) {
@@ -85,6 +86,7 @@ class TransactionsReport extends Report
                 },
                 'beneficiary' => $row->beneficiary,
                 'amount' => (int) $row->amount,
+                'order_amount' => (int) ($row->order_amount ?? $row->amount),
                 'customer_utr' => $row->customer_utr_normalized,
                 'bank_utr' => $row->bank_utr_normalized,
                 'status' => $row->status,

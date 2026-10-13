@@ -192,9 +192,11 @@ sha256 hex of the exact body</div>
     "order_id": "00000000-0000-0000-0000-000000000001",
     "status": "success",
     "amount": 10000,
+    "received_amount": 10000,
     "utr": "123456789012"
   }
 }</div>
+    <p class="small">amount is what you ordered. received_amount is what the customer actually paid and what your balance is credited. If the customer paid less or more, the branch approves the amount received and the two differ: credit your customer received_amount.</p>
     <div class="lbl">Response success</div>
     <p>Any HTTP 2xx within 10 seconds. The body is ignored.</p>
     <div class="lbl">Response failed</div>
@@ -213,11 +215,12 @@ sha256 hex of the exact body</div>
     "order_id": "00000000-0000-0000-0000-000000000001",
     "status": "success",
     "amount": 10000,
+    "received_amount": 10000,
     "utr": "123456789012",
     "late": false
   }
 }</div>
-    <p class="small">status is a word: created, awaiting_payment, payment_submitted, under_review, success, rejected, expired, cancelled, chargeback, refunded. Credit only on success. A late payment can become success after expired or rejected, with late true. Credit that once.</p>
+    <p class="small">status is a word: created, awaiting_payment, payment_submitted, under_review, success, rejected, expired, cancelled, chargeback, refunded. Credit only on success, and credit received_amount (it can differ from amount when the customer paid a different amount). A late payment can become success after expired or rejected, with late true. Credit that once.</p>
     <div class="lbl">Response failed — HTTP 404</div>
     <div class="code">{ "error": { "code": "not_found", "message": "No pay-in with this id for your account.", "request_id": "..." } }</div>
     <p>POST {{ $base }}/payins/{id}/cancel before the customer pays. Header is the same four signing headers.</p>

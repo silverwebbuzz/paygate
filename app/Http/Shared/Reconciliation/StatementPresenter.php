@@ -146,7 +146,7 @@ class StatementPresenter
 
         $query = $reference !== null && trim($reference) !== ''
             ? $query->where(fn ($query) => TransactionController::search($query, trim($reference)))
-            : $query->where('amount', $entry->amount)
+            : $query->where(fn ($query) => $query->where('amount', $entry->amount)->when($case->transaction_id !== null, fn ($query) => $query->orWhere('transactions.id', $case->transaction_id)))
                 ->whereIn('status', $credit ? ['payment_submitted', 'payment_detected', 'under_review', 'success', 'rejected', 'expired'] : ['success'])
                 ->whereBetween('created_at', [$from, $to]);
 

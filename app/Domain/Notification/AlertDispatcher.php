@@ -115,6 +115,27 @@ class AlertDispatcher
         );
     }
 
+    public function payinAmountDiffers(Transaction $payin, User $approver): void
+    {
+        $branch = Branch::query()->whereKey($payin->branch_id)->value('code');
+
+        $this->alerts->send(
+            Alert::PayinAmountDiffers,
+            $this->alerts->recipients(Permission::PayinsApprove, UserType::Admin, except: $approver),
+            __('Deposit :reference approved for ₹:received of ₹:order', [
+                'reference' => $payin->reference,
+                'received' => $this->money($payin->amount),
+                'order' => $this->money($payin->orderAmount()),
+            ]),
+            __(':name approved it for the amount that reached branch :branch. Note: :note', [
+                'name' => $approver->username ?? $approver->name,
+                'branch' => $branch ?? '—',
+                'note' => $payin->status_note ?? '—',
+            ]),
+            Alerts::link('admin.transactions.index', ['txn' => $payin->id]),
+        );
+    }
+
     public function webhookFailed(WebhookEvent $event): void
     {
         $reference = Transaction::query()->whereKey($event->transaction_id)->value('reference');

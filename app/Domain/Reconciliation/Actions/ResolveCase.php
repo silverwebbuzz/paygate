@@ -67,7 +67,7 @@ class ResolveCase
             $entry = $this->lockOpen($case);
             $payin = $this->lockTransaction($payin);
 
-            $this->ensureSameMoney($entry, $payin);
+            $this->ensureSameMoney($entry, $payin, exactAmount: false);
 
             $utr = trim((string) $bankUtr) !== '' ? (string) $bankUtr : $entry->utr_normalized;
 
@@ -75,7 +75,7 @@ class ResolveCase
                 throw ValidationException::withMessages(['bank_utr' => __('Enter the bank UTR of this credit.')]);
             }
 
-            $approved = $this->decide->approveLate($actor, $payin, $utr, $note ?? __('Late payment, approved from case :case.', ['case' => $case->reference]));
+            $approved = $this->decide->approveLate($actor, $payin, $utr, $note ?? __('Late payment, approved from case :case.', ['case' => $case->reference]), $entry->amount);
 
             // Approval links a line with the same UTR itself; otherwise link this one.
             if ($entry->refresh()->transaction_id === null) {
@@ -130,7 +130,7 @@ class ResolveCase
      * Exact rules only (G-24): the right direction, the same account (or
      * branch for payouts), the same amount, and not linked to another line.
      */
-    private function ensureSameMoney(StatementEntry $entry, Transaction $txn): void
+    private function ensureSameMoney(StatementEntry $entry, Transaction $txn, bool $exactAmount = true): void
     {
         $problem = match (true) {
             $entry->isCredit() !== $txn->isPayin() => $entry->isCredit()
@@ -138,11 +138,13 @@ class ResolveCase
                 : __('Money paid out can only be linked to a payout.'),
             $txn->isPayin() && $txn->payment_account_id !== $entry->payment_account_id => __(':reference was paid to another account.', ['reference' => $txn->reference]),
             ! $txn->isPayin() && $txn->branch_id !== $entry->branch_id => __(':reference was paid by another branch.', ['reference' => $txn->reference]),
-            $txn->amount !== $entry->amount => __('The amounts differ (bank ₹:bank, :reference ₹:txn). Only exact amounts can be linked.', [
-                'bank' => number_format($entry->amount / 100, 2),
-                'reference' => $txn->reference,
-                'txn' => number_format($txn->amount / 100, 2),
-            ]),
+            $exactAmount && $txn->amount !== $entry->amount => __(in_array($txn->status, ['payment_submitted', 'payment_detected', 'under_review'], true) && $txn->isPayin()
+                ? 'The amounts differ (bank ₹:bank, :reference ₹:txn). Approve :reference in Deposits for the amount received; this line then links itself.'
+                : 'The amounts differ (bank ₹:bank, :reference ₹:txn). Only exact amounts can be linked.', [
+                    'bank' => number_format($entry->amount / 100, 2),
+                    'reference' => $txn->reference,
+                    'txn' => number_format($txn->amount / 100, 2),
+                ]),
             StatementEntry::query()->where('transaction_id', $txn->id)->whereKeyNot($entry->id)->exists() => __(':reference is already linked to another bank line.', ['reference' => $txn->reference]),
             default => null,
         };

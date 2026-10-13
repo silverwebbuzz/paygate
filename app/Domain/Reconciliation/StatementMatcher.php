@@ -212,9 +212,9 @@ class StatementMatcher
         $closed = $own->first(fn (Transaction $txn) => in_array($txn->status, self::CLOSED, true));
 
         if ($closed !== null) {
-            $closed->amount === $entry->amount
-                ? $this->openCase($entry, CaseType::LatePayment, $closed, __('The deposit is :status; the money arrived anyway.', ['status' => str_replace('_', ' ', $closed->status)]))
-                : $this->openCase($entry, CaseType::AmountMismatch, $closed, $this->amountNote($entry, $closed));
+            $this->openCase($entry, CaseType::LatePayment, $closed, $closed->amount === $entry->amount
+                ? __('The deposit is :status; the money arrived anyway.', ['status' => str_replace('_', ' ', $closed->status)])
+                : __('The deposit is :status; the money arrived anyway, but for a different amount. :amounts', ['status' => str_replace('_', ' ', $closed->status), 'amounts' => $this->amountNote($entry, $closed)]));
 
             return;
         }

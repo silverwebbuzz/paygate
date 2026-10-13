@@ -32,6 +32,7 @@ export type TxnRow = {
     customer: { id: string; name: string | null; mobile: string | null } | null;
     beneficiary?: { type: string; name: string; masked: string } | null;
     amount: number;
+    order_amount: number | null;
     net: number | null;
     method: string | null;
     status: string;
@@ -249,7 +250,14 @@ export function TransactionDrawer({
                 .join(' · ')}
             actions={actions}
             summaries={[
-                { label: 'Amount', value: formatPaise(txn.amount) },
+                {
+                    label:
+                        txn.order_amount === null
+                            ? 'Amount'
+                            : `Received · ordered ${formatPaise(txn.order_amount)}`,
+                    value: formatPaise(txn.amount),
+                    tone: txn.order_amount === null ? undefined : 'text-wn',
+                },
                 {
                     label:
                         txn.direction === 'payout'

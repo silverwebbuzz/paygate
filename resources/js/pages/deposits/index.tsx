@@ -288,6 +288,11 @@ export default function Deposits(props: Props) {
                             <div className="flex items-baseline justify-between">
                                 <span className="text-[22px] font-semibold tracking-[-.02em]">
                                     {formatPaise(txn.amount)}
+                                    {txn.order_amount !== null && (
+                                        <span className="ml-1.5 text-xs font-normal text-wn">
+                                            of {formatPaise(txn.order_amount)}
+                                        </span>
+                                    )}
                                 </span>
                                 <span className="text-xs text-tx3">
                                     {txn.method
@@ -403,7 +408,14 @@ export default function Deposits(props: Props) {
                                 header: 'Amount',
                                 align: 'right',
                                 cell: (t: TxnRow) => (
-                                    <b>{formatPaise(t.amount)}</b>
+                                    <>
+                                        <b>{formatPaise(t.amount)}</b>
+                                        {t.order_amount !== null && (
+                                            <div className="text-[11px] text-wn">
+                                                of {formatPaise(t.order_amount)}
+                                            </div>
+                                        )}
+                                    </>
                                 ),
                             },
                             {
@@ -531,16 +543,24 @@ function ApproveDialog({
     onClose: () => void;
 }) {
     // A matching bank statement line gives the verified UTR.
-    const form = useForm({ bank_utr: txn.bank_line?.utr ?? '', note: '' });
+    const form = useForm({
+        bank_utr: txn.bank_line?.utr ?? '',
+        received_amount: (txn.amount / 100).toFixed(2),
+        note: '',
+    });
     const errors = form.errors as Record<string, string | undefined>;
+    const received = Math.round(
+        Number(form.data.received_amount.replace(/[,\s₹]/g, '')) * 100,
+    );
+    const differs = Number.isFinite(received) && received !== txn.amount;
 
     return (
         <FormDialog
             open
             onOpenChange={(open) => !open && onClose()}
-            title={`Approve ${formatPaise(txn.amount)}?`}
-            description={`${txn.reference} · ${txn.partner?.name ?? ''}. Approve only when this exact amount is in your bank account. The partner is credited immediately and this can’t be undone.`}
-            submitLabel="Approve"
+            title={`Approve ${formatPaise(differs && received > 0 ? received : txn.amount)}?`}
+            description={`${txn.reference} · ${txn.partner?.name ?? ''}. Enter the amount that actually reached your bank account. The partner is credited that amount immediately and this can’t be undone.`}
+            submitLabel={differs ? 'Approve amount received' : 'Approve'}
             processing={form.processing}
             onSubmit={() =>
                 form.post(url, { preserveScroll: true, onSuccess: onClose })
@@ -582,9 +602,37 @@ function ApproveDialog({
                     }
                 />
             </Field>
-            <Field label="Note (optional)">
+            <Field
+                label={`Amount received (₹) · order ${formatPaise(txn.amount)}`}
+                hint="Change it only if the customer paid a different amount."
+                error={errors.received_amount}
+            >
                 <TextInput
+                    required
+                    inputMode="decimal"
+                    className="font-mono"
+                    value={form.data.received_amount}
+                    invalid={!!errors.received_amount}
+                    onChange={(event) =>
+                        form.setData('received_amount', event.target.value)
+                    }
+                />
+            </Field>
+            {differs && received > 0 && (
+                <div className="rounded-lg bg-wnb px-3 py-2.5 text-[12.5px] text-wn">
+                    The customer paid {formatPaise(received)} instead of{' '}
+                    {formatPaise(txn.amount)}. {txn.partner?.name ?? 'The partner'}{' '}
+                    is credited {formatPaise(received)} and Admin is told.
+                </div>
+            )}
+            <Field
+                label={differs ? 'Note (required)' : 'Note (optional)'}
+                error={errors.note}
+            >
+                <TextInput
+                    required={differs}
                     value={form.data.note}
+                    invalid={!!errors.note}
                     onChange={(event) =>
                         form.setData('note', event.target.value)
                     }

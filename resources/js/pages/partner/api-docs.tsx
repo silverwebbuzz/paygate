@@ -25,7 +25,10 @@ const STATUSES: [string, string][] = [
         'The customer says they paid (UTR or screenshot). The receiving branch is checking.',
     ],
     ['under_review', 'Being checked manually.'],
-    ['success', 'Money received and confirmed. Credit your customer now.'],
+    [
+        'success',
+        'Money received and confirmed. Credit your customer received_amount now: if the customer paid less or more than ordered, received_amount differs from amount and that is what your balance is credited.',
+    ],
     ['rejected', 'The payment could not be confirmed.'],
     ['expired', 'Not paid in time. The payment link no longer works.'],
     ['cancelled', 'You cancelled it before payment.'],
@@ -252,7 +255,8 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
     "id": "PI260927K7QX4MZD",
     "order_id": "ORD-918231457782",
     "status": "created",
-    "amount": 1253400,
+    "amount": 1253400,                    // the amount you ordered
+    "received_amount": null,              // set on success: what was actually paid
     "currency": "INR",
     "method": null,
     "customer_id": "user-5521",

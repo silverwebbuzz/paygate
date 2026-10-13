@@ -585,7 +585,7 @@ function CaseDrawer({
                                                 administrator
                                             </span>
                                         )
-                                    ) : (
+                                    ) : candidate.same_amount ? (
                                         <PgButton
                                             variant="primary"
                                             className="h-7 px-2 text-xs"
@@ -598,6 +598,12 @@ function CaseDrawer({
                                         >
                                             Link
                                         </PgButton>
+                                    ) : (
+                                        <span className="max-w-[180px] text-right text-xs text-tx3">
+                                            {candidate.status === 'success'
+                                                ? 'Different amount: only exact amounts can be linked'
+                                                : 'Approve it in Manual Deposit for the amount received; this line then links itself'}
+                                        </span>
                                     )}
                                 </div>
                             ))
@@ -742,7 +748,7 @@ function ApproveLate({
             open
             onOpenChange={(next) => !next && onClose()}
             title={`Approve ${txn.reference} late?`}
-            description={`The deposit is ${txn.status}, but the bank shows ${formatPaise(line.amount)} on ${formatDate(line.value_date)}. Approving credits the partner now and sends payin.success with “late”. This can’t be undone.`}
+            description={`The deposit is ${txn.status}, but the bank shows ${formatPaise(line.amount)} on ${formatDate(line.value_date)}. Approving credits the partner ${formatPaise(line.amount)}${txn.same_amount ? '' : ` (the order was for ${formatPaise(txn.amount)})`} now and sends payin.success with “late”. This can’t be undone.`}
             submitLabel="Approve late"
             processing={form.processing}
             onSubmit={() =>

@@ -119,7 +119,7 @@ class ReleaseAllocation
             $hadSession = $hadSession && $sessionOpen;
 
             $confirm
-                ? $this->usage->confirm($type, $id, $reservation['date'], Direction::Deposit, (int) $reservation['amount'], (bool) $hadSession)
+                ? $this->usage->confirm($type, $id, $reservation['date'], Direction::Deposit, (int) $reservation['amount'], (bool) $hadSession, $payin->amount)
                 : $this->usage->release($type, $id, $reservation['date'], Direction::Deposit, (int) $reservation['amount'], (bool) $hadSession);
         }
 
