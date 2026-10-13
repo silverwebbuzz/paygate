@@ -59,9 +59,8 @@ class DepositQueueController extends Controller
         $items = $inTab($base(), $tab)
             ->with(['partner', 'branch', 'paymentAccount', 'customer', 'statementEntry'])
             ->when($search !== '', fn (Builder $query) => TransactionController::search($query, $search))
-            // Oldest first while waiting (fairness), newest first once decided.
-            ->orderBy(in_array($tab, ['approved', 'declined'], true) ? 'decided_at' : 'submitted_at', in_array($tab, ['approved', 'declined'], true) ? 'desc' : 'asc')
-            ->orderBy('created_at')
+            ->when(in_array($tab, ['approved', 'declined'], true), fn (Builder $query) => $query->orderByDesc('decided_at'))
+            ->orderByDesc('created_at')
             ->paginate(30)
             ->withQueryString();
 

@@ -218,7 +218,9 @@ export default function Payouts(props: Props) {
                 <div className="flex-1" />
                 <span className="text-xs text-tx3">
                     {items.total}{' '}
-                    {tab === 'to_pay' ? 'waiting · oldest first' : ''}
+                    {tab === 'to_pay'
+                        ? 'waiting · newest first'
+                        : '· newest first'}
                 </span>
             </Panel>
 

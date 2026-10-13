@@ -356,7 +356,7 @@ export default function Cases(props: Props) {
                     </label>
                     <div className="flex-1" />
                     <span className="text-xs text-tx3">
-                        {cases.total} {tab === 'open' ? '· oldest first' : ''}
+                        {cases.total} · newest first
                     </span>
                 </div>
                 <div className="overflow-x-auto">

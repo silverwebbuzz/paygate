@@ -51,7 +51,7 @@ class CaseController extends Controller
         $cases = $inTab($tab)
             ->when($type !== null, fn (Builder $query) => $query->where('type', $type->value))
             ->with(['branch', 'resolver', 'transaction', ...array_map(fn (string $relation) => 'entry.'.$relation, StatementPresenter::WITH)])
-            ->orderBy($tab === 'open' ? 'created_at' : 'resolved_at', $tab === 'open' ? 'asc' : 'desc')
+            ->orderByDesc($tab === 'open' ? 'created_at' : 'resolved_at')
             ->paginate(30)
             ->withQueryString();
 

@@ -52,7 +52,7 @@ class ReconciliationController extends Controller
 
         $items = $inTab($tab)
             ->with(['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry'])
-            ->orderBy('succeeded_at', $tab === 'missing' ? 'asc' : 'desc')
+            ->orderByDesc('succeeded_at')
             ->paginate(30)
             ->withQueryString();
 

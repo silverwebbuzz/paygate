@@ -304,10 +304,7 @@ export default function Reconciliation(props: Props) {
                     </label>
                     <div className="flex-1" />
                     <span className="text-xs text-tx3">
-                        {items.total}{' '}
-                        {tab === 'missing'
-                            ? '· oldest first'
-                            : '· newest first'}
+                        {items.total} · newest first
                     </span>
                 </div>
                 <DataTable

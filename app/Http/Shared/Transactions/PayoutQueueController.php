@@ -55,7 +55,8 @@ class PayoutQueueController extends Controller
         $items = $inTab($tab)
             ->with(['partner', 'branch', 'customer', 'beneficiary', 'statementEntry'])
             ->when($search !== '', fn (Builder $query) => TransactionController::search($query, $search))
-            ->orderBy(in_array($tab, ['paid', 'failed'], true) ? 'decided_at' : 'created_at', in_array($tab, ['paid', 'failed'], true) ? 'desc' : 'asc')
+            ->when(in_array($tab, ['paid', 'failed'], true), fn (Builder $query) => $query->orderByDesc('decided_at'))
+            ->orderByDesc('created_at')
             ->paginate(30)
             ->withQueryString();
 

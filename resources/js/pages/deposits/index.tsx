@@ -239,8 +239,8 @@ export default function Deposits(props: Props) {
                 <span className="text-xs text-tx3">
                     {items.total}{' '}
                     {tab === 'pending' || tab === 'hold'
-                        ? 'waiting · oldest first'
-                        : ''}
+                        ? 'waiting · newest first'
+                        : '· newest first'}
                 </span>
             </Panel>
 
