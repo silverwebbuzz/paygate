@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { formatRelative } from '@/lib/dates';
@@ -80,32 +80,44 @@ const SUB_TONES = {
 /** Payouts in amber: validated against each portal accent (Phase 11). */
 const PAYOUT_COLOR = '#d97706';
 
-/** Where each "needs attention" item leads, per portal. */
-function targetUrl(portal: UserType, target: string | null): string | null {
-    const links: Record<UserType, Record<string, () => { url: string }>> = {
+/**
+ * Where each "needs attention" item leads, per portal, and the permission
+ * that screen needs: items the user cannot open stay plain text.
+ */
+function targetUrl(
+    portal: UserType,
+    target: string | null,
+    permissions: string[],
+): string | null {
+    type Target = [() => { url: string }, string | null];
+    const links: Record<UserType, Record<string, Target>> = {
         admin: {
-            deposits: admin.deposits.index,
-            cases: admin.cases.index,
-            payouts: admin.payouts.index,
-            accounts: admin.accounts.index,
-            adjustments: admin.adjustments.index,
+            deposits: [admin.deposits.index, 'payins.view'],
+            cases: [admin.cases.index, 'reconciliation.view'],
+            payouts: [admin.payouts.index, 'payouts.view'],
+            accounts: [admin.accounts.index, 'accounts.view'],
+            adjustments: [admin.adjustments.index, 'adjustments.view'],
         },
         branch: {
-            deposits: branch.deposits.index,
-            cases: branch.cases.index,
-            payouts: branch.payouts.index,
-            accounts: branch.accounts.index,
+            deposits: [branch.deposits.index, 'payins.view'],
+            cases: [branch.cases.index, 'reconciliation.view'],
+            payouts: [branch.payouts.index, 'payouts.view'],
+            accounts: [branch.accounts.index, 'accounts.view'],
         },
         partner: {
-            payins: partner.payins.index,
-            payout_history: partner.payouts.index,
-            developers: partner.developers.show,
+            payins: [partner.payins.index, 'payins.view'],
+            payout_history: [partner.payouts.index, 'payouts.view'],
+            developers: [partner.developers.show, null],
         },
     };
 
-    const route = target ? links[portal][target] : undefined;
+    const link = target ? links[portal][target] : undefined;
 
-    return route ? route().url : null;
+    if (!link || (link[1] && !permissions.includes(link[1]))) {
+        return null;
+    }
+
+    return link[0]().url;
 }
 
 /** "₹4.82 Cr", "₹38.42 L", "₹9,400" for tiles. */
@@ -162,6 +174,7 @@ export function LiveDashboard({
     ) => ReactNode;
 }) {
     const home = { admin, branch, partner }[portal].dashboard;
+    const { permissions } = usePage().props.auth;
     const [, tick] = useState(0);
 
     useEffect(() => {
@@ -343,7 +356,7 @@ export function LiveDashboard({
                         </span>
                     </div>
                     {metrics.attention.map((item) => {
-                        const url = targetUrl(portal, item.target);
+                        const url = targetUrl(portal, item.target, permissions);
                         const style = statusStyle(item.tone);
                         const body = (
                             <>
@@ -394,16 +407,18 @@ export function LiveDashboard({
                         <span className="text-sm font-semibold">
                             {metrics.table.title}
                         </span>
-                        <Link
-                            href={
-                                { admin, branch, partner }[
-                                    portal
-                                ].reports.index().url
-                            }
-                            className="text-xs font-medium text-ac"
-                        >
-                            View reports →
-                        </Link>
+                        {permissions.includes('reports.view') && (
+                            <Link
+                                href={
+                                    { admin, branch, partner }[
+                                        portal
+                                    ].reports.index().url
+                                }
+                                className="text-xs font-medium text-ac"
+                            >
+                                View reports →
+                            </Link>
+                        )}
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-[13px]">

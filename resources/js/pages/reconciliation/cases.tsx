@@ -432,7 +432,9 @@ function CaseDrawer({
     const line = item.entry;
     const txn = line?.transaction ?? null;
     const isOpen = item.status !== 'resolved';
-    const errors = usePage().props.errors as Record<string, string | undefined>;
+    const { errors: pageErrors, auth } = usePage().props;
+    const errors = pageErrors as Record<string, string | undefined>;
+    const canAdjust = auth.permissions.includes('adjustments.create');
     const problem =
         errors.transaction ?? errors.case ?? errors.resolution ?? errors.note;
 
@@ -637,7 +639,7 @@ function CaseDrawer({
                                     Returned to customer
                                 </PgButton>
                             )}
-                            {portal === 'admin' && (
+                            {portal === 'admin' && canAdjust && (
                                 <Link
                                     href={
                                         adminAdjustments.index({
