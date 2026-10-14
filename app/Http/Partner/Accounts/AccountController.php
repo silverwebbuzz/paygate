@@ -58,6 +58,7 @@ class AccountController extends Controller
                 'daily_count_limit' => $account->daily_count_limit,
                 'max_open_sessions' => $account->max_open_sessions,
                 'used_today' => $used[$account->id] ?? ['amount' => 0, 'count' => 0],
+                'verification' => $account->verification->value,
                 'status' => $account->status->value,
                 'rejected_reason' => $account->rejected_reason,
                 'verified_at' => $account->verified_at?->toIso8601String(),
@@ -65,6 +66,7 @@ class AccountController extends Controller
                 'can' => [
                     'update' => false,
                     'verify' => false,
+                    'set_verification' => false,
                     'switch_to' => [],
                 ],
             ])->values(),

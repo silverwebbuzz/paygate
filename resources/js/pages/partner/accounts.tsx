@@ -2,7 +2,6 @@ import { Head } from '@inertiajs/react';
 import { AccountTable } from '@/components/pg/account-table';
 import type { AccountRow } from '@/components/pg/account-form-dialog';
 import { Panel } from '@/components/pg/data-table';
-import { EmptyState } from '@/components/pg/empty-state';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
 
@@ -42,13 +41,9 @@ export default function PartnerAccounts({ accounts }: Props) {
                 <AccountTable
                     accounts={accounts}
                     showBranch={false}
+                    showVerification={false}
                     detailed
-                    empty={
-                        <EmptyState
-                            title="No active accounts"
-                            description="Active bank accounts and UPI IDs appear here once PayGate assigns them to you."
-                        />
-                    }
+                    empty="Active bank accounts and UPI IDs appear here once PayGate assigns them to you."
                 />
             </Panel>
         </>

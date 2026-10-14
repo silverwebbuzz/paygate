@@ -13,6 +13,7 @@ export type AccountVerification = AccountRow['verification'];
 export function AccountTable({
     accounts,
     showBranch,
+    showVerification = true,
     detailed = false,
     onVerification,
     onActive,
@@ -21,6 +22,7 @@ export function AccountTable({
 }: {
     accounts: AccountRow[];
     showBranch: boolean;
+    showVerification?: boolean;
     detailed?: boolean;
     onVerification?: (
         account: AccountRow,
@@ -31,7 +33,13 @@ export function AccountTable({
     empty: ReactNode;
 }) {
     const columns = detailed
-        ? detailedColumns(showBranch, onVerification, onActive, actions)
+        ? detailedColumns(
+              showBranch,
+              showVerification,
+              onVerification,
+              onActive,
+              actions,
+          )
         : compactColumns(showBranch, actions ?? (() => null));
 
     return (
@@ -151,6 +159,7 @@ function compactColumns(
 
 function detailedColumns(
     showBranch: boolean,
+    showVerification: boolean,
     onVerification:
         | ((account: AccountRow, verification: AccountVerification) => void)
         | undefined,
@@ -281,12 +290,18 @@ function detailedColumns(
                 </div>
             ),
         },
-        {
-            ...top,
-            key: 'verification',
-            header: 'Verification',
-            cell: (a) => <Verification account={a} onChange={onVerification} />,
-        },
+        ...(showVerification
+            ? [
+                  {
+                      ...top,
+                      key: 'verification',
+                      header: 'Verification',
+                      cell: (a: AccountRow) => (
+                          <Verification account={a} onChange={onVerification} />
+                      ),
+                  },
+              ]
+            : []),
         {
             ...top,
             key: 'status',
