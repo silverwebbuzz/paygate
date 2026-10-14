@@ -144,6 +144,15 @@ export default function Checkout(props: Props) {
                                 ['UTR', payin.utr ?? 'Screenshot sent'],
                                 ['Order ID', payin.order_id],
                             ]}
+                            note={`Your payment will reflect in your ${partner.name} account within a few minutes. The amount that actually reached us under this UTR is what gets added, so if you paid a different amount, that amount is credited. You don’t need to wait on this page.`}
+                            action={
+                                props.return_url
+                                    ? {
+                                          label: `Back to ${partner.name}`,
+                                          href: props.return_url,
+                                      }
+                                    : undefined
+                            }
                         />
                     )}
                     {status === 'success' && (
@@ -730,12 +739,14 @@ function Result({
     title,
     body,
     rows,
+    note,
     action,
 }: {
     tone: keyof typeof TONES;
     title: string;
     body: string;
     rows: [string, string][];
+    note?: string;
     action?: { label: string; href: string };
 }) {
     const style = TONES[tone];
@@ -765,6 +776,11 @@ function Result({
                     </div>
                 ))}
             </div>
+            {note && (
+                <div className="w-full rounded-[14px] border border-[#DBEAFE] bg-[#EFF6FF] px-3.5 py-3 text-left text-[12.5px] leading-relaxed text-[#1E3A8A]">
+                    <b className="font-semibold">Note:</b> {note}
+                </div>
+            )}
             {action && (
                 <a
                     href={action.href}
