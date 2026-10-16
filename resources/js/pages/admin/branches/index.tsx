@@ -720,7 +720,7 @@ export default function BranchesIndex({
                             )}
                             {tab === 'topups' && (
                                 <SimpleTable
-                                    empty="No top-ups yet."
+                                    empty="No top-ups or approved deposits yet."
                                     headers={[
                                         'Amount',
                                         'Balance after',

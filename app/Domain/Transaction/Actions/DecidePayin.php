@@ -3,6 +3,8 @@
 namespace App\Domain\Transaction\Actions;
 
 use App\Domain\Allocation\Actions\ReleaseAllocation;
+use App\Domain\Branch\Models\Branch;
+use App\Domain\Branch\Models\BranchLimitTopup;
 use App\Domain\Commission\CommissionCalculator;
 use App\Domain\Commission\Enums\Direction;
 use App\Domain\Core\Audit\Models\AuditLog;
@@ -124,10 +126,7 @@ class DecidePayin
                 $late ? $this->allocation->confirmLate($locked) : $this->allocation->confirm($locked);
 
                 // A top-up branch's allowance shrinks by what it received.
-                DB::update(
-                    "UPDATE branches SET deposit_topup_balance = GREATEST(deposit_topup_balance - ?, 0), updated_at = now() WHERE id = ? AND deposit_limit_type = 'topup'",
-                    [$locked->amount, $locked->branch_id],
-                );
+                $this->useTopupAllowance($actor, $locked);
 
                 TransactionEvent::record($locked, $late ? 'approved_late' : 'approved', $from, $locked->status, 'user', $actor->id, $note, [
                     'bank_utr' => $utr,
@@ -231,5 +230,38 @@ class DecidePayin
         }
 
         return $locked;
+    }
+
+    /**
+     * Takes an approved deposit off a top-up branch's allowance (never below
+     * zero) and writes it to the allowance history, so the Top-ups tab shows
+     * what each approval used up next to the Admin top-ups.
+     */
+    private function useTopupAllowance(User $actor, Transaction $payin): void
+    {
+        /** @var Branch|null $branch */
+        $branch = Branch::query()->whereKey($payin->branch_id)->lockForUpdate()->first();
+
+        if ($branch === null || ! $branch->usesTopup()) {
+            return;
+        }
+
+        $after = max($branch->deposit_topup_balance - $payin->amount, 0);
+        $used = $branch->deposit_topup_balance - $after;
+
+        if ($used === 0) {
+            return;
+        }
+
+        $branch->update(['deposit_topup_balance' => $after]);
+
+        BranchLimitTopup::create([
+            'branch_id' => $branch->id,
+            'transaction_id' => $payin->id,
+            'amount' => -$used,
+            'balance_after' => $after,
+            'reason' => __('Deposit :reference approved', ['reference' => $payin->reference]),
+            'created_by' => $actor->id,
+        ]);
     }
 }

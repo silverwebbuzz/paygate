@@ -9,11 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * One Admin change to a top-up branch's deposit allowance (append-only; a
- * negative amount is a correction).
+ * One change to a top-up branch's deposit allowance (append-only): an Admin
+ * top-up or correction, or — with transaction_id set — the amount an approved
+ * deposit used up.
  *
  * @property string $id
  * @property string $branch_id
+ * @property string|null $transaction_id
  * @property int $amount
  * @property int $balance_after
  * @property string $reason

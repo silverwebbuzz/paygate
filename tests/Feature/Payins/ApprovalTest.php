@@ -190,6 +190,33 @@ class ApprovalTest extends TestCase
         $this->approve($payin)->assertSessionHasNoErrors();
 
         $this->assertSame(750000, $this->branch->fresh()?->deposit_topup_balance);
+
+        // The approval shows in the allowance history next to Admin top-ups.
+        $row = $this->branch->topups()->sole();
+        $this->assertSame($payin->id, $row->transaction_id);
+        $this->assertSame(-250000, $row->amount);
+        $this->assertSame(750000, $row->balance_after);
+        $this->assertSame("Deposit {$payin->fresh()?->reference} approved", $row->reason);
+    }
+
+    public function test_a_topup_deduction_stops_at_zero_and_records_only_what_was_used()
+    {
+        $this->branch->update(['deposit_limit_type' => 'topup', 'deposit_topup_balance' => 1000000]);
+        $payin = $this->submittedPayin(['amount' => 250000]);
+        // An Admin correction lowered the allowance while the pay-in was open.
+        DB::table('branches')->where('id', $this->branch->id)->update(['deposit_topup_balance' => 100000]);
+
+        $this->approve($payin)->assertSessionHasNoErrors();
+
+        $this->assertSame(0, $this->branch->fresh()?->deposit_topup_balance);
+        $this->assertSame([-100000], $this->branch->topups()->pluck('amount')->all());
+    }
+
+    public function test_a_daily_limit_branch_writes_no_allowance_history()
+    {
+        $this->approve($this->submittedPayin(['amount' => 250000]))->assertSessionHasNoErrors();
+
+        $this->assertSame(0, $this->branch->topups()->count());
     }
 
     public function test_a_topup_branch_can_use_what_is_left_after_approvals()

@@ -164,7 +164,7 @@ Index: partial unique `(partner_id) WHERE status = 'active'` (one primary key at
 | verified_at, verified_by                                             |             |                                                                                                                         |
 | created_at, updated_at                                               |             |                                                                                                                         |
 
-**`branch_limit_topups`** (append-only history of Admin top-ups): `id`, `branch_id FK`, `amount` (non-zero; negative = correction), `balance_after` (≥ 0), `reason`, `created_by`, `created_at`.
+**`branch_limit_topups`** (append-only history of every allowance change — the Admin "Top-ups" tab reads it as a running statement): `id`, `branch_id FK`, `transaction_id FK NULL UNIQUE` (set when the row is an approved deposit using up allowance), `amount` (non-zero; positive = Admin top-up, negative = Admin correction or approved deposit), `balance_after` (≥ 0), `reason` (deposits: "Deposit {reference} approved"), `created_by` (Admin, or the approver for deposits), `created_at`.
 
 **`partner_branch_mappings`**
 
