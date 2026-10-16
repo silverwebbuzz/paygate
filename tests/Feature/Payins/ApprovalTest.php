@@ -3,6 +3,7 @@
 namespace Tests\Feature\Payins;
 
 use App\Domain\Allocation\UsageCounters;
+use App\Domain\Branch\Actions\TopUpBranchLimit;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Commission\CommissionCalculator;
 use App\Domain\Core\Identity\Models\User;
@@ -210,6 +211,28 @@ class ApprovalTest extends TestCase
 
         $this->assertSame(0, $this->branch->fresh()?->deposit_topup_balance);
         $this->assertSame([-100000], $this->branch->topups()->pluck('amount')->all());
+    }
+
+    public function test_deposits_approved_before_the_history_existed_are_backfilled()
+    {
+        $admin = User::factory()->create();
+        $this->branch->update(['deposit_limit_type' => 'topup', 'deposit_topup_balance' => 0]);
+        app(TopUpBranchLimit::class)->handle($admin, $this->branch, 1000000, 'First');
+        $payin = $this->submittedPayin(['amount' => 250000]);
+        $this->approve($payin)->assertSessionHasNoErrors();
+        // As it was before 2026-10-16: the balance moved, no history row.
+        DB::statement('ALTER TABLE branch_limit_topups DISABLE TRIGGER branch_limit_topups_no_update_delete');
+        DB::table('branch_limit_topups')->whereNotNull('transaction_id')->delete();
+        DB::statement('ALTER TABLE branch_limit_topups ENABLE TRIGGER branch_limit_topups_no_update_delete');
+
+        (require database_path('migrations/2026_10_16_100001_add_transaction_to_branch_limit_topups.php'))->down();
+        (require database_path('migrations/2026_10_16_100001_add_transaction_to_branch_limit_topups.php'))->up();
+
+        $this->assertSame(
+            [[1000000, 1000000, null], [-250000, 750000, $payin->id]],
+            $this->branch->topups()->orderBy('created_at')->orderByDesc('amount')->get()
+                ->map(fn ($t) => [$t->amount, $t->balance_after, $t->transaction_id])->all(),
+        );
     }
 
     public function test_a_daily_limit_branch_writes_no_allowance_history()
