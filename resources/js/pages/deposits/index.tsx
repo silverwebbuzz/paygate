@@ -16,11 +16,14 @@ import {
     TransactionDrawer,
 } from '@/components/pg/transaction-drawer';
 import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
+import { TxnFilters } from '@/components/pg/txn-filters';
+import type { TxnFilterValues } from '@/components/pg/txn-filters';
 import { formatDateTime, formatRelative } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import { TONE_CLASSES } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import adminDeposits from '@/routes/admin/deposits';
+import { show as fileUrl } from '@/routes/files';
 import branchDeposits from '@/routes/branch/deposits';
 import type { UserType } from '@/types';
 
@@ -36,8 +39,9 @@ type Props = {
         prev_page_url: string | null;
         next_page_url: string | null;
     };
-    filters: { partner: string | null; search: string };
+    filters: TxnFilterValues & { search: string };
     partners: { id: string; code: string; name: string }[];
+    branch_options: { id: string; code: string; name: string }[];
     reasons: Record<string, string>;
     selected: string | null;
     detail?: TxnDetail | null;
@@ -70,12 +74,13 @@ export default function Deposits(props: Props) {
     const [dialog, setDialog] = useState<Dialog>(null);
     const open = items.data.find((txn) => txn.id === openId) ?? null;
 
-    const visit = (next: Record<string, string | null>) =>
+    const dated = filters.from !== null || filters.to !== null;
+    const visit = (next: Record<string, string | string[] | null>) =>
         router.get(
             routes.index({
                 query: Object.fromEntries(
                     Object.entries({ tab, ...filters, search, ...next }).filter(
-                        ([, v]) => v,
+                        ([, v]) => (Array.isArray(v) ? v.length > 0 : v),
                     ),
                 ),
             }).url,
@@ -199,7 +204,9 @@ export default function Deposits(props: Props) {
                             >
                                 {TAB_INFO[key].icon}
                             </span>
-                            {TAB_INFO[key].label}
+                            {dated
+                                ? TAB_INFO[key].label.replace(' today', '')
+                                : TAB_INFO[key].label}
                         </span>
                         <span className="text-lg font-semibold">
                             {tabs[key].count}
@@ -221,20 +228,12 @@ export default function Deposits(props: Props) {
                         className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                     />
                 </label>
-                <SelectInput
-                    className="h-[30px] w-[220px] text-[12.5px]"
-                    value={filters.partner ?? ''}
-                    onChange={(event) =>
-                        visit({ partner: event.target.value || null })
-                    }
-                >
-                    <option value="">All partners</option>
-                    {partners.map((partner) => (
-                        <option key={partner.id} value={partner.id}>
-                            {partner.code} · {partner.name}
-                        </option>
-                    ))}
-                </SelectInput>
+                <TxnFilters
+                    value={filters}
+                    partners={partners}
+                    branches={props.branch_options}
+                    onChange={visit}
+                />
                 <div className="flex-1" />
                 <span className="text-xs text-tx3">
                     {items.total}{' '}
@@ -319,6 +318,22 @@ export default function Deposits(props: Props) {
                                         {txn.reference}
                                     </span>
                                 </Row>
+                                <Row label="Order ID">
+                                    <span className="font-mono">
+                                        {txn.order_id}
+                                    </span>
+                                </Row>
+                                <Row label="Deposit type">
+                                    {originLabel(txn.origin)}
+                                </Row>
+                                <Row label="Created">
+                                    {formatDateTime(txn.created_at)}
+                                </Row>
+                                <Row label="Pay link opened">
+                                    {txn.link_opened_at
+                                        ? formatDateTime(txn.link_opened_at)
+                                        : 'Not opened'}
+                                </Row>
                                 <Row label="Account">
                                     {txn.account
                                         ? txn.method === 'bank_transfer'
@@ -332,6 +347,9 @@ export default function Deposits(props: Props) {
                                         {txn.customer_utr ?? 'screenshot only'}
                                     </span>
                                 </Row>
+                                <Row label="Payment proof">
+                                    <ProofLink txn={txn} />
+                                </Row>
                                 {txn.bank_line && (
                                     <Row label="Bank statement">
                                         <span className="font-medium text-ok">
@@ -340,6 +358,11 @@ export default function Deposits(props: Props) {
                                         <span className="font-mono text-tx3">
                                             {txn.bank_line.utr}
                                         </span>
+                                        {txn.bank_line.description && (
+                                            <div className="text-tx3">
+                                                {txn.bank_line.description}
+                                            </div>
+                                        )}
                                     </Row>
                                 )}
                                 <Row label="Submitted">
@@ -357,6 +380,8 @@ export default function Deposits(props: Props) {
                                                   ' ',
                                               )}{' '}
                                         · {formatDateTime(txn.decided_at)}
+                                        {txn.decided_by &&
+                                            ` · by ${txn.decided_by}`}
                                     </Row>
                                 )}
                             </dl>
@@ -456,13 +481,38 @@ export default function Deposits(props: Props) {
                                 ),
                             },
                             {
+                                key: 'proof',
+                                header: 'Proof',
+                                cell: (t: TxnRow) => <ProofLink txn={t} />,
+                            },
+                            {
                                 key: 'submitted',
-                                header: 'Submitted',
+                                header: 'Created · Submitted',
                                 cell: (t: TxnRow) => (
-                                    <span className="text-xs whitespace-nowrap">
-                                        {formatRelative(t.submitted_at)}
-                                    </span>
+                                    <div className="text-xs whitespace-nowrap">
+                                        <div>
+                                            {formatDateTime(t.created_at)}
+                                        </div>
+                                        <div className="text-tx3">
+                                            {formatRelative(t.submitted_at)}
+                                        </div>
+                                    </div>
                                 ),
+                            },
+                            {
+                                key: 'decided',
+                                header: 'Approved/Declined by',
+                                cell: (t: TxnRow) =>
+                                    t.decided_by ? (
+                                        <div className="text-xs">
+                                            <div>{t.decided_by}</div>
+                                            <div className="whitespace-nowrap text-tx3">
+                                                {formatDateTime(t.decided_at)}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        '—'
+                                    ),
                             },
                             {
                                 key: 'actions',
@@ -551,6 +601,27 @@ export default function Deposits(props: Props) {
                 />
             )}
         </>
+    );
+}
+
+function originLabel(origin: string | undefined): string {
+    return origin === 'api' ? 'Client request' : (origin ?? '—');
+}
+
+/** Opens the customer's latest payment screenshot in a new tab. */
+function ProofLink({ txn }: { txn: TxnRow }) {
+    return txn.proof_file_id ? (
+        <a
+            href={fileUrl(txn.proof_file_id).url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="font-medium text-ac hover:underline"
+        >
+            View
+        </a>
+    ) : (
+        <span className="text-tx3">—</span>
     );
 }
 

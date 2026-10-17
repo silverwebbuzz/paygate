@@ -2,9 +2,7 @@
 
 namespace App\Http\Shared\Transactions;
 
-use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
-use App\Domain\Partner\Models\Partner;
 use App\Domain\Platform\Models\ReasonCode;
 use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Models\Transaction;
@@ -44,21 +42,21 @@ class DepositQueueController extends Controller
         /** @var User $actor */
         $actor = $request->user();
         $tab = array_key_exists((string) $request->query('tab'), self::TABS) ? (string) $request->query('tab') : 'pending';
-        $partnerId = $request->query('partner');
+        $filters = TransactionController::filters($request, $actor);
         $search = trim((string) $request->query('search'));
         $today = CarbonImmutable::now(config('app.business_timezone'))->startOfDay()->utc();
+        $dated = $filters['from'] !== null || $filters['to'] !== null;
 
-        $base = fn () => TransactionController::scoped($actor)
-            ->where('direction', 'payin')
-            ->when(is_string($partnerId) && $partnerId !== '', fn (Builder $query) => $query->where('partner_id', $partnerId));
+        $base = fn () => TransactionController::filtered(TransactionController::scoped($actor)->where('direction', 'payin'), $filters);
 
-        // Approved / declined tabs show today's decisions (India time).
+        // Approved / declined tabs show today's decisions (India time),
+        // unless a date range is chosen.
         $inTab = fn (Builder $query, string $key) => $query
             ->whereIn('status', self::TABS[$key])
-            ->when(in_array($key, ['approved', 'declined'], true), fn (Builder $query) => $query->where('decided_at', '>=', $today));
+            ->when(! $dated && in_array($key, ['approved', 'declined'], true), fn (Builder $query) => $query->where('decided_at', '>=', $today));
 
         $items = $inTab($base(), $tab)
-            ->with(['partner', 'branch', 'paymentAccount', 'customer', 'statementEntry'])
+            ->with(TransactionController::ROW_RELATIONS)
             ->when($search !== '', fn (Builder $query) => TransactionController::search($query, $search))
             ->when(in_array($tab, ['approved', 'declined'], true), fn (Builder $query) => $query->orderByDesc('decided_at'))
             ->orderByDesc('created_at')
@@ -78,10 +76,8 @@ class DepositQueueController extends Controller
                 ...$items->toArray(),
                 'data' => $this->rows($items->items(), $actor),
             ],
-            'filters' => ['partner' => $partnerId, 'search' => $search],
-            'partners' => $actor->isType(UserType::Admin)
-                ? Partner::query()->orderBy('code')->get(['id', 'code', 'name'])
-                : Partner::query()->whereIn('id', TransactionController::scoped($actor)->select('partner_id'))->orderBy('code')->get(['id', 'code', 'name']),
+            'filters' => ['search' => $search, ...$filters],
+            ...TransactionController::filterOptions($actor),
             'reasons' => ReasonCode::options('payin_reject'),
             'selected' => is_string($selected) ? $selected : null,
             'detail' => Inertia::optional(function () use ($selected, $actor) {

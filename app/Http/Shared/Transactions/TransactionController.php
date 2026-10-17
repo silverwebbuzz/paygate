@@ -2,12 +2,15 @@
 
 namespace App\Http\Shared\Transactions;
 
+use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Partner\Models\Partner;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Webhook\Actions\ResendWebhook;
 use App\Domain\Webhook\Models\WebhookEvent;
 use App\Http\Controller;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +25,11 @@ use Inertia\Response;
  */
 class TransactionController extends Controller
 {
+    /**
+     * What TransactionPresenter::row() reads, loaded up front.
+     */
+    public const ROW_RELATIONS = ['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry', 'decider', 'session', 'latestProof'];
+
     public const STATUS_GROUPS = [
         'payin' => [
             'open' => ['created', 'awaiting_payment'],
@@ -54,10 +62,12 @@ class TransactionController extends Controller
         $search = trim((string) $request->query('search'));
         $selected = $request->query('txn');
 
-        $base = fn () => self::scoped($actor)->where('direction', $direction);
+        $filters = self::filters($request, $actor);
+
+        $base = fn () => self::filtered(self::scoped($actor)->where('direction', $direction), $filters);
 
         $transactions = $base()
-            ->with(['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry'])
+            ->with(self::ROW_RELATIONS)
             ->when($group !== null, fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
             ->when($search !== '', fn (Builder $query) => self::search($query, $search))
             ->latest('created_at')
@@ -73,7 +83,8 @@ class TransactionController extends Controller
                 ...$transactions->toArray(),
                 'data' => $transactions->getCollection()->map(fn (Transaction $txn) => $this->presenter->row($txn, $actor))->values(),
             ],
-            'filters' => ['status' => $group, 'search' => $search],
+            'filters' => ['status' => $group, 'search' => $search, ...$filters],
+            ...self::filterOptions($actor),
             'summary' => collect($groups)->map(fn (array $statuses) => [
                 'count' => (int) $counts->whereIn('status', $statuses)->sum('total'),
                 'amount' => (int) $counts->whereIn('status', $statuses)->sum('amount'),
@@ -99,6 +110,58 @@ class TransactionController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Webhook :type queued to send again.', ['type' => $event->event_type])]);
 
         return back();
+    }
+
+    /**
+     * Partner, branches (Admin only) and a created-date range (India dates).
+     *
+     * @return array{partner: ?string, branches: list<string>, from: ?string, to: ?string}
+     */
+    public static function filters(Request $request, User $actor): array
+    {
+        $date = fn (string $key) => is_string($value = $request->query($key)) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? $value : null;
+        $partner = $request->query('partner');
+        $branches = $actor->isType(UserType::Admin) ? array_values(array_filter((array) $request->query('branches', []), 'is_string')) : [];
+
+        return [
+            'partner' => is_string($partner) && $partner !== '' && ! $actor->isType(UserType::Partner) ? $partner : null,
+            'branches' => $branches,
+            'from' => $date('from'),
+            'to' => $date('to'),
+        ];
+    }
+
+    /**
+     * @param  Builder<Transaction>  $query
+     * @param  array{partner: ?string, branches: list<string>, from: ?string, to: ?string}  $filters
+     * @return Builder<Transaction>
+     */
+    public static function filtered(Builder $query, array $filters): Builder
+    {
+        $zone = config('app.business_timezone');
+
+        return $query
+            ->when($filters['partner'] !== null, fn (Builder $query) => $query->where('partner_id', $filters['partner']))
+            ->when($filters['branches'] !== [], fn (Builder $query) => $query->whereIn('branch_id', $filters['branches']))
+            ->when($filters['from'] !== null, fn (Builder $query) => $query->where('created_at', '>=', CarbonImmutable::parse($filters['from'], $zone)->startOfDay()->utc()))
+            ->when($filters['to'] !== null, fn (Builder $query) => $query->where('created_at', '<', CarbonImmutable::parse($filters['to'], $zone)->addDay()->startOfDay()->utc()));
+    }
+
+    /**
+     * The partner and branch choices for the filters.
+     *
+     * @return array{partners: mixed, branch_options: mixed}
+     */
+    public static function filterOptions(User $actor): array
+    {
+        return [
+            'partners' => match ($actor->type) {
+                UserType::Admin => Partner::query()->orderBy('code')->get(['id', 'code', 'name']),
+                UserType::Branch => Partner::query()->whereIn('id', self::scoped($actor)->select('partner_id'))->orderBy('code')->get(['id', 'code', 'name']),
+                UserType::Partner => [],
+            },
+            'branch_options' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+        ];
     }
 
     /**

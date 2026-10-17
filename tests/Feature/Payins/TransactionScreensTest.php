@@ -6,6 +6,7 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -124,5 +125,61 @@ class TransactionScreensTest extends TestCase
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'file.viewed']);
         $this->assertNotNull($reference);
+    }
+
+    public function test_rows_show_who_decided_the_proof_link_and_how_it_was_created()
+    {
+        Storage::fake('local');
+        [$reference, $token] = $this->createPayin();
+        $this->get("http://pay.paygate.local/p/{$token}");
+        $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
+        $this->post("http://pay.paygate.local/p/{$token}/proof", ['photo' => UploadedFile::fake()->image('paid.png')]);
+        $payin = Transaction::where('reference', $reference)->firstOrFail();
+
+        $admin = User::factory()->admin()->withTwoFactor()->create(['name' => 'Asha Admin']);
+        $this->actingAs($admin)->post(route('admin.deposits.approve', $payin), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
+
+        $this->actingAs($admin)->get(route('admin.deposits.index', ['tab' => 'approved']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('items.data.0.decided_by', 'Asha Admin')
+                ->where('items.data.0.origin', 'api')
+                ->where('items.data.0.proof_file_id', StoredFile::firstOrFail()->id)
+                ->where('items.data.0.link_opened_at', fn ($at) => is_string($at))
+                ->where('items.data.0.branch.code', $this->branch->code));
+
+        $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->create();
+        $this->actingAs($partnerUser)->get(route('partner.payins.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('transactions.data.0.decided_by', null)
+                ->where('transactions.data.0.proof_file_id', null));
+    }
+
+    public function test_lists_filter_by_partner_branch_and_date()
+    {
+        $payin = $this->submittedPayin();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $other = Branch::factory()->create();
+        $today = now(config('app.business_timezone'))->toDateString();
+        $tomorrow = now(config('app.business_timezone'))->addDay()->toDateString();
+
+        $count = fn (string $route, array $query, string $key) => count($this->actingAs($admin)->get(route($route, $query))->viewData('page')['props'][$key]['data']);
+
+        foreach ([['admin.transactions.index', 'transactions'], ['admin.deposits.index', 'items']] as [$route, $key]) {
+            $this->assertSame(1, $count($route, [], $key));
+            $this->assertSame(1, $count($route, ['branches' => [$this->branch->id]], $key));
+            $this->assertSame(0, $count($route, ['branches' => [$other->id]], $key));
+            $this->assertSame(1, $count($route, ['partner' => $this->partner->id], $key));
+            $this->assertSame(1, $count($route, ['from' => $today, 'to' => $today], $key));
+            $this->assertSame(0, $count($route, ['from' => $tomorrow], $key));
+        }
+
+        $this->actingAs($admin)->get(route('admin.transactions.index'))
+            ->assertInertia(fn (Assert $page) => $page->has('branch_options', 2)->has('partners', 1));
+
+        // Approved normally means today only; a date range widens it.
+        $this->actingAs($admin)->post(route('admin.deposits.approve', $payin), ['bank_utr' => '626812820491']);
+        $this->travel(2)->days();
+        $this->assertSame(0, $count('admin.deposits.index', ['tab' => 'approved'], 'items'));
+        $this->assertSame(1, $count('admin.deposits.index', ['tab' => 'approved', 'from' => $today], 'items'));
     }
 }

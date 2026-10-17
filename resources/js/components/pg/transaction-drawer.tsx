@@ -43,13 +43,22 @@ export type TxnRow = {
     created_at: string | null;
     submitted_at: string | null;
     decided_at: string | null;
+    /** Who approved / declined it (not for partners). */
+    decided_by?: string | null;
     expires_at: string | null;
+    /** How it was created: 'api' = the partner's client request. */
+    origin?: string;
+    /** When the customer first opened the pay link. */
+    link_opened_at?: string | null;
+    /** Latest payment screenshot (not for partners). */
+    proof_file_id?: string | null;
     /** The bank statement line that confirms it (not for partners). */
     bank_line?: {
         status: string;
         utr: string | null;
         amount: number;
         value_date: string;
+        description?: string | null;
     } | null;
     can: { decide: boolean; process?: boolean };
 };

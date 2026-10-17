@@ -74,13 +74,20 @@ class TransactionPresenter
             'created_at' => $txn->created_at?->toIso8601String(),
             'submitted_at' => $txn->submitted_at?->toIso8601String(),
             'decided_at' => $txn->decided_at?->toIso8601String(),
+            'decided_by' => $type === UserType::Partner ? null : $txn->decider?->name,
             'expires_at' => $txn->expires_at?->toIso8601String(),
+            'origin' => $txn->origin,
+            // When the customer first opened our payment page (the pay link).
+            'link_opened_at' => $txn->session?->opened_at?->toIso8601String(),
+            'proof_file_id' => $type === UserType::Partner ? null : $txn->latestProof?->id,
             // The bank statement line that confirms it (never shown to partners).
             'bank_line' => $type === UserType::Partner || $txn->statementEntry === null ? null : [
                 'status' => $txn->statementEntry->status,
                 'utr' => $txn->statementEntry->utr_normalized,
                 'amount' => $txn->statementEntry->amount,
                 'value_date' => $txn->statementEntry->value_date->toDateString(),
+                // The bank's narration, which usually names the payer.
+                'description' => $txn->statementEntry->description,
             ],
             'can' => [
                 'decide' => $viewer->can('decide', $txn),

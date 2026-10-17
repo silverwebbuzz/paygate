@@ -15,10 +15,13 @@ import {
     TransactionDrawer,
 } from '@/components/pg/transaction-drawer';
 import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
+import { TxnFilters } from '@/components/pg/txn-filters';
+import type { TxnFilterValues } from '@/components/pg/txn-filters';
 import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import admin from '@/routes/admin';
 import branch from '@/routes/branch';
+import { show as fileUrl } from '@/routes/files';
 import partner from '@/routes/partner';
 import type { UserType } from '@/types';
 
@@ -35,7 +38,9 @@ type Props = {
         prev_page_url: string | null;
         next_page_url: string | null;
     };
-    filters: { status: Group | null; search: string };
+    filters: TxnFilterValues & { status: Group | null; search: string };
+    partners: { id: string; code: string; name: string }[];
+    branch_options: { id: string; code: string; name: string }[];
     summary: Partial<Record<Group, { count: number; amount: number }>>;
     selected: string | null;
     detail?: TxnDetail | null;
@@ -125,6 +130,8 @@ export default function Transactions({
     direction,
     transactions,
     filters,
+    partners,
+    branch_options,
     summary,
     selected,
     detail,
@@ -139,7 +146,7 @@ export default function Transactions({
             LIST_ROUTE[direction][portal]({
                 query: Object.fromEntries(
                     Object.entries({ ...filters, search, ...next }).filter(
-                        ([, v]) => v,
+                        ([, v]) => (Array.isArray(v) ? v.length > 0 : v),
                     ),
                 ),
             }).url,
@@ -276,6 +283,28 @@ export default function Transactions({
                 </span>
             ),
         },
+        ...(portal !== 'partner' && direction === 'payin'
+            ? [
+                  {
+                      key: 'proof',
+                      header: 'Proof',
+                      cell: (t: TxnRow) =>
+                          t.proof_file_id ? (
+                              <a
+                                  href={fileUrl(t.proof_file_id).url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(event) => event.stopPropagation()}
+                                  className="text-xs font-medium text-ac hover:underline"
+                              >
+                                  View
+                              </a>
+                          ) : (
+                              '—'
+                          ),
+                  },
+              ]
+            : []),
         {
             key: 'status',
             header: 'Status',
@@ -292,11 +321,14 @@ export default function Transactions({
         },
         {
             key: 'decided',
-            header: 'Decided',
+            header: portal === 'partner' ? 'Decided' : 'Decided · By',
             cell: (t) => (
-                <span className="text-xs whitespace-nowrap text-tx3">
-                    {formatDateTime(t.decided_at)}
-                </span>
+                <div className="text-xs">
+                    <div className="whitespace-nowrap text-tx3">
+                        {formatDateTime(t.decided_at)}
+                    </div>
+                    {t.decided_by && <div>{t.decided_by}</div>}
+                </div>
             ),
         },
     ];
@@ -352,7 +384,7 @@ export default function Transactions({
                         visit({ status: key === 'all' ? null : (key as Group) })
                     }
                 />
-                <div className="flex items-center gap-2 border-b border-ln2 px-3 py-2.5">
+                <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
                     <label className="flex h-[30px] w-[320px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
                         <input
@@ -362,6 +394,12 @@ export default function Transactions({
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
+                    <TxnFilters
+                        value={filters}
+                        partners={partners}
+                        branches={branch_options}
+                        onChange={visit}
+                    />
                     <div className="flex-1" />
                     <span className="text-xs text-tx3">
                         {transactions.total === 0
@@ -379,8 +417,13 @@ export default function Transactions({
                         <EmptyState
                             title="No pay-ins found"
                             description={
-                                filters.search || filters.status
-                                    ? 'Try another search or tab.'
+                                filters.search ||
+                                filters.status ||
+                                filters.partner ||
+                                filters.branches.length > 0 ||
+                                filters.from ||
+                                filters.to
+                                    ? 'Try another search, filter or tab.'
                                     : 'Pay-ins appear here as soon as they are created.'
                             }
                         />

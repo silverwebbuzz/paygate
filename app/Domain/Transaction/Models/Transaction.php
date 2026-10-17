@@ -9,6 +9,7 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\PaymentSession\Models\PaymentSession;
 use App\Domain\Payout\Models\PayoutBeneficiary;
+use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Transaction\Enums\PayinStatus;
 use Carbon\CarbonInterface;
@@ -17,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Support\Str;
 
 /**
@@ -195,6 +197,18 @@ class Transaction extends Model
     public function decider(): BelongsTo
     {
         return $this->belongsTo(User::class, 'decided_by');
+    }
+
+    /**
+     * The customer's most recent payment screenshot, if they sent one.
+     *
+     * @return MorphOne<StoredFile, $this>
+     */
+    public function latestProof(): MorphOne
+    {
+        return $this->morphOne(StoredFile::class, 'attachable')
+            ->where('purpose', 'payment_proof')
+            ->latest('created_at');
     }
 
     /**
