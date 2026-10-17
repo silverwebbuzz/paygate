@@ -12,6 +12,7 @@ import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
+import { MultiSelect } from '@/components/pg/multi-select';
 import { PageHeader } from '@/components/pg/page-header';
 import {
     CompareBlock,
@@ -43,7 +44,7 @@ import type { UserType } from '@/types';
 type Filters = {
     from: string;
     to: string;
-    branch: string | null;
+    branches: string[];
     account: string | null;
     status: string | null;
     match: string | null;
@@ -96,6 +97,7 @@ type Props = {
         credit_lines: number;
         debit_lines: number;
         pending: number;
+        approved: number;
         unsettled: number;
     };
     accounts: Account[];
@@ -104,6 +106,9 @@ type Props = {
     selected: string | null;
     detail?: Detail | null;
 };
+
+/** Debit entry is hidden for now (client request); flip to bring it back. */
+const SHOW_DEBIT = false;
 
 const TABS: [string, string][] = [
     ['all', 'All'],
@@ -136,9 +141,9 @@ export default function Statements(props: Props) {
     const query = (next: Partial<Filters> = {}) =>
         Object.fromEntries(
             Object.entries({ ...filters, search, ...next }).filter(
-                ([, value]) => value,
+                ([, value]) => (Array.isArray(value) ? value.length > 0 : value),
             ),
-        ) as Record<string, string>;
+        ) as Record<string, string | string[]>;
     const visit = (next: Partial<Filters>) =>
         router.get(
             routes.index({ query: query(next) }).url,
@@ -217,17 +222,21 @@ export default function Statements(props: Props) {
                 </div>
             ),
         },
-        {
-            key: 'debit',
-            header: 'Debit',
-            align: 'right',
-            cell: (line) =>
-                line.direction === 'debit' ? (
-                    <LineAmount line={line} />
-                ) : (
-                    <span className="text-tx3">—</span>
-                ),
-        },
+        ...(SHOW_DEBIT
+            ? [
+                  {
+                      key: 'debit',
+                      header: 'Debit',
+                      align: 'right' as const,
+                      cell: (line: StatementLine) =>
+                          line.direction === 'debit' ? (
+                              <LineAmount line={line} />
+                          ) : (
+                              <span className="text-tx3">—</span>
+                          ),
+                  },
+              ]
+            : []),
         {
             key: 'credit',
             header: 'Credit',
@@ -450,6 +459,12 @@ export default function Statements(props: Props) {
                     tone="wn"
                 />
                 <StatTile
+                    label="Success · approved"
+                    value={formatPaise(kpis.approved)}
+                    icon="✓"
+                    tone="ok"
+                />
+                <StatTile
                     label="Unsettled · no linked transaction"
                     value={formatPaise(kpis.unsettled)}
                     icon="!"
@@ -492,23 +507,15 @@ export default function Statements(props: Props) {
                         />
                     </label>
                     {portal === 'admin' && (
-                        <SelectInput
-                            className="h-[30px] w-[190px] text-[12.5px]"
-                            value={filters.branch ?? ''}
-                            onChange={(event) =>
-                                visit({
-                                    branch: event.target.value || null,
-                                    account: null,
-                                })
+                        <MultiSelect
+                            noun="branches"
+                            items={branches}
+                            selected={filters.branches}
+                            onChange={(ids) =>
+                                visit({ branches: ids, account: null })
                             }
-                        >
-                            <option value="">All branches</option>
-                            {branches.map((branch) => (
-                                <option key={branch.id} value={branch.id}>
-                                    {branch.code} · {branch.name}
-                                </option>
-                            ))}
-                        </SelectInput>
+                            className="h-[30px] w-[220px] flex-none rounded-[7px] text-[12.5px]"
+                        />
                     )}
                     <SelectInput
                         className="h-[30px] w-[230px] text-[12.5px]"
@@ -521,8 +528,10 @@ export default function Statements(props: Props) {
                         {accounts
                             .filter(
                                 (account) =>
-                                    !filters.branch ||
-                                    account.branch_id === filters.branch,
+                                    filters.branches.length === 0 ||
+                                    filters.branches.includes(
+                                        account.branch_id,
+                                    ),
                             )
                             .map((account) => (
                                 <option key={account.id} value={account.id}>
@@ -715,7 +724,9 @@ function NewLine({
                     New statement line
                 </span>
                 <span className="text-xs text-tx3">
-                    Credit or debit — one value per line
+                    {SHOW_DEBIT
+                        ? 'Credit or debit — one value per line'
+                        : 'Credit received in the bank'}
                 </span>
             </div>
             <form
@@ -815,18 +826,20 @@ function NewLine({
                         }
                     />
                 </Field>
-                <Field label="Debit ₹" error={form.errors.debit}>
-                    <TextInput
-                        inputMode="decimal"
-                        className="h-[34px] text-[13px]"
-                        placeholder="0.00"
-                        value={form.data.debit}
-                        disabled={form.data.credit !== ''}
-                        onChange={(event) =>
-                            form.setData('debit', event.target.value)
-                        }
-                    />
-                </Field>
+                {SHOW_DEBIT && (
+                    <Field label="Debit ₹" error={form.errors.debit}>
+                        <TextInput
+                            inputMode="decimal"
+                            className="h-[34px] text-[13px]"
+                            placeholder="0.00"
+                            value={form.data.debit}
+                            disabled={form.data.credit !== ''}
+                            onChange={(event) =>
+                                form.setData('debit', event.target.value)
+                            }
+                        />
+                    </Field>
+                )}
                 <PgButton
                     type="submit"
                     variant="primary"

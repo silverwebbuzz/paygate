@@ -383,4 +383,26 @@ class StatementMatchingTest extends TestCase
         $this->actingAs($partnerUser)->get(route('partner.payins.index'))
             ->assertInertia(fn ($page) => $page->where('transactions.data.0.bank_line', null));
     }
+
+    public function test_admin_filters_lines_by_several_branches_and_sees_the_approved_total()
+    {
+        $payin = $this->submittedPayin(['amount' => 500000]);
+        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491']);
+        $this->addLine()->assertSessionHasNoErrors();
+
+        $other = Branch::factory()->create();
+        $otherAccount = $this->activeAccount($other);
+        $this->addLine(['payment_account_id' => $otherAccount->id, 'utr' => '626812820999', 'credit' => '700'], $this->admin)->assertSessionHasNoErrors();
+        $third = Branch::factory()->create();
+
+        $lines = fn (array $branches) => $this->actingAs($this->admin)->get(route('admin.statements.index', ['branches' => $branches]))->viewData('page')['props'];
+
+        $this->assertCount(2, $lines([])['items']['data']);
+        $this->assertCount(1, $lines([$this->branch->id])['items']['data']);
+        $this->assertCount(2, $lines([$this->branch->id, $other->id])['items']['data']);
+        $this->assertCount(0, $lines([$third->id])['items']['data']);
+
+        $this->assertSame(500000, $lines([])['kpis']['approved']);
+        $this->assertSame(0, $lines([$other->id])['kpis']['approved']);
+    }
 }

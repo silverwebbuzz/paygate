@@ -83,6 +83,7 @@ class StatementController extends Controller
                 'credit_lines' => $base()->where('entry_direction', 'credit')->count(),
                 'debit_lines' => $base()->where('entry_direction', 'debit')->count(),
                 'pending' => $sum(self::TABS['pending']),
+                'approved' => $sum(self::TABS['approved']),
                 'unsettled' => $sum(self::TABS['unsettled']),
             ],
             'accounts' => ReconciliationScope::accounts($actor)->with('branch')->orderBy('label')->get()
@@ -177,7 +178,7 @@ class StatementController extends Controller
     }
 
     /**
-     * @return array{from: string, to: string, branch: ?string, account: ?string, status: ?string, match: ?string, search: string}
+     * @return array{from: string, to: string, branches: list<string>, account: ?string, status: ?string, match: ?string, search: string}
      */
     private function filters(Request $request): array
     {
@@ -192,7 +193,7 @@ class StatementController extends Controller
         return [
             'from' => $date('from', $today->subDays(6)),
             'to' => $date('to', $today),
-            'branch' => $text('branch'),
+            'branches' => array_values(array_filter((array) $request->query('branches', []), fn ($id) => is_string($id) && $id !== '')),
             'account' => $text('account'),
             'status' => $text('status'),
             'match' => $text('match'),
@@ -201,7 +202,7 @@ class StatementController extends Controller
     }
 
     /**
-     * @param  array{from: string, to: string, branch: ?string, account: ?string, status: ?string, match: ?string, search: string}  $filters
+     * @param  array{from: string, to: string, branches: list<string>, account: ?string, status: ?string, match: ?string, search: string}  $filters
      * @return Builder<StatementEntry>
      */
     private function filtered(User $actor, array $filters): Builder
@@ -210,7 +211,7 @@ class StatementController extends Controller
 
         return ReconciliationScope::entries($actor)
             ->whereBetween('value_date', [$filters['from'], $filters['to']])
-            ->when($filters['branch'] !== null && $actor->isType(UserType::Admin), fn (Builder $query) => $query->where('branch_id', $filters['branch']))
+            ->when($filters['branches'] !== [] && $actor->isType(UserType::Admin), fn (Builder $query) => $query->whereIn('branch_id', $filters['branches']))
             ->when($filters['account'] !== null, fn (Builder $query) => $query->where('payment_account_id', $filters['account']))
             // Branch match: the line's branch vs its transaction's (linked, or pointed at by the open case).
             ->when($filters['match'] === 'matched', fn (Builder $query) => $query->where(fn (Builder $query) => $query
