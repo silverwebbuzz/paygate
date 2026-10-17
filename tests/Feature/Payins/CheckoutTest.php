@@ -222,6 +222,28 @@ class CheckoutTest extends TestCase
         $this->assertSame([$first->id, $second->id, $first->id, $second->id], $used);
     }
 
+    public function test_mapped_branches_take_turns_before_a_branch_is_used_again()
+    {
+        $second = Branch::factory()->create();
+        $this->mapPair($this->partner, $second);
+
+        $a1 = $this->activeAccount();
+        $a2 = $this->activeAccount();
+        $b1 = $this->activeAccount($second);
+        $b2 = $this->activeAccount($second);
+
+        $used = [];
+
+        foreach (range(1, 4) as $i) {
+            [$reference, $token] = $this->createPayin();
+            $this->choose($token, 'upi');
+            $used[] = $this->payin($reference)->payment_account_id;
+        }
+
+        // No waiting between customers: a burst in the same second still rotates.
+        $this->assertSame([$a1->id, $b1->id, $a2->id, $b2->id], $used);
+    }
+
     public function test_full_accounts_are_skipped_and_nothing_left_means_unavailable()
     {
         $small = $this->activeAccount(overrides: ['daily_amount_limit' => 600000]);

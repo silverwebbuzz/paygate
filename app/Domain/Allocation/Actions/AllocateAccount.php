@@ -24,7 +24,8 @@ use RuntimeException;
  * 1. Eligible accounts: active account of an active branch that is mapped
  *    (active, deposits on) to the partner, supports the method, and whose
  *    per-payment and branch limits fit the amount.
- * 2. Round robin: the account used longest ago first. Accounts another
+ * 2. Round robin: the branch used longest ago first, then its account used
+ *    longest ago, so mapped branches take turns. Accounts another
  *    customer is being allocated right now are skipped (SKIP LOCKED); if
  *    that leaves nothing, look once more and wait instead of skipping, so a
  *    burst doesn't wrongly report "unavailable".
@@ -156,6 +157,9 @@ class AllocateAccount
             ->whereRaw('? BETWEEN COALESCE(a.min_amount, 0) AND COALESCE(a.max_amount, ?)', [$payin->amount, $payin->amount])
             ->whereRaw('? BETWEEN COALESCE(b.deposit_min_amount, 0) AND COALESCE(b.deposit_max_amount, ?)', [$payin->amount, $payin->amount])
             ->when($exclude !== [], fn ($query) => $query->whereNotIn('a.id', $exclude))
+            // Branches take turns first, then the accounts inside the branch,
+            // so a branch with several accounts doesn't take several customers in a row.
+            ->orderByRaw('(SELECT MAX(x.last_allocated_at) FROM payment_accounts x WHERE x.branch_id = a.branch_id) NULLS FIRST')
             ->orderByRaw('a.last_allocated_at NULLS FIRST')
             ->orderBy('a.id')
             ->select(['a.id as account_id', 'm.id as mapping_id', 'a.branch_id'])
@@ -213,7 +217,8 @@ class AllocateAccount
                     }
                 }
 
-                $account->forceFill(['last_allocated_at' => now()])->save();
+                // The database clock, to the microsecond (Eloquent would drop the fraction).
+                PaymentAccount::query()->whereKey($account->id)->update(['last_allocated_at' => DB::raw('clock_timestamp()')]);
 
                 $from = $payin->status;
                 $payin->forceFill([

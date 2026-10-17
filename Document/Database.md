@@ -223,7 +223,7 @@ Constraint: `EXCLUDE USING gist (subject_type WITH =, subject_id WITH =, side WI
 | min_amount, max_amount                    | bigint null           | Per transaction; must sit inside the branch's limits (checked by the app)                              |
 | daily_amount_limit, daily_count_limit     | bigint / integer null |                                                                                                        |
 | max_open_sessions                         | integer               | Default e.g. 5 (limits ambiguous parallel payments)                                                    |
-| last_allocated_at                         | timestamptz null      | Round robin cursor                                                                                     |
+| last_allocated_at                         | timestamptz(6) null   | Round robin cursor (microseconds, so same-second allocations don't tie)                                |
 | created_by, created_at, updated_at        |                       |                                                                                                        |
 
 Checks: at least one method enabled; bank enabled ⇒ bank fields present; UPI enabled ⇒ UPI fields present; QR/intent only with UPI enabled.
@@ -528,12 +528,13 @@ WHERE m.status = 'active' AND m.is_deposit_enabled
   AND b.status = 'active' AND b.is_deposit_enabled
   AND a.status = 'active'
   AND <method supported by a> AND :amount BETWEEN COALESCE(a.min_amount, 0) AND COALESCE(a.max_amount, :amount)
-ORDER BY a.last_allocated_at NULLS FIRST, a.id          -- round robin (Req G-29)
+ORDER BY (SELECT MAX(x.last_allocated_at) FROM payment_accounts x WHERE x.branch_id = a.branch_id) NULLS FIRST,  -- branches take turns
+         a.last_allocated_at NULLS FIRST, a.id          -- then accounts in the branch (Req G-29)
 FOR UPDATE OF a SKIP LOCKED
 LIMIT 1;
 ```
 
-Then conditionally reserve `usage_counters` for the account, branch, partner and mapping (amount, count, open sessions). If any limit is hit, try the next candidate (a bounded loop). On success: set `a.last_allocated_at = now()`, set the transaction's `branch_id`, `payment_account_id`, `method` and status `awaiting_payment`, and add an event.
+Then conditionally reserve `usage_counters` for the account, branch, partner and mapping (amount, count, open sessions). If any limit is hit, try the next candidate (a bounded loop). On success: set `a.last_allocated_at = clock_timestamp()`, set the transaction's `branch_id`, `payment_account_id`, `method` and status `awaiting_payment`, and add an event.
 If `SKIP LOCKED` returns nothing, run the query **once more without** `SKIP LOCKED` (waiting a few milliseconds). Otherwise a burst could report "unavailable" just because every account was briefly locked by another customer. Only when that also finds nothing → "temporarily unavailable" + admin alert.
 
 **Customer submits UTR or photo** → `payment_submitted` (the duplicate-UTR unique index rejects reused UTRs) + event + branch notification.
