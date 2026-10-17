@@ -201,6 +201,26 @@ export default function Transactions({
                   },
               ]
             : []),
+        // Admin sees every branch; branches see only their own, partners none.
+        ...(portal === 'admin'
+            ? [
+                  {
+                      key: 'branch',
+                      header: 'Branch',
+                      cell: (t: TxnRow) =>
+                          t.branch ? (
+                              <div>
+                                  <div>{t.branch.name}</div>
+                                  <div className="font-mono text-xs text-tx3">
+                                      {t.branch.code}
+                                  </div>
+                              </div>
+                          ) : (
+                              '—'
+                          ),
+                  },
+              ]
+            : []),
         {
             key: 'customer',
             header: 'Customer',
@@ -256,22 +276,6 @@ export default function Transactions({
                 </span>
             ),
         },
-        ...(portal === 'admin'
-            ? [
-                  {
-                      key: 'branch',
-                      header: 'Branch',
-                      cell: (t: TxnRow) =>
-                          t.branch ? (
-                              <span className="rounded-md bg-sf2 px-2 py-0.5 text-xs">
-                                  {t.branch.code}
-                              </span>
-                          ) : (
-                              '—'
-                          ),
-                  },
-              ]
-            : []),
         {
             key: 'status',
             header: 'Status',

@@ -278,10 +278,6 @@ export default function Deposits(props: Props) {
                                             {txn.partner?.code}
                                         </span>
                                     </div>
-                                    <div className="truncate text-xs text-tx3">
-                                        {txn.branch?.code} ·{' '}
-                                        {txn.customer?.name ?? txn.customer?.id}
-                                    </div>
                                 </div>
                                 <StatusBadge status={txn.status} />
                             </div>
@@ -301,6 +297,23 @@ export default function Deposits(props: Props) {
                                 </span>
                             </div>
                             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                                <Row label="Branch">
+                                    {txn.branch ? (
+                                        <>
+                                            {txn.branch.name}{' '}
+                                            <span className="font-mono text-tx3">
+                                                {txn.branch.code}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        '—'
+                                    )}
+                                </Row>
+                                <Row label="Customer">
+                                    {txn.customer?.name ??
+                                        txn.customer?.id ??
+                                        '—'}
+                                </Row>
                                 <Row label="Transaction">
                                     <span className="font-mono">
                                         {txn.reference}
@@ -362,17 +375,34 @@ export default function Deposits(props: Props) {
                         columns={[
                             {
                                 key: 'partner',
-                                header: 'Partner · Branch',
+                                header: 'Partner',
                                 cell: (t: TxnRow) => (
                                     <div>
                                         <div className="font-medium">
                                             {t.partner?.name}
                                         </div>
-                                        <div className="text-xs text-tx3">
-                                            {t.branch?.code}
+                                        <div className="font-mono text-xs text-tx3">
+                                            {t.partner?.code}
                                         </div>
                                     </div>
                                 ),
+                            },
+                            {
+                                key: 'branch',
+                                header: 'Branch',
+                                cell: (t: TxnRow) =>
+                                    t.branch ? (
+                                        <div>
+                                            <div className="font-medium">
+                                                {t.branch.name}
+                                            </div>
+                                            <div className="font-mono text-xs text-tx3">
+                                                {t.branch.code}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        '—'
+                                    ),
                             },
                             {
                                 key: 'txn',
