@@ -312,6 +312,52 @@ class CheckoutTest extends TestCase
         $this->assertSame(200000, $this->reserved('partner', $this->partner->id));
     }
 
+    public function test_the_customer_can_get_different_details_from_another_branch_on_the_same_payin()
+    {
+        $first = $this->activeAccount();
+        $otherBranch = Branch::factory()->create();
+        $this->mapPair($this->partner, $otherBranch);
+        $second = $this->activeAccount($otherBranch);
+
+        [$reference, $token] = $this->createPayin(['amount' => 200000]);
+        $this->choose($token, 'upi');
+        $payin = $this->payin($reference);
+        $current = $payin->payment_account_id;
+        $other = $current === $first->id ? $second : $first;
+
+        $this->post($this->page($token).'/change-account')->assertSessionHasNoErrors();
+
+        $payin = $this->payin($reference);
+        $this->assertSame($other->id, $payin->payment_account_id);
+        $this->assertSame($other->branch_id, $payin->branch_id);
+        $this->assertSame('upi', $payin->method);
+        $this->assertSame('awaiting_payment', $payin->status);
+        $this->assertSame(1, Transaction::where('reference', $reference)->count());
+        $this->assertSame(0, $this->reserved('account', $current));
+        $this->assertSame(200000, $this->reserved('account', $other->id));
+        $this->assertSame(200000, $this->reserved('partner', $this->partner->id));
+        $this->assertTrue(TransactionEvent::where(['transaction_id' => $payin->id, 'event' => 'account_changed'])->exists());
+
+        // Every account has been offered: the next change goes back to one not shown now.
+        $this->post($this->page($token).'/change-account')->assertSessionHasNoErrors();
+        $this->assertSame($current, $this->payin($reference)->payment_account_id);
+        $this->assertSame(0, $this->reserved('account', $other->id));
+    }
+
+    public function test_changing_details_with_no_other_account_keeps_the_current_one()
+    {
+        $only = $this->activeAccount();
+
+        [$reference, $token] = $this->createPayin(['amount' => 200000]);
+        $this->post($this->page($token).'/change-account')->assertSessionHasErrors('change'); // no method yet
+        $this->choose($token, 'upi');
+
+        $this->post($this->page($token).'/change-account')->assertSessionHasErrors('change');
+
+        $this->assertSame($only->id, $this->payin($reference)->payment_account_id);
+        $this->assertSame(200000, $this->reserved('account', $only->id));
+    }
+
     public function test_approving_after_a_switch_confirms_the_new_accounts_reservation()
     {
         $this->rate('partner', $this->partner->id, 'deposit', '6');

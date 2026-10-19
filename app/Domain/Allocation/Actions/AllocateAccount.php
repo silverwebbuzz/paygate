@@ -84,6 +84,71 @@ class AllocateAccount
         });
     }
 
+    /**
+     * "Try different payment details": the customer couldn't pay into the
+     * allocated account. Same method, same pay-in; release this account and
+     * allocate another one (any mapped branch, same rules and order). Accounts
+     * already given to this pay-in are skipped while others are left; after
+     * that, anything but the current one. If nothing else fits, the current
+     * allocation stays as it was (the whole thing rolls back).
+     */
+    public function change(Transaction $payin): PaymentAccount
+    {
+        return DB::transaction(function () use ($payin) {
+            /** @var Transaction $locked */
+            $locked = Transaction::query()->whereKey($payin->id)->lockForUpdate()->firstOrFail();
+
+            if (! $locked->payinStatus()->isOpen()) {
+                throw new NoAccountAvailable('closed');
+            }
+
+            if ($locked->payment_account_id === null || $locked->method === null) {
+                throw new NoAccountAvailable('no_account');
+            }
+
+            $partner = Partner::query()->findOrFail($locked->partner_id);
+            $method = $locked->method;
+            $from = ['account_id' => $locked->payment_account_id, 'branch_id' => $locked->branch_id];
+
+            $used = TransactionEvent::query()
+                ->where('transaction_id', $locked->id)
+                ->where('event', 'allocated')
+                ->pluck('data')
+                ->map(fn ($data) => (string) ($data['account_id'] ?? ''))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            $this->release->handle($locked, 'customer_changed_account');
+
+            $account = null;
+
+            foreach ([array_values($used), [(string) $from['account_id']]] as $exclude) {
+                $account = $this->pick($locked, $partner, $method, skipLocked: true, exclude: $exclude)
+                    ?? $this->pick($locked, $partner, $method, skipLocked: false, exclude: $exclude);
+
+                if ($account !== null) {
+                    break;
+                }
+            }
+
+            if ($account === null) {
+                throw new NoAccountAvailable('no_other_account');
+            }
+
+            TransactionEvent::record($locked, 'account_changed', $locked->status, $locked->status, 'customer', null, null, [
+                'from_account_id' => $from['account_id'],
+                'from_branch_id' => $from['branch_id'],
+                'account_id' => $account->id,
+                'branch_id' => $locked->branch_id,
+                'method' => $method,
+            ]);
+
+            return $account;
+        });
+    }
+
     public static function supports(PaymentAccount $account, string $method): bool
     {
         return match ($method) {
@@ -104,9 +169,12 @@ class AllocateAccount
         };
     }
 
-    private function pick(Transaction $payin, Partner $partner, string $method, bool $skipLocked): ?PaymentAccount
+    /**
+     * @param  list<string>  $exclude
+     */
+    private function pick(Transaction $payin, Partner $partner, string $method, bool $skipLocked, array $exclude = []): ?PaymentAccount
     {
-        $tried = [];
+        $tried = $exclude;
 
         for ($attempt = 0; $attempt < self::MAX_CANDIDATES; $attempt++) {
             $candidate = $this->candidate($payin, $method, $tried, $skipLocked);

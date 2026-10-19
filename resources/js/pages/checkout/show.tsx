@@ -1,5 +1,13 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Check, Clock, Copy, ImageUp, ShieldCheck, X } from 'lucide-react';
+import {
+    Check,
+    Clock,
+    Copy,
+    ImageUp,
+    RefreshCw,
+    ShieldCheck,
+    X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useClipboard } from '@/hooks/use-clipboard';
@@ -424,8 +432,8 @@ function ChooseMethod({
             ))}
             {methods.length === 0 && (
                 <p className="text-[13px] text-[#64748B]">
-                    No payment method is available right now. Please try
-                    again in a few minutes or contact the merchant.
+                    No payment method is available right now. Please try again
+                    in a few minutes or contact the merchant.
                 </p>
             )}
             {onCancel && (
@@ -561,6 +569,8 @@ function PayView({
                 </div>
             )}
 
+            <ChangeDetails token={token} />
+
             <form
                 className="flex flex-col gap-3 border-t border-[#EEF0F3] pt-3"
                 onSubmit={(event) => {
@@ -644,6 +654,73 @@ function PayView({
                 ← Choose another method
             </button>
         </>
+    );
+}
+
+/**
+ * "Try different payment details": when the account shown doesn't work for
+ * the customer, they get another one for the same method and payment.
+ */
+function ChangeDetails({ token }: { token: string }) {
+    const [confirming, setConfirming] = useState(false);
+    const form = useForm({});
+    const error = (usePage().props.errors as Record<string, string>).change;
+
+    const change = () =>
+        form.post(checkout.changeAccount(token).url, {
+            preserveScroll: true,
+            onFinish: () => setConfirming(false),
+        });
+
+    if (!confirming) {
+        return (
+            <>
+                {error && (
+                    <div className="flex items-start gap-2 rounded-xl bg-[#FFFBEB] px-3 py-2.5 text-[13px] text-[#B45309]">
+                        <Clock className="mt-0.5 size-4 flex-none" /> {error}
+                    </div>
+                )}
+                <button
+                    type="button"
+                    onClick={() => setConfirming(true)}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#E4E7EC] text-[13px] font-medium text-[#475569] hover:border-ac"
+                >
+                    <RefreshCw className="size-3.5" />
+                    Having trouble paying? Get different details
+                </button>
+            </>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-2.5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-3 text-[12.5px] leading-relaxed text-[#92400E]">
+            <span>
+                <b className="font-semibold">Haven’t paid yet?</b> You’ll get
+                new payment details for the same amount, and the details shown
+                now will stop working. If you already paid, don’t change — enter
+                your UTR below instead.
+            </span>
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    disabled={form.processing}
+                    onClick={change}
+                    className="h-9 flex-1 rounded-lg bg-brand text-[13px] font-semibold text-white disabled:opacity-60"
+                >
+                    {form.processing
+                        ? 'Getting new details…'
+                        : 'Get new details'}
+                </button>
+                <button
+                    type="button"
+                    disabled={form.processing}
+                    onClick={() => setConfirming(false)}
+                    className="h-9 flex-1 rounded-lg border border-[#E4E7EC] bg-white text-[13px] font-medium text-[#475569]"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
     );
 }
 

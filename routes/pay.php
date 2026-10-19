@@ -18,5 +18,6 @@ Route::get('legal/{slug}', [LegalPageController::class, 'show'])->name('legal.sh
 Route::controller(CheckoutController::class)->prefix('p/{token}')->name('checkout.')->group(function () {
     Route::get('/', 'show')->middleware('throttle:checkout')->name('show');
     Route::post('method', 'method')->middleware('throttle:checkout-method')->name('method');
+    Route::post('change-account', 'changeAccount')->middleware('throttle:checkout-method')->name('change-account');
     Route::post('proof', 'proof')->middleware('throttle:checkout-proof')->name('proof');
 });

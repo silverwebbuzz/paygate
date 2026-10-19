@@ -159,6 +159,7 @@ const EVENT_LABELS: Record<string, string> = {
     created: 'Pay-in created',
     allocated: 'Account assigned',
     method_changed: 'Customer switched method',
+    account_changed: 'Customer asked for different payment details',
     allocation_released: 'Account capacity released',
     allocation_confirmed: 'Daily usage confirmed',
     proof_submitted: 'Customer submitted payment details',

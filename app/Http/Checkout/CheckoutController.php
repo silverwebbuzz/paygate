@@ -121,6 +121,28 @@ class CheckoutController extends Controller
     }
 
     /**
+     * "Try different payment details": the customer couldn't pay into the
+     * account shown. Same pay-in and method, another account (possibly of
+     * another branch); the old one's capacity is released.
+     */
+    public function changeAccount(string $token, AllocateAccount $allocate): RedirectResponse
+    {
+        $session = $this->session($token);
+
+        try {
+            $allocate->change($session->transaction);
+        } catch (NoAccountAvailable $exception) {
+            throw ValidationException::withMessages(['change' => match ($exception->reason) {
+                'closed' => __('This payment is no longer open.'),
+                'no_account' => __('Please choose how to pay first.'),
+                default => __('No other payment details are available right now. Please use the details shown, or choose another method.'),
+            }]);
+        }
+
+        return to_route('pay.checkout.show', ['token' => $token]);
+    }
+
+    /**
      * "I've made the payment": UTR and/or screenshot.
      */
     public function proof(Request $request, string $token, SubmitPayinProof $submit): RedirectResponse
