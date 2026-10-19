@@ -50,7 +50,7 @@ class CaseController extends Controller
 
         $cases = $inTab($tab)
             ->when($type !== null, fn (Builder $query) => $query->where('type', $type->value))
-            ->with(['branch', 'resolver', 'transaction', ...array_map(fn (string $relation) => 'entry.'.$relation, StatementPresenter::WITH)])
+            ->with(['branch', 'resolver', 'transaction.branch', ...array_map(fn (string $relation) => 'entry.'.$relation, StatementPresenter::WITH)])
             ->orderByDesc($tab === 'open' ? 'created_at' : 'resolved_at')
             ->paginate(30)
             ->withQueryString();
@@ -131,6 +131,24 @@ class CaseController extends Controller
         $resolve->approveLate($actor, $case, $txn, $data['bank_utr'] ?? null, $data['note'] ?? null);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference approved late; the partner is credited and notified.', ['reference' => $txn->reference])]);
+
+        return back();
+    }
+
+    /**
+     * "Wrong branch" case: move the waiting deposit to this line's account.
+     */
+    public function move(Request $request, ReconciliationCase $case, ResolveCase $resolve): RedirectResponse
+    {
+        $actor = $this->authorizeResolve($request, $case);
+        Gate::authorize('payins.approve');
+        abort_unless($actor->isType(UserType::Admin), 403);
+
+        $data = $request->validate(['note' => ['required', 'string', 'max:500']]);
+
+        $payin = $resolve->moveDeposit($actor, $case, $data['note']);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference moved to this line’s account; the branch can approve it now.', ['reference' => $payin->reference])]);
 
         return back();
     }

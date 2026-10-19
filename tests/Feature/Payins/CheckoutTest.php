@@ -312,6 +312,22 @@ class CheckoutTest extends TestCase
         $this->assertSame(200000, $this->reserved('partner', $this->partner->id));
     }
 
+    public function test_approving_after_a_switch_confirms_the_new_accounts_reservation()
+    {
+        $this->rate('partner', $this->partner->id, 'deposit', '6');
+        $this->rate('branch', $this->branch->id, 'deposit', '4');
+        $this->activeAccount(overrides: ['is_bank_enabled' => false, 'bank_name' => null, 'ifsc' => null, 'account_number' => null]);
+        $bank = $this->activeAccount();
+
+        [$reference, $token] = $this->createPayin(['amount' => 200000]);
+        $this->choose($token, 'upi');
+        $this->choose($token, 'bank_transfer');
+        $this->post($this->page($token).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        $this->actingAs(User::factory()->admin()->withTwoFactor()->create())->post(route('admin.deposits.approve', $this->payin($reference)), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
+
+        $this->assertSame(0, $this->reserved('account', $bank->id));
+    }
+
     public function test_the_customer_submits_a_utr_or_a_screenshot()
     {
         Storage::fake('local');

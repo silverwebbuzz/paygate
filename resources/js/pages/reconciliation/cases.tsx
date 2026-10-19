@@ -40,6 +40,13 @@ type CaseRow = CaseSummary & {
     resolved_at: string | null;
     created_at: string | null;
     can: { resolve: boolean; approve_late: boolean };
+    /** Wrong branch: the waiting deposit Admin can move to this line's account. */
+    move: {
+        reference: string;
+        amount: number;
+        status: string;
+        branch: string | null;
+    } | null;
 };
 
 type Candidate = LineTxn & { late: boolean; same_amount: boolean };
@@ -72,6 +79,7 @@ type Action =
     | null
     | { kind: 'link'; txn: Candidate }
     | { kind: 'late'; txn: Candidate }
+    | { kind: 'move' }
     | { kind: 'close'; resolution: 'rejected' | 'refunded' };
 
 /**
@@ -612,6 +620,32 @@ function CaseDrawer({
                         )}
                     </section>
 
+                    {item.move && (
+                        <section className="flex items-center justify-between gap-3 rounded-lg border border-ac bg-acs p-3 text-[12.5px]">
+                            <div className="min-w-0">
+                                <div className="font-medium">
+                                    The customer’s deposit is waiting at{' '}
+                                    {item.move.branch ?? 'another branch'}
+                                </div>
+                                <div className="text-xs text-tx2">
+                                    <span className="font-mono">
+                                        {item.move.reference}
+                                    </span>{' '}
+                                    · {formatPaise(item.move.amount)} ·{' '}
+                                    {item.move.status.replaceAll('_', ' ')}.
+                                    This line shows the money arrived here.
+                                </div>
+                            </div>
+                            <PgButton
+                                variant="primary"
+                                className="h-7 flex-none px-2 text-xs"
+                                onClick={() => setAction({ kind: 'move' })}
+                            >
+                                Move deposit here
+                            </PgButton>
+                        </section>
+                    )}
+
                     <section className="flex flex-col gap-2.5">
                         <h3 className="text-[12px] font-semibold tracking-[.04em] text-tx3 uppercase">
                             Or close it
@@ -672,6 +706,30 @@ function CaseDrawer({
                         router.post(
                             routes.link(item.id).url,
                             { transaction_id: action.txn.id, note },
+                            {
+                                preserveScroll: true,
+                                onFinish: () => setAction(null),
+                                onSuccess: onClose,
+                            },
+                        )
+                    }
+                />
+            )}
+            {action?.kind === 'move' && item.move && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => !next && setAction(null)}
+                    title={`Move ${item.move.reference} to this account?`}
+                    description="The deposit leaves the branch it was given and comes to this line’s branch and account, back in Pending. This line links to it, and the branch can approve it."
+                    confirmLabel="Move deposit"
+                    input={{
+                        label: 'Note (required, kept in the history)',
+                        required: true,
+                    }}
+                    onConfirm={(note) =>
+                        router.post(
+                            adminCases.move(item.id).url,
+                            { note },
                             {
                                 preserveScroll: true,
                                 onFinish: () => setAction(null),

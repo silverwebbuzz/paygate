@@ -50,6 +50,7 @@ Route::controller(DepositQueueController::class)->prefix('deposits')->name('depo
     Route::post('{transaction}/approve', 'approve')->name('approve');
     Route::post('{transaction}/hold', 'hold')->name('hold');
     Route::post('{transaction}/decline', 'decline')->name('decline');
+    Route::post('{transaction}/move', 'move')->name('move');
 });
 
 // Manual Payout: withdrawals waiting to be paid (pay with UTR / fail, reassign).
@@ -79,6 +80,7 @@ Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->g
     Route::post('{case}/link', 'link')->name('link');
     Route::post('{case}/close', 'close')->name('close');
     Route::post('{case}/approve-late', 'approveLate')->name('approve-late');
+    Route::post('{case}/move', 'move')->name('move');
 });
 Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
 

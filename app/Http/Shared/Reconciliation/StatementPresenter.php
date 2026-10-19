@@ -84,7 +84,25 @@ class StatementPresenter
                 'resolve' => $case->isOpen() && $viewer->can('reconciliation.resolve'),
                 'approve_late' => $case->isOpen() && $viewer->isType(UserType::Admin) && $viewer->can('reconciliation.resolve') && $viewer->can('payins.approve'),
             ],
+            // "Wrong branch": the waiting deposit Admin can move to this line's account.
+            'move' => $this->movable($case, $viewer),
         ];
+    }
+
+    /**
+     * @return array{reference: string, amount: int, status: string, branch: ?string}|null
+     */
+    private function movable(ReconciliationCase $case, User $viewer): ?array
+    {
+        $txn = $case->transaction;
+
+        if (! $case->isOpen() || $case->type !== CaseType::WrongBranch || $txn === null || ! $txn->isPayin()
+            || ! in_array($txn->status, ['payment_submitted', 'payment_detected', 'under_review'], true)
+            || ! $viewer->isType(UserType::Admin) || ! $viewer->can('reconciliation.resolve') || ! $viewer->can('payins.approve')) {
+            return null;
+        }
+
+        return ['reference' => $txn->reference, 'amount' => $txn->amount, 'status' => $txn->status, 'branch' => $txn->branch?->code];
     }
 
     /**

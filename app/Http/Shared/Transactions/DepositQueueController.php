@@ -2,9 +2,13 @@
 
 namespace App\Http\Shared\Transactions;
 
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Network\Models\PartnerBranchMapping;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Models\ReasonCode;
 use App\Domain\Transaction\Actions\DecidePayin;
+use App\Domain\Transaction\Actions\MovePayin;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Support\Money;
@@ -80,6 +84,12 @@ class DepositQueueController extends Controller
             ...TransactionController::filterOptions($actor),
             'reasons' => ReasonCode::options('payin_reject'),
             'selected' => is_string($selected) ? $selected : null,
+            // Admin's "Move to branch" dialog, loaded when it opens (?move=<id>).
+            'move_options' => Inertia::optional(function () use ($request, $actor) {
+                $txn = $actor->isType(UserType::Admin) && is_string($request->query('move')) ? Transaction::query()->find($request->query('move')) : null;
+
+                return $txn === null ? [] : $this->moveOptions($txn);
+            }),
             'detail' => Inertia::optional(function () use ($selected, $actor) {
                 $txn = is_string($selected) ? Transaction::query()->find($selected) : null;
 
@@ -138,6 +148,73 @@ class DepositQueueController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference declined; the partner is notified.', ['reference' => $transaction->reference])]);
 
         return back();
+    }
+
+    /**
+     * The branch can't find the money: on hold, and Admin is asked to move it.
+     */
+    public function notInBank(Request $request, Transaction $transaction, DecidePayin $decide): RedirectResponse
+    {
+        $actor = $this->authorizeDecision($request, $transaction);
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
+
+        $decide->notInBank($actor, $transaction, $data['note'] ?? null);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference is on hold; Admin will move it to the branch that received the money.', ['reference' => $transaction->reference])]);
+
+        return back();
+    }
+
+    /**
+     * Admin: move a waiting deposit to the account the money really reached.
+     */
+    public function move(Request $request, Transaction $transaction, MovePayin $move): RedirectResponse
+    {
+        $actor = $this->authorizeDecision($request, $transaction);
+        abort_unless($actor->isType(UserType::Admin), 403);
+
+        $data = $request->validate([
+            'payment_account_id' => ['required', 'uuid', Rule::exists('payment_accounts', 'id')],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $account = PaymentAccount::query()->with('branch')->findOrFail((string) $data['payment_account_id']);
+        $move->handle($actor, $transaction, $account, $data['reason']);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference moved to :branch · :account; the branch is alerted.', [
+            'reference' => $transaction->reference,
+            'branch' => $account->branch->code,
+            'account' => $account->label,
+        ])]);
+
+        return back();
+    }
+
+    /**
+     * The accounts a deposit can be moved to: those of every branch mapped
+     * to its partner, with the branch.
+     *
+     * @return array<int, array{id: string, label: string, bank: ?string, number: ?string, upi: ?string, status: string, branch: array{id: string, code: string, name: string}}>
+     */
+    private function moveOptions(Transaction $payin): array
+    {
+        return PaymentAccount::query()
+            ->whereIn('branch_id', PartnerBranchMapping::query()->where('partner_id', $payin->partner_id)->select('branch_id'))
+            ->whereKeyNot((string) $payin->payment_account_id)
+            ->with('branch')
+            ->get()
+            ->sortBy(fn (PaymentAccount $account) => $account->branch->code.' '.$account->label)
+            ->map(fn (PaymentAccount $account) => [
+                'id' => $account->id,
+                'label' => $account->label,
+                'bank' => $account->bank_name,
+                'number' => $account->maskedAccountNumber(),
+                'upi' => $account->maskedUpiId(),
+                'status' => $account->status->value,
+                'branch' => ['id' => $account->branch->id, 'code' => $account->branch->code, 'name' => $account->branch->name],
+            ])
+            ->values()
+            ->all();
     }
 
     private function authorizeDecision(Request $request, Transaction $transaction): User

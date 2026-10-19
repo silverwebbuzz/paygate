@@ -32,6 +32,7 @@ Route::controller(DepositQueueController::class)->prefix('deposits')->name('depo
     Route::post('{transaction}/approve', 'approve')->name('approve');
     Route::post('{transaction}/hold', 'hold')->name('hold');
     Route::post('{transaction}/decline', 'decline')->name('decline');
+    Route::post('{transaction}/not-in-bank', 'notInBank')->name('not-in-bank');
 });
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
 Route::get('payout-history', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.history');

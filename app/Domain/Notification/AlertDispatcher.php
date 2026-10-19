@@ -136,6 +136,42 @@ class AlertDispatcher
         );
     }
 
+    /**
+     * Admin moved a deposit to the account the money really reached.
+     */
+    public function depositMoved(Transaction $payin, string $reason): void
+    {
+        $this->alerts->send(
+            Alert::DepositMoved,
+            $this->alerts->recipients(Permission::PayinsApprove, UserType::Branch, $payin->branch_id),
+            __('Deposit moved to you: ₹:amount', ['amount' => $this->money($payin->amount)]),
+            __(':reference was moved to your branch to check and approve. Reason: :reason', ['reference' => $payin->reference, 'reason' => $reason]),
+            Alerts::link('branch.deposits.index', ['txn' => $payin->id]),
+        );
+    }
+
+    /**
+     * The branch can't find the money: Admin should move the deposit to the
+     * branch / account it really reached.
+     */
+    public function depositNotInBank(Transaction $payin, User $reporter): void
+    {
+        $branch = Branch::query()->whereKey($payin->branch_id)->value('code');
+
+        $this->alerts->send(
+            Alert::DepositNotInBank,
+            $this->alerts->recipients(Permission::PayinsApprove, UserType::Admin),
+            __('Deposit :reference isn’t in branch :branch’s bank', ['reference' => $payin->reference, 'branch' => $branch ?? '—']),
+            __(':name says ₹:amount (customer UTR :utr) didn’t reach their account. Move it to the branch it was paid to in Manual Deposit. Note: :note', [
+                'name' => $reporter->username ?? $reporter->name,
+                'amount' => $this->money($payin->amount),
+                'utr' => $payin->customer_utr_normalized ?? '—',
+                'note' => $payin->status_note ?? '—',
+            ]),
+            Alerts::link('admin.deposits.index', ['tab' => 'hold', 'txn' => $payin->id]),
+        );
+    }
+
     public function webhookFailed(WebhookEvent $event): void
     {
         $reference = Transaction::query()->whereKey($event->transaction_id)->value('reference');

@@ -43,6 +43,9 @@ class DecidePayin
 
     private const LATE_APPROVABLE = [PayinStatus::Rejected, PayinStatus::Expired];
 
+    /** status_reason_code of a deposit the branch says isn't in its bank. */
+    public const NOT_IN_BANK = 'not_in_our_bank';
+
     public function __construct(
         private CommissionCalculator $commissions,
         private Ledger $ledger,
@@ -182,6 +185,38 @@ class DecidePayin
 
             TransactionEvent::record($locked, 'held', $from, $locked->status, 'user', $actor->id, $reason);
             AuditLog::record('payin.held', $locked, ['status' => $from], ['status' => $locked->status, 'reason' => $reason], $actor);
+
+            $payin->setRawAttributes($locked->getAttributes(), true);
+
+            return $locked;
+        });
+    }
+
+    /**
+     * The branch can't find the money in its account (the customer paid
+     * another branch's account): on hold for Admin to move it to the right
+     * account (MovePayin). Admin is alerted.
+     */
+    public function notInBank(User $actor, Transaction $payin, ?string $note = null): Transaction
+    {
+        return DB::transaction(function () use ($actor, $payin, $note) {
+            $locked = $this->lock($payin);
+
+            if ($locked->status_reason_code === self::NOT_IN_BANK) {
+                throw ValidationException::withMessages(['note' => __('Admin has already been asked to move this deposit.')]);
+            }
+
+            $from = $locked->status;
+            $reason = trim((string) $note) !== '' ? trim((string) $note) : __('The money isn’t in our bank account.');
+            $locked->forceFill([
+                'status' => PayinStatus::UnderReview->value,
+                'status_reason_code' => self::NOT_IN_BANK,
+                'status_note' => $reason,
+            ])->save();
+
+            TransactionEvent::record($locked, 'not_in_bank', $from, $locked->status, 'user', $actor->id, $reason);
+            AuditLog::record('payin.not_in_bank', $locked, ['status' => $from], ['status' => $locked->status, 'reason' => $reason], $actor);
+            $this->alerts->depositNotInBank($locked, $actor);
 
             $payin->setRawAttributes($locked->getAttributes(), true);
 

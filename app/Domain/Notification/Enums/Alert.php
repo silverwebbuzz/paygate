@@ -24,11 +24,15 @@ enum Alert: string
     case PayoutNoBranch = 'payout_no_branch';
     case PayoutShortBranch = 'payout_short_branch';
     case PayinAmountDiffers = 'payin_amount_differs';
+    case DepositMoved = 'deposit_moved';
+    case DepositNotInBank = 'deposit_not_in_bank';
 
     public function label(): string
     {
         return match ($this) {
             self::PayinAmountDiffers => 'Deposit approved for a different amount than ordered',
+            self::DepositMoved => 'Deposit moved to your branch',
+            self::DepositNotInBank => 'Branch says a deposit isn’t in its bank',
             self::PayinNoAccount => 'Customers can’t pay: no bank account free',
             self::PayoutNoBranch => 'Payouts refused: no branch can take them',
             self::PayoutShortBranch => 'Payout sent to a branch holding less of the partner’s balance',
@@ -53,11 +57,11 @@ enum Alert: string
     public function userTypes(): array
     {
         return match ($this) {
-            self::DepositsWaiting, self::PayoutAssigned, self::AccountReviewed => [UserType::Branch],
+            self::DepositsWaiting, self::PayoutAssigned, self::AccountReviewed, self::DepositMoved => [UserType::Branch],
             self::UnsettledLines => [UserType::Admin, UserType::Branch],
             self::WebhookFailed => [UserType::Partner],
             self::AdjustmentRequested, self::AdjustmentDecided, self::AccountVerification,
-            self::PayinNoAccount, self::PayoutNoBranch, self::PayoutShortBranch, self::PayinAmountDiffers => [UserType::Admin],
+            self::PayinNoAccount, self::PayoutNoBranch, self::PayoutShortBranch, self::PayinAmountDiffers, self::DepositNotInBank => [UserType::Admin],
             self::SettlementCalculated, self::Reversal => [UserType::Partner, UserType::Branch],
         };
     }

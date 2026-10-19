@@ -27,6 +27,11 @@ class TransactionEvent extends Model
 {
     use HasUuids;
 
+    // created_at comes from the database (clock_timestamp(), to the
+    // microsecond), so events written in one request keep their order;
+    // ReleaseAllocation relies on it.
+    public const CREATED_AT = null;
+
     public const UPDATED_AT = null;
 
     protected $guarded = ['id'];
@@ -44,7 +49,7 @@ class TransactionEvent extends Model
      */
     public static function record(Transaction $transaction, string $event, ?string $from, ?string $to, string $actorType, ?string $actorId = null, ?string $reason = null, ?array $data = null): self
     {
-        return self::create([
+        $event = self::create([
             'transaction_id' => $transaction->id,
             'from_status' => $from,
             'to_status' => $to,
@@ -55,5 +60,7 @@ class TransactionEvent extends Model
             'data' => $data,
             'request_id' => Context::get('request_id'),
         ]);
+
+        return $event->refresh();
     }
 }

@@ -4,11 +4,13 @@ namespace App\Domain\Reconciliation\Actions;
 
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Actions\DecidePayin;
+use App\Domain\Transaction\Actions\MovePayin;
 use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +24,9 @@ use Illuminate\Validation\ValidationException;
  *   approved, payouts paid.
  * - approveLate (Admin only): the deposit expired or was declined, but the
  *   money arrived; it is approved now and the partner credited.
+ * - moveDeposit (Admin only, "wrong branch" cases): the customer's deposit
+ *   is waiting at another branch, but this line shows the money here; the
+ *   deposit moves to this line's account (MovePayin) and the line links.
  * - close as "not a customer payment" (bank charges, interest, own
  *   transfers, a line typed by mistake) or "returned to customer" (the
  *   branch sent a credit back outside PayGate).
@@ -33,7 +38,7 @@ class ResolveCase
 {
     private const LINKABLE_PAYIN = ['payment_submitted', 'payment_detected', 'under_review', 'success'];
 
-    public function __construct(private StatementMatcher $matcher, private DecidePayin $decide) {}
+    public function __construct(private StatementMatcher $matcher, private DecidePayin $decide, private MovePayin $move) {}
 
     public function link(User $actor, ReconciliationCase $case, Transaction $txn, ?string $note = null): void
     {
@@ -54,6 +59,30 @@ class ResolveCase
             }
 
             $this->matcher->link($entry, $txn, $actor, $note ?? __('Linked to :reference by hand.', ['reference' => $txn->reference]));
+        });
+    }
+
+    public function moveDeposit(User $actor, ReconciliationCase $case, string $note): Transaction
+    {
+        return DB::transaction(function () use ($actor, $case, $note) {
+            $entry = $this->lockOpen($case);
+            $payin = $case->transaction_id === null ? null : Transaction::query()->find($case->transaction_id);
+
+            if ($case->type !== CaseType::WrongBranch || $payin === null || ! $payin->isPayin() || ! $entry->isCredit()) {
+                throw ValidationException::withMessages(['case' => __('Only a “wrong branch” case about a deposit can move it here.')]);
+            }
+
+            $moved = $this->move->handle($actor, $payin, $entry->paymentAccount, $note);
+
+            // Moving links the line when the UTR and amount agree; otherwise
+            // link it now if the amount does.
+            $entry->refresh();
+
+            if ($entry->transaction_id === null && $entry->openCase()->first()?->type === CaseType::WrongBranch && $entry->amount === $moved->amount) {
+                $this->matcher->link($entry, $moved, $actor, $note);
+            }
+
+            return $moved;
         });
     }
 

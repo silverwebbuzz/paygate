@@ -85,7 +85,7 @@ class ReleaseAllocation
         return TransactionEvent::query()
             ->where('transaction_id', $payin->id)
             ->where('event', 'session_closed')
-            ->where('created_at', '>=', $allocated->created_at)
+            ->where('created_at', '>=', $allocated->created_at->format('Y-m-d H:i:s.uP'))
             ->exists();
     }
 
@@ -100,7 +100,7 @@ class ReleaseAllocation
         $released = $allocated !== null && TransactionEvent::query()
             ->where('transaction_id', $payin->id)
             ->whereIn('event', ['allocation_released', 'allocation_confirmed'])
-            ->where('created_at', '>=', $allocated->created_at)
+            ->where('created_at', '>=', $allocated->created_at->format('Y-m-d H:i:s.uP'))
             ->exists();
 
         if ($allocated === null || $released) {

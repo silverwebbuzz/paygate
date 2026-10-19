@@ -43,6 +43,7 @@ type Props = {
     partners: { id: string; code: string; name: string }[];
     branch_options: { id: string; code: string; name: string }[];
     reasons: Record<string, string>;
+    move_options?: MoveOption[];
     selected: string | null;
     detail?: TxnDetail | null;
 };
@@ -58,7 +59,23 @@ const TAB_INFO: Record<
     declined: { label: 'Declined today', icon: '✕', tone: 'er' },
 };
 
-type Dialog = null | { kind: 'approve' | 'hold' | 'decline'; txn: TxnRow };
+type Dialog = null | {
+    kind: 'approve' | 'hold' | 'decline' | 'move' | 'not_in_bank';
+    txn: TxnRow;
+};
+
+type MoveOption = {
+    id: string;
+    label: string;
+    bank: string | null;
+    number: string | null;
+    upi: string | null;
+    status: string;
+    branch: { id: string; code: string; name: string };
+};
+
+/** status_reason_code of a deposit the branch says isn't in its bank. */
+const NOT_IN_BANK = 'not_in_our_bank';
 
 export default function Deposits(props: Props) {
     const { portal, tab, tabs, items, filters, partners } = props;
@@ -120,6 +137,11 @@ export default function Deposits(props: Props) {
         router.reload({ only: ['detail', 'selected'], data: { txn: id } });
     };
 
+    const openMove = (txn: TxnRow) => {
+        setDialog({ kind: 'move', txn });
+        router.reload({ only: ['move_options'], data: { move: txn.id } });
+    };
+
     const decisionButtons = (txn: TxnRow, compact = false) =>
         txn.can.decide &&
         ['payment_submitted', 'payment_detected', 'under_review'].includes(
@@ -129,6 +151,28 @@ export default function Deposits(props: Props) {
                 className="flex gap-1.5"
                 onClick={(event) => event.stopPropagation()}
             >
+                {portal === 'admin' && (
+                    <PgButton
+                        className="h-7 px-2 text-xs"
+                        title="Move to the branch / account the money reached"
+                        onClick={() => openMove(txn)}
+                    >
+                        Move
+                    </PgButton>
+                )}
+                {portal === 'branch' &&
+                    !compact &&
+                    txn.reason_code !== NOT_IN_BANK && (
+                        <PgButton
+                            className="h-7 px-2 text-xs"
+                            title="The money isn’t in our bank: ask Admin to move it"
+                            onClick={() =>
+                                setDialog({ kind: 'not_in_bank', txn })
+                            }
+                        >
+                            Not in our bank
+                        </PgButton>
+                    )}
                 {!compact && (
                     <PgButton
                         variant="danger"
@@ -371,6 +415,16 @@ export default function Deposits(props: Props) {
                                         · {formatRelative(txn.submitted_at)}
                                     </span>
                                 </Row>
+                                {txn.status === 'under_review' && (
+                                    <Row label="Hold reason">
+                                        {txn.reason_code === NOT_IN_BANK && (
+                                            <span className="mr-1 rounded bg-wnb px-1.5 py-0.5 font-medium text-wn">
+                                                Not in branch’s bank
+                                            </span>
+                                        )}
+                                        {txn.note ?? '—'}
+                                    </Row>
+                                )}
                                 {(tab === 'approved' || tab === 'declined') && (
                                     <Row label="Decision">
                                         {tab === 'approved'
@@ -576,6 +630,38 @@ export default function Deposits(props: Props) {
                     onClose={() => setDialog(null)}
                 />
             )}
+            {dialog?.kind === 'move' && (
+                <MoveDialog
+                    txn={dialog.txn}
+                    options={props.move_options}
+                    url={adminDeposits.move(dialog.txn.id).url}
+                    onClose={() => setDialog(null)}
+                />
+            )}
+            {dialog?.kind === 'not_in_bank' && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => !next && setDialog(null)}
+                    title={`${dialog.txn.reference} isn’t in your bank?`}
+                    description="Puts it on Payment hold and asks Admin to move it to the branch the customer really paid. Use this when the customer’s UTR isn’t in your account’s statement."
+                    confirmLabel="Send to Admin"
+                    tone="warning"
+                    input={{
+                        label: 'Note for Admin (optional)',
+                        required: false,
+                    }}
+                    onConfirm={(note) =>
+                        router.post(
+                            branchDeposits.notInBank(dialog.txn.id).url,
+                            { note },
+                            {
+                                preserveScroll: true,
+                                onFinish: () => setDialog(null),
+                            },
+                        )
+                    }
+                />
+            )}
             {dialog?.kind === 'hold' && (
                 <ConfirmDialog
                     open
@@ -736,6 +822,97 @@ function ApproveDialog({
                     invalid={!!errors.note}
                     onChange={(event) =>
                         form.setData('note', event.target.value)
+                    }
+                />
+            </Field>
+        </FormDialog>
+    );
+}
+
+/** Admin: move a waiting deposit to the account the money really reached. */
+function MoveDialog({
+    txn,
+    options,
+    url,
+    onClose,
+}: {
+    txn: TxnRow;
+    options: MoveOption[] | undefined;
+    url: string;
+    onClose: () => void;
+}) {
+    const form = useForm({ payment_account_id: '', reason: '' });
+    const errors = form.errors as Record<string, string | undefined>;
+    const branches = Object.values(
+        (options ?? []).reduce<
+            Record<string, { branch: MoveOption['branch']; accounts: MoveOption[] }>
+        >((groups, option) => {
+            groups[option.branch.id] ??= { branch: option.branch, accounts: [] };
+            groups[option.branch.id].accounts.push(option);
+
+            return groups;
+        }, {}),
+    );
+
+    return (
+        <FormDialog
+            open
+            onOpenChange={(open) => !open && onClose()}
+            title={`Move ${txn.reference} to another branch?`}
+            description={`Now with ${txn.branch?.code ?? '—'}${txn.account ? ` · ${txn.account.label}` : ''}. Pick the account the customer’s money actually reached. The deposit goes back to Pending there, today’s capacity moves with it, and that branch is alerted.`}
+            submitLabel="Move deposit"
+            processing={form.processing}
+            onSubmit={() =>
+                form.post(url, { preserveScroll: true, onSuccess: onClose })
+            }
+        >
+            <Field
+                label="Branch · account the money reached"
+                error={errors.payment_account_id ?? errors.status}
+            >
+                <SelectInput
+                    required
+                    disabled={options === undefined}
+                    value={form.data.payment_account_id}
+                    onChange={(event) =>
+                        form.setData('payment_account_id', event.target.value)
+                    }
+                >
+                    <option value="">
+                        {options === undefined
+                            ? 'Loading accounts…'
+                            : options.length === 0
+                              ? 'No other account of a mapped branch'
+                              : 'Choose…'}
+                    </option>
+                    {branches.map(({ branch, accounts }) => (
+                        <optgroup
+                            key={branch.id}
+                            label={`${branch.code} · ${branch.name}`}
+                        >
+                            {accounts.map((account) => (
+                                <option key={account.id} value={account.id}>
+                                    {account.label}
+                                    {account.number
+                                        ? ` · ${account.number}`
+                                        : ''}
+                                    {account.upi ? ` · ${account.upi}` : ''}
+                                    {account.status !== 'active'
+                                        ? ` (${account.status})`
+                                        : ''}
+                                </option>
+                            ))}
+                        </optgroup>
+                    ))}
+                </SelectInput>
+            </Field>
+            <Field label="Reason (kept in the history)" error={errors.reason}>
+                <TextInput
+                    required
+                    value={form.data.reason}
+                    placeholder="e.g. Customer paid BR2’s HDFC; UTR in its statement"
+                    onChange={(event) =>
+                        form.setData('reason', event.target.value)
                     }
                 />
             </Field>

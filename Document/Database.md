@@ -313,7 +313,7 @@ Key indexes:
 `transaction_id uuid PK FK`, `type` (`bank`, with `upi` reserved: Req G-58), `account_holder_name`, `account_number_encrypted`, `account_number_last4`, `ifsc`, `bank_name`, `upi_id_encrypted` null, `email`, `phone`.
 
 **`transaction_events`** (append-only; the transaction timeline)
-`id`, `transaction_id FK`, `from_status`, `to_status`, `event` (e.g. `allocated`, `utr_submitted`, `approved`), `actor_type` (`system` / `user` / `partner_api` / `customer`), `actor_id uuid null`, `reason text null`, `data jsonb null`, `request_id`, `created_at`. Index `(transaction_id, created_at)`.
+`id`, `transaction_id FK`, `from_status`, `to_status`, `event` (e.g. `allocated`, `utr_submitted`, `approved`), `actor_type` (`system` / `user` / `partner_api` / `customer`), `actor_id uuid null`, `reason text null`, `data jsonb null`, `request_id`, `created_at timestamptz(6) DEFAULT clock_timestamp()` (set by the database to the microsecond, so events written in one request keep their order — `ReleaseAllocation` reads the latest `allocated` and whether a release came after it). Index `(transaction_id, created_at)`.
 
 **`files`** (proofs, logos, statements, KYC documents)
 `id`, `disk`, `path`, `original_name`, `mime`, `size_bytes`, `sha256`, `attachable_type`, `attachable_id`, `purpose` (`payment_proof` / `logo` / `statement` / `kyc` / `settlement_proof`), `uploaded_by_type`, `uploaded_by_id`, `created_at`. Private storage only; served through short-lived signed URLs after an authorization check (Req REC-04). Index `(attachable_type, attachable_id)`.
