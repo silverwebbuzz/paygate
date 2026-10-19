@@ -177,8 +177,8 @@ class StatementMatcher
             return;
         }
 
-        if ($this->hasTwin($entry)) {
-            $this->openCase($entry, CaseType::DuplicateUtr, null, __('Another bank line of this account has the same UTR.'), 'duplicate');
+        if (($twin = $this->twin($entry)) !== null) {
+            $this->openCase($entry, CaseType::DuplicateUtr, null, $this->twinNote($entry, $twin), 'duplicate');
 
             return;
         }
@@ -251,8 +251,8 @@ class StatementMatcher
             return;
         }
 
-        if ($this->hasTwin($entry)) {
-            $this->openCase($entry, CaseType::DuplicateUtr, null, __('Another bank line of this account has the same UTR.'), 'duplicate');
+        if (($twin = $this->twin($entry)) !== null) {
+            $this->openCase($entry, CaseType::DuplicateUtr, null, $this->twinNote($entry, $twin), 'duplicate');
 
             return;
         }
@@ -385,12 +385,31 @@ class StatementMatcher
         return StatementEntry::query()->where('transaction_id', $txn->id)->lockForUpdate()->first();
     }
 
-    private function hasTwin(StatementEntry $entry): bool
+    /**
+     * An earlier bank line with the same UTR, in any account and either
+     * direction: a UTR is one bank transfer, so the second line needs a person.
+     */
+    private function twin(StatementEntry $entry): ?StatementEntry
     {
         return StatementEntry::query()
-            ->where(['payment_account_id' => $entry->payment_account_id, 'entry_direction' => $entry->entry_direction, 'utr_normalized' => $entry->utr_normalized])
+            ->where('utr_normalized', $entry->utr_normalized)
             ->whereKeyNot($entry->id)
-            ->exists();
+            ->with(['branch', 'paymentAccount'])
+            ->orderBy('created_at')
+            ->first();
+    }
+
+    private function twinNote(StatementEntry $entry, StatementEntry $twin): string
+    {
+        return $twin->payment_account_id === $entry->payment_account_id && $twin->entry_direction === $entry->entry_direction
+            ? __('Another bank line of this account has the same UTR.')
+            : __('UTR :utr is already on a :direction line of :branch · :account (:date). One UTR is one bank transfer.', [
+                'utr' => $entry->utr_normalized,
+                'direction' => $twin->entry_direction,
+                'branch' => $twin->branch->code ?? '—',
+                'account' => $twin->paymentAccount->label ?? '—',
+                'date' => $twin->value_date->format('d M Y'),
+            ]);
     }
 
     private function amountNote(StatementEntry $entry, Transaction $txn): string

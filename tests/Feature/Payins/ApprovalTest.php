@@ -300,12 +300,12 @@ class ApprovalTest extends TestCase
             ->assertSessionHasNoErrors();
         $this->assertSame([600000, 500000], [$over->fresh()?->amount, $over->fresh()?->order_amount]);
 
-        $exact = $this->submittedPayin(['amount' => 500000]);
+        $exact = $this->submittedPayin(['amount' => 500000], '626812820492');
         $this->actingAs($this->operator)->post(route('branch.deposits.approve', $exact), ['bank_utr' => '626812820492', 'received_amount' => '5000.00'])
             ->assertSessionHasNoErrors();
         $this->assertSame([500000, null, 500000], [$exact->fresh()?->amount, $exact->fresh()?->order_amount, $exact->fresh()?->received_amount]);
 
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $this->submittedPayin()), ['bank_utr' => '626812820493', 'received_amount' => '0', 'note' => 'x'])
+        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $this->submittedPayin([], '626812820493')), ['bank_utr' => '626812820493', 'received_amount' => '0', 'note' => 'x'])
             ->assertSessionHasErrors('received_amount');
     }
 
@@ -325,7 +325,7 @@ class ApprovalTest extends TestCase
         $this->assertSame(['payin.submitted'], WebhookEvent::where('transaction_id', $payin->id)->pluck('event_type')->all());
 
         $this->partner->update(['payin_webhook_url' => null]);
-        $quiet = $this->submittedPayin();
+        $quiet = $this->submittedPayin([], '626812820492');
         $this->assertSame(0, WebhookEvent::where('transaction_id', $quiet->id)->count());
     }
 }

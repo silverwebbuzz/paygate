@@ -820,7 +820,10 @@ function PaymentDialog({
                         }
                     />
                 </Field>
-                <Field label="Bank reference (optional)">
+                <Field
+                    label="Bank reference / UTR (optional)"
+                    error={form.errors.reference}
+                >
                     <TextInput
                         value={form.data.reference}
                         onChange={(event) =>

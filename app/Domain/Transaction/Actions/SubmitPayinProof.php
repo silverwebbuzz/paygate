@@ -8,7 +8,9 @@ use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
+use App\Domain\Transaction\Utr;
 use App\Domain\Webhook\Actions\QueueWebhook;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,12 +22,15 @@ use Illuminate\Validation\ValidationException;
  * types the bank UTR when approving (Phase 7), so duplicate-UTR protection
  * still works.
  *
- * A UTR another open or successful pay-in already claimed is accepted but
+ * A UTR is one bank transfer (Utr): one another transaction holds is
+ * refused. One seen only on a declined / expired deposit is accepted but
  * flagged for the branch (`possible_duplicate_of`).
  */
 class SubmitPayinProof
 {
     public const UTR_PATTERN = '/^[A-Z0-9]{6,22}$/';
+
+    private const TAKEN = 'This UTR is already used for another payment. Check the UTR in your bank or UPI app; if it is right, contact support.';
 
     public function __construct(private QueueWebhook $webhooks, private ReleaseAllocation $allocation, private StatementMatcher $matcher) {}
 
@@ -51,22 +56,32 @@ class SubmitPayinProof
                     : __('This payment can no longer be updated.')]);
             }
 
+            if ($normalised !== null && Utr::holder($normalised, $locked->id) !== null) {
+                throw ValidationException::withMessages(['utr' => __(self::TAKEN)]);
+            }
+
             $duplicate = $normalised === null ? null : Transaction::query()
                 ->where('direction', 'payin')
                 ->whereKeyNot($locked->id)
                 ->where('customer_utr_normalized', $normalised)
-                ->whereNotIn('status', [PayinStatus::Rejected->value, PayinStatus::Expired->value, PayinStatus::Cancelled->value])
                 ->value('reference');
 
             $file = $photo === null ? null : StoredFile::store($photo, 'payment_proof', $locked, 'customer');
 
             $from = $locked->status;
-            $locked->forceFill([
-                'customer_utr' => $utr === null ? null : mb_substr(trim($utr), 0, 50),
-                'customer_utr_normalized' => $normalised,
-                'status' => PayinStatus::PaymentSubmitted->value,
-                'submitted_at' => now(),
-            ])->save();
+
+            try {
+                // A savepoint, so a clash with another customer saving the same UTR
+                // at this moment leaves this transaction usable.
+                DB::transaction(fn () => $locked->forceFill([
+                    'customer_utr' => $utr === null ? null : mb_substr(trim($utr), 0, 50),
+                    'customer_utr_normalized' => $normalised,
+                    'status' => PayinStatus::PaymentSubmitted->value,
+                    'submitted_at' => now(),
+                ])->save());
+            } catch (QueryException $exception) {
+                throw Utr::isDuplicateError($exception) ? ValidationException::withMessages(['utr' => __(self::TAKEN)]) : $exception;
+            }
 
             $locked->session()->update(['status' => 'completed']);
             $this->allocation->closeSession($locked);

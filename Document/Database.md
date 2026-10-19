@@ -293,7 +293,10 @@ Key indexes:
 - Partner lists: `(partner_id, direction, created_at DESC)`
 - Admin lists: `(status, created_at DESC)`, `(created_at)`
 - Expiry sweep: `(expires_at) WHERE status IN ('created','awaiting_payment')`
-- **Duplicate-UTR protection:** `UNIQUE (payment_account_id, bank_utr_normalized) WHERE direction = 'payin' AND bank_utr_normalized IS NOT NULL AND status NOT IN ('rejected','expired','cancelled')`. Reused **customer** UTRs are allowed in the database and flagged by the app for review
+- **One UTR = one bank transfer, system-wide** (decided 2026-10-19, `App\Domain\Transaction\Utr`): across accounts, branches, pay-ins and payouts.
+  - `transactions_unique_bank_utr`: `UNIQUE (bank_utr_normalized) WHERE bank_utr_normalized IS NOT NULL AND status NOT IN ('rejected','expired','cancelled','failed')` — an approved deposit or paid payout holds its UTR for good (chargebacks / refunds / returns keep it).
+  - `transactions_unique_claimed_utr`: `UNIQUE (customer_utr_normalized) WHERE direction = 'payin' AND customer_utr_normalized IS NOT NULL AND status IN ('payment_submitted','payment_detected','under_review')` — a customer's UTR is held while the deposit waits.
+  - The app also refuses a UTR that is another transaction's customer claim / bank UTR (cross-column) or a settlement payment's bank reference, with a message naming the holder. A customer UTR seen only on a declined deposit is accepted and flagged (`possible_duplicate_of`). Reversal references are free text (a chargeback quotes the original UTR) and are not checked.
 - UTR search: `(customer_utr_normalized)`, `(bank_utr_normalized)`
 
 **`payment_sessions`** (pay-in only)
@@ -335,7 +338,7 @@ Key indexes:
 | amount                        | bigint             | > 0                                                                                                                                                        |
 | utr, utr_normalized           | text null          |                                                                                                                                                            |
 | description                   | text null          |                                                                                                                                                            |
-| row_hash                      | text               | Hash of (account, date, direction, amount, UTR or else description, occurrence in the file); `UNIQUE (payment_account_id, row_hash)` stops duplicate lines |
+| row_hash                      | text               | Hash of (account, date, direction, amount, UTR or else description, occurrence in the file); `UNIQUE (payment_account_id, row_hash)` stops duplicate lines. A UTR already on any other line (any account, either direction) opens a `duplicate_utr` case; index `statement_entries_utr_normalized_index` |
 | status                        | text               | `imported` / `matched` / `unmatched` / `duplicate` / `ignored` / `reconciled` (Req §7.6)                                                                   |
 | transaction_id                | uuid FK null       | Linked transaction; `UNIQUE (transaction_id) WHERE transaction_id IS NOT NULL`                                                                             |
 | matched_at, matched_by        |                    |                                                                                                                                                            |
@@ -537,7 +540,7 @@ LIMIT 1;
 Then conditionally reserve `usage_counters` for the account, branch, partner and mapping (amount, count, open sessions). If any limit is hit, try the next candidate (a bounded loop). On success: set `a.last_allocated_at = clock_timestamp()`, set the transaction's `branch_id`, `payment_account_id`, `method` and status `awaiting_payment`, and add an event.
 If `SKIP LOCKED` returns nothing, run the query **once more without** `SKIP LOCKED` (waiting a few milliseconds). Otherwise a burst could report "unavailable" just because every account was briefly locked by another customer. Only when that also finds nothing → "temporarily unavailable" + admin alert.
 
-**Customer submits UTR or photo** → `payment_submitted` (the duplicate-UTR unique index rejects reused UTRs) + event + branch notification.
+**Customer submits UTR or photo** → `payment_submitted` (a UTR another transaction holds is refused: `Utr::holder` + `transactions_unique_claimed_utr`) + event + branch notification.
 
 **Branch approves** (Req G-23)
 

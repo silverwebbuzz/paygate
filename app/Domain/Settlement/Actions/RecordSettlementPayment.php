@@ -8,6 +8,8 @@ use App\Domain\Ledger\Ledger;
 use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Settlement\Models\SettlementLine;
 use App\Domain\Settlement\Models\SettlementPayment;
+use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Utr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -41,6 +43,13 @@ class RecordSettlementPayment
             /** @var Settlement $locked */
             $locked = Settlement::query()->whereKey($settlement->id)->lockForUpdate()->firstOrFail();
             $this->ensureLatest($locked);
+
+            // The bank reference is the transfer's UTR: one transfer, recorded once.
+            $utr = $reference === null ? '' : Transaction::normaliseUtr($reference);
+
+            if ($utr !== '') {
+                Utr::ensureFree($utr, null, 'reference');
+            }
 
             if ($locked->status === 'settled') {
                 throw ValidationException::withMessages(['amounts' => __('This settlement is already fully settled.')]);

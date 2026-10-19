@@ -16,6 +16,7 @@ use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
+use App\Domain\Transaction\Utr;
 use App\Domain\Webhook\Actions\QueueWebhook;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -86,6 +87,7 @@ class DecidePayin
         try {
             return DB::transaction(function () use ($actor, $payin, $bankUtr, $utr, $note, $late, $received) {
                 $locked = $this->lock($payin, $late ? self::LATE_APPROVABLE : self::DECIDABLE);
+                Utr::ensureFree($utr, $locked->id);
                 $order = $locked->orderAmount();
                 $received ??= $order;
                 $differs = $received !== $order;
@@ -158,13 +160,8 @@ class DecidePayin
                 return $locked;
             });
         } catch (QueryException $exception) {
-            if ($exception->getCode() === '23505' && str_contains($exception->getMessage(), 'transactions_unique_payin_bank_utr')) {
-                $other = Transaction::query()
-                    ->where('payment_account_id', $payin->payment_account_id)
-                    ->where('bank_utr_normalized', $utr)
-                    ->value('reference');
-
-                throw ValidationException::withMessages(['bank_utr' => __('This UTR was already used to approve :reference on this account.', ['reference' => $other ?? 'another pay-in'])]);
+            if (Utr::isDuplicateError($exception)) {
+                Utr::ensureFree($utr, $payin->id);
             }
 
             throw $exception;

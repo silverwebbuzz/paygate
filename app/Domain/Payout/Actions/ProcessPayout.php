@@ -18,7 +18,9 @@ use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
+use App\Domain\Transaction\Utr;
 use App\Domain\Webhook\Actions\QueueWebhook;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -67,8 +69,22 @@ class ProcessPayout
             throw ValidationException::withMessages(['bank_utr' => __('Enter the UTR of your transfer (6–22 letters or digits).')]);
         }
 
+        try {
+            return $this->pay($actor, $payout, $bankUtr, $utr, $note);
+        } catch (QueryException $exception) {
+            if (Utr::isDuplicateError($exception)) {
+                Utr::ensureFree($utr, $payout->id);
+            }
+
+            throw $exception;
+        }
+    }
+
+    private function pay(User $actor, Transaction $payout, string $bankUtr, string $utr, ?string $note): Transaction
+    {
         return DB::transaction(function () use ($actor, $payout, $bankUtr, $utr, $note) {
             $locked = $this->lock($payout, [PayoutStatus::Assigned, PayoutStatus::Processing]);
+            Utr::ensureFree($utr, $locked->id);
             $reservation = PayoutReservation::current($locked) ?? throw ValidationException::withMessages(['status' => __('This payout holds no balance; ask an administrator.')]);
 
             $mapping = PartnerBranchMapping::query()->findOrFail($reservation['mapping_id']);

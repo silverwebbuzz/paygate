@@ -356,18 +356,33 @@ class CheckoutTest extends TestCase
         $this->assertStringNotContainsString('public', $file->path);
     }
 
-    public function test_a_reused_utr_is_accepted_but_flagged_for_the_branch()
+    public function test_a_utr_is_one_payment_a_claimed_one_is_refused_and_a_declined_one_flagged()
     {
         $this->activeAccount();
+        $tokens = [];
 
-        foreach (['A', 'B'] as $order) {
-            [${'ref'.$order}, $token] = $this->createPayin();
-            $this->choose($token, 'upi');
-            $this->post($this->page($token).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        foreach (['A', 'B', 'C'] as $order) {
+            [${'ref'.$order}, $tokens[$order]] = $this->createPayin();
+            $this->choose($tokens[$order], 'upi');
         }
 
+        $this->post($this->page($tokens['A']).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        // Same UTR, even typed differently, while A waits for the branch.
+        $this->post($this->page($tokens['B']).'/proof', ['utr' => '6268 1282 0491'])->assertSessionHasErrors('utr');
+        $this->assertSame('awaiting_payment', $this->payin($refB)->status);
+
+        // Once A is declined, the UTR is free again, and the branch sees it was used on A.
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $this->actingAs($admin)->post(route('admin.deposits.decline', $this->payin($refA)), ['reason_code' => 'payment_not_found'])->assertSessionHasNoErrors();
+        $this->post($this->page($tokens['B']).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
         $event = TransactionEvent::where(['transaction_id' => $this->payin($refB)->id, 'event' => 'proof_submitted'])->firstOrFail();
         $this->assertSame($refA, $event->data['possible_duplicate_of']);
+
+        // Approved with it, B holds the UTR for good.
+        $this->rate('partner', $this->partner->id, 'deposit', '6');
+        $this->rate('branch', $this->branch->id, 'deposit', '4');
+        $this->actingAs($admin)->post(route('admin.deposits.approve', $this->payin($refB)), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
+        $this->post($this->page($tokens['C']).'/proof', ['utr' => '626812820491'])->assertSessionHasErrors('utr');
     }
 
     public function test_expiry_releases_capacity_and_the_page_expires_on_the_spot()

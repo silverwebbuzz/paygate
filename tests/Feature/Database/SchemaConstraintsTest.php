@@ -70,28 +70,31 @@ class SchemaConstraintsTest extends TestCase
         $this->assertRejected(fn () => $this->transaction($partner->id, ['direction' => 'payout', 'status' => 'awaiting_payment']), 'transactions_status_check');
     }
 
-    public function test_a_verified_bank_utr_cannot_be_used_twice_on_one_account_unless_the_first_failed()
+    public function test_a_verified_bank_utr_is_held_once_system_wide_unless_its_transaction_failed()
     {
         $partner = Partner::factory()->create();
-        $account = $this->paymentAccount();
 
-        $first = $this->transaction($partner->id, ['payment_account_id' => $account, 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']);
-        $this->assertRejected(fn () => $this->transaction($partner->id, ['payment_account_id' => $account, 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']), 'transactions_unique_payin_bank_utr');
+        // Another account, and a payout: still the same UTR.
+        $first = $this->transaction($partner->id, ['payment_account_id' => $this->paymentAccount(), 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']);
+        $this->assertRejected(fn () => $this->transaction($partner->id, ['payment_account_id' => $this->paymentAccount(), 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']), 'transactions_unique_bank_utr');
+        $this->assertRejected(fn () => $this->transaction($partner->id, ['direction' => 'payout', 'bank_utr_normalized' => 'UTR123', 'status' => 'processing']), 'transactions_unique_bank_utr');
 
         DB::table('transactions')->where('id', $first)->update(['status' => 'rejected']);
-        $this->transaction($partner->id, ['payment_account_id' => $account, 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']);
+        $this->transaction($partner->id, ['payment_account_id' => $this->paymentAccount(), 'bank_utr_normalized' => 'UTR123', 'status' => 'under_review']);
         $this->assertSame(2, DB::table('transactions')->where('bank_utr_normalized', 'UTR123')->count());
     }
 
-    public function test_customer_utr_claims_are_stored_separately_from_the_bank_utr()
+    public function test_a_customer_utr_is_claimed_by_one_waiting_deposit_at_a_time()
     {
         $partner = Partner::factory()->create();
         $account = $this->paymentAccount();
 
-        // Two customers claiming the same UTR is allowed at database level (the app flags it for review).
-        $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
-        $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
+        $first = $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
+        $this->assertRejected(fn () => $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'under_review']), 'transactions_unique_claimed_utr');
 
+        // Declined: the claim is released.
+        DB::table('transactions')->where('id', $first)->update(['status' => 'rejected']);
+        $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
         $this->assertSame(2, DB::table('transactions')->where('customer_utr_normalized', 'CLAIM1')->count());
     }
 

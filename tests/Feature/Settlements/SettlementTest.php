@@ -61,12 +61,12 @@ class SettlementTest extends TestCase
         return Settlement::query()->where('party_type', $type)->orderByDesc('period_end')->firstOrFail();
     }
 
-    private function pay(Settlement $settlement, string $rupees)
+    private function pay(Settlement $settlement, string $rupees, ?string $reference = null)
     {
         return $this->actingAs($this->admin)->post(route('admin.settlements.pay', $settlement), [
             'amounts' => [$settlement->lines()->value('id') => $rupees],
             'paid_at' => now(config('app.business_timezone'))->toDateString(),
-            'reference' => 'NEFT-SET-001',
+            'reference' => $reference ?? 'NEFT'.random_int(100000000, 999999999),
         ]);
     }
 
@@ -104,7 +104,7 @@ class SettlementTest extends TestCase
         $first = $this->calculate('branch', $this->branch->id);
 
         $this->travel(1)->minutes();
-        $this->pay($first, '5000')->assertSessionHasNoErrors();
+        $this->pay($first, '5000', 'NEFT-SET-001')->assertSessionHasNoErrors();
 
         $first->refresh();
         $this->assertSame('partially_settled', $first->status);
@@ -113,6 +113,10 @@ class SettlementTest extends TestCase
         $this->assertSame(-460000, $this->ledger->balance(Ledger::BRANCH_POSITION, $this->partner->id, $this->branch->id));
         $this->assertSame(-500000, $this->ledger->balance(Ledger::SETTLEMENT_CLEARING));
         $this->assertSame(0, (int) DB::table('ledger_entries')->sum('amount'));
+
+        // A bank reference is one transfer: recorded once, and never a deposit's UTR.
+        $this->pay($first, '100', 'neft set 001')->assertSessionHasErrors('reference');
+        $this->pay($first, '100', '626812820491')->assertSessionHasErrors('reference');
 
         // Too much for the line.
         $this->pay($first, '4600.01')->assertSessionHasErrors('amounts.'.$first->lines()->value('id'));
