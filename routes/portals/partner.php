@@ -8,6 +8,7 @@ use App\Http\Partner\Profile\BusinessProfileController;
 use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
+use App\Http\Shared\Settlements\SettlementDashboardController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,7 @@ Route::get('payouts', [TransactionController::class, 'index'])->defaults('direct
 Route::get('balance', [BalanceController::class, 'show'])->name('balance');
 Route::get('accounts', [AccountController::class, 'index'])->name('accounts.index');
 Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');
+Route::get('settlement-dashboard', [SettlementDashboardController::class, 'show'])->name('settlement-dashboard');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
 
 // API documentation and the partner's own API call log.

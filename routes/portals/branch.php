@@ -10,6 +10,7 @@ use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
 use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
+use App\Http\Shared\Settlements\SettlementDashboardController;
 use App\Http\Shared\Transactions\ChargebackRequestController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
@@ -70,6 +71,7 @@ Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->na
 
 // Settlements with the platform (read-only) and the current position.
 Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');
+Route::get('settlement-dashboard', [SettlementDashboardController::class, 'show'])->name('settlement-dashboard');
 Route::get('balance', [BranchBalanceController::class, 'show'])->name('balance');
 
 // What the branch's own users did (read-only).

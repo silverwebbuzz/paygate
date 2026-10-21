@@ -26,6 +26,7 @@ use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
 use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
+use App\Http\Shared\Settlements\SettlementDashboardController;
 use App\Http\Shared\Transactions\ChargebackRequestController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
@@ -94,6 +95,8 @@ Route::controller(SettlementController::class)->prefix('settlements')->name('set
     Route::post('calculate', 'calculate')->name('calculate');
     Route::post('{settlement}/payments', 'pay')->name('pay');
 });
+// Settlement Dashboard: Admin / Branch / Partner views for a period.
+Route::get('settlement-dashboard/{side?}', [SettlementDashboardController::class, 'show'])->whereIn('side', SettlementDashboardController::SIDES)->name('settlement-dashboard');
 Route::controller(AdjustmentController::class)->prefix('settlements/adjustments')->name('adjustments.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('/', 'store')->name('store');

@@ -194,6 +194,21 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'settlements.view',
                 },
                 {
+                    label: 'Admin Settlement Dashboard',
+                    href: admin.settlementDashboard('admin'),
+                    permission: 'settlements.view',
+                },
+                {
+                    label: 'Branch Settlement Dashboard',
+                    href: admin.settlementDashboard('branch'),
+                    permission: 'settlements.view',
+                },
+                {
+                    label: 'Partner Settlement Dashboard',
+                    href: admin.settlementDashboard('partner'),
+                    permission: 'settlements.view',
+                },
+                {
                     label: 'Commissions',
                     href: admin.commissions.index(),
                     permission: 'commissions.view',
@@ -336,6 +351,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'settlements.view',
                 },
                 {
+                    label: 'Settlement Dashboard',
+                    href: branch.settlementDashboard(),
+                    permission: 'settlements.view',
+                },
+                {
                     label: 'Reports',
                     href: branch.reports.index(),
                     permission: 'reports.view',
@@ -402,6 +422,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 {
                     label: 'Settlements',
                     href: partnerSettlements.index(),
+                    permission: 'settlements.view',
+                },
+                {
+                    label: 'Settlement Dashboard',
+                    href: partner.settlementDashboard(),
                     permission: 'settlements.view',
                 },
                 {

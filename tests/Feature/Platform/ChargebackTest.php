@@ -87,6 +87,10 @@ class ChargebackTest extends TestCase
 
         $chargeback = Chargeback::sole();
         $this->assertSame('requested', $chargeback->status);
+        // A PDF notice opens in the browser's viewer.
+        $this->actingAs($this->operator)->get(route('files.show', $chargeback->proof_file_id))
+            ->assertOk()
+            ->assertHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; object-src 'self'");
         $this->assertSame(1000000, $chargeback->amount);
         $this->assertSame($this->operator->id, $chargeback->requested_by);
         $this->assertNotNull($chargeback->proof_file_id);
@@ -190,7 +194,10 @@ class ChargebackTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('transactions.data.0.chargeback', null)->where('transactions.data.0.can.chargeback', false));
         $this->actingAs($partnerUser)->get(route('files.show', $chargeback->proof_file_id))->assertNotFound();
         $this->actingAs($otherBranch)->get(route('files.show', $chargeback->proof_file_id))->assertNotFound();
-        $this->actingAs($this->operator)->get(route('files.show', $chargeback->proof_file_id))->assertOk();
+        $this->actingAs($this->operator)->get(route('files.show', $chargeback->proof_file_id))->assertOk()
+            ->assertHeader('Content-Disposition', 'inline; filename="notice.png"');
+        $this->actingAs($this->operator)->get(route('files.show', [$chargeback->proof_file_id, 'download' => 1]))
+            ->assertHeader('Content-Disposition', 'attachment; filename="notice.png"');
 
         $checker = User::factory()->admin(SystemRoles::ADMIN_FINANCE)->withTwoFactor()->create();
         $this->actingAs($checker)->post(route('admin.chargebacks.approve', $chargeback))->assertSessionHasNoErrors();

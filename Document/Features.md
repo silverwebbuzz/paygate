@@ -290,9 +290,9 @@ Architecture.md calls the partner customer the "payer". Both terms mean the same
 
 ### RCB — Refunds & chargebacks
 
-| ID     | Feature                                                         | Cert. | Status | Notes   |
-| ------ | --------------------------------------------------------------- | ----- | ------ | ------- |
-| RCB-01 | Payout refund: request, status, amount, history, report         | A     | ❓     | Q-RCB-1 |
+| ID     | Feature                                                         | Cert. | Status | Notes                                                                                                                                                     |
+| ------ | --------------------------------------------------------------- | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| RCB-01 | Payout refund: request, status, amount, history, report         | A     | ❓     | Q-RCB-1                                                                                                                                                   |
 | RCB-02 | Chargeback (pay-in and payout): status, amount, history, report | A     | ✅     | Built 2026-10-21: branch raises (notice + UTR), Admin approves; partner bears it; booked on approval day; Chargeback tab + settlement line. Pay-ins only. |
 
 ### COM — Commissions
@@ -305,13 +305,13 @@ Architecture.md calls the partner customer the "payer". Both terms mean the same
 
 ### SET — Settlement
 
-| ID     | Feature                                                                                                 | Cert. | Status | Notes                             |
-| ------ | ------------------------------------------------------------------------------------------------------- | ----- | ------ | --------------------------------- |
-| SET-01 | Admin settlement: deposit, withdrawal, commission, settlement, chargeback, current balance, net balance | A     | ❓     | Q-SET-1                           |
-| SET-02 | Branch settlement (same, scoped to a branch)                                                            | A     | ❓     |                                   |
-| SET-03 | Partner settlement (same, scoped to a partner)                                                          | A     | ❓     |                                   |
-| SET-04 | Recording a settlement (who paid whom, how much, reference)                                             | C     | ❓     | Q-SET-2                           |
-| SET-05 | Settlement never modifies transaction amounts; it has its own records and ledger references             | B     | ✅     | Source 3, matches Architecture §9 |
+| ID     | Feature                                                                                                 | Cert. | Status | Notes                                          |
+| ------ | ------------------------------------------------------------------------------------------------------- | ----- | ------ | ---------------------------------------------- |
+| SET-01 | Admin settlement: deposit, withdrawal, commission, settlement, chargeback, current balance, net balance | A     | ✅     | Built 2026-10-21: Admin Settlement Dashboard   |
+| SET-02 | Branch settlement (same, scoped to a branch)                                                            | A     | ✅     | Built 2026-10-21: Branch Settlement Dashboard  |
+| SET-03 | Partner settlement (same, scoped to a partner)                                                          | A     | ✅     | Built 2026-10-21: Partner Settlement Dashboard |
+| SET-04 | Recording a settlement (who paid whom, how much, reference)                                             | C     | ❓     | Q-SET-2                                        |
+| SET-05 | Settlement never modifies transaction amounts; it has its own records and ledger references             | B     | ✅     | Source 3, matches Architecture §9              |
 
 ### RPT — Reports
 

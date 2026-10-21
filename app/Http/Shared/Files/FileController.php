@@ -60,7 +60,8 @@ class FileController extends Controller
             'Content-Disposition' => (in_array($file->purpose, ['payment_proof', 'chargeback_proof'], true) && $request->query('download') === null ? 'inline' : 'attachment').'; filename="'.$name.'"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
-            'Content-Security-Policy' => "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",
+            // A PDF needs the browser's own viewer (object-src); nothing else may load.
+            'Content-Security-Policy' => "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'".($file->mime === 'application/pdf' ? "; object-src 'self'" : ''),
         ]);
     }
 }

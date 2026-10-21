@@ -247,6 +247,49 @@ class Ledger
     }
 
     /**
+     * Position accounts of one kind for the pairs matching the filters
+     * (empty = all).
+     *
+     * @param  list<string>  $partnerIds
+     * @param  list<string>  $branchIds
+     * @return list<array{id: string, partner_id: string, branch_id: string}>
+     */
+    public function positionAccounts(string $kind, array $partnerIds = [], array $branchIds = []): array
+    {
+        return array_values(DB::table('ledger_accounts')
+            ->where('kind', $kind)
+            ->when($partnerIds !== [], fn ($query) => $query->whereIn('partner_id', $partnerIds))
+            ->when($branchIds !== [], fn ($query) => $query->whereIn('branch_id', $branchIds))
+            ->get(['id', 'partner_id', 'branch_id'])
+            ->map(fn (object $row) => ['id' => (string) $row->id, 'partner_id' => (string) $row->partner_id, 'branch_id' => (string) $row->branch_id])
+            ->all());
+    }
+
+    /**
+     * How many journals of one type touched each account in [start, end).
+     *
+     * @param  list<string>  $accountIds
+     * @return array<string, int> account id => count
+     */
+    public function journalCounts(array $accountIds, string $type, CarbonInterface $start, CarbonInterface $end): array
+    {
+        if ($accountIds === []) {
+            return [];
+        }
+
+        return DB::table('ledger_entries as e')
+            ->join('ledger_journals as j', 'j.id', '=', 'e.journal_id')
+            ->whereIn('e.ledger_account_id', $accountIds)
+            ->where('j.type', $type)
+            ->where('j.posted_at', '>=', $start)
+            ->where('j.posted_at', '<', $end)
+            ->groupBy('e.ledger_account_id')
+            ->get(['e.ledger_account_id', DB::raw('COUNT(*) AS total')])
+            ->mapWithKeys(fn (object $row) => [(string) $row->ledger_account_id => (int) $row->total])
+            ->all();
+    }
+
+    /**
      * When the first of these accounts was booked (null if never).
      *
      * @param  list<string>  $accountIds
