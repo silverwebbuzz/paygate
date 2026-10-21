@@ -199,25 +199,24 @@ export default function SettlementDashboard({
                             className="h-10 rounded-lg border border-ln bg-sf px-3 text-[13px] text-tx"
                         />
                     </label>
-                    {options && options.branches.length > 0 && (
-                        <MultiSelect
-                            noun="branches"
-                            items={options.branches}
-                            selected={draft.branches}
-                            onChange={(branches) =>
-                                setDraft({ ...draft, branches })
-                            }
-                        />
-                    )}
-                    {options && options.partners.length > 0 && (
-                        <MultiSelect
-                            noun="partners"
-                            items={options.partners}
-                            selected={draft.partners}
-                            onChange={(partners) =>
-                                setDraft({ ...draft, partners })
-                            }
-                        />
+                    {/* The dashboard's own side first: partners on the partner view. */}
+                    {(side === 'partner'
+                        ? (['partners', 'branches'] as const)
+                        : (['branches', 'partners'] as const)
+                    ).map(
+                        (noun) =>
+                            options &&
+                            options[noun].length > 0 && (
+                                <MultiSelect
+                                    key={noun}
+                                    noun={noun}
+                                    items={options[noun]}
+                                    selected={draft[noun]}
+                                    onChange={(ids) =>
+                                        setDraft({ ...draft, [noun]: ids })
+                                    }
+                                />
+                            ),
                     )}
                     <button
                         type="submit"
@@ -266,7 +265,13 @@ function PartyView({
             <Summary
                 figures={figures}
                 commissionLabel={
-                    side === 'partner' ? 'Fees' : 'Commission (yours)'
+                    side === 'partner'
+                        ? own
+                            ? 'Fees'
+                            : 'Partner fees'
+                        : own
+                          ? 'Commission (yours)'
+                          : 'Branch commission'
                 }
                 party={own ? 'you' : side === 'partner' ? 'partner' : 'branch'}
             />
@@ -513,16 +518,24 @@ function Pairs({
     side: 'branch' | 'partner';
     portal: UserType;
 }) {
-    const showBranch = portal === 'admin';
-    const showPartner = portal === 'admin' || side === 'branch';
+    // The dashboard's own side first; a branch sees its partners only.
+    const columns: ('partner' | 'branch')[] =
+        portal !== 'admin'
+            ? ['partner']
+            : side === 'branch'
+              ? ['branch', 'partner']
+              : ['partner', 'branch'];
 
     return (
         <Panel className="overflow-x-auto">
             <table className="w-full text-[13px]">
                 <thead>
                     <tr className="border-b border-ln2 text-left text-xs text-tx3">
-                        {showPartner && <th className="px-3 py-2">Partner</th>}
-                        {showBranch && <th className="px-3 py-2">Branch</th>}
+                        {columns.map((column) => (
+                            <th key={column} className="px-3 py-2">
+                                {column === 'branch' ? 'Branch' : 'Partner'}
+                            </th>
+                        ))}
                         <th className="px-3 py-2 text-right">Deposit</th>
                         <th className="px-3 py-2 text-right">Withdraw</th>
                         <th className="px-3 py-2 text-right">Commission</th>
@@ -540,16 +553,11 @@ function Pairs({
                             key={`${pair.partner.code}|${pair.branch.code}`}
                             className="border-b border-ln2 last:border-0"
                         >
-                            {showPartner && (
-                                <td className="px-3 py-2">
-                                    {pair.partner.name}
+                            {columns.map((column) => (
+                                <td key={column} className="px-3 py-2">
+                                    {pair[column].name}
                                 </td>
-                            )}
-                            {showBranch && (
-                                <td className="px-3 py-2">
-                                    {pair.branch.name}
-                                </td>
-                            )}
+                            ))}
                             <td className="px-3 py-2 text-right">
                                 {formatPaise(pair.deposit.amount)}
                                 <span className="text-xs text-tx3">

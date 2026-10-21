@@ -71,7 +71,9 @@ final class SettlementDashboard
             ...array_diff_key($pair, array_flip(['partner_id', 'branch_id'])),
         ], array_filter($pairs, fn (array $pair) => $pair['moved'] || $pair['closing'] !== 0)));
 
-        usort($pairs, fn (array $a, array $b) => [$a['partner']['code'], $a['branch']['code']] <=> [$b['partner']['code'], $b['branch']['code']]);
+        // Grouped by the dashboard's own side (branch view: by branch).
+        $order = $side === 'branch' ? ['branch', 'partner'] : ['partner', 'branch'];
+        usort($pairs, fn (array $a, array $b) => [$a[$order[0]]['code'], $a[$order[1]]['code']] <=> [$b[$order[0]]['code'], $b[$order[1]]['code']]);
 
         return ['total' => $total, 'pairs' => $pairs];
     }
