@@ -25,7 +25,7 @@ type Row = {
     status: Tab;
     amount: number;
     utr: string;
-    utr_matches: boolean;
+    utr_also_on: string[];
     reason: string | null;
     proof: { id: string; name: string | null; mime: string } | null;
     requested_by: string;
@@ -181,15 +181,19 @@ export default function Chargebacks({ tab, search, items, totals }: Props) {
             header: 'UTR',
             cell: (row) => (
                 <div className="text-xs">
-                    <div className="font-mono">{row.utr}</div>
-                    {row.utr_matches ? (
-                        <div className="text-ok">✓ matches the deposit</div>
-                    ) : (
+                    <div>
+                        <span className="text-tx3">Debit </span>
+                        <span className="font-mono">{row.utr}</span>
+                    </div>
+                    <div>
+                        <span className="text-tx3">Deposit </span>
+                        <span className="font-mono">
+                            {row.transaction.bank_utr ?? '—'}
+                        </span>
+                    </div>
+                    {row.utr_also_on.length > 0 && (
                         <div className="text-wn">
-                            Deposit’s bank UTR:{' '}
-                            <span className="font-mono">
-                                {row.transaction.bank_utr ?? '—'}
-                            </span>
+                            Same debit UTR on {row.utr_also_on.join(', ')}
                         </div>
                     )}
                 </div>

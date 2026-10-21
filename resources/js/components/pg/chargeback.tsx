@@ -206,10 +206,10 @@ export function RaiseChargebackDialog({
                 />
             </Field>
             <Field
-                label="UTR of the transaction"
+                label="Debit UTR"
                 required
                 error={errors.utr}
-                hint="As shown on the bank’s notice; it must match this deposit."
+                hint="The UTR of the money taken back from your account, as shown on the bank statement or notice (not the deposit’s UTR)."
             >
                 <TextInput
                     className="font-mono"

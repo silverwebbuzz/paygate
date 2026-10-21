@@ -43,6 +43,13 @@ class ChargebackController extends Controller
             ->paginate(30)
             ->withQueryString();
 
+        $sameUtr = Chargeback::query()
+            ->whereIn('utr', collect($items->items())->pluck('utr')->unique()->all())
+            ->where('status', '!=', 'rejected')
+            ->get(['reference', 'utr'])
+            ->groupBy('utr')
+            ->map(fn ($group) => $group->pluck('reference'));
+
         $rows = [];
 
         foreach ($items->items() as $chargeback) {
@@ -54,8 +61,8 @@ class ChargebackController extends Controller
                 'status' => $chargeback->status,
                 'amount' => $chargeback->amount,
                 'utr' => $chargeback->utr,
-                // The UTR typed matches the one the deposit was approved with.
-                'utr_matches' => $chargeback->utr === $txn->bank_utr_normalized,
+                // The debit's UTR on other chargebacks (one bank debit may cover two complaints, or be a mistake).
+                'utr_also_on' => $sameUtr->get($chargeback->utr, collect())->reject(fn (string $reference) => $reference === $chargeback->reference)->values()->all(),
                 'reason' => $chargeback->reason,
                 'proof' => $chargeback->proof === null ? null : ['id' => $chargeback->proof->id, 'name' => $chargeback->proof->original_name, 'mime' => $chargeback->proof->mime],
                 'requested_by' => $chargeback->requester->name,

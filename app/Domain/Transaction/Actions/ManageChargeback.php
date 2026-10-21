@@ -20,7 +20,8 @@ use Illuminate\Validation\ValidationException;
  * approved deposit, a few days after it was settled.
  *
  * - request: the branch (or Admin) raises it on a successful deposit with
- *   the bank's notice (image / PDF) and the transaction's UTR. The amount
+ *   the bank's notice (image / PDF) and the UTR of the debit (a new bank
+ *   reference for the money taken back, not the deposit's UTR). The amount
  *   starts as the deposit's and may be lowered. Nothing is booked.
  * - approve: Admin (reversals.approve, never the person who raised it)
  *   books it that day: partner −amount, branch +amount (the partner always
@@ -53,8 +54,8 @@ class ManageChargeback
 
             $normalised = Transaction::normaliseUtr($utr);
 
-            if (! in_array($normalised, array_filter([$locked->bank_utr_normalized, $locked->customer_utr_normalized]), true)) {
-                throw ValidationException::withMessages(['utr' => __('This isn’t the UTR of :reference. Enter the UTR the deposit was approved with.', ['reference' => $locked->reference])]);
+            if (preg_match(SubmitPayinProof::UTR_PATTERN, $normalised) !== 1) {
+                throw ValidationException::withMessages(['utr' => __('That doesn’t look like a UTR. Enter the reference of the debit shown on the bank statement or notice (6–22 letters and digits).')]);
             }
 
             if ($amount <= 0 || $amount > $locked->amount) {

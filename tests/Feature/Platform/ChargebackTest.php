@@ -62,7 +62,8 @@ class ChargebackTest extends TestCase
     {
         return $this->actingAs($as ?? $this->operator)->post(route('branch.payins.chargeback', $payin), [
             'amount' => '10000',
-            'utr' => '626812820491',
+            // The debit's own UTR: a new bank reference, not the deposit's.
+            'utr' => '731904556120',
             'reason' => 'UPI complaint 4471',
             'proof' => UploadedFile::fake()->create('npci-notice.pdf', 120, 'application/pdf'),
             ...$overrides,
@@ -121,19 +122,20 @@ class ChargebackTest extends TestCase
         $this->actingAs($this->admin)->post(route('admin.reversals.store'), ['transaction_id' => $payin->id, 'kind' => 'refund', 'reason' => 'x'])->assertSessionHasErrors('transaction');
     }
 
-    public function test_the_utr_must_be_the_deposits_and_the_amount_at_most_the_deposit()
+    public function test_the_debit_utr_must_look_like_a_utr_and_the_amount_at_most_the_deposit()
     {
         $payin = $this->approved();
 
-        $this->raise($payin, ['utr' => '626812829999'])->assertSessionHasErrors('utr');
+        $this->raise($payin, ['utr' => 'AB-1'])->assertSessionHasErrors('utr');
         $this->raise($payin, ['amount' => '10000.01'])->assertSessionHasErrors('amount');
         $this->raise($payin, ['proof' => null])->assertSessionHasErrors('proof');
         $this->raise($payin, ['proof' => UploadedFile::fake()->create('notice.exe', 10)])->assertSessionHasErrors('proof');
         $this->assertSame(0, Chargeback::count());
 
-        // The branch may lower the amount; a different-format UTR is normalised.
-        $this->raise($payin, ['amount' => '4000', 'utr' => ' 6268 1282 0491 '])->assertSessionHasNoErrors();
+        // The branch may lower the amount; the UTR is normalised.
+        $this->raise($payin, ['amount' => '4000', 'utr' => ' 7319 0455 6120 '])->assertSessionHasNoErrors();
         $this->assertSame(400000, Chargeback::sole()->amount);
+        $this->assertSame('731904556120', Chargeback::sole()->utr);
 
         // One open chargeback per deposit.
         $this->raise($payin)->assertSessionHasErrors('transaction');
@@ -182,7 +184,7 @@ class ChargebackTest extends TestCase
 
         // Admin may raise it for the branch, but someone else approves.
         $this->actingAs($this->admin)->post(route('admin.transactions.chargeback', $payin), [
-            'amount' => '10000', 'utr' => '626812820491', 'proof' => UploadedFile::fake()->image('notice.png'),
+            'amount' => '10000', 'utr' => '731904556120', 'proof' => UploadedFile::fake()->image('notice.png'),
         ])->assertSessionHasNoErrors();
         $chargeback = Chargeback::sole();
         $this->actingAs($this->admin)->post(route('admin.chargebacks.approve', $chargeback))->assertSessionHasErrors('chargeback');
@@ -229,7 +231,7 @@ class ChargebackTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('transactions.total', 1)
                 ->where('transactions.data.0.chargeback.status', 'requested')
-                ->where('transactions.data.0.chargeback.utr', '626812820491')
+                ->where('transactions.data.0.chargeback.utr', '731904556120')
                 ->where('transactions.data.0.can.chargeback', false)
                 ->where('summary.chargeback.pending', 1));
     }
