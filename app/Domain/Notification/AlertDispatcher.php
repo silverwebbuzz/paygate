@@ -137,6 +137,111 @@ class AlertDispatcher
     }
 
     /**
+     * The same UTR showed up twice (two waiting deposits, a deposit approved
+     * while another still claims it, or two bank lines): a typing mistake or
+     * fraud. Admin decides; nothing is approved automatically.
+     */
+    public function utrConflict(string $utr, string $body, ?Transaction $txn = null, ?ReconciliationCase $case = null): void
+    {
+        $this->alerts->send(
+            Alert::UtrConflict,
+            $this->alerts->recipients(Permission::PayinsApprove, UserType::Admin),
+            __('UTR :utr used twice — check for fraud', ['utr' => $utr]),
+            $body,
+            match (true) {
+                $case !== null => Alerts::link('admin.cases.index', ['case' => $case->id]),
+                $txn !== null => Alerts::link('admin.transactions.index', ['txn' => $txn->id]),
+                default => null,
+            },
+        );
+    }
+
+    /**
+     * Approved by hand with a bank UTR that isn't the customer's: allowed
+     * (the customer may have mistyped), but it is how a wrong deposit would
+     * be approved, so Admin sees each one.
+     */
+    public function approvedWithOtherUtr(Transaction $payin, User $approver): void
+    {
+        $this->alerts->send(
+            Alert::ApprovedOtherUtr,
+            $this->alerts->recipients(Permission::PayinsApprove, UserType::Admin, except: $approver),
+            __('Deposit :reference approved with another UTR', ['reference' => $payin->reference]),
+            __(':name (branch :branch) approved it with bank UTR :bank; the customer gave :customer. Note: :note', [
+                'name' => $approver->username ?? $approver->name,
+                'branch' => Branch::query()->whereKey($payin->branch_id)->value('code') ?? '—',
+                'bank' => $payin->bank_utr_normalized,
+                'customer' => $payin->customer_utr_normalized,
+                'note' => $payin->status_note ?? '—',
+            ]),
+            Alerts::link('admin.transactions.index', ['txn' => $payin->id]),
+        );
+    }
+
+    /**
+     * Scheduled: deposits approved by hand that no bank statement line has
+     * confirmed after the Global Settings hours — the money was never shown
+     * arriving. Each deposit is reported once (looks back 30 days).
+     *
+     * @return int deposits reported
+     */
+    public function approvedWithoutBankLine(): int
+    {
+        $hours = $this->settings->unmatchedApprovalHours();
+
+        if ($hours === 0) {
+            return 0;
+        }
+
+        $unseen = Transaction::query()
+            ->where(['direction' => 'payin', 'status' => 'success'])
+            ->whereBetween('succeeded_at', [now()->subDays(30), now()->subHours($hours)])
+            ->whereDoesntHave('statementEntry')
+            ->whereDoesntHave('events', fn ($query) => $query->where('event', 'unmatched_alerted'))
+            ->with('branch')
+            ->get(['id', 'reference', 'branch_id', 'status', 'amount']);
+
+        if ($unseen->isEmpty()) {
+            return 0;
+        }
+
+        $this->alerts->send(
+            Alert::ApprovedWithoutBankLine,
+            $this->alerts->recipients(Permission::PayinsApprove, UserType::Admin),
+            trans_choice(':count approved deposit not in any bank statement after :hours h|:count approved deposits not in any bank statement after :hours h', $unseen->count(), ['count' => $unseen->count(), 'hours' => $hours]),
+            __('Ask the branch for the bank entry, or check its statement: :list.', [
+                'list' => $unseen->take(10)->map(fn (Transaction $txn) => $txn->reference.' ('.($txn->branch->code ?? '—').', ₹'.$this->money($txn->amount).')')->join(', '),
+            ]),
+            Alerts::link('admin.transactions.index'),
+        );
+
+        foreach ($unseen as $payin) {
+            TransactionEvent::record($payin, 'unmatched_alerted', $payin->status, $payin->status, 'system', null, null, ['hours' => $hours]);
+        }
+
+        return $unseen->count();
+    }
+
+    /**
+     * A branch's bank line showed a deposit waiting at another branch: it was
+     * moved there and approved automatically. Admin and the old branch see it.
+     */
+    public function depositAutoMoved(Transaction $payin, string $fromBranchId): void
+    {
+        $from = Branch::query()->whereKey($fromBranchId)->value('code');
+        $to = Branch::query()->whereKey($payin->branch_id)->value('code');
+        $title = __('Deposit :reference moved :from → :to automatically', ['reference' => $payin->reference, 'from' => $from ?? '—', 'to' => $to ?? '—']);
+        $body = __('Branch :to’s bank shows UTR :utr for ₹:amount, so the deposit was moved there and approved.', [
+            'to' => $to ?? '—',
+            'utr' => $payin->bank_utr_normalized ?? $payin->customer_utr_normalized ?? '—',
+            'amount' => $this->money($payin->amount),
+        ]);
+
+        $this->alerts->send(Alert::DepositAutoMoved, $this->alerts->recipients(Permission::PayinsApprove, UserType::Admin), $title, $body, Alerts::link('admin.transactions.index', ['txn' => $payin->id]));
+        $this->alerts->send(Alert::DepositAutoMoved, $this->alerts->recipients(Permission::PayinsApprove, UserType::Branch, $fromBranchId), $title, $body);
+    }
+
+    /**
      * Admin moved a deposit to the account the money really reached.
      */
     public function depositMoved(Transaction $payin, string $reason): void

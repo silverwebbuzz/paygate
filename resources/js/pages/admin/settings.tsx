@@ -22,6 +22,7 @@ type Props = {
     settlement: { timezone: string; time: string; last_cutoff: string };
     timezones: string[];
     alert_settings: { deposit_wait_minutes: number };
+    deposits: { auto_approve: boolean; unmatched_alert_hours: number };
     checkout: { email: string | null; phone: string | null };
     reasons: Reason[];
     can: { update: boolean };
@@ -40,6 +41,10 @@ export default function GlobalSettings(props: Props) {
     });
     const alerts = useForm({
         deposit_wait_minutes: String(props.alert_settings.deposit_wait_minutes),
+    });
+    const deposits = useForm({
+        auto_approve: props.deposits.auto_approve,
+        unmatched_alert_hours: String(props.deposits.unmatched_alert_hours),
     });
     const checkout = useForm({
         email: props.checkout.email ?? '',
@@ -111,6 +116,57 @@ export default function GlobalSettings(props: Props) {
                         Last cut-off: {formatDateTime(settlement.last_cutoff)}{' '}
                         (India time).
                     </p>
+                </Section>
+
+                <Section
+                    title="Deposit approval"
+                    text="When a branch enters (or imports) a bank line whose UTR and exact amount match a waiting deposit, the deposit is approved by itself — and moved first if it was waiting at another branch. A repeated UTR, a different amount or a deposit on hold always stays for a person."
+                >
+                    <form
+                        className="grid items-end gap-3 sm:grid-cols-[auto_1fr_auto]"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            deposits.put(admin.settings.deposits().url, {
+                                preserveScroll: true,
+                            });
+                        }}
+                    >
+                        <label className="flex items-center gap-2 text-[13px] font-medium">
+                            <input
+                                type="checkbox"
+                                className="size-4 accent-[var(--color-ac)]"
+                                disabled={!can.update}
+                                checked={deposits.data.auto_approve}
+                                onChange={(event) =>
+                                    deposits.setData(
+                                        'auto_approve',
+                                        event.target.checked,
+                                    )
+                                }
+                            />
+                            Approve deposits automatically on a bank match
+                        </label>
+                        <Field
+                            label="Alert Admin when an approved deposit has no bank line after (hours)"
+                            hint="0 turns it off. Catches approvals whose money never showed in a statement."
+                            error={deposits.errors.unmatched_alert_hours}
+                        >
+                            <TextInput
+                                type="number"
+                                min={0}
+                                max={720}
+                                disabled={!can.update}
+                                value={deposits.data.unmatched_alert_hours}
+                                onChange={(event) =>
+                                    deposits.setData(
+                                        'unmatched_alert_hours',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </Field>
+                        <Save form={deposits} can={can.update} />
+                    </form>
                 </Section>
 
                 <Section

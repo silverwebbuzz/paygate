@@ -38,7 +38,7 @@ class ImportStatement
 
     private const STAGING = 'statement-uploads/pending';
 
-    public function __construct(private StatementMatcher $matcher) {}
+    public function __construct(private StatementMatcher $matcher, private AutoApproveDeposit $autoApprove) {}
 
     /**
      * Keeps the upload privately until the import is confirmed.
@@ -183,6 +183,7 @@ class ImportStatement
                 ]);
 
                 $this->matcher->match($entry);
+                $this->autoApprove->forLine($entry);
 
                 $imported++;
                 $line['direction'] === 'credit' ? $credit += $line['amount'] : $debit += $line['amount'];

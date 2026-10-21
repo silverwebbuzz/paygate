@@ -62,6 +62,8 @@ const TAB_INFO: Record<
 type Dialog = null | {
     kind: 'approve' | 'hold' | 'decline' | 'move' | 'not_in_bank';
     txn: TxnRow;
+    /** Decline: the reason chosen in advance ("Decline as duplicate"). */
+    reason?: string;
 };
 
 type MoveOption = {
@@ -76,6 +78,31 @@ type MoveOption = {
 
 /** status_reason_code of a deposit the branch says isn't in its bank. */
 const NOT_IN_BANK = 'not_in_our_bank';
+
+/** status_reason_code of a deposit held because its UTR was approved on another one. */
+const DUPLICATE_UTR = 'duplicate_utr';
+
+/** Same UTR as another waiting deposit, or held as a duplicate: only Admin approves. */
+const utrConflict = (txn: TxnRow) =>
+    (txn.utr_shared_with?.length ?? 0) > 0 || txn.reason_code === DUPLICATE_UTR;
+
+/** Red flag: this UTR is claimed twice. */
+function UtrConflictBadge({ txn }: { txn: TxnRow }) {
+    if (!utrConflict(txn)) {
+        return null;
+    }
+
+    return (
+        <span
+            className="mt-0.5 inline-block rounded bg-erb px-1.5 py-0.5 text-[11px] font-medium text-er"
+            title="One UTR is one bank transfer: only one of these can be real."
+        >
+            {txn.reason_code === DUPLICATE_UTR
+                ? 'Duplicate UTR'
+                : `Same UTR as ${txn.utr_shared_with?.join(', ')}`}
+        </span>
+    );
+}
 
 export default function Deposits(props: Props) {
     const { portal, tab, tabs, items, filters, partners } = props;
@@ -173,7 +200,23 @@ export default function Deposits(props: Props) {
                             Not in our bank
                         </PgButton>
                     )}
-                {!compact && (
+                {txn.reason_code === DUPLICATE_UTR && (
+                    <PgButton
+                        variant="danger"
+                        className="h-7 px-2 text-xs"
+                        title="Its UTR was already approved on another deposit"
+                        onClick={() =>
+                            setDialog({
+                                kind: 'decline',
+                                txn,
+                                reason: 'duplicate_payment',
+                            })
+                        }
+                    >
+                        Decline as duplicate
+                    </PgButton>
+                )}
+                {!compact && txn.reason_code !== DUPLICATE_UTR && (
                     <PgButton
                         variant="danger"
                         className="h-7 px-2 text-xs"
@@ -191,13 +234,22 @@ export default function Deposits(props: Props) {
                         Hold
                     </PgButton>
                 )}
-                <PgButton
-                    variant="primary"
-                    className="h-7 text-xs"
-                    onClick={() => setDialog({ kind: 'approve', txn })}
-                >
-                    Approve
-                </PgButton>
+                {portal !== 'admin' && utrConflict(txn) ? (
+                    <span
+                        className="inline-flex h-7 items-center rounded-[7px] bg-erb px-2 text-xs font-medium text-er"
+                        title="The same UTR is on another deposit. Add the bank line (the right one is approved automatically) or ask Admin."
+                    >
+                        Admin approves
+                    </span>
+                ) : (
+                    <PgButton
+                        variant="primary"
+                        className="h-7 text-xs"
+                        onClick={() => setDialog({ kind: 'approve', txn })}
+                    >
+                        Approve
+                    </PgButton>
+                )}
             </div>
         );
 
@@ -360,7 +412,8 @@ export default function Deposits(props: Props) {
                                 <Row label="Transaction">
                                     <span className="font-mono">
                                         {txn.reference}
-                                    </span>
+                                    </span>{' '}
+                                    <UtrConflictBadge txn={txn} />
                                 </Row>
                                 <Row label="Order ID">
                                     <span className="font-mono">
@@ -420,6 +473,11 @@ export default function Deposits(props: Props) {
                                         {txn.reason_code === NOT_IN_BANK && (
                                             <span className="mr-1 rounded bg-wnb px-1.5 py-0.5 font-medium text-wn">
                                                 Not in branch’s bank
+                                            </span>
+                                        )}
+                                        {txn.reason_code === DUPLICATE_UTR && (
+                                            <span className="mr-1 rounded bg-erb px-1.5 py-0.5 font-medium text-er">
+                                                Duplicate UTR
                                             </span>
                                         )}
                                         {txn.note ?? '—'}
@@ -494,6 +552,7 @@ export default function Deposits(props: Props) {
                                         <div className="text-xs text-tx3">
                                             {t.order_id}
                                         </div>
+                                        <UtrConflictBadge txn={t} />
                                     </div>
                                 ),
                             },
@@ -625,6 +684,7 @@ export default function Deposits(props: Props) {
             {dialog?.kind === 'decline' && (
                 <DeclineDialog
                     txn={dialog.txn}
+                    reason={dialog.reason}
                     reasons={props.reasons}
                     url={routes.decline(dialog.txn.id).url}
                     onClose={() => setDialog(null)}
@@ -740,6 +800,15 @@ function ApproveDialog({
         Number(form.data.received_amount.replace(/[,\s₹]/g, '')) * 100,
     );
     const differs = Number.isFinite(received) && received !== txn.amount;
+    // The bank's UTR isn't the customer's: a note is required and Admin is told.
+    const bankUtr = form.data.bank_utr
+        .replace(/[^A-Za-z0-9]/g, '')
+        .toUpperCase();
+    const utrDiffers =
+        txn.customer_utr !== null &&
+        bankUtr !== '' &&
+        bankUtr !== txn.customer_utr;
+    const noteRequired = differs || utrDiffers;
 
     return (
         <FormDialog
@@ -808,16 +877,24 @@ function ApproveDialog({
             {differs && received > 0 && (
                 <div className="rounded-lg bg-wnb px-3 py-2.5 text-[12.5px] text-wn">
                     The customer paid {formatPaise(received)} instead of{' '}
-                    {formatPaise(txn.amount)}. {txn.partner?.name ?? 'The partner'}{' '}
-                    is credited {formatPaise(received)} and Admin is told.
+                    {formatPaise(txn.amount)}.{' '}
+                    {txn.partner?.name ?? 'The partner'} is credited{' '}
+                    {formatPaise(received)} and Admin is told.
+                </div>
+            )}
+            {utrDiffers && (
+                <div className="rounded-lg bg-erb px-3 py-2.5 text-[12.5px] text-er">
+                    This isn’t the customer’s UTR ({txn.customer_utr}). Approve
+                    only if your bank entry really is this deposit — say why
+                    below. Admin is told.
                 </div>
             )}
             <Field
-                label={differs ? 'Note (required)' : 'Note (optional)'}
+                label={noteRequired ? 'Note (required)' : 'Note (optional)'}
                 error={errors.note}
             >
                 <TextInput
-                    required={differs}
+                    required={noteRequired}
                     value={form.data.note}
                     invalid={!!errors.note}
                     onChange={(event) =>
@@ -845,9 +922,15 @@ function MoveDialog({
     const errors = form.errors as Record<string, string | undefined>;
     const branches = Object.values(
         (options ?? []).reduce<
-            Record<string, { branch: MoveOption['branch']; accounts: MoveOption[] }>
+            Record<
+                string,
+                { branch: MoveOption['branch']; accounts: MoveOption[] }
+            >
         >((groups, option) => {
-            groups[option.branch.id] ??= { branch: option.branch, accounts: [] };
+            groups[option.branch.id] ??= {
+                branch: option.branch,
+                accounts: [],
+            };
             groups[option.branch.id].accounts.push(option);
 
             return groups;
@@ -922,16 +1005,21 @@ function MoveDialog({
 
 function DeclineDialog({
     txn,
+    reason,
     reasons,
     url,
     onClose,
 }: {
     txn: TxnRow;
+    reason?: string;
     reasons: Record<string, string>;
     url: string;
     onClose: () => void;
 }) {
-    const form = useForm({ reason_code: '', note: '' });
+    const form = useForm({
+        reason_code: reason && reason in reasons ? reason : '',
+        note: '',
+    });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (

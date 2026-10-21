@@ -33,6 +33,10 @@ return [
         // Photo proof uploads (KB) and accepted types.
         'proof_max_kb' => 5120,
         'proof_mimes' => ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+        // Double-click guard (decided 2026-10-21): a second pay-in for the same
+        // customer and amount while the first is still unpaid and younger than
+        // this is refused (409 duplicate_request) with the first one's link.
+        'duplicate_window_seconds' => (int) env('PAYGATE_PAYIN_DUPLICATE_WINDOW', 120),
     ],
 
     'qa' => [

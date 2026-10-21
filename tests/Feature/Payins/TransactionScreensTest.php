@@ -95,7 +95,7 @@ class TransactionScreensTest extends TestCase
 
     public function test_search_finds_by_reference_order_id_and_utr()
     {
-        $payin = $this->submittedPayin(['order_id' => 'ORD-FIND-ME'], '777766665555');
+        $payin = $this->submittedPayin(['order_id' => 'ORD-FIND-ME', 'customer' => ['id' => 'cust-1', 'name' => 'Ravi Kumar']], '777766665555');
         $admin = User::factory()->admin()->withTwoFactor()->create();
 
         foreach ([$payin->reference, 'ORD-FIND-ME', '7777 6666 5555', 'cust-1'] as $term) {

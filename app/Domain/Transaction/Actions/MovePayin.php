@@ -40,9 +40,9 @@ class MovePayin
         private AlertDispatcher $alerts,
     ) {}
 
-    public function handle(User $actor, Transaction $payin, PaymentAccount $to, string $reason): Transaction
+    public function handle(User $actor, Transaction $payin, PaymentAccount $to, string $reason, bool $alert = true): Transaction
     {
-        return DB::transaction(function () use ($actor, $payin, $to, $reason) {
+        return DB::transaction(function () use ($actor, $payin, $to, $reason, $alert) {
             /** @var Transaction $locked */
             $locked = Transaction::query()->whereKey($payin->id)->lockForUpdate()->firstOrFail();
 
@@ -107,7 +107,10 @@ class MovePayin
             ], $actor);
 
             $this->matcher->transactionSubmitted($locked);
-            $this->alerts->depositMoved($locked, $reason);
+            // An automatic move is approved right after; AutoApproveDeposit alerts instead.
+            if ($alert) {
+                $this->alerts->depositMoved($locked, $reason);
+            }
 
             $payin->setRawAttributes($locked->getAttributes(), true);
 

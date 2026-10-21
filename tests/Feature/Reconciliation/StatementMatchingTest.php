@@ -45,6 +45,8 @@ class StatementMatchingTest extends TestCase
         $this->owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create();
         $this->operator = User::factory()->branch(SystemRoles::BRANCH_OPERATOR, $this->branch)->withTwoFactor()->create();
         $this->admin = User::factory()->admin()->withTwoFactor()->create();
+        // The matching itself, with the branch approving by hand; auto-approval: AutoApproveDepositTest.
+        $this->manualApproval();
     }
 
     /**
@@ -105,7 +107,7 @@ class StatementMatchingTest extends TestCase
         $payin = $this->submittedPayin(['amount' => 500000]);
         $this->addLine();
 
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '999912820491'])->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '999912820491', 'note' => 'Bank shows another entry'])->assertSessionHasNoErrors();
 
         $line = $this->line();
         $this->assertSame('unmatched', $line->status);

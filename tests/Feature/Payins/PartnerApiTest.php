@@ -95,7 +95,7 @@ class PartnerApiTest extends TestCase
 
     public function test_creating_a_payin_returns_a_payment_link_and_repeats_are_safe()
     {
-        $body = $this->payinBody(['order_id' => 'ORD-1', 'metadata' => ['cart' => '42']]);
+        $body = $this->payinBody(['order_id' => 'ORD-1', 'metadata' => ['cart' => '42'], 'customer' => ['id' => 'cust-1', 'name' => 'Ravi Kumar', 'mobile' => '9876543210']]);
 
         $first = $this->api('POST', '/v1/payins', $body)
             ->assertCreated()

@@ -127,7 +127,7 @@ class TransactionPresenter
                 'actor' => $event->actor_type,
                 'reason' => $event->reason,
                 'at' => $event->created_at->toIso8601String(),
-                'data' => $type === UserType::Admin ? $event->data : array_intersect_key($event->data ?? [], array_flip(['utr', 'bank_utr', 'reason_code', 'possible_duplicate_of', 'method', 'to'])),
+                'data' => $type === UserType::Admin ? $event->data : array_intersect_key($event->data ?? [], array_flip(['utr', 'bank_utr', 'reason_code', 'possible_duplicate_of', 'method', 'to', 'auto', 'claimed_by', 'approved'])),
             ])->values()->all(),
             // Payment proof: branches and Admin check it; partners don't need it.
             'proofs' => $type === UserType::Partner ? [] : StoredFile::query()->whereIn('id', $proofIds)->get()->map(fn (StoredFile $file) => [

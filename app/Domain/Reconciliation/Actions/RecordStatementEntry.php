@@ -21,7 +21,7 @@ use Illuminate\Validation\ValidationException;
  */
 class RecordStatementEntry
 {
-    public function __construct(private StatementMatcher $matcher) {}
+    public function __construct(private StatementMatcher $matcher, private AutoApproveDeposit $autoApprove) {}
 
     public function handle(User $actor, PaymentAccount $account, string $date, string $direction, int $amount, ?string $utr, ?string $description): StatementEntry
     {
@@ -64,6 +64,7 @@ class RecordStatementEntry
             ]);
 
             $this->matcher->match($entry);
+            $this->autoApprove->forLine($entry);
 
             AuditLog::record('statement.entry_added', $entry, [], [
                 'account' => $account->label,

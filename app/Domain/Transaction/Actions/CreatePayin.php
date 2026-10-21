@@ -20,6 +20,12 @@ use Illuminate\Support\Facades\DB;
  * retry after a timeout); with different details it is refused (409,
  * Req G-42).
  *
+ * Double clicks with a new order id each time (decided 2026-10-21): while
+ * the same customer has an unpaid pay-in for the same amount, created in the
+ * last `paygate.payin.duplicate_window_seconds`, a second one is refused
+ * (409 duplicate_request) with the first one's link, so the partner sends
+ * the customer there. Two such requests at the same moment queue on a lock.
+ *
  * The account is not chosen here: that happens when the customer picks a
  * payment method on the page (AllocateAccount).
  */
@@ -48,6 +54,8 @@ class CreatePayin
                 if ($customer->is_blocked) {
                     throw new ApiException('customer_blocked', 'This customer is blocked from paying in.', 403);
                 }
+
+                $this->ensureNotDoubleClick($partner, $customer, (int) $data['amount']);
 
                 $payin = Transaction::create([
                     'reference' => Transaction::newPayinReference(),
@@ -85,6 +93,38 @@ class CreatePayin
             }
 
             throw $exception;
+        }
+    }
+
+    /**
+     * The same customer, the same amount, an unpaid pay-in seconds old: a
+     * double click on the partner's site. Refused with the first one's link.
+     */
+    private function ensureNotDoubleClick(Partner $partner, PartnerCustomer $customer, int $amount): void
+    {
+        $window = (int) config('paygate.payin.duplicate_window_seconds');
+
+        if ($window <= 0) {
+            return;
+        }
+
+        // Concurrent requests for this customer and amount wait for each other.
+        DB::select('SELECT pg_advisory_xact_lock(hashtext(?))', ["payin-create:{$partner->id}:{$customer->id}:{$amount}"]);
+
+        $first = Transaction::query()
+            ->where(['partner_id' => $partner->id, 'direction' => 'payin', 'partner_customer_id' => $customer->id, 'amount' => $amount])
+            ->whereIn('status', [PayinStatus::Created->value, PayinStatus::AwaitingPayment->value])
+            ->where('created_at', '>=', now()->subSeconds($window))
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->latest()
+            ->first();
+
+        if ($first !== null) {
+            throw new ApiException('duplicate_request', 'This customer already has an unpaid pay-in for this amount, created seconds ago. Send them to its payment_url, or retry after it is paid or expired.', 409, [
+                'id' => $first->reference,
+                'order_id' => $first->partner_transaction_id,
+                'payment_url' => $first->session()->first()?->url(),
+            ]);
         }
     }
 

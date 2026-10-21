@@ -3,7 +3,9 @@
 namespace App\Domain\Transaction\Actions;
 
 use App\Domain\Allocation\Actions\ReleaseAllocation;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Reconciliation\Actions\AutoApproveDeposit;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
@@ -32,7 +34,13 @@ class SubmitPayinProof
 
     private const TAKEN = 'This UTR is already used for another payment. Check the UTR in your bank or UPI app; if it is right, contact support.';
 
-    public function __construct(private QueueWebhook $webhooks, private ReleaseAllocation $allocation, private StatementMatcher $matcher) {}
+    public function __construct(
+        private QueueWebhook $webhooks,
+        private ReleaseAllocation $allocation,
+        private StatementMatcher $matcher,
+        private AutoApproveDeposit $autoApprove,
+        private AlertDispatcher $alerts,
+    ) {}
 
     public function handle(Transaction $payin, ?string $utr, ?UploadedFile $photo): Transaction
     {
@@ -56,7 +64,8 @@ class SubmitPayinProof
                     : __('This payment can no longer be updated.')]);
             }
 
-            if ($normalised !== null && Utr::holder($normalised, $locked->id) !== null) {
+            // Only an approved deposit / paid payout blocks; another waiting claim is flagged below.
+            if ($normalised !== null && Utr::holder($normalised, $locked->id, claims: false) !== null) {
                 throw ValidationException::withMessages(['utr' => __(self::TAKEN)]);
             }
 
@@ -93,10 +102,41 @@ class SubmitPayinProof
             ]));
 
             $this->webhooks->forPayin($locked->load('partner'), 'payin.submitted');
-            // The bank statement may already show this payment.
+            if ($normalised !== null) {
+                $this->flagSharedClaim($locked, $normalised);
+            }
+
+            // The bank statement may already show this payment (here, or at another branch).
             $this->matcher->transactionSubmitted($locked);
+            $this->autoApprove->forPayin($locked);
 
             return $locked;
         });
+    }
+
+    /**
+     * Another deposit still waiting claims the same UTR: one of the two
+     * customers typed it wrongly or is trying fraud. Both are accepted and
+     * flagged; the bank line decides which one is approved. Admin is alerted.
+     */
+    private function flagSharedClaim(Transaction $payin, string $utr): void
+    {
+        $others = Utr::claimants($utr, $payin->id);
+
+        if ($others->isEmpty()) {
+            return;
+        }
+
+        foreach ([$payin, ...$others] as $txn) {
+            TransactionEvent::record($txn, 'utr_conflict', $txn->status, $txn->status, 'system', null, null, [
+                'utr' => $utr,
+                'claimed_by' => collect([$payin, ...$others])->reject(fn (Transaction $other) => $other->is($txn))->pluck('reference')->join(', '),
+            ]);
+        }
+
+        $this->alerts->utrConflict($utr, __('Deposits :references both say they paid with UTR :utr. Only one can be real: the bank line decides, and the other should be declined.', [
+            'references' => collect([$payin, ...$others])->pluck('reference')->join(', '),
+            'utr' => $utr,
+        ]), $payin);
     }
 }

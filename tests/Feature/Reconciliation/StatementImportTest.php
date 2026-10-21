@@ -70,6 +70,7 @@ class StatementImportTest extends TestCase
 
     public function test_a_bank_csv_is_read_with_guessed_columns_matched_and_duplicates_skipped()
     {
+        $this->manualApproval();
         $payin = $this->submittedPayin(['amount' => 500000]);
         $csv = self::HEADER.implode("\n", [
             '25/09/2026,OPENING BALANCE,,,,,"1,00,000.00"',

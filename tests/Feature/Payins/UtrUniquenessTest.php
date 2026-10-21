@@ -50,7 +50,8 @@ class UtrUniquenessTest extends TestCase
 
     private function approve(Transaction $payin, string $utr = self::UTR)
     {
-        return $this->actingAs($this->admin)->post(route('admin.deposits.approve', $payin), ['bank_utr' => $utr]);
+        // A bank UTR other than the customer's needs a note (and alerts Admin).
+        return $this->actingAs($this->admin)->post(route('admin.deposits.approve', $payin), ['bank_utr' => $utr, 'note' => 'Checked the bank entry']);
     }
 
     private function payout(): Transaction

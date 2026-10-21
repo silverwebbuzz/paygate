@@ -109,6 +109,7 @@ Route::controller(GlobalSettingsController::class)->prefix('settings')->name('se
     Route::get('/', 'index')->name('index');
     Route::put('settlement', 'updateSettlement')->name('settlement');
     Route::put('alerts', 'updateAlerts')->name('alerts');
+    Route::put('deposits', 'updateDeposits')->name('deposits');
     Route::put('checkout', 'updateCheckout')->name('checkout');
     Route::post('reasons', 'saveReason')->name('reasons.store');
     Route::put('reasons/{reason}', 'saveReason')->name('reasons.update');

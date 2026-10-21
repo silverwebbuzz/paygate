@@ -26,6 +26,10 @@ enum Alert: string
     case PayinAmountDiffers = 'payin_amount_differs';
     case DepositMoved = 'deposit_moved';
     case DepositNotInBank = 'deposit_not_in_bank';
+    case UtrConflict = 'utr_conflict';
+    case DepositAutoMoved = 'deposit_auto_moved';
+    case ApprovedOtherUtr = 'approved_other_utr';
+    case ApprovedWithoutBankLine = 'approved_without_bank_line';
 
     public function label(): string
     {
@@ -33,6 +37,10 @@ enum Alert: string
             self::PayinAmountDiffers => 'Deposit approved for a different amount than ordered',
             self::DepositMoved => 'Deposit moved to your branch',
             self::DepositNotInBank => 'Branch says a deposit isn’t in its bank',
+            self::UtrConflict => 'Same UTR used twice (possible fraud or typing mistake)',
+            self::DepositAutoMoved => 'Deposit moved automatically to the branch whose bank shows it',
+            self::ApprovedOtherUtr => 'Deposit approved with a bank UTR different from the customer’s',
+            self::ApprovedWithoutBankLine => 'Approved deposits still not seen in any bank statement',
             self::PayinNoAccount => 'Customers can’t pay: no bank account free',
             self::PayoutNoBranch => 'Payouts refused: no branch can take them',
             self::PayoutShortBranch => 'Payout sent to a branch holding less of the partner’s balance',
@@ -61,7 +69,8 @@ enum Alert: string
             self::UnsettledLines => [UserType::Admin, UserType::Branch],
             self::WebhookFailed => [UserType::Partner],
             self::AdjustmentRequested, self::AdjustmentDecided, self::AccountVerification,
-            self::PayinNoAccount, self::PayoutNoBranch, self::PayoutShortBranch, self::PayinAmountDiffers, self::DepositNotInBank => [UserType::Admin],
+            self::PayinNoAccount, self::PayoutNoBranch, self::PayoutShortBranch, self::PayinAmountDiffers, self::DepositNotInBank, self::UtrConflict, self::ApprovedOtherUtr, self::ApprovedWithoutBankLine => [UserType::Admin],
+            self::DepositAutoMoved => [UserType::Admin, UserType::Branch],
             self::SettlementCalculated, self::Reversal => [UserType::Partner, UserType::Branch],
         };
     }

@@ -84,17 +84,15 @@ class SchemaConstraintsTest extends TestCase
         $this->assertSame(2, DB::table('transactions')->where('bank_utr_normalized', 'UTR123')->count());
     }
 
-    public function test_a_customer_utr_is_claimed_by_one_waiting_deposit_at_a_time()
+    public function test_waiting_deposits_may_share_a_claimed_utr_the_bank_line_decides()
     {
         $partner = Partner::factory()->create();
         $account = $this->paymentAccount();
 
-        $first = $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
-        $this->assertRejected(fn () => $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'under_review']), 'transactions_unique_claimed_utr');
-
-        // Declined: the claim is released.
-        DB::table('transactions')->where('id', $first)->update(['status' => 'rejected']);
+        // Decided 2026-10-21: a pending claim doesn't lock the UTR (a fraudster typing it first
+        // must not block the real customer); only a bank UTR (approved / paid) is unique.
         $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'payment_submitted']);
+        $this->transaction($partner->id, ['payment_account_id' => $account, 'customer_utr_normalized' => 'CLAIM1', 'status' => 'under_review']);
         $this->assertSame(2, DB::table('transactions')->where('customer_utr_normalized', 'CLAIM1')->count());
     }
 

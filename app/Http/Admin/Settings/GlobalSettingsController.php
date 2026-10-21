@@ -34,6 +34,7 @@ class GlobalSettingsController extends Controller
             ],
             'timezones' => DateTimeZone::listIdentifiers(),
             'alert_settings' => ['deposit_wait_minutes' => $settings->depositWaitMinutes()],
+            'deposits' => ['auto_approve' => $settings->autoApproveDeposits(), 'unmatched_alert_hours' => $settings->unmatchedApprovalHours()],
             'checkout' => $settings->checkoutSupport(),
             'reasons' => ReasonCode::query()->orderBy('context')->orderBy('sort')->get(['id', 'context', 'code', 'label', 'is_active', 'sort']),
             'can' => ['update' => request()->user()?->can('settings.update') ?? false],
@@ -48,6 +49,25 @@ class GlobalSettingsController extends Controller
         $settings->set(Settings::DEPOSIT_WAIT_MINUTES, (int) $data['deposit_wait_minutes'], $this->actor($request));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Alert settings saved.')]);
+
+        return back();
+    }
+
+    /**
+     * Auto-approval of deposits whose UTR and amount a branch's bank line shows.
+     */
+    public function updateDeposits(Request $request, Settings $settings): RedirectResponse
+    {
+        Gate::authorize('settings.update');
+
+        $data = $request->validate([
+            'auto_approve' => ['required', 'boolean'],
+            'unmatched_alert_hours' => ['required', 'integer', 'min:0', 'max:720'],
+        ]);
+        $settings->set(Settings::AUTO_APPROVE_DEPOSITS, (bool) $data['auto_approve'], $this->actor($request));
+        $settings->set(Settings::UNMATCHED_APPROVAL_HOURS, (int) $data['unmatched_alert_hours'], $this->actor($request));
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('Deposit approval settings saved.')]);
 
         return back();
     }

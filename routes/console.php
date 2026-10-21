@@ -50,6 +50,12 @@ Schedule::call(fn () => app(ManageReportExports::class)->prune())
     ->hourly()
     ->withoutOverlapping();
 
+// Approved deposits no bank statement line has confirmed after the Global Settings hours: alert Admin.
+Schedule::call(fn () => app(AlertDispatcher::class)->approvedWithoutBankLine())
+    ->name('alerts:approved-without-bank-line')
+    ->hourly()
+    ->withoutOverlapping();
+
 // Deposits waiting longer than the Global Settings threshold: alert the branch (G-47, Phase 12).
 Schedule::call(fn () => app(AlertDispatcher::class)->depositsWaiting())
     ->name('alerts:deposits-waiting')

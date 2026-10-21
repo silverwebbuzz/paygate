@@ -9,6 +9,7 @@ use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
+use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use Illuminate\Support\Collection;
@@ -20,9 +21,10 @@ use Illuminate\Support\Collection;
  * queue for a person to resolve.
  *
  * - Credits match pay-ins on the receiving account. A credit for a deposit
- *   still waiting for approval is linked ("bank credit found"): the branch
- *   still approves it (G-23). A credit for an approved deposit with the same
- *   bank UTR is reconciled.
+ *   still waiting for approval is linked ("bank credit found"); the deposit
+ *   is then approved by itself (AutoApproveDeposit, decided 2026-10-21),
+ *   or by the branch when that is turned off. A credit for an approved
+ *   deposit with the same bank UTR is reconciled.
  * - Debits match paid payouts of the same branch by the payout's bank UTR.
  *
  * Matching also runs the other way, when a transaction changes: a customer
@@ -178,7 +180,7 @@ class StatementMatcher
         }
 
         if (($twin = $this->twin($entry)) !== null) {
-            $this->openCase($entry, CaseType::DuplicateUtr, null, $this->twinNote($entry, $twin), 'duplicate');
+            $this->duplicateLine($entry, $twin);
 
             return;
         }
@@ -193,7 +195,9 @@ class StatementMatcher
             ->get();
 
         $own = $candidates->where('payment_account_id', $entry->payment_account_id);
-        $live = $own->filter(fn (Transaction $txn) => in_array($txn->status, self::WAITING, true)
+        $live = $own->filter(fn (Transaction $txn) => (in_array($txn->status, self::WAITING, true)
+            // On hold because this UTR was already approved on another deposit.
+            && $txn->status_reason_code !== DecidePayin::DUPLICATE_UTR)
             // An approved deposit matches only on the UTR the branch verified.
             || ($txn->status === 'success' && $txn->bank_utr_normalized === $utr));
 
@@ -252,7 +256,7 @@ class StatementMatcher
         }
 
         if (($twin = $this->twin($entry)) !== null) {
-            $this->openCase($entry, CaseType::DuplicateUtr, null, $this->twinNote($entry, $twin), 'duplicate');
+            $this->duplicateLine($entry, $twin);
 
             return;
         }
@@ -397,6 +401,23 @@ class StatementMatcher
             ->with(['branch', 'paymentAccount'])
             ->orderBy('created_at')
             ->first();
+    }
+
+    /**
+     * A second bank line with a UTR already on another line: one UTR is one
+     * bank transfer, so one of them is a mistake or fraud. Admin is alerted.
+     */
+    private function duplicateLine(StatementEntry $entry, StatementEntry $twin): void
+    {
+        $note = $this->twinNote($entry, $twin);
+        $this->openCase($entry, CaseType::DuplicateUtr, null, $note, 'duplicate');
+
+        app(AlertDispatcher::class)->utrConflict((string) $entry->utr_normalized, __('A bank line of :branch · :account (₹:amount) has a UTR already recorded. :note', [
+            'branch' => $entry->branch->code ?? '—',
+            'account' => $entry->paymentAccount->label ?? '—',
+            'amount' => number_format($entry->amount / 100, 2),
+            'note' => $note,
+        ]), case: $entry->openCase()->first());
     }
 
     private function twinNote(StatementEntry $entry, StatementEntry $twin): string

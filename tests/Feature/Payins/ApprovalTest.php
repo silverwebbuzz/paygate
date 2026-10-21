@@ -116,7 +116,8 @@ class ApprovalTest extends TestCase
     {
         $first = $this->submittedPayin();
         $this->approve($first, 'abc')->assertSessionHasErrors('bank_utr');
-        $this->approve($first, '5268 1282 0491')->assertSessionHasNoErrors();
+        $this->approve($first, '5268 1282 0491')->assertSessionHasErrors('note'); // not the customer's UTR: say why
+        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $first), ['bank_utr' => '5268 1282 0491', 'note' => 'Customer mistyped one digit'])->assertSessionHasNoErrors();
 
         $second = $this->submittedPayin();
         $this->approve($second, '526812820491')->assertSessionHasErrors('bank_utr');

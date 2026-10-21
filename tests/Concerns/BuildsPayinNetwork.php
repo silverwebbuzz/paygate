@@ -14,6 +14,7 @@ use App\Domain\PaymentAccount\Actions\ReviewPaymentAccount;
 use App\Domain\PaymentAccount\Actions\SavePaymentAccount;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Platform\Settings;
 use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Testing\TestResponse;
 
@@ -129,7 +130,8 @@ trait BuildsPayinNetwork
         return [
             'order_id' => 'ORD-'.bin2hex(random_bytes(4)),
             'amount' => 1253400,
-            'customer' => ['id' => 'cust-1', 'name' => 'Ravi Kumar', 'mobile' => '9876543210'],
+            // A new customer each time: the same customer and amount seconds apart is a double click (refused).
+            'customer' => ['id' => 'cust-'.bin2hex(random_bytes(3)), 'name' => 'Ravi Kumar', 'mobile' => '9876543210'],
             ...$overrides,
         ];
     }
@@ -164,6 +166,14 @@ trait BuildsPayinNetwork
      *
      * @param  array<string, mixed>  $overrides
      */
+    /**
+     * Turns auto-approval off (Global Settings): the branch approves by hand.
+     */
+    protected function manualApproval(): void
+    {
+        app(Settings::class)->set(Settings::AUTO_APPROVE_DEPOSITS, false, $this->networkAdmin);
+    }
+
     protected function submittedPayin(array $overrides = [], string $utr = '626812820491'): Transaction
     {
         [$reference, $token] = $this->createPayin($overrides);

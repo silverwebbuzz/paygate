@@ -119,13 +119,20 @@ class StatementController extends Controller
             $request->validated('description'),
         );
 
-        $message = match ($entry->status) {
-            'matched' => __('Line added and matched to :reference: approve it when you’re ready.', ['reference' => $entry->transaction?->reference]),
-            'reconciled' => __('Line added and reconciled with :reference.', ['reference' => $entry->transaction?->reference]),
-            default => __('Line added. It matches no transaction yet, so it is in the unsettled queue (:type).', [
-                'type' => $entry->openCase?->type->label() ?? CaseType::ManualReview->label(),
-            ]),
-        };
+        $entry->refresh();
+        $txn = $entry->transaction;
+        // Approved by this line (AutoApproveDeposit), not reconciled with an earlier approval.
+        $approvedNow = $txn?->decided_at !== null && $txn->decided_at->gte($entry->created_at);
+
+        $message = $entry->status === 'reconciled' && $approvedNow
+            ? __('Line added: :reference matched (UTR and amount) and was approved automatically.', ['reference' => $txn->reference])
+            : match ($entry->status) {
+                'matched' => __('Line added and matched to :reference: approve it when you’re ready.', ['reference' => $entry->transaction?->reference]),
+                'reconciled' => __('Line added and reconciled with :reference.', ['reference' => $entry->transaction?->reference]),
+                default => __('Line added. It matches no transaction yet, so it is in the unsettled queue (:type).', [
+                    'type' => $entry->openCase?->type->label() ?? CaseType::ManualReview->label(),
+                ]),
+            };
 
         Inertia::flash('toast', ['type' => $entry->transaction_id === null ? 'warning' : 'success', 'message' => $message]);
 

@@ -39,6 +39,8 @@ export type TxnRow = {
     customer_utr: string | null;
     bank_utr: string | null;
     reason_code: string | null;
+    /** Manual Deposit: other waiting deposits claiming the same UTR. */
+    utr_shared_with?: string[];
     note: string | null;
     created_at: string | null;
     submitted_at: string | null;
@@ -160,6 +162,7 @@ const EVENT_LABELS: Record<string, string> = {
     allocated: 'Account assigned',
     method_changed: 'Customer switched method',
     account_changed: 'Customer asked for different payment details',
+    utr_conflict: 'Same UTR used on another deposit',
     allocation_released: 'Account capacity released',
     allocation_confirmed: 'Daily usage confirmed',
     proof_submitted: 'Customer submitted payment details',
@@ -492,7 +495,10 @@ function Timeline({ detail }: { detail: TxnDetail }) {
                     <div className="flex-1 pb-4">
                         <div className="flex justify-between gap-3">
                             <span className="text-[13px] font-medium">
-                                {EVENT_LABELS[event.event] ?? event.event}
+                                {event.event === 'approved' && event.data?.auto
+                                    ? 'Approved automatically (bank line matched UTR + amount)'
+                                    : (EVENT_LABELS[event.event] ??
+                                      event.event)}
                             </span>
                             <span className="text-xs whitespace-nowrap text-tx3">
                                 {formatDateTime(event.at)}
@@ -511,6 +517,13 @@ function Timeline({ detail }: { detail: TxnDetail }) {
                                 ? ` · ${text(event.data.reason_code).replaceAll('_', ' ')}`
                                 : ''}
                         </div>
+                        {event.event === 'utr_conflict' ? (
+                            <div className="mt-1 rounded-md bg-erb px-2 py-1 text-xs text-er">
+                                {event.data?.approved
+                                    ? `${text(event.data.approved)} was approved with this UTR — this deposit should be declined.`
+                                    : `Also claimed by ${text(event.data?.claimed_by)}. Only one can be real: the bank line decides.`}
+                            </div>
+                        ) : null}
                         {event.data?.possible_duplicate_of ? (
                             <div className="mt-1 rounded-md bg-wnb px-2 py-1 text-xs text-wn">
                                 This UTR was also claimed on{' '}

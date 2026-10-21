@@ -20,6 +20,18 @@ class Settings
     /** Alert branches when a customer's deposit waits longer than this (G-47). */
     public const DEPOSIT_WAIT_MINUTES = 'alerts.deposit_wait_minutes';
 
+    /**
+     * Approve a deposit by itself when a branch's bank line shows its UTR and
+     * exact amount (decided 2026-10-21, replaces "the branch always approves").
+     */
+    public const AUTO_APPROVE_DEPOSITS = 'deposits.auto_approve';
+
+    /**
+     * Alert Admin when a deposit approved by hand has no bank statement line
+     * this many hours later (0 = off): the money was never shown arriving.
+     */
+    public const UNMATCHED_APPROVAL_HOURS = 'deposits.unmatched_alert_hours';
+
     /** Support contact on the customer payment page (G-48). */
     public const CHECKOUT_SUPPORT = 'checkout.support';
 
@@ -28,6 +40,8 @@ class Settings
         self::SETTLEMENT_CUTOFF => ['timezone' => 'Asia/Kolkata', 'time' => '00:00'],
         self::DEPOSIT_WAIT_MINUTES => 30,
         self::CHECKOUT_SUPPORT => ['email' => null, 'phone' => null],
+        self::AUTO_APPROVE_DEPOSITS => true,
+        self::UNMATCHED_APPROVAL_HOURS => 24,
     ];
 
     public function get(string $key): mixed
@@ -62,6 +76,16 @@ class Settings
     public function depositWaitMinutes(): int
     {
         return max(5, (int) $this->get(self::DEPOSIT_WAIT_MINUTES));
+    }
+
+    public function autoApproveDeposits(): bool
+    {
+        return (bool) $this->get(self::AUTO_APPROVE_DEPOSITS);
+    }
+
+    public function unmatchedApprovalHours(): int
+    {
+        return max(0, (int) $this->get(self::UNMATCHED_APPROVAL_HOURS));
     }
 
     /**

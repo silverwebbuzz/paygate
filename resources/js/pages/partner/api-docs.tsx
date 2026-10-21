@@ -95,6 +95,11 @@ const ERRORS: [string, number, string][] = [
         409,
         'This order_id exists with different details; see error.id.',
     ],
+    [
+        'duplicate_request',
+        409,
+        'Same customer and amount as an unpaid pay-in created seconds ago (a double click); error.payment_url is its link.',
+    ],
     ['not_cancellable', 409, 'The pay-in has already moved on.'],
     ['not_found', 404, 'No such pay-in for your account.'],
     ['rate_limited', 429, 'Too many requests; wait and retry.'],
@@ -276,7 +281,11 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                     again with the same amount, customer id and return_url
                     returns the original pay-in (200) with the same link — so
                     retry freely after a timeout. With different details you get{' '}
-                    <Code>409 duplicate_order_id</Code>.
+                    <Code>409 duplicate_order_id</Code>. A second pay-in for the
+                    same customer and amount within 2 minutes, while the first
+                    is unpaid, gets <Code>409 duplicate_request</Code> with the
+                    first one&apos;s <Code>payment_url</Code> — send the
+                    customer there.
                 </p>
                 <p>
                     The customer returns to <Code>return_url</Code> (or your

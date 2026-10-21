@@ -162,6 +162,8 @@ class MoveDepositTest extends TestCase
 
     public function test_a_wrong_branch_bank_line_moves_the_deposit_and_links_itself()
     {
+        // Admin's own move from the case; with auto-approval on it happens by itself (AutoApproveDepositTest).
+        $this->manualApproval();
         $payin = $this->wrongDeposit();
 
         $this->actingAs($this->paidOperator)->post(route('branch.statements.store'), [
