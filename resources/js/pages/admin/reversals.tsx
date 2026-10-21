@@ -9,19 +9,17 @@ import { Field, TextInput } from '@/components/pg/field';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
-import { Segmented } from '@/components/pg/segmented';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import admin from '@/routes/admin';
 
-type Kind = 'chargeback' | 'refund' | 'return';
+type Kind = 'refund' | 'return';
 
 type Row = {
     id: string;
     reference: string;
     kind: Kind;
-    bearer: 'partner' | 'branch' | null;
     amount: number;
     reason: string;
     external_reference: string | null;
@@ -53,7 +51,6 @@ type Candidate = {
 };
 
 type Props = {
-    group: 'refunds' | 'chargebacks';
     items: {
         data: Row[];
         total: number;
@@ -67,18 +64,16 @@ type Props = {
 };
 
 const KIND_LABELS: Record<Kind, string> = {
-    chargeback: 'Chargeback',
     refund: 'Pay-in refund',
     return: 'Returned payout',
 };
 
 /**
- * Refunds (deposits sent back, payouts returned) and Chargebacks (a
- * customer's bank took back a deposit), decided 2026-09-28 (G-20…G-22).
- * Recording one books it at once and tells the partner by webhook.
+ * Refunds (deposits sent back, payouts returned), decided 2026-09-28
+ * (G-21, G-22). Recording one books it at once and tells the partner by
+ * webhook. Chargebacks have their own screen (raised by branches).
  */
 export default function Reversals({
-    group,
     items,
     totals,
     find,
@@ -87,13 +82,12 @@ export default function Reversals({
 }: Props) {
     const [recording, setRecording] = useState(find !== '');
     const [reference, setReference] = useState(find);
-    const list =
-        group === 'chargebacks' ? admin.chargebacks.index : admin.refunds.index;
+    const list = admin.refunds.index;
 
     const columns: Column<Row>[] = [
         {
             key: 'reference',
-            header: group === 'chargebacks' ? 'Chargeback' : 'Refund',
+            header: 'Refund',
             cell: (row) => (
                 <div>
                     <div className="font-mono text-xs font-medium">
@@ -125,17 +119,6 @@ export default function Reversals({
             align: 'right',
             cell: (row) => <b>{formatPaise(row.amount)}</b>,
         },
-        ...(group === 'chargebacks'
-            ? [
-                  {
-                      key: 'bearer',
-                      header: 'Borne by',
-                      cell: (row: Row) => (
-                          <span className="capitalize">{row.bearer}</span>
-                      ),
-                  },
-              ]
-            : []),
         {
             key: 'reason',
             header: 'Reason',
@@ -169,24 +152,19 @@ export default function Reversals({
 
     return (
         <>
-            <Head title={group === 'chargebacks' ? 'Chargebacks' : 'Refunds'} />
+            <Head title="Refunds" />
             <PageHeader
-                title={group === 'chargebacks' ? 'Chargebacks' : 'Refunds'}
-                description={
-                    group === 'chargebacks'
-                        ? 'A customer’s bank took back an approved deposit. You choose who bears it: the partner (debited the amount; the branch owes that much less) or the branch (nothing changes). Fees already earned are kept.'
-                        : 'A deposit sent back to the customer (the partner is debited the amount; fees kept), or a paid payout that came back (fully reversed: the partner gets amount + fee back).'
-                }
+                title="Refunds"
+                description="A deposit sent back to the customer (the partner is debited the amount; fees kept), or a paid payout that came back (fully reversed: the partner gets amount + fee back)."
+
                 actions={
                     can.create && (
                         <PgButton
                             variant="primary"
                             onClick={() => setRecording(true)}
                         >
-                            <Plus className="size-3.5" /> Record{' '}
-                            {group === 'chargebacks'
-                                ? 'chargeback'
-                                : 'refund or return'}
+                            <Plus className="size-3.5" /> Record refund or
+                            return
                         </PgButton>
                     )
                 }
@@ -213,15 +191,7 @@ export default function Reversals({
                         columns={columns}
                         rows={items.data}
                         rowKey={(row) => row.id}
-                        empty={
-                            <EmptyState
-                                title={
-                                    group === 'chargebacks'
-                                        ? 'No chargebacks'
-                                        : 'No refunds or returns'
-                                }
-                            />
-                        }
+                        empty={<EmptyState title="No refunds or returns" />}
                     />
                 </div>
                 {(items.prev_page_url || items.next_page_url) && (
@@ -248,7 +218,6 @@ export default function Reversals({
 
             {recording && (
                 <RecordDialog
-                    group={group}
                     candidate={candidate}
                     reference={reference}
                     onReference={setReference}
@@ -267,64 +236,41 @@ export default function Reversals({
 }
 
 function RecordDialog({
-    group,
     candidate,
     reference,
     onReference,
     onFind,
     onClose,
 }: {
-    group: Props['group'];
     candidate: Candidate | null;
     reference: string;
     onReference: (value: string) => void;
     onFind: () => void;
     onClose: () => void;
 }) {
-    const defaultKind: Kind =
-        group === 'chargebacks'
-            ? 'chargeback'
-            : candidate?.direction === 'payout'
-              ? 'return'
-              : 'refund';
+    const kind: Kind = candidate?.direction === 'payout' ? 'return' : 'refund';
     const form = useForm({
         transaction_id: candidate?.id ?? '',
-        kind: defaultKind,
-        bearer: 'partner' as 'partner' | 'branch',
+        kind,
         reason: '',
         external_reference: '',
     });
     const errors = form.errors as Record<string, string | undefined>;
-    const usable =
-        candidate !== null &&
-        candidate.status === 'success' &&
-        (group === 'refunds' || candidate.direction === 'payin');
-    const kind: Kind =
-        group === 'chargebacks'
-            ? 'chargeback'
-            : candidate?.direction === 'payout'
-              ? 'return'
-              : 'refund';
+    const usable = candidate !== null && candidate.status === 'success';
 
     const effect =
         candidate === null
             ? ''
             : kind === 'return'
               ? `The partner gets back ${formatPaise(candidate.amount + (candidate.partner_commission ?? 0))} (amount + fee); the branch owes back ${formatPaise(candidate.amount + (candidate.branch_commission ?? 0))}; the margin of ${formatPaise(candidate.platform_margin)} is reversed.`
-              : kind === 'refund' || form.data.bearer === 'partner'
-                ? `The partner is debited ${formatPaise(candidate.amount)}; the branch owes ${formatPaise(candidate.amount)} less. Fees stay earned.`
-                : 'Nothing is booked: the branch absorbs the loss. The partner keeps its credit.';
+              : `The partner is debited ${formatPaise(candidate.amount)}; the branch owes ${formatPaise(candidate.amount)} less. Fees stay earned.`;
 
     return (
         <FormDialog
             open
             onOpenChange={(next) => !next && onClose()}
             width={520}
-            title={
-                group === 'chargebacks'
-                    ? 'Record a chargeback'
-                    : 'Record a refund or returned payout'
-            }
+            title="Record a refund or returned payout"
             description="Booked at once, can’t be undone, and the partner is told by webhook."
             submitLabel={form.processing ? 'Recording…' : 'Record'}
             processing={form.processing || !usable}
@@ -368,9 +314,8 @@ function RecordDialog({
                     </div>
                     {!usable && (
                         <div className="mt-2 text-xs text-er">
-                            {candidate.status !== 'success'
-                                ? 'Only a successful transaction can be reversed.'
-                                : 'A chargeback applies to deposits only.'}
+                            Only a successful transaction can be refunded or
+                            returned.
                         </div>
                     )}
                 </div>
@@ -380,20 +325,6 @@ function RecordDialog({
             )}
             {usable && (
                 <>
-                    {kind === 'chargeback' && (
-                        <Field label="Who bears it" error={errors.bearer}>
-                            <Segmented
-                                options={[
-                                    { value: 'partner', label: 'The partner' },
-                                    { value: 'branch', label: 'The branch' },
-                                ]}
-                                value={form.data.bearer}
-                                onChange={(bearer) =>
-                                    form.setData('bearer', bearer)
-                                }
-                            />
-                        </Field>
-                    )}
                     <div className="rounded-lg bg-sf2 px-3 py-2.5 text-[12.5px] text-tx2">
                         {effect}
                     </div>

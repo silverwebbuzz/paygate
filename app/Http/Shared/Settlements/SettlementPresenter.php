@@ -107,6 +107,7 @@ class SettlementPresenter
             'branch_commission' => $viewer === UserType::Partner ? null : $record->branch_commission,
             'platform_margin' => $viewer === UserType::Admin ? $record->platform_margin : null,
             'adjustments' => $record->adjustments_total,
+            'chargebacks' => $record->chargebacks_total,
             'settlements' => $record->settlements_total,
             'closing' => $record->closing_balance,
         ];

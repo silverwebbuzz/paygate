@@ -65,7 +65,7 @@ final class SystemRoles
                     P::PartnersView, P::BranchesView, P::MappingsView, P::MappingsUpdate,
                     P::AccountsView, P::AccountsVerify,
                     P::PayinsView, P::PayinsApprove, P::PayoutsView, P::PayoutsProcess,
-                    P::ReversalsView, P::ReversalsCreate,
+                    P::ReversalsView, P::ReversalsCreate, P::ReversalsApprove,
                     P::StatementsView, P::StatementsCreate, P::ReconciliationView, P::ReconciliationResolve,
                     P::BalancesView, P::ReportsView, P::AuditLogsView,
                 ],
@@ -76,7 +76,7 @@ final class SystemRoles
                 'description' => 'Calculates and records settlements and adjustments.',
                 'permissions' => [
                     P::PartnersView, P::BranchesView, P::PayinsView, P::PayoutsView,
-                    P::ReversalsView, P::ReversalsCreate,
+                    P::ReversalsView, P::ReversalsCreate, P::ReversalsApprove,
                     P::BalancesView, P::CommissionsView,
                     P::SettlementsView, P::SettlementsCreate, P::SettlementsUpdate,
                     P::AdjustmentsView, P::AdjustmentsCreate,
@@ -128,6 +128,7 @@ final class SystemRoles
                 'description' => 'Approves deposits, processes payouts, imports statements.',
                 'permissions' => [
                     P::AccountsView, P::PayinsView, P::PayinsApprove, P::PayoutsView, P::PayoutsProcess,
+                    P::ReversalsView, P::ReversalsCreate,
                     P::StatementsView, P::StatementsCreate, P::ReconciliationView,
                 ],
             ],

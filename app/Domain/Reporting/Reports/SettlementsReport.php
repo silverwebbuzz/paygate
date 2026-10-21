@@ -46,6 +46,7 @@ class SettlementsReport extends Report
             $scope->sees('branch_commission') ? $this->column('branch_commission', $scope->isAdmin() ? 'Branch commission' : 'Commission', 'money') : null,
             $scope->sees('margin') ? $this->column('platform_margin', 'Margin', 'money') : null,
             $this->column('adjustments', 'Adjustments', 'signed'),
+            $this->column('chargebacks', 'Chargebacks', 'signed'),
             $this->column('closing', 'Position at end', 'signed'),
             $this->column('net_amount', 'To settle', 'money'),
             $this->column('direction', 'Who pays'),
@@ -81,6 +82,7 @@ class SettlementsReport extends Report
                 'branch_commission' => $settlement->branch_commission,
                 'platform_margin' => $settlement->platform_margin,
                 'adjustments' => $settlement->adjustments_total,
+                'chargebacks' => $settlement->chargebacks_total,
                 'closing' => $settlement->closing_balance,
                 'net_amount' => $settlement->net_amount,
                 'direction' => match ($settlement->direction) {

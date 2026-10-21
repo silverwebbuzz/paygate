@@ -43,6 +43,7 @@ use Illuminate\Support\Str;
  * @property string $status
  * @property string|null $status_reason_code
  * @property string|null $status_note
+ * @property string|null $chargeback_status requested / approved / rejected (pay-ins; status stays success)
  * @property string|null $customer_utr
  * @property string|null $customer_utr_normalized
  * @property string|null $bank_utr
@@ -68,6 +69,7 @@ use Illuminate\Support\Str;
  * @property-read Branch|null $branch
  * @property-read StatementEntry|null $statementEntry
  * @property-read User|null $decider
+ * @property-read Chargeback|null $currentChargeback
  */
 class Transaction extends Model
 {
@@ -209,6 +211,16 @@ class Transaction extends Model
         return $this->morphOne(StoredFile::class, 'attachable')
             ->where('purpose', 'payment_proof')
             ->latest('created_at');
+    }
+
+    /**
+     * The chargeback raised most recently (requested, approved or rejected).
+     *
+     * @return HasOne<Chargeback, $this>
+     */
+    public function currentChargeback(): HasOne
+    {
+        return $this->hasOne(Chargeback::class)->latest('created_at');
     }
 
     /**

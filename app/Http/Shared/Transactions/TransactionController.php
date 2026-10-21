@@ -14,6 +14,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,7 +29,7 @@ class TransactionController extends Controller
     /**
      * What TransactionPresenter::row() reads, loaded up front.
      */
-    public const ROW_RELATIONS = ['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry', 'decider', 'session', 'latestProof'];
+    public const ROW_RELATIONS = ['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry', 'decider', 'session', 'latestProof', 'currentChargeback.requester'];
 
     public const STATUS_GROUPS = [
         'payin' => [
@@ -58,7 +59,8 @@ class TransactionController extends Controller
 
         $actor = $this->actor($request);
         $groups = self::STATUS_GROUPS[$direction];
-        $group = array_key_exists((string) $request->query('status'), $groups) ? (string) $request->query('status') : null;
+        $chargebacks = $direction === 'payin';
+        $group = array_key_exists((string) $request->query('status'), $groups) || ($chargebacks && $request->query('status') === 'chargeback') ? (string) $request->query('status') : null;
         $search = trim((string) $request->query('search'));
         $selected = $request->query('txn');
 
@@ -68,7 +70,8 @@ class TransactionController extends Controller
 
         $transactions = $base()
             ->with(self::ROW_RELATIONS)
-            ->when($group !== null, fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
+            ->when($group === 'chargeback', fn (Builder $query) => self::withChargeback($query, $actor))
+            ->when($group !== null && $group !== 'chargeback', fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
             ->when($search !== '', fn (Builder $query) => self::search($query, $search))
             ->latest('created_at')
             ->paginate(25)
@@ -88,7 +91,7 @@ class TransactionController extends Controller
             'summary' => collect($groups)->map(fn (array $statuses) => [
                 'count' => (int) $counts->whereIn('status', $statuses)->sum('total'),
                 'amount' => (int) $counts->whereIn('status', $statuses)->sum('amount'),
-            ]),
+            ])->when($chargebacks, fn ($summary) => $summary->put('chargeback', self::chargebackSummary(self::withChargeback($base(), $actor)))),
             'selected' => is_string($selected) ? $selected : null,
             'detail' => Inertia::optional(function () use ($selected, $actor) {
                 $txn = is_string($selected) ? Transaction::query()->find($selected) : null;
@@ -162,6 +165,36 @@ class TransactionController extends Controller
             },
             'branch_options' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
         ];
+    }
+
+    /**
+     * Deposits with a chargeback (partners: approved ones only).
+     *
+     * @param  Builder<Transaction>  $query
+     * @return Builder<Transaction>
+     */
+    private static function withChargeback(Builder $query, User $actor): Builder
+    {
+        return $actor->isType(UserType::Partner)
+            ? $query->where('chargeback_status', 'approved')
+            : $query->whereNotNull('chargeback_status');
+    }
+
+    /**
+     * Count of deposits with a chargeback; amount = what was approved.
+     *
+     * @param  Builder<Transaction>  $query
+     * @return array{count: int, amount: int, pending: int}
+     */
+    private static function chargebackSummary(Builder $query): array
+    {
+        $row = $query->toBase()->first([
+            DB::raw('COUNT(*) AS total'),
+            DB::raw("COALESCE(SUM((SELECT cb.amount FROM chargebacks cb WHERE cb.transaction_id = transactions.id AND cb.status = 'approved')), 0) AS amount"),
+            DB::raw("COUNT(*) FILTER (WHERE chargeback_status = 'requested') AS pending"),
+        ]);
+
+        return ['count' => (int) ($row->total ?? 0), 'amount' => (int) ($row->amount ?? 0), 'pending' => (int) ($row->pending ?? 0)];
     }
 
     /**

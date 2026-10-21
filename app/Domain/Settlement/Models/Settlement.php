@@ -38,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $branch_commission
  * @property int $platform_margin
  * @property int $adjustments_total
+ * @property int $chargebacks_total
  * @property int $settlements_total
  * @property int $closing_balance
  * @property int $net_amount
@@ -67,7 +68,7 @@ class Settlement extends Model
             'period_start' => 'datetime',
             'period_end' => 'datetime',
             'calculated_at' => 'datetime',
-            ...array_fill_keys(['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'settlements_total', 'closing_balance', 'net_amount', 'settled_amount'], 'integer'),
+            ...array_fill_keys(['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'chargebacks_total', 'settlements_total', 'closing_balance', 'net_amount', 'settled_amount'], 'integer'),
         ];
     }
 

@@ -2,6 +2,10 @@ import { Head, Link, router } from '@inertiajs/react';
 import { RefreshCw, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PgButton } from '@/components/pg/button';
+import {
+    ChargebackCell,
+    RaiseChargebackDialog,
+} from '@/components/pg/chargeback';
 import { DataTable, Panel } from '@/components/pg/data-table';
 import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
@@ -25,7 +29,14 @@ import { show as fileUrl } from '@/routes/files';
 import partner from '@/routes/partner';
 import type { UserType } from '@/types';
 
-type Group = 'open' | 'pending' | 'hold' | 'success' | 'rejected' | 'closed';
+type Group =
+    | 'open'
+    | 'pending'
+    | 'hold'
+    | 'success'
+    | 'rejected'
+    | 'closed'
+    | 'chargeback';
 
 type Props = {
     portal: UserType;
@@ -41,7 +52,9 @@ type Props = {
     filters: TxnFilterValues & { status: Group | null; search: string };
     partners: { id: string; code: string; name: string }[];
     branch_options: { id: string; code: string; name: string }[];
-    summary: Partial<Record<Group, { count: number; amount: number }>>;
+    summary: Partial<
+        Record<Group, { count: number; amount: number; pending?: number }>
+    >;
     selected: string | null;
     detail?: TxnDetail | null;
 };
@@ -96,6 +109,7 @@ const TABS: Record<'payin' | 'payout', [Group | 'all', string][]> = {
         ['rejected', 'Declined'],
         ['open', 'Not paid yet'],
         ['closed', 'Expired / cancelled'],
+        ['chargeback', 'Chargeback'],
     ],
     payout: [
         ['all', 'All'],
@@ -109,13 +123,14 @@ const TABS: Record<'payin' | 'payout', [Group | 'all', string][]> = {
 
 const KPIS: Record<
     'payin' | 'payout',
-    [Group, string, string, 'ok' | 'wn' | 'hd' | 'er'][]
+    [Group, string, string, 'ok' | 'wn' | 'hd' | 'er' | 'rv'][]
 > = {
     payin: [
         ['success', 'Success', '✓', 'ok'],
         ['pending', 'Pending', '◷', 'wn'],
         ['hold', 'On hold', '‖', 'hd'],
         ['rejected', 'Declined', '✕', 'er'],
+        ['chargeback', 'Chargeback', '↺', 'rv'],
     ],
     payout: [
         ['success', 'Paid', '✓', 'ok'],
@@ -138,6 +153,7 @@ export default function Transactions({
 }: Props) {
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(selected);
+    const [raising, setRaising] = useState<TxnRow | null>(null);
     const open = transactions.data.find((txn) => txn.id === openId) ?? null;
     const [title, description] = TITLES[direction][portal];
 
@@ -172,9 +188,14 @@ export default function Transactions({
         router.reload({ only: ['detail', 'selected'], data: { txn: id } });
     };
 
+    // A deposit with a chargeback is also counted under Success.
     const total = (
-        Object.values(summary) as { count: number; amount: number }[]
-    ).reduce((sum, group) => sum + group.count, 0);
+        Object.entries(summary) as [Group, { count: number }][]
+    ).reduce(
+        (sum, [group, figures]) =>
+            group === 'chargeback' ? sum : sum + figures.count,
+        0,
+    );
 
     const figure = (group: Group) => summary[group] ?? { count: 0, amount: 0 };
 
@@ -310,6 +331,17 @@ export default function Transactions({
             header: 'Status',
             cell: (t) => <StatusBadge status={t.status} />,
         },
+        ...(direction === 'payin'
+            ? [
+                  {
+                      key: 'chargeback',
+                      header: 'Chargeback',
+                      cell: (t: TxnRow) => (
+                          <ChargebackCell txn={t} onRaise={setRaising} />
+                      ),
+                  },
+              ]
+            : []),
         {
             key: 'created',
             header: 'Created ↓',
@@ -450,6 +482,14 @@ export default function Transactions({
                     </div>
                 )}
             </Panel>
+
+            {raising && (
+                <RaiseChargebackDialog
+                    txn={raising}
+                    portal={portal}
+                    onClose={() => setRaising(null)}
+                />
+            )}
 
             {open && (
                 <TransactionDrawer

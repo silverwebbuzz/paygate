@@ -20,6 +20,7 @@ enum Alert: string
     case AccountVerification = 'account_verification';
     case AccountReviewed = 'account_reviewed';
     case Reversal = 'reversal';
+    case ChargebackRequested = 'chargeback_requested';
     case PayinNoAccount = 'payin_no_account';
     case PayoutNoBranch = 'payout_no_branch';
     case PayoutShortBranch = 'payout_short_branch';
@@ -54,6 +55,7 @@ enum Alert: string
             self::AccountVerification => 'Bank account awaiting verification',
             self::AccountReviewed => 'Bank account verified or rejected',
             self::Reversal => 'Chargeback, refund or returned payout',
+            self::ChargebackRequested => 'Chargeback raised by a branch, awaiting approval',
         };
     }
 
@@ -68,7 +70,7 @@ enum Alert: string
             self::DepositsWaiting, self::PayoutAssigned, self::AccountReviewed, self::DepositMoved => [UserType::Branch],
             self::UnsettledLines => [UserType::Admin, UserType::Branch],
             self::WebhookFailed => [UserType::Partner],
-            self::AdjustmentRequested, self::AdjustmentDecided, self::AccountVerification,
+            self::AdjustmentRequested, self::AdjustmentDecided, self::AccountVerification, self::ChargebackRequested,
             self::PayinNoAccount, self::PayoutNoBranch, self::PayoutShortBranch, self::PayinAmountDiffers, self::DepositNotInBank, self::UtrConflict, self::ApprovedOtherUtr, self::ApprovedWithoutBankLine => [UserType::Admin],
             self::DepositAutoMoved => [UserType::Admin, UserType::Branch],
             self::SettlementCalculated, self::Reversal => [UserType::Partner, UserType::Branch],

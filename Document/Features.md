@@ -293,7 +293,7 @@ Architecture.md calls the partner customer the "payer". Both terms mean the same
 | ID     | Feature                                                         | Cert. | Status | Notes   |
 | ------ | --------------------------------------------------------------- | ----- | ------ | ------- |
 | RCB-01 | Payout refund: request, status, amount, history, report         | A     | ❓     | Q-RCB-1 |
-| RCB-02 | Chargeback (pay-in and payout): status, amount, history, report | A     | ❓     | Q-RCB-1 |
+| RCB-02 | Chargeback (pay-in and payout): status, amount, history, report | A     | ✅     | Built 2026-10-21: branch raises (notice + UTR), Admin approves; partner bears it; booked on approval day; Chargeback tab + settlement line. Pay-ins only. |
 
 ### COM — Commissions
 

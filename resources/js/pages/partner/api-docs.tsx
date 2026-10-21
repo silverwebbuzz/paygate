@@ -33,10 +33,6 @@ const STATUSES: [string, string][] = [
     ['expired', 'Not paid in time. The payment link no longer works.'],
     ['cancelled', 'You cancelled it before payment.'],
     [
-        'chargeback',
-        'After success, the customer’s bank took the money back. If your balance is debited, take it back from your customer.',
-    ],
-    [
         'refunded',
         'After success, the money was returned to the customer. Your balance is debited the amount; take it back from your customer.',
     ],
@@ -268,6 +264,8 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
     "utr": null,
     "reason": null,                       // decline reason code when rejected
     "late": false,                        // true: approved after it had expired / been declined
+    "chargeback": null,                   // after success, if the customer's bank took it back:
+                                          // { "id": "CB…", "amount": 1253400, "approved_at": "…" }
     "payment_url": "https://pay.…/p/…",
     "expires_at": "2026-09-27T12:15:00+00:00",
     "submitted_at": null,
@@ -390,7 +388,11 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                     <Code>payin.success</Code>, <Code>payin.rejected</Code>,{' '}
                     <Code>payin.expired</Code>, and after a success{' '}
                     <Code>payin.chargeback</Code> or <Code>payin.refunded</Code>
-                    . The body holds the same pay-in object the API returns:
+                    . A chargeback keeps <Code>status</Code> as{' '}
+                    <Code>success</Code> (the payment did succeed) and fills{' '}
+                    <Code>chargeback</Code>: your balance is debited that
+                    amount, so take it back from your customer. The body holds
+                    the same pay-in object the API returns:
                 </p>
                 <Pre>{`POST https://your-site/…/webhook
 X-PayGate-Event-Id: 01J…            (unique per webhook — ignore ones you already processed)

@@ -89,10 +89,47 @@ class TransactionPresenter
                 // The bank's narration, which usually names the payer.
                 'description' => $txn->statementEntry->description,
             ],
+            'chargeback' => $this->chargeback($txn, $viewer),
             'can' => [
                 'decide' => $viewer->can('decide', $txn),
                 'process' => $viewer->can('process', $txn),
+                'chargeback' => $type !== UserType::Partner
+                    && $txn->direction === 'payin'
+                    && $txn->status === 'success'
+                    && ! in_array($txn->chargeback_status, ['requested', 'approved'], true)
+                    && $viewer->can('reversals.create')
+                    && $viewer->can('view', $txn),
             ],
+        ];
+    }
+
+    /**
+     * The latest chargeback on a deposit. Partners see an approved one only
+     * (the amount they bear and when), never the bank's notice.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function chargeback(Transaction $txn, User $viewer): ?array
+    {
+        $chargeback = $txn->chargeback_status === null ? null : $txn->currentChargeback;
+        $partner = $viewer->isType(UserType::Partner);
+
+        if ($chargeback === null || ($partner && $chargeback->status !== 'approved')) {
+            return null;
+        }
+
+        return [
+            'id' => $chargeback->id,
+            'reference' => $chargeback->reference,
+            'status' => $chargeback->status,
+            'amount' => $chargeback->amount,
+            'utr' => $partner ? null : $chargeback->utr,
+            'reason' => $partner ? null : $chargeback->reason,
+            'proof_file_id' => $partner ? null : $chargeback->proof_file_id,
+            'requested_at' => $partner ? null : $chargeback->created_at?->toIso8601String(),
+            'requested_by' => $partner ? null : $chargeback->requester->name,
+            'decided_at' => $chargeback->decided_at?->toIso8601String(),
+            'decision_note' => $partner ? null : $chargeback->decision_note,
         ];
     }
 

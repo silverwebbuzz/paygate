@@ -16,6 +16,7 @@ use App\Domain\Platform\Settings;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Settlement\Models\Adjustment;
 use App\Domain\Settlement\Models\Settlement;
+use App\Domain\Transaction\Models\Chargeback;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Transaction\Models\TransactionReversal;
@@ -375,6 +376,39 @@ class AlertDispatcher
 
         $this->alerts->send(Alert::Reversal, $this->alerts->recipients($view, UserType::Partner, $txn->partner_id), $what, $body, Alerts::link($txn->isPayin() ? 'partner.payins.index' : 'partner.payouts.index', ['txn' => $txn->id]));
         $this->alerts->send(Alert::Reversal, $this->alerts->recipients($view, UserType::Branch, $txn->branch_id), $what, $body, Alerts::link($txn->isPayin() ? 'branch.payins.index' : 'branch.payouts.history', ['txn' => $txn->id]));
+    }
+
+    /**
+     * A branch raised a chargeback: the admins who can approve it.
+     */
+    public function chargebackRequested(Chargeback $chargeback, Transaction $txn, User $requester): void
+    {
+        $this->alerts->send(
+            Alert::ChargebackRequested,
+            $this->alerts->recipients(Permission::ReversalsApprove, UserType::Admin, except: $requester),
+            __('Chargeback :reference awaits approval', ['reference' => $chargeback->reference]),
+            __(':name raised ₹:amount on :txn', ['name' => $requester->name, 'amount' => $this->money($chargeback->amount), 'txn' => $txn->reference]),
+            Alerts::link('admin.chargebacks.index'),
+        );
+    }
+
+    /**
+     * Approved: the partner (who bears it) and the branch. Rejected: the
+     * branch, with the admin's note.
+     */
+    public function chargebackDecided(Chargeback $chargeback, Transaction $txn): void
+    {
+        $approved = $chargeback->status === 'approved';
+        $title = $approved
+            ? __('Chargeback on :reference', ['reference' => $txn->reference])
+            : __('Chargeback on :reference rejected', ['reference' => $txn->reference]);
+        $body = __('₹:amount · :note', ['amount' => $this->money($chargeback->amount), 'note' => $chargeback->decision_note ?? __('No note.')]);
+
+        if ($approved) {
+            $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayinsView, UserType::Partner, $txn->partner_id), $title, $body, Alerts::link('partner.payins.index', ['txn' => $txn->id]));
+        }
+
+        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayinsView, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payins.index', ['txn' => $txn->id]));
     }
 
     /**

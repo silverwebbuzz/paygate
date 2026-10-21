@@ -86,7 +86,7 @@ enum Menu: string
 
         return match ($this) {
             self::Accounts, self::Payins, self::Payouts, self::Balances, self::Settlements, self::Reports, self::Users => $all,
-            self::Statements, self::Reconciliation, self::AuditLogs => [UserType::Admin, UserType::Branch],
+            self::Statements, self::Reconciliation, self::AuditLogs, self::Reversals => [UserType::Admin, UserType::Branch],
             self::ApiKeys, self::Webhooks, self::IpRules, self::ApiLogs => [UserType::Admin, UserType::Partner],
             default => [UserType::Admin],
         };

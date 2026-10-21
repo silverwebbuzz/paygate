@@ -45,6 +45,7 @@ enum Permission: string
 
     case ReversalsView = 'reversals.view';
     case ReversalsCreate = 'reversals.create';
+    case ReversalsApprove = 'reversals.approve';
 
     case StatementsView = 'statements.view';
     case StatementsCreate = 'statements.create';
@@ -125,6 +126,8 @@ enum Permission: string
             // Branches add their accounts; only Admin verifies them.
             self::AccountsCreate, self::AccountsUpdate => [UserType::Admin, UserType::Branch],
             self::AccountsVerify => [UserType::Admin],
+            // Branches raise chargebacks; only Admin approves them.
+            self::ReversalsApprove => [UserType::Admin],
             // Settlements are calculated and ticked by Admin only.
             self::SettlementsCreate, self::SettlementsUpdate => [UserType::Admin],
             default => $types,

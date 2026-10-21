@@ -10,6 +10,7 @@ use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
 use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
+use App\Http\Shared\Transactions\ChargebackRequestController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
@@ -35,6 +36,8 @@ Route::controller(DepositQueueController::class)->prefix('deposits')->name('depo
     Route::post('{transaction}/not-in-bank', 'notInBank')->name('not-in-bank');
 });
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
+// Chargeback: the customer's bank took back an approved deposit (Admin approves).
+Route::post('payins/{transaction}/chargeback', [ChargebackRequestController::class, 'store'])->name('payins.chargeback');
 Route::get('payout-history', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.history');
 
 // Manual Payout: withdrawals waiting to be paid (pay with UTR / fail).

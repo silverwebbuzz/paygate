@@ -9,7 +9,6 @@ use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Notification\Enums\Alert;
 use App\Domain\Notification\Notifications\PortalAlert;
 use App\Domain\Transaction\Models\Transaction;
-use App\Domain\Transaction\Models\TransactionReversal;
 use App\Domain\Webhook\Models\WebhookEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\ChannelManager;
@@ -55,10 +54,10 @@ class ReversalsAndAlertsTest extends TestCase
         return $payin->refresh();
     }
 
-    private function reverse(Transaction $txn, string $kind, ?string $bearer = null)
+    private function reverse(Transaction $txn, string $kind)
     {
         return $this->actingAs($this->admin)->post(route('admin.reversals.store'), [
-            'transaction_id' => $txn->id, 'kind' => $kind, 'bearer' => $bearer, 'reason' => 'Bank notice 77', 'external_reference' => 'CB-77',
+            'transaction_id' => $txn->id, 'kind' => $kind, 'reason' => 'Bank notice 77', 'external_reference' => 'CB-77',
         ]);
     }
 
@@ -71,44 +70,17 @@ class ReversalsAndAlertsTest extends TestCase
         ];
     }
 
-    public function test_a_chargeback_borne_by_the_partner_moves_the_amount_and_keeps_the_fees()
-    {
-        $payin = $this->approved();
-        $this->assertSame([940000, -960000, 20000], $this->positions());
-
-        $this->reverse($payin, 'chargeback', 'partner')->assertSessionHasNoErrors();
-
-        // The partner loses ₹10,000; the branch no longer owes it; the margin stays.
-        $this->assertSame([-60000, 40000, 20000], $this->positions());
-        $this->assertSame('chargeback', $payin->refresh()->status);
-        $reversal = TransactionReversal::sole();
-        $this->assertSame('partner', $reversal->bearer);
-        $this->assertSame($this->ledger->journalId($payin->id, 'payin_success'), DB::table('ledger_journals')->where('id', $reversal->journal_id)->value('reverses_journal_id'));
-        $this->assertTrue(WebhookEvent::where(['transaction_id' => $payin->id, 'event_type' => 'payin.chargeback'])->exists());
-        $this->assertTrue($payin->events()->where('event', 'chargeback')->exists());
-
-        // Once only.
-        $this->reverse($payin, 'refund')->assertSessionHasErrors('transaction');
-    }
-
-    public function test_a_chargeback_borne_by_the_branch_books_nothing()
-    {
-        $payin = $this->approved();
-
-        $this->reverse($payin, 'chargeback')->assertSessionHasErrors('bearer');
-        $this->reverse($payin, 'chargeback', 'branch')->assertSessionHasNoErrors();
-
-        $this->assertSame([940000, -960000, 20000], $this->positions());
-        $this->assertNull(TransactionReversal::sole()->journal_id);
-        $this->assertSame('chargeback', $payin->refresh()->status);
-    }
-
     public function test_a_refund_debits_the_partner_and_a_returned_payout_is_fully_reversed()
     {
         $payin = $this->approved();
         $this->reverse($payin, 'refund')->assertSessionHasNoErrors();
         $this->assertSame('refunded', $payin->refresh()->status);
         $this->assertSame([-60000, 40000, 20000], $this->positions());
+        $this->assertTrue(WebhookEvent::where(['transaction_id' => $payin->id, 'event_type' => 'payin.refunded'])->exists());
+
+        // Once only; chargebacks are no longer recorded here.
+        $this->reverse($payin, 'refund')->assertSessionHasErrors('transaction');
+        $this->reverse($payin, 'chargeback')->assertSessionHasErrors('kind');
 
         // Fund and pay a ₹5,000 payout, then it comes back.
         $second = $this->approved(1000000, '626812820492');

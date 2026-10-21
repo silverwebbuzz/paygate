@@ -23,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $branch_commission
  * @property int $platform_margin
  * @property int $adjustments_total
+ * @property int $chargebacks_total
  * @property int $settlements_total
  * @property int $closing_balance
  * @property int $net_amount
@@ -39,7 +40,7 @@ class SettlementLine extends Model
 
     protected function casts(): array
     {
-        return array_fill_keys(['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'settlements_total', 'closing_balance', 'net_amount', 'settled_amount'], 'integer');
+        return array_fill_keys(['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'chargebacks_total', 'settlements_total', 'closing_balance', 'net_amount', 'settled_amount'], 'integer');
     }
 
     public function direction(): string

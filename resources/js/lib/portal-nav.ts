@@ -303,6 +303,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'payins.view',
                 },
                 {
+                    label: 'Chargebacks',
+                    href: branchPayins.index({
+                        query: { status: 'chargeback' },
+                    }),
+                    permission: 'reversals.view',
+                },
+                {
                     label: 'Pay-out History',
                     href: branchPayouts.history(),
                     permission: 'payouts.view',

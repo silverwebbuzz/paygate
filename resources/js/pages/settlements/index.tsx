@@ -33,6 +33,7 @@ type Figures = {
     branch_commission: number | null;
     platform_margin: number | null;
     adjustments: number;
+    chargebacks: number;
     settlements: number;
     closing: number;
 };
@@ -639,6 +640,10 @@ function SettlementDrawer({
                             {
                                 label: 'Adjustments',
                                 value: <Signed value={f.adjustments} />,
+                            },
+                            {
+                                label: 'Chargebacks',
+                                value: <Signed value={f.chargebacks} />,
                             },
                             {
                                 label: 'Settlement payments recorded',

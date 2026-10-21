@@ -8,6 +8,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\StatementImport;
 use App\Domain\Reporting\Models\ReportExport;
+use App\Domain\Transaction\Models\Chargeback;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Http\Shared\Reconciliation\ReconciliationScope;
@@ -16,8 +17,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Serves a private file after checking the viewer may see what it belongs
- * to. Payment proofs: Admin and the receiving branch only; statement files:
- * Admin and the branch (downloaded, never shown inline). Never cached.
+ * to. Payment proofs and chargeback notices: Admin and the receiving branch
+ * only; statement files: Admin and the branch (downloaded, never shown
+ * inline). Never cached.
  */
 class FileController extends Controller
 {
@@ -31,6 +33,10 @@ class FileController extends Controller
             $owner instanceof Transaction => $file->purpose === 'payment_proof'
                 && $viewer->type !== UserType::Partner
                 && $viewer->can('view', $owner),
+            // The bank's chargeback notice: Admin and the branch that raised it.
+            $owner instanceof Chargeback => $file->purpose === 'chargeback_proof'
+                && $viewer->type !== UserType::Partner
+                && $viewer->can('view', $owner->transaction),
             // Imported bank statements: the branch's statement users and Admin.
             $owner instanceof StatementImport => $file->purpose === 'statement'
                 && $viewer->can('statements.view')
@@ -51,7 +57,7 @@ class FileController extends Controller
 
         return response($contents, 200, [
             'Content-Type' => $file->mime,
-            'Content-Disposition' => ($file->purpose === 'payment_proof' ? 'inline' : 'attachment').'; filename="'.$name.'"',
+            'Content-Disposition' => (in_array($file->purpose, ['payment_proof', 'chargeback_proof'], true) && $request->query('download') === null ? 'inline' : 'attachment').'; filename="'.$name.'"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
             'Content-Security-Policy' => "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'",

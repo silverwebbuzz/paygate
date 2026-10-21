@@ -181,7 +181,7 @@ sha256 hex of the exact body</div>
         <tr><td class="k">Method</td><td>POST</td></tr>
         <tr><td class="k">Header</td><td>X-PayGate-Event-Id, X-PayGate-Event, X-PayGate-Signature</td></tr>
     </table>
-    <p class="small">Events: payin.submitted, payin.success, payin.rejected, payin.expired, payin.chargeback, payin.refunded. The signature is t=&lt;unix&gt;,v1=&lt;hex&gt;. HMAC-SHA256 of &lt;t&gt;.&lt;raw body&gt; with your secret must equal v1, and t must be within 5 minutes. Ignore an event id you have already handled.</p>
+    <p class="small">Events: payin.submitted, payin.success, payin.rejected, payin.expired, payin.chargeback, payin.refunded. A chargeback keeps status success and fills chargeback {id, amount, approved_at}: your balance is debited that amount. The signature is t=&lt;unix&gt;,v1=&lt;hex&gt;. HMAC-SHA256 of &lt;t&gt;.&lt;raw body&gt; with your secret must equal v1, and t must be within 5 minutes. Ignore an event id you have already handled.</p>
     <div class="lbl">Request we send</div>
     <div class="code">{
   "id": "...",
@@ -220,7 +220,7 @@ sha256 hex of the exact body</div>
     "late": false
   }
 }</div>
-    <p class="small">status is a word: created, awaiting_payment, payment_submitted, under_review, success, rejected, expired, cancelled, chargeback, refunded. Credit only on success, and credit received_amount (it can differ from amount when the customer paid a different amount). A late payment can become success after expired or rejected, with late true. Credit that once.</p>
+    <p class="small">status is a word: created, awaiting_payment, payment_submitted, under_review, success, rejected, expired, cancelled, refunded. Credit only on success, and credit received_amount (it can differ from amount when the customer paid a different amount). A late payment can become success after expired or rejected, with late true. Credit that once.</p>
     <div class="lbl">Response failed — HTTP 404</div>
     <div class="code">{ "error": { "code": "not_found", "message": "No pay-in with this id for your account.", "request_id": "..." } }</div>
     <p>POST {{ $base }}/payins/{id}/cancel before the customer pays. Header is the same four signing headers.</p>

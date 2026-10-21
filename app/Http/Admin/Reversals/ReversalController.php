@@ -15,22 +15,19 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Refunds (pay-in refunds and returned payouts) and Chargebacks (Admin):
- * the list, and recording a new one against a successful transaction
- * found by its id (decided 2026-09-28, G-20 / G-21 / G-22).
+ * Refunds (Admin): pay-in refunds and returned payouts, the list, and
+ * recording a new one against a successful transaction found by its id
+ * (decided 2026-09-28, G-21 / G-22). Chargebacks: ChargebackController.
  */
 class ReversalController extends Controller
 {
-    private const GROUPS = [
-        'refunds' => ['refund', 'return'],
-        'chargebacks' => ['chargeback'],
-    ];
+    private const KINDS = ['refund', 'return'];
 
-    public function index(Request $request, string $group): Response
+    public function index(Request $request): Response
     {
         Gate::authorize('reversals.view');
 
-        $kinds = self::GROUPS[$group];
+        $kinds = self::KINDS;
         $items = TransactionReversal::query()
             ->whereIn('kind', $kinds)
             ->with(['transaction.partner', 'transaction.branch', 'creator'])
@@ -71,7 +68,6 @@ class ReversalController extends Controller
             ->first();
 
         return Inertia::render('admin/reversals', [
-            'group' => $group,
             'items' => [...$items->toArray(), 'data' => $rows],
             'totals' => collect($kinds)->mapWithKeys(fn (string $kind) => [$kind => [
                 'count' => TransactionReversal::query()->where('kind', $kind)->count(),
@@ -102,8 +98,7 @@ class ReversalController extends Controller
 
         $data = $request->validate([
             'transaction_id' => ['required', 'uuid'],
-            'kind' => ['required', Rule::in(['chargeback', 'refund', 'return'])],
-            'bearer' => ['nullable', 'required_if:kind,chargeback', Rule::in(['partner', 'branch'])],
+            'kind' => ['required', Rule::in(self::KINDS)],
             'reason' => ['required', 'string', 'max:500'],
             'external_reference' => ['nullable', 'string', 'max:100'],
         ]);
@@ -111,10 +106,10 @@ class ReversalController extends Controller
         /** @var User $actor */
         $actor = $request->user();
         $txn = Transaction::query()->findOrFail((string) $data['transaction_id']);
-        $reversal = $reverse->handle($actor, $txn, $data['kind'], $data['reason'], $data['bearer'] ?? null, $data['external_reference'] ?? null);
+        $reversal = $reverse->handle($actor, $txn, $data['kind'], $data['reason'], $data['external_reference'] ?? null);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference recorded for :txn; the partner is notified.', ['reference' => $reversal->reference, 'txn' => $txn->reference])]);
 
-        return redirect()->route($data['kind'] === 'chargeback' ? 'admin.chargebacks.index' : 'admin.refunds.index');
+        return redirect()->route('admin.refunds.index');
     }
 }

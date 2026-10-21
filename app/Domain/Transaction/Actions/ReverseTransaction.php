@@ -18,13 +18,12 @@ use Illuminate\Validation\ValidationException;
  * PayGate never bears a loss, and earned fees stay earned except when a
  * payout is fully reversed:
  *
- * - chargeback (G-20): the customer's bank took back an approved deposit.
- *   Admin picks who bears it. Partner: partner −amount, branch +amount.
- *   Branch: nothing is booked (the branch absorbs it).
  * - refund (G-22): the branch sent an approved deposit back to the
  *   customer. Partner −amount, branch +amount.
  * - return (G-21): a paid payout came back. Full reversal: partner
  *   +(amount + fee), branch −(amount + commission), margin reversed.
+ *
+ * Chargebacks are raised and approved separately (ManageChargeback).
  *
  * One reversal per transaction; a `reversal` journal pointing at the
  * original, a new status, a webhook, the timeline and the audit log.
@@ -32,22 +31,17 @@ use Illuminate\Validation\ValidationException;
 class ReverseTransaction
 {
     private const KINDS = [
-        'chargeback' => ['direction' => 'payin', 'status' => 'chargeback', 'event' => 'payin.chargeback'],
         'refund' => ['direction' => 'payin', 'status' => 'refunded', 'event' => 'payin.refunded'],
         'return' => ['direction' => 'payout', 'status' => 'returned', 'event' => 'payout.returned'],
     ];
 
     public function __construct(private Ledger $ledger, private QueueWebhook $webhooks, private AlertDispatcher $alerts) {}
 
-    public function handle(User $actor, Transaction $txn, string $kind, string $reason, ?string $bearer = null, ?string $externalReference = null): TransactionReversal
+    public function handle(User $actor, Transaction $txn, string $kind, string $reason, ?string $externalReference = null): TransactionReversal
     {
-        $rule = self::KINDS[$kind] ?? throw ValidationException::withMessages(['kind' => __('Choose chargeback, refund or return.')]);
+        $rule = self::KINDS[$kind] ?? throw ValidationException::withMessages(['kind' => __('Choose refund or return.')]);
 
-        if ($kind === 'chargeback' && ! in_array($bearer, ['partner', 'branch'], true)) {
-            throw ValidationException::withMessages(['bearer' => __('Choose who bears the chargeback.')]);
-        }
-
-        return DB::transaction(function () use ($actor, $txn, $kind, $rule, $reason, $bearer, $externalReference) {
+        return DB::transaction(function () use ($actor, $txn, $kind, $rule, $reason, $externalReference) {
             /** @var Transaction $locked */
             $locked = Transaction::query()->with('partner')->whereKey($txn->id)->lockForUpdate()->firstOrFail();
 
@@ -57,21 +51,23 @@ class ReverseTransaction
                     : __(':reference isn’t a paid payout.', ['reference' => $locked->reference])]);
             }
 
+            if (in_array($locked->chargeback_status, ['requested', 'approved'], true)) {
+                throw ValidationException::withMessages(['transaction' => __(':reference has a chargeback :status; it can’t also be refunded.', ['reference' => $locked->reference, 'status' => $locked->chargeback_status])]);
+            }
+
             $partner = $this->ledger->account(Ledger::PARTNER_POSITION, $locked->partner_id, $locked->branch_id);
             $branch = $this->ledger->account(Ledger::BRANCH_POSITION, $locked->partner_id, $locked->branch_id);
             $amount = $locked->amount;
 
-            $lines = match (true) {
-                $kind === 'return' => [
+            $lines = $kind === 'return'
+                ? [
                     $partner => $amount + (int) $locked->partner_commission,
                     $branch => -($amount + (int) $locked->branch_commission),
                     $this->ledger->account(Ledger::PLATFORM_MARGIN) => -(int) $locked->platform_margin,
-                ],
-                $kind === 'chargeback' && $bearer === 'branch' => [],
-                default => [$partner => -$amount, $branch => $amount],
-            };
+                ]
+                : [$partner => -$amount, $branch => $amount];
 
-            $journalId = $lines === [] ? null : $this->ledger->post(
+            $journalId = $this->ledger->post(
                 'reversal',
                 $lines,
                 $locked->id,
@@ -84,7 +80,7 @@ class ReverseTransaction
                 'reference' => 'RV'.substr(Transaction::newPayinReference(), 2),
                 'transaction_id' => $locked->id,
                 'kind' => $kind,
-                'bearer' => $kind === 'chargeback' ? $bearer : null,
+                'bearer' => null,
                 'amount' => $amount,
                 'reason' => $reason,
                 'external_reference' => $externalReference === null ? null : mb_substr(trim($externalReference), 0, 100),
@@ -95,12 +91,11 @@ class ReverseTransaction
             $from = $locked->status;
             $locked->forceFill(['status' => $rule['status'], 'status_note' => $reason])->save();
 
-            TransactionEvent::record($locked, $kind === 'return' ? 'returned' : ($kind === 'refund' ? 'refunded' : 'chargeback'), $from, $locked->status, 'user', $actor->id, $reason, array_filter([
+            TransactionEvent::record($locked, $kind === 'return' ? 'returned' : 'refunded', $from, $locked->status, 'user', $actor->id, $reason, array_filter([
                 'reversal' => $reversal->reference,
-                'bearer' => $reversal->bearer,
                 'external_reference' => $reversal->external_reference,
             ]));
-            AuditLog::record("transaction.{$kind}", $locked, ['status' => $from], ['status' => $locked->status, 'bearer' => $reversal->bearer, 'reason' => $reason], $actor);
+            AuditLog::record("transaction.{$kind}", $locked, ['status' => $from], ['status' => $locked->status, 'reason' => $reason], $actor);
 
             $locked->direction === 'payin'
                 ? $this->webhooks->forPayin($locked, $rule['event'])

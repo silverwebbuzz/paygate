@@ -36,6 +36,12 @@ final class PayinData
             'payment_url' => $open && $session !== null ? $session->url() : null,
             'expires_at' => $payin->expires_at?->toIso8601String(),
             'submitted_at' => $payin->submitted_at?->toIso8601String(),
+            // Approved chargeback: the status stays success; the partner bears the amount.
+            'chargeback' => $payin->chargeback_status === 'approved' && ($chargeback = $payin->currentChargeback) !== null ? [
+                'id' => $chargeback->reference,
+                'amount' => $chargeback->amount,
+                'approved_at' => $chargeback->decided_at?->toIso8601String(),
+            ] : null,
             'completed_at' => $payin->succeeded_at?->toIso8601String() ?? $payin->decided_at?->toIso8601String(),
             'created_at' => $payin->created_at?->toIso8601String(),
             'metadata' => $payin->metadata,

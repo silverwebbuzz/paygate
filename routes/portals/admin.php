@@ -13,6 +13,7 @@ use App\Http\Admin\Platform\IpManagementController;
 use App\Http\Admin\Platform\PageController;
 use App\Http\Admin\Qa\QaChecklistController;
 use App\Http\Admin\Qa\SectionRolloutController;
+use App\Http\Admin\Reversals\ChargebackController;
 use App\Http\Admin\Reversals\ReversalController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Admin\Settings\GlobalSettingsController;
@@ -25,6 +26,7 @@ use App\Http\Shared\Reconciliation\StatementController;
 use App\Http\Shared\Reconciliation\StatementImportController;
 use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
+use App\Http\Shared\Transactions\ChargebackRequestController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
 use App\Http\Shared\Transactions\TransactionController;
@@ -44,6 +46,7 @@ Route::post('reports/export', [ReportController::class, 'export'])->middleware('
 // Transactions (all pay-ins) and the Manual Deposit queue of every branch.
 Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
 Route::get('transactions/payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('transactions.payouts');
+Route::post('transactions/{transaction}/chargeback', [ChargebackRequestController::class, 'store'])->name('transactions.chargeback');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
 Route::controller(DepositQueueController::class)->prefix('deposits')->name('deposits.')->group(function () {
     Route::get('/', 'index')->name('index');
@@ -99,10 +102,14 @@ Route::controller(AdjustmentController::class)->prefix('settlements/adjustments'
 });
 Route::get('commissions', [CommissionController::class, 'index'])->name('commissions.index');
 
-// Refunds (pay-in refunds, returned payouts) and chargebacks.
-Route::get('refunds', [ReversalController::class, 'index'])->defaults('group', 'refunds')->name('refunds.index');
-Route::get('chargebacks', [ReversalController::class, 'index'])->defaults('group', 'chargebacks')->name('chargebacks.index');
+// Refunds (pay-in refunds, returned payouts), and chargebacks raised by branches.
+Route::get('refunds', [ReversalController::class, 'index'])->name('refunds.index');
 Route::post('reversals', [ReversalController::class, 'store'])->name('reversals.store');
+Route::controller(ChargebackController::class)->prefix('chargebacks')->name('chargebacks.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('{chargeback}/approve', 'approve')->name('approve');
+    Route::post('{chargeback}/reject', 'reject')->name('reject');
+});
 
 // Platform administration: Global Settings, content pages, IP overview, audit logs.
 Route::controller(GlobalSettingsController::class)->prefix('settings')->name('settings.')->group(function () {

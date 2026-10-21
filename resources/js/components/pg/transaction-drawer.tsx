@@ -60,7 +60,23 @@ export type TxnRow = {
         value_date: string;
         description?: string | null;
     } | null;
-    can: { decide: boolean; process?: boolean };
+    /** Latest chargeback; partners see approved ones only. */
+    chargeback?: TxnChargeback | null;
+    can: { decide: boolean; process?: boolean; chargeback?: boolean };
+};
+
+export type TxnChargeback = {
+    id: string;
+    reference: string;
+    status: 'requested' | 'approved' | 'rejected';
+    amount: number;
+    utr: string | null;
+    reason: string | null;
+    proof_file_id: string | null;
+    requested_at: string | null;
+    requested_by: string | null;
+    decided_at: string | null;
+    decision_note: string | null;
 };
 
 export type TxnDetail = {
@@ -169,6 +185,9 @@ const EVENT_LABELS: Record<string, string> = {
     approved_late: 'Approved late (the money arrived after expiry / decline)',
     bank_line_matched: 'Found in the bank statement',
     chargeback: 'Chargeback recorded',
+    chargeback_requested: 'Chargeback raised (waiting for Admin)',
+    chargeback_approved: 'Chargeback approved: partner debited',
+    chargeback_rejected: 'Chargeback rejected',
     refunded: 'Refunded to the customer',
     returned: 'Payout returned',
     waiting_alerted: 'Branch alerted: waiting too long',
