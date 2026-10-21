@@ -11,6 +11,7 @@ use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Actions\MovePayin;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Transaction\Utr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,7 +25,10 @@ use Illuminate\Validation\ValidationException;
  * 1. Same account: the line is linked (StatementMatcher) → approved.
  * 2. The deposit waits at another branch (the customer paid this account
  *    on an earlier request, then entered the UTR on a new one): the
- *    deposit is moved here (MovePayin) → approved.
+ *    deposit is moved here (MovePayin) → approved — only if this customer
+ *    really was given this account in the last day (an earlier deposit, or
+ *    before "Get different details"). Otherwise the UTR may be someone
+ *    else's typed in by a fraudster, so Admin decides (Wrong branch case).
  *
  * Only when everything is clean: exact UTR and exact amount, the deposit is
  * waiting (or on hold only because its branch said "not in our bank"), one
@@ -94,7 +98,7 @@ class AutoApproveDeposit
             return null;
         }
 
-        if ($line->amount !== $payin->amount || Utr::claimants($utr, $payin->id)->isNotEmpty()) {
+        if ($line->amount !== $payin->amount) {
             return null;
         }
 
@@ -112,10 +116,13 @@ class AutoApproveDeposit
             return null;
         }
 
-        $claims = Utr::claimants($utr);
-        $payin = $claims->first();
+        // At most one: a UTR on a waiting deposit can't be entered on another (Utr).
+        $payin = Transaction::query()
+            ->where(['direction' => 'payin', 'customer_utr_normalized' => $utr])
+            ->whereIn('status', Utr::CLAIMING)
+            ->first();
 
-        if ($claims->count() !== 1 || $payin->payment_account_id === $entry->payment_account_id || $payin->amount !== $entry->amount) {
+        if ($payin === null || $payin->payment_account_id === $entry->payment_account_id || $payin->amount !== $entry->amount) {
             return null;
         }
 
@@ -127,7 +134,7 @@ class AutoApproveDeposit
         $actor = $this->actor($line);
         $account = $line->paymentAccount;
 
-        if ($actor === null || ! $this->eligible($payin) || ! $this->mapped($payin, $account->branch_id)) {
+        if ($actor === null || ! $this->eligible($payin) || ! $this->mapped($payin, $account->branch_id) || ! $this->wasGiven($payin, $account->id)) {
             return null;
         }
 
@@ -196,6 +203,23 @@ class AutoApproveDeposit
 
         return in_array($status, self::WAITING, true)
             || ($status === PayinStatus::UnderReview && $payin->status_reason_code === DecidePayin::NOT_IN_BANK);
+    }
+
+    /**
+     * Whether this customer of this partner was shown that account (any of
+     * their deposits allocated to it) in the last day: the trace a genuine
+     * "paid there, entered the UTR here" leaves.
+     */
+    private function wasGiven(Transaction $payin, string $accountId): bool
+    {
+        return TransactionEvent::query()
+            ->join('transactions as t', 't.id', '=', 'transaction_events.transaction_id')
+            ->where('transaction_events.event', 'allocated')
+            ->whereRaw("transaction_events.data->>'account_id' = ?", [$accountId])
+            ->where('transaction_events.created_at', '>=', now()->subDay())
+            ->where('t.partner_id', $payin->partner_id)
+            ->where('t.partner_customer_id', $payin->partner_customer_id)
+            ->exists();
     }
 
     private function mapped(Transaction $payin, string $branchId): bool

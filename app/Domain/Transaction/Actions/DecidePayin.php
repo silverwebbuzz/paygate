@@ -8,7 +8,6 @@ use App\Domain\Branch\Models\BranchLimitTopup;
 use App\Domain\Commission\CommissionCalculator;
 use App\Domain\Commission\Enums\Direction;
 use App\Domain\Core\Audit\Models\AuditLog;
-use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
@@ -48,8 +47,6 @@ class DecidePayin
     /** status_reason_code of a deposit the branch says isn't in its bank. */
     public const NOT_IN_BANK = 'not_in_our_bank';
 
-    /** status_reason_code of a deposit put on hold because its UTR was approved on another one. */
-    public const DUPLICATE_UTR = 'duplicate_utr';
 
     public function __construct(
         private CommissionCalculator $commissions,
@@ -101,18 +98,13 @@ class DecidePayin
         try {
             return DB::transaction(function () use ($actor, $payin, $bankUtr, $utr, $note, $late, $received, $auto) {
                 $locked = $this->lock($payin, $late ? self::LATE_APPROVABLE : self::DECIDABLE);
-                // Another waiting claim doesn't block: the bank line decided (flagged below).
-                Utr::ensureFree($utr, $locked->id, claims: false);
+                Utr::ensureFree($utr, $locked->id);
                 $order = $locked->orderAmount();
                 $received ??= $order;
                 $differs = $received !== $order;
 
                 if ($differs && trim((string) $note) === '') {
                     throw ValidationException::withMessages(['note' => __('Say why the amount received differs from the order amount.')]);
-                }
-
-                if (! $auto) {
-                    $this->ensureBranchMayApprove($actor, $locked, $utr);
                 }
 
                 // The bank's UTR isn't the one the customer gave: say why; Admin is told.
@@ -186,15 +178,13 @@ class DecidePayin
                     $this->alerts->approvedWithOtherUtr($locked, $actor);
                 }
 
-                $this->flagOtherClaims($locked, $utr);
-
                 $payin->setRawAttributes($locked->getAttributes(), true);
 
                 return $locked;
             });
         } catch (QueryException $exception) {
             if (Utr::isDuplicateError($exception)) {
-                Utr::ensureFree($utr, $payin->id, claims: false);
+                Utr::ensureFree($utr, $payin->id);
             }
 
             throw $exception;
@@ -280,70 +270,6 @@ class DecidePayin
 
             return $locked;
         });
-    }
-
-    /**
-     * While another waiting deposit claims the same UTR (or this one was put
-     * on hold as a duplicate), a branch can't approve by hand: only Admin, or
-     * the bank line automatically. Stops a branch picking the wrong one.
-     */
-    private function ensureBranchMayApprove(User $actor, Transaction $payin, string $bankUtr): void
-    {
-        if ($actor->isType(UserType::Admin)) {
-            return;
-        }
-
-        $shared = Utr::claimants($bankUtr, $payin->id);
-
-        if ($payin->customer_utr_normalized !== null && $payin->customer_utr_normalized !== $bankUtr) {
-            $shared = $shared->merge(Utr::claimants($payin->customer_utr_normalized, $payin->id));
-        }
-
-        if ($shared->isNotEmpty()) {
-            throw ValidationException::withMessages(['status' => __('The same UTR is also claimed by :references. Only Admin can approve this one — or add the bank line and the right deposit is approved automatically.', [
-                'references' => $shared->pluck('reference')->unique()->join(', '),
-            ])]);
-        }
-
-        if ($payin->status_reason_code === self::DUPLICATE_UTR) {
-            throw ValidationException::withMessages(['status' => __('This deposit was put on hold as a duplicate. Only Admin can approve it.')]);
-        }
-    }
-
-    /**
-     * This UTR is now the bank's proof for this deposit: any other deposit
-     * still claiming it is a mistake or fraud (a double click, a typo, or
-     * someone copying a UTR). Each is put on hold as a duplicate — out of
-     * the branch's pending list — and Admin is alerted; a person declines it
-     * ("Decline as duplicate"), or Admin approves it with another bank UTR.
-     */
-    private function flagOtherClaims(Transaction $payin, string $utr): void
-    {
-        $others = Utr::claimants($utr, $payin->id);
-
-        if ($others->isEmpty()) {
-            return;
-        }
-
-        foreach ($others as $other) {
-            $from = $other->status;
-            $other->forceFill([
-                'status' => PayinStatus::UnderReview->value,
-                'status_reason_code' => self::DUPLICATE_UTR,
-                'status_note' => __('UTR :utr was already approved on :reference. Decline as duplicate, unless this is a different payment.', ['utr' => $utr, 'reference' => $payin->reference]),
-            ])->save();
-
-            TransactionEvent::record($other, 'utr_conflict', $from, $other->status, 'system', null, null, [
-                'utr' => $utr,
-                'approved' => $payin->reference,
-            ]);
-        }
-
-        $this->alerts->utrConflict($utr, __(':reference was approved with UTR :utr, but :others still claim it. They are on hold as duplicates: check and decline them.', [
-            'reference' => $payin->reference,
-            'utr' => $utr,
-            'others' => $others->pluck('reference')->join(', '),
-        ]), $others->first());
     }
 
     /**

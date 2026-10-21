@@ -295,7 +295,7 @@ Key indexes:
 - Expiry sweep: `(expires_at) WHERE status IN ('created','awaiting_payment')`
 - **One UTR = one bank transfer, system-wide** (decided 2026-10-19, `App\Domain\Transaction\Utr`): across accounts, branches, pay-ins and payouts.
     - `transactions_unique_bank_utr`: `UNIQUE (bank_utr_normalized) WHERE bank_utr_normalized IS NOT NULL AND status NOT IN ('rejected','expired','cancelled','failed')` — an approved deposit or paid payout holds its UTR for good (chargebacks / refunds / returns keep it).
-    - ~~`transactions_unique_claimed_utr`~~ dropped 2026-10-21: waiting deposits may share a claimed UTR (a fraudster typing it first must not block the real customer). Both are flagged (`utr_conflict` event), Admin is alerted, the bank line decides. Plain index `transactions_customer_utr_index` for lookups.
+    - `transactions_unique_claimed_utr`: `UNIQUE (customer_utr_normalized) WHERE direction = 'payin' AND customer_utr_normalized IS NOT NULL AND status IN ('payment_submitted','payment_detected','under_review')` — a customer's UTR is held while the deposit waits. (Dropped 2026-10-21, restored 2026-10-22 by client decision: only a declined / expired / cancelled / failed transaction releases a UTR.)
     - The app also refuses a UTR that is another transaction's customer claim / bank UTR (cross-column) or a settlement payment's bank reference, with a message naming the holder. A customer UTR seen only on a declined deposit is accepted and flagged (`possible_duplicate_of`). Reversal references are free text (a chargeback quotes the original UTR) and are not checked.
 - UTR search: `(customer_utr_normalized)`, `(bank_utr_normalized)`
 
@@ -540,7 +540,7 @@ LIMIT 1;
 Then conditionally reserve `usage_counters` for the account, branch, partner and mapping (amount, count, open sessions). If any limit is hit, try the next candidate (a bounded loop). On success: set `a.last_allocated_at = clock_timestamp()`, set the transaction's `branch_id`, `payment_account_id`, `method` and status `awaiting_payment`, and add an event.
 If `SKIP LOCKED` returns nothing, run the query **once more without** `SKIP LOCKED` (waiting a few milliseconds). Otherwise a burst could report "unavailable" just because every account was briefly locked by another customer. Only when that also finds nothing → "temporarily unavailable" + admin alert.
 
-**Customer submits UTR or photo** → `payment_submitted` (a UTR an approved deposit / paid payout holds is refused: `Utr::holder(claims: false)`; another waiting claim is accepted and flagged) → `AutoApproveDeposit::forPayin` + event + branch notification.
+**Customer submits UTR or photo** → `payment_submitted` (a UTR a pending or successful deposit, or a payout, holds is refused with a "pending" / "successful" / "in process" message and an Admin alert: `Utr::holder` + `transactions_unique_claimed_utr`) → `AutoApproveDeposit::forPayin` + event + branch notification.
 
 **Branch approves** (Req G-23)
 

@@ -39,8 +39,6 @@ export type TxnRow = {
     customer_utr: string | null;
     bank_utr: string | null;
     reason_code: string | null;
-    /** Manual Deposit: other waiting deposits claiming the same UTR. */
-    utr_shared_with?: string[];
     note: string | null;
     created_at: string | null;
     submitted_at: string | null;

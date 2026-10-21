@@ -10,8 +10,6 @@ use App\Domain\Notification\Enums\Alert;
 use App\Domain\Notification\Notifications\PortalAlert;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Settings;
-use App\Domain\Reconciliation\Models\ReconciliationCase;
-use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -123,56 +121,31 @@ class DuplicateSafetyTest extends TestCase
         $this->api('POST', '/v1/payins', $body('ORD-5', 600000))->assertCreated();
     }
 
-    public function test_two_deposits_with_one_utr_on_the_same_account_need_admin_and_the_extra_one_is_held()
+    public function test_a_second_deposit_with_the_same_utr_is_refused_at_any_branch()
     {
-        // "Anyhow" two deposits got in (the guard was off): same customer, UTR, amount and account.
+        // "Anyhow" a second deposit got in (the guard was off), at the same or another branch.
         config(['paygate.payin.duplicate_window_seconds' => 0]);
         $first = $this->depositOn($this->account);
-        $second = $this->depositOn($this->account);
+
+        foreach ([$this->account, $this->paidAccount] as $on) {
+            $other = $on->is($this->account) ? $this->paidAccount : $this->account;
+            $other->update(['status' => 'inactive']);
+            [$reference, $token] = $this->createPayin(['amount' => 500000, 'customer' => self::CUSTOMER]);
+            $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
+            $other->update(['status' => 'active']);
+
+            // Pending elsewhere: refused, the customer is told it is pending; it stays unpaid.
+            $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => self::UTR])->assertSessionHasErrors('utr');
+            $this->assertSame('awaiting_payment', Transaction::where('reference', $reference)->sole()->status);
+        }
+
+        // Admin was alerted once for this UTR (not once per attempt).
         $this->assertSame(1, $this->alerted($this->admin, Alert::UtrConflict));
-        // Both show a red "Same UTR as …" badge in the branch's list.
-        $rows = collect($this->actingAs($this->operator)->get(route('branch.deposits.index'))->viewData('page')['props']['items']['data'])->keyBy('reference');
-        $this->assertSame([$second->reference], $rows[$first->reference]['utr_shared_with']);
-        $this->assertSame([$first->reference], $rows[$second->reference]['utr_shared_with']);
 
-        // The branch's bank line can't tell them apart: nothing approved, a case for a person.
+        // Only one deposit holds it, so the branch's bank line approves that one by itself.
         $this->addLine($this->operator, $this->account)->assertSessionHasNoErrors();
-        $this->assertSame('payment_submitted', $first->refresh()->status);
-        $this->assertSame('payment_submitted', $second->refresh()->status);
-        $this->assertSame('duplicate_utr', ReconciliationCase::sole()->type->value);
-
-        // The branch can't pick one by hand; Admin can.
-        $this->approve($this->operator, $first)->assertSessionHasErrors('status');
-        $this->approve($this->admin, $first)->assertSessionHasNoErrors();
         $this->assertSame('success', $first->refresh()->status);
-
-        // The extra one leaves the pending list: on hold as a duplicate, Admin alerted.
-        $second->refresh();
-        $this->assertSame('under_review', $second->status);
-        $this->assertSame(DecidePayin::DUPLICATE_UTR, $second->status_reason_code);
-        $this->assertSame(2, $this->alerted($this->admin, Alert::UtrConflict));
-
-        // It can never be approved with that UTR; the branch declines it as a duplicate.
-        $this->approve($this->admin, $second, self::UTR, 'try')->assertSessionHasErrors('bank_utr');
-        $this->approve($this->operator, $second, '999912820491', 'other payment')->assertSessionHasErrors('status');
-        $this->actingAs($this->operator)->post(route('branch.deposits.decline', $second), ['reason_code' => 'duplicate_payment'])->assertSessionHasNoErrors();
-        $this->assertSame('rejected', $second->refresh()->status);
-    }
-
-    public function test_two_deposits_with_one_utr_at_two_branches_the_bank_line_picks_the_real_one()
-    {
-        config(['paygate.payin.duplicate_window_seconds' => 0]);
-        $atFirst = $this->depositOn($this->account);
-        $atPaid = $this->depositOn($this->paidAccount);
-
-        // The money reached the paid branch only: its line approves that deposit by itself.
-        $this->addLine($this->paidOperator, $this->paidAccount)->assertSessionHasNoErrors();
-
-        $this->assertSame('success', $atPaid->refresh()->status);
-        $atFirst->refresh();
-        $this->assertSame('under_review', $atFirst->status);
-        $this->assertSame(DecidePayin::DUPLICATE_UTR, $atFirst->status_reason_code);
-        $this->assertSame(2, $this->alerted($this->admin, Alert::UtrConflict));
+        $this->assertSame(1, Transaction::where('customer_utr_normalized', self::UTR)->count());
     }
 
     public function test_approving_with_another_utr_than_the_customers_needs_a_note_and_tells_admin()

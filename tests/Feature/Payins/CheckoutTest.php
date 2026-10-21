@@ -402,7 +402,7 @@ class CheckoutTest extends TestCase
         $this->assertStringNotContainsString('public', $file->path);
     }
 
-    public function test_a_utr_is_one_payment_a_waiting_claim_is_flagged_and_a_declined_one_noted()
+    public function test_a_pending_or_successful_utr_is_refused_and_only_a_declined_one_released()
     {
         Notification::fake();
         $this->activeAccount();
@@ -414,17 +414,18 @@ class CheckoutTest extends TestCase
         }
 
         $this->post($this->page($tokens['A']).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
-        // Same UTR (typed differently) while A waits: accepted, both flagged, Admin alerted —
-        // A may be a fraudster who typed B's real UTR first. The bank line decides.
-        $this->post($this->page($tokens['B']).'/proof', ['utr' => '6268 1282 0491'])->assertSessionHasNoErrors();
-        $this->assertSame('payment_submitted', $this->payin($refB)->status);
-        $this->assertTrue(TransactionEvent::where(['transaction_id' => $this->payin($refA)->id, 'event' => 'utr_conflict'])->exists());
-        $this->assertTrue(TransactionEvent::where(['transaction_id' => $this->payin($refB)->id, 'event' => 'utr_conflict'])->exists());
-        Notification::assertSentTo(User::where('type', 'admin')->first(), PortalAlert::class, fn (PortalAlert $alert) => $alert->alert === Alert::UtrConflict);
 
-        // Once A is declined, the branch also sees B's UTR was used on A.
+        // Same UTR (typed differently) while A is pending: refused, saying so; Admin alerted once.
+        $this->post($this->page($tokens['B']).'/proof', ['utr' => '6268 1282 0491'])
+            ->assertSessionHasErrors(['utr' => __('This UTR has already been submitted for another payment that is pending (being checked). If that was you, please wait for it to be confirmed — don’t submit it again. Otherwise check the UTR in your bank or UPI app.')]);
+        $this->post($this->page($tokens['B']).'/proof', ['utr' => '626812820491'])->assertSessionHasErrors('utr');
+        $this->assertSame('awaiting_payment', $this->payin($refB)->status);
+        $this->assertCount(1, Notification::sent(User::where('type', 'admin')->first(), PortalAlert::class, fn (PortalAlert $alert) => $alert->alert === Alert::UtrConflict));
+
+        // Once A is declined, the UTR is released, and the branch sees it was used on A.
         $admin = User::factory()->admin()->withTwoFactor()->create();
         $this->actingAs($admin)->post(route('admin.deposits.decline', $this->payin($refA)), ['reason_code' => 'payment_not_found'])->assertSessionHasNoErrors();
+        $this->post($this->page($tokens['B']).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
         $event = TransactionEvent::where(['transaction_id' => $this->payin($refB)->id, 'event' => 'proof_submitted'])->firstOrFail();
         $this->assertSame($refA, $event->data['possible_duplicate_of']);
 
@@ -432,7 +433,8 @@ class CheckoutTest extends TestCase
         $this->rate('partner', $this->partner->id, 'deposit', '6');
         $this->rate('branch', $this->branch->id, 'deposit', '4');
         $this->actingAs($admin)->post(route('admin.deposits.approve', $this->payin($refB)), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
-        $this->post($this->page($tokens['C']).'/proof', ['utr' => '626812820491'])->assertSessionHasErrors('utr');
+        $this->post($this->page($tokens['C']).'/proof', ['utr' => '626812820491'])
+            ->assertSessionHasErrors(['utr' => __('This UTR has already been used for a successful payment, so it can’t be used again. Check the UTR in your bank or UPI app; if it is right, contact support.')]);
     }
 
     public function test_expiry_releases_capacity_and_the_page_expires_on_the_spot()

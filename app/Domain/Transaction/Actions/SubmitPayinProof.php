@@ -14,6 +14,7 @@ use App\Domain\Transaction\Utr;
 use App\Domain\Webhook\Actions\QueueWebhook;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -24,15 +25,22 @@ use Illuminate\Validation\ValidationException;
  * types the bank UTR when approving (Phase 7), so duplicate-UTR protection
  * still works.
  *
- * A UTR is one bank transfer (Utr): one another transaction holds is
- * refused. One seen only on a declined / expired deposit is accepted but
+ * A UTR is one bank transfer (Utr): one another transaction holds — a
+ * pending deposit, a successful one, or a payout in process or paid — is
+ * refused with a message saying which (decided 2026-10-22), and Admin is
+ * alerted (a repeat is a double entry or fraud). One seen only on a
+ * declined / expired / cancelled / failed transaction is accepted but
  * flagged for the branch (`possible_duplicate_of`).
  */
 class SubmitPayinProof
 {
     public const UTR_PATTERN = '/^[A-Z0-9]{6,22}$/';
 
-    private const TAKEN = 'This UTR is already used for another payment. Check the UTR in your bank or UPI app; if it is right, contact support.';
+    private const PENDING = 'This UTR has already been submitted for another payment that is pending (being checked). If that was you, please wait for it to be confirmed — don’t submit it again. Otherwise check the UTR in your bank or UPI app.';
+
+    private const SUCCEEDED = 'This UTR has already been used for a successful payment, so it can’t be used again. Check the UTR in your bank or UPI app; if it is right, contact support.';
+
+    private const IN_PROCESS = 'This UTR is already in use for a payment that is in process. Check the UTR in your bank or UPI app; if it is right, contact support.';
 
     public function __construct(
         private QueueWebhook $webhooks,
@@ -54,6 +62,10 @@ class SubmitPayinProof
             throw ValidationException::withMessages(['utr' => __('That doesn’t look like a UTR. It is usually 12 digits, shown in your bank or UPI app.')]);
         }
 
+        if ($normalised !== null) {
+            $this->refuseTaken($payin, $normalised);
+        }
+
         return DB::transaction(function () use ($payin, $utr, $normalised, $photo) {
             /** @var Transaction $locked */
             $locked = Transaction::query()->whereKey($payin->id)->lockForUpdate()->firstOrFail();
@@ -64,9 +76,9 @@ class SubmitPayinProof
                     : __('This payment can no longer be updated.')]);
             }
 
-            // Only an approved deposit / paid payout blocks; another waiting claim is flagged below.
-            if ($normalised !== null && Utr::holder($normalised, $locked->id, claims: false) !== null) {
-                throw ValidationException::withMessages(['utr' => __(self::TAKEN)]);
+            // Checked again under the lock (refuseTaken ran before it).
+            if ($normalised !== null && ($holder = Utr::holder($normalised, $locked->id)) !== null) {
+                throw ValidationException::withMessages(['utr' => $this->takenMessage($holder)]);
             }
 
             $duplicate = $normalised === null ? null : Transaction::query()
@@ -81,7 +93,7 @@ class SubmitPayinProof
 
             try {
                 // A savepoint, so a clash with another customer saving the same UTR
-                // at this moment leaves this transaction usable.
+                // at this moment (now pending for them) leaves this transaction usable.
                 DB::transaction(fn () => $locked->forceFill([
                     'customer_utr' => $utr === null ? null : mb_substr(trim($utr), 0, 50),
                     'customer_utr_normalized' => $normalised,
@@ -89,7 +101,7 @@ class SubmitPayinProof
                     'submitted_at' => now(),
                 ])->save());
             } catch (QueryException $exception) {
-                throw Utr::isDuplicateError($exception) ? ValidationException::withMessages(['utr' => __(self::TAKEN)]) : $exception;
+                throw Utr::isDuplicateError($exception) ? ValidationException::withMessages(['utr' => __(self::PENDING)]) : $exception;
             }
 
             $locked->session()->update(['status' => 'completed']);
@@ -102,10 +114,6 @@ class SubmitPayinProof
             ]));
 
             $this->webhooks->forPayin($locked->load('partner'), 'payin.submitted');
-            if ($normalised !== null) {
-                $this->flagSharedClaim($locked, $normalised);
-            }
-
             // The bank statement may already show this payment (here, or at another branch).
             $this->matcher->transactionSubmitted($locked);
             $this->autoApprove->forPayin($locked);
@@ -115,28 +123,36 @@ class SubmitPayinProof
     }
 
     /**
-     * Another deposit still waiting claims the same UTR: one of the two
-     * customers typed it wrongly or is trying fraud. Both are accepted and
-     * flagged; the bank line decides which one is approved. Admin is alerted.
+     * A UTR another transaction holds is refused, saying whether it is
+     * pending, successful or in process. Admin is alerted (once an hour per
+     * UTR): it is a double entry, a typing mistake or someone trying fraud.
      */
-    private function flagSharedClaim(Transaction $payin, string $utr): void
+    private function refuseTaken(Transaction $payin, string $utr): void
     {
-        $others = Utr::claimants($utr, $payin->id);
+        $holder = Utr::holder($utr, $payin->id);
 
-        if ($others->isEmpty()) {
+        if ($holder === null) {
             return;
         }
 
-        foreach ([$payin, ...$others] as $txn) {
-            TransactionEvent::record($txn, 'utr_conflict', $txn->status, $txn->status, 'system', null, null, [
+        if (Cache::add("utr-refused:{$utr}", true, now()->addHour())) {
+            $this->alerts->utrConflict($utr, __('A customer on :reference entered UTR :utr, which already belongs to :holder (:status). It was refused. Check for a double entry or fraud.', [
+                'reference' => $payin->reference,
                 'utr' => $utr,
-                'claimed_by' => collect([$payin, ...$others])->reject(fn (Transaction $other) => $other->is($txn))->pluck('reference')->join(', '),
-            ]);
+                'holder' => $holder->reference,
+                'status' => str_replace('_', ' ', $holder->status),
+            ]), $holder);
         }
 
-        $this->alerts->utrConflict($utr, __('Deposits :references both say they paid with UTR :utr. Only one can be real: the bank line decides, and the other should be declined.', [
-            'references' => collect([$payin, ...$others])->pluck('reference')->join(', '),
-            'utr' => $utr,
-        ]), $payin);
+        throw ValidationException::withMessages(['utr' => $this->takenMessage($holder)]);
+    }
+
+    private function takenMessage(Transaction $holder): string
+    {
+        return __(match (true) {
+            in_array($holder->status, Utr::CLAIMING, true) => self::PENDING,
+            $holder->status === PayinStatus::Success->value => self::SUCCEEDED,
+            default => self::IN_PROCESS,
+        });
     }
 }

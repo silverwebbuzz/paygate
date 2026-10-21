@@ -11,7 +11,6 @@ use App\Domain\Reconciliation\Actions\AutoApproveDeposit;
 use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Actions\MovePayin;
 use App\Domain\Transaction\Models\Transaction;
-use App\Domain\Transaction\Utr;
 use App\Http\Controller;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -244,52 +243,13 @@ class DepositQueueController extends Controller
     private function rows(array $items, User $actor): array
     {
         $rows = [];
-        $shared = $this->sharedClaims($items);
 
         foreach ($items as $txn) {
             if ($txn instanceof Transaction) {
-                $rows[] = [
-                    ...$this->presenter->row($txn, $actor),
-                    // Other waiting deposits claiming the same UTR (one query for the page).
-                    'utr_shared_with' => array_values(array_map(
-                        fn (array $claim) => $claim['reference'],
-                        array_filter($shared[(string) $txn->customer_utr_normalized] ?? [], fn (array $claim) => $claim['id'] !== $txn->id),
-                    )),
-                ];
+                $rows[] = $this->presenter->row($txn, $actor);
             }
         }
 
         return $rows;
-    }
-
-    /**
-     * @param  array<int, mixed>  $items
-     * @return array<string, list<array{id: string, reference: string}>>
-     */
-    private function sharedClaims(array $items): array
-    {
-        $utrs = [];
-
-        foreach ($items as $txn) {
-            if ($txn instanceof Transaction && $txn->customer_utr_normalized !== null) {
-                $utrs[$txn->customer_utr_normalized] = true;
-            }
-        }
-
-        if ($utrs === []) {
-            return [];
-        }
-
-        $claims = [];
-
-        foreach (Transaction::query()
-            ->where('direction', 'payin')
-            ->whereIn('customer_utr_normalized', array_keys($utrs))
-            ->whereIn('status', Utr::CLAIMING)
-            ->get(['id', 'reference', 'customer_utr_normalized']) as $claim) {
-            $claims[(string) $claim->customer_utr_normalized][] = ['id' => $claim->id, 'reference' => $claim->reference];
-        }
-
-        return $claims;
     }
 }

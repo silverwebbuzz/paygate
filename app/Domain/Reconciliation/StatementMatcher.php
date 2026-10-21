@@ -9,7 +9,6 @@ use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
-use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use Illuminate\Support\Collection;
@@ -195,9 +194,7 @@ class StatementMatcher
             ->get();
 
         $own = $candidates->where('payment_account_id', $entry->payment_account_id);
-        $live = $own->filter(fn (Transaction $txn) => (in_array($txn->status, self::WAITING, true)
-            // On hold because this UTR was already approved on another deposit.
-            && $txn->status_reason_code !== DecidePayin::DUPLICATE_UTR)
+        $live = $own->filter(fn (Transaction $txn) => in_array($txn->status, self::WAITING, true)
             // An approved deposit matches only on the UTR the branch verified.
             || ($txn->status === 'success' && $txn->bank_utr_normalized === $utr));
 
