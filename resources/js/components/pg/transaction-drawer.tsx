@@ -23,6 +23,8 @@ export type TxnRow = {
     direction: string;
     order_id: string;
     partner: { name: string; code: string } | null;
+    /** Payouts: total confirmed as come back, across all its transfers. */
+    returned_total?: number | null;
     branch: { name: string; code: string } | null;
     account: {
         label: string;

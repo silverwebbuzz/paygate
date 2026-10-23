@@ -101,6 +101,8 @@ class TransactionPresenter
             // Payouts: each bank transfer, and how much is paid so far.
             'payments' => $this->payments($txn, $viewer),
             'paid_amount' => $payout ? (int) $txn->payoutPayments->sum('amount') : null,
+            // Payouts: everything confirmed as come back (one return per transfer).
+            'returned_total' => $payout ? (int) $txn->payoutPayments->sum(fn (PayoutPayment $part) => $part->approvedReturn->amount ?? 0) : null,
             'can' => [
                 'decide' => $viewer->can('decide', $txn),
                 'process' => $viewer->can('process', $txn),

@@ -79,6 +79,13 @@ export function ReturnCell({
     onAction: (action: ReturnAction) => void;
 }) {
     const rt = txn.payout_return;
+    // All confirmed returns: a payout paid in parts may have one per transfer.
+    const returned =
+        txn.returned_total ??
+        (rt?.status === 'approved' ? (rt.amount ?? 0) : 0);
+    const returnedTransfers = (txn.payments ?? []).filter(
+        (part) => part.returned !== null,
+    ).length;
     const can = txn.can;
     const buttons = (
         <>
@@ -122,18 +129,28 @@ export function ReturnCell({
             <span title={rt.decision_note ?? rt.reason ?? undefined}>
                 <ReturnBadge status={rt.status} />
             </span>
-            {rt.status === 'approved' && rt.amount !== null && (
+            {returned > 0 && (
                 <div>
-                    Came back <b>{formatPaise(rt.amount)}</b>
-                    {rt.amount < txn.amount && (
+                    Came back <b>{formatPaise(returned)}</b>
+                    {returned < txn.amount && (
                         <span className="text-tx3">
                             {' '}
                             of {formatPaise(txn.amount)}
                         </span>
                     )}
+                    {returnedTransfers > 1 && (
+                        <span className="text-tx3">
+                            {' '}
+                            · from {returnedTransfers} transfers
+                        </span>
+                    )}
                 </div>
             )}
-            {rt.utr && <div className="font-mono text-tx3">UTR {rt.utr}</div>}
+            {rt.utr && (
+                <div className="font-mono text-tx3">
+                    {returnedTransfers > 1 ? 'Latest UTR' : 'UTR'} {rt.utr}
+                </div>
+            )}
             {rt.returned_at && (
                 <div className="whitespace-nowrap text-tx3">
                     Came back {formatDateTime(rt.returned_at)}
