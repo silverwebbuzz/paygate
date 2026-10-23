@@ -117,7 +117,8 @@ export default function Payouts(props: Props) {
                 className="flex flex-wrap gap-1.5"
                 onClick={(event) => event.stopPropagation()}
             >
-                {portal === 'admin' && (
+                {/* Once money has left the bank it can't move or fail. */}
+                {portal === 'admin' && !payout.paid_amount && (
                     <PgButton
                         className="h-7 text-xs"
                         onClick={() => setDialog({ kind: 'reassign', payout })}
@@ -125,13 +126,15 @@ export default function Payouts(props: Props) {
                         Move
                     </PgButton>
                 )}
-                <PgButton
-                    variant="danger"
-                    className="h-7 text-xs"
-                    onClick={() => setDialog({ kind: 'fail', payout })}
-                >
-                    Can’t pay
-                </PgButton>
+                {!payout.paid_amount && (
+                    <PgButton
+                        variant="danger"
+                        className="h-7 text-xs"
+                        onClick={() => setDialog({ kind: 'fail', payout })}
+                    >
+                        Can’t pay
+                    </PgButton>
+                )}
                 {payout.status === 'assigned' && (
                     <PgButton
                         className="h-7 text-xs"
@@ -151,7 +154,9 @@ export default function Payouts(props: Props) {
                     className="h-7 text-xs"
                     onClick={() => setDialog({ kind: 'complete', payout })}
                 >
-                    Paid
+                    {(payout.paid_amount ?? 0) > 0
+                        ? 'Record next transfer'
+                        : 'Record transfer'}
                 </PgButton>
             </div>
         );
@@ -161,7 +166,7 @@ export default function Payouts(props: Props) {
             <Head title="Manual Payout" />
             <PageHeader
                 title="Manual Payout"
-                description="Pay each customer the exact amount from your bank, then record the transfer UTR. If you can’t pay, mark it so the partner can retry."
+                description="Pay each customer from your bank, then record the transfer: UTR, date and proof. You may pay in parts (record each transfer); it completes when they add up. If you can’t pay, mark it so the partner can retry."
                 eyebrow={
                     (tab === 'to_pay' || tab === 'paying') && (
                         <LiveIndicator>
@@ -329,7 +334,10 @@ export default function Payouts(props: Props) {
                                             UTR{' '}
                                             <span className="font-mono">
                                                 {payout.bank_utr}
-                                            </span>{' '}
+                                            </span>
+                                            {(payout.payments?.length ?? 0) >
+                                                1 &&
+                                                ` + ${(payout.payments?.length ?? 1) - 1} more transfer(s)`}{' '}
                                             ·{' '}
                                             {formatDateTime(payout.decided_at)}
                                         </div>
@@ -345,6 +353,26 @@ export default function Payouts(props: Props) {
                                     )}
                                 </div>
                             )}
+                            {payout.status === 'processing' &&
+                                (payout.paid_amount ?? 0) > 0 && (
+                                    <div className="rounded-md bg-inb px-2.5 py-1.5 text-xs text-in">
+                                        Paid{' '}
+                                        <b>
+                                            {formatPaise(
+                                                payout.paid_amount ?? 0,
+                                            )}
+                                        </b>{' '}
+                                        in {payout.payments?.length ?? 0}{' '}
+                                        transfer(s) ·{' '}
+                                        <b>
+                                            {formatPaise(
+                                                payout.amount -
+                                                    (payout.paid_amount ?? 0),
+                                            )}
+                                        </b>{' '}
+                                        left to pay
+                                    </div>
+                                )}
                             <div className="flex items-center justify-between gap-2 border-t border-ln2 pt-3">
                                 <span className="text-xs font-medium text-ac">
                                     History ›
@@ -463,6 +491,27 @@ function CopyLine({
     );
 }
 
+/** Today's date and time in India, for a datetime-local input. */
+function nowIndia(): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+    }).formatToParts(new Date());
+    const get = (type: string) =>
+        parts.find((part) => part.type === type)?.value ?? '';
+
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+
+/**
+ * Record one bank transfer: all of the payout, or a part of it (the rest
+ * can follow hours or days later). Each needs its UTR, date and proof.
+ */
 function CompleteDialog({
     payout,
     url,
@@ -472,24 +521,75 @@ function CompleteDialog({
     url: string;
     onClose: () => void;
 }) {
-    const form = useForm({ bank_utr: '', note: '' });
+    const paid = payout.paid_amount ?? 0;
+    const left = payout.amount - paid;
+    const form = useForm<{
+        amount: string;
+        bank_utr: string;
+        paid_at: string;
+        proof: File | null;
+        note: string;
+    }>({
+        amount: (left / 100).toFixed(2).replace(/\.00$/, ''),
+        bank_utr: '',
+        paid_at: nowIndia(),
+        proof: null,
+        note: '',
+    });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
         <FormDialog
             open
+            width={500}
             onOpenChange={(open) => !open && onClose()}
-            title={`Mark ${formatPaise(payout.amount)} as paid?`}
-            description={`${payout.reference} to ${payout.pay_to?.name ?? payout.beneficiary?.name}. Only after the transfer has left your bank. The partner is told at once and this can’t be undone.`}
-            submitLabel="Mark paid"
+            title={
+                paid > 0
+                    ? `Record another transfer for ${payout.reference}`
+                    : `Record the transfer for ${payout.reference}`
+            }
+            description={`To ${payout.pay_to?.name ?? payout.beneficiary?.name}. Only after the money has left your bank. Paid in parts? Record each transfer as you send it; the payout is complete when they add up to ${formatPaise(payout.amount)}.`}
+            submitLabel={form.processing ? 'Saving…' : 'Record transfer'}
             processing={form.processing}
             onSubmit={() =>
-                form.post(url, { preserveScroll: true, onSuccess: onClose })
+                form.post(url, {
+                    forceFormData: true,
+                    preserveScroll: true,
+                    onSuccess: onClose,
+                })
             }
         >
+            {paid > 0 && (
+                <div className="rounded-lg bg-sf2 px-3 py-2 text-[12.5px]">
+                    Already paid <b>{formatPaise(paid)}</b> in{' '}
+                    {payout.payments?.length ?? 0} transfer(s) ·{' '}
+                    <b>{formatPaise(left)}</b> left
+                </div>
+            )}
+            {(errors.status || errors.commission) && (
+                <p className="text-xs text-er">
+                    {errors.status ?? errors.commission}
+                </p>
+            )}
+            <Field
+                label="Amount sent in this transfer (₹)"
+                required
+                error={errors.amount}
+                hint={`Up to ${formatPaise(left)}. Lower it if you are paying in parts.`}
+            >
+                <TextInput
+                    inputMode="decimal"
+                    required
+                    value={form.data.amount}
+                    onChange={(event) =>
+                        form.setData('amount', event.target.value)
+                    }
+                />
+            </Field>
             <Field
                 label="Transfer UTR (from your bank)"
-                error={errors.bank_utr ?? errors.status ?? errors.commission}
+                required
+                error={errors.bank_utr}
             >
                 <TextInput
                     autoFocus
@@ -501,7 +601,33 @@ function CompleteDialog({
                     }
                 />
             </Field>
-            <Field label="Note (optional)">
+            <Field label="When it was sent" required error={errors.paid_at}>
+                <TextInput
+                    type="datetime-local"
+                    required
+                    value={form.data.paid_at}
+                    onChange={(event) =>
+                        form.setData('paid_at', event.target.value)
+                    }
+                />
+            </Field>
+            <Field
+                label="Proof of the transfer (image or PDF)"
+                required
+                error={errors.proof}
+                hint="The partner sees this proof, so crop out anything that isn’t the transfer."
+            >
+                <input
+                    type="file"
+                    required
+                    accept=".jpg,.jpeg,.png,.webp,.pdf"
+                    onChange={(event) =>
+                        form.setData('proof', event.target.files?.[0] ?? null)
+                    }
+                    className="text-[13px] file:mr-3 file:h-8 file:rounded-[7px] file:border file:border-ln file:bg-sf file:px-3 file:text-[13px] file:font-medium"
+                />
+            </Field>
+            <Field label="Note (optional)" error={errors.note}>
                 <TextInput
                     value={form.data.note}
                     onChange={(event) =>

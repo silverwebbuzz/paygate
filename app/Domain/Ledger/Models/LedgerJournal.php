@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
  * at commit). Append-only; corrections are new `reversal` journals.
  *
  * @property string $id
- * @property string $type payin_success / payout_success / reversal / adjustment / settlement
+ * @property string $type payin_success / payout_part / payout_success / reversal / adjustment / settlement / chargeback / payout_return
  * @property string|null $transaction_id
  * @property string|null $description
  * @property Carbon $posted_at

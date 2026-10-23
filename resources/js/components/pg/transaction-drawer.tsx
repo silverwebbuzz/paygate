@@ -11,6 +11,7 @@ import partnerWebhooks from '@/routes/partner/webhooks';
 import type { UserType } from '@/types';
 import { PgButton } from './button';
 import { Drawer, KeyValues } from './drawer';
+import { PayoutPayments } from './payout-payments';
 import { CompareBlock, LineAmount } from './reconciliation';
 import { SimpleTable } from './simple-table';
 import { StatusBadge } from './status-badge';
@@ -64,6 +65,10 @@ export type TxnRow = {
     chargeback?: TxnChargeback | null;
     /** Latest payout return (payouts only). */
     payout_return?: TxnPayoutReturn | null;
+    /** Payouts: each bank transfer (it may be paid in parts). */
+    payments?: TxnPayment[] | null;
+    /** Payouts: how much the branch has sent so far. */
+    paid_amount?: number | null;
     can: {
         decide: boolean;
         process?: boolean;
@@ -72,6 +77,21 @@ export type TxnRow = {
         return_record?: boolean;
         return_decide?: boolean;
     };
+};
+
+/** One bank transfer of a payout; partners get no recorder or bank line. */
+export type TxnPayment = {
+    id: string;
+    amount: number;
+    utr: string;
+    paid_at: string;
+    proof_file_id: string | null;
+    proof_mime: string | null;
+    note: string | null;
+    recorded_by: string | null;
+    bank_line: string | null;
+    /** How much of this transfer came back (confirmed return). */
+    returned: number | null;
 };
 
 /** A paid payout that came back; partners never get the proof. */
@@ -83,6 +103,8 @@ export type TxnPayoutReturn = {
     utr: string | null;
     /** When it came back per the bank (booked on decided_at). */
     returned_at: string | null;
+    /** The transfer that came back. */
+    payout_payment_id: string | null;
     reason: string | null;
     proof_file_id: string | null;
     requested_at: string | null;
@@ -217,6 +239,7 @@ const EVENT_LABELS: Record<string, string> = {
     chargeback_rejected: 'Chargeback rejected',
     refunded: 'Refunded to the customer',
     returned: 'Payout returned',
+    part_paid: 'Transfer recorded',
     return_requested: 'Not received: raised (waiting for the branch)',
     return_approved: 'Return confirmed: partner credited',
     return_rejected: 'Return rejected',
@@ -427,6 +450,20 @@ function Overview({
                     ]}
                 />
             </Section>
+            {txn.payments && (
+                <Section
+                    title={
+                        txn.payments.length > 1
+                            ? `Transfers (${txn.payments.length})`
+                            : 'Transfer'
+                    }
+                >
+                    <PayoutPayments
+                        payments={txn.payments}
+                        amount={txn.amount}
+                    />
+                </Section>
+            )}
             {txn.beneficiary && (
                 <Section title="Paid to">
                     <KeyValues

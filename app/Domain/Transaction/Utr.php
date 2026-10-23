@@ -2,6 +2,7 @@
 
 namespace App\Domain\Transaction;
 
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Settlement\Models\SettlementPayment;
 use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Database\QueryException;
@@ -16,6 +17,7 @@ use Throwable;
  *   transaction was declined / expired / cancelled / failed (no money moved
  *   under it). Chargebacks, refunds and returns keep it.
  * - A customer's UTR holds it while the deposit waits for the branch.
+ * - A payout payment (one transfer of a payout paid in parts) holds it.
  * - A settlement payment's bank reference (platform ⇄ branch / partner)
  *   holds it too.
  *
@@ -35,6 +37,16 @@ final class Utr
      */
     public static function holder(string $utr, ?string $exceptId = null): ?Transaction
     {
+        $part = PayoutPayment::query()
+            ->where('utr_normalized', $utr)
+            ->when($exceptId !== null, fn ($query) => $query->where('transaction_id', '<>', $exceptId))
+            ->with('transaction')
+            ->first();
+
+        if ($part !== null) {
+            return $part->transaction;
+        }
+
         return Transaction::query()
             ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))
             ->where(fn ($query) => $query
@@ -86,6 +98,6 @@ final class Utr
     {
         return $exception instanceof QueryException
             && $exception->getCode() === '23505'
-            && (str_contains($exception->getMessage(), 'transactions_unique_bank_utr') || str_contains($exception->getMessage(), 'transactions_unique_claimed_utr'));
+            && (str_contains($exception->getMessage(), 'transactions_unique_bank_utr') || str_contains($exception->getMessage(), 'transactions_unique_claimed_utr') || str_contains($exception->getMessage(), 'payout_payments_unique_utr'));
     }
 }

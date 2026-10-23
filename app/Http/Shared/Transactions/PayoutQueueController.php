@@ -9,10 +9,12 @@ use App\Domain\Payout\Actions\ProcessPayout;
 use App\Domain\Platform\Models\ReasonCode;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
+use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -21,7 +23,8 @@ use Inertia\Response;
 /**
  * Manual Payout: withdrawals waiting for a branch to pay. The branch sees
  * the customer's full bank / UPI details while the payout is open (it has
- * to make the transfer), then marks it paid with the UTR or failed. Admin
+ * to make the transfer), then records each transfer (amount, UTR, date,
+ * proof; a payout may be paid in parts) or marks it failed. Admin
  * sees every branch's queue and can move a waiting payout elsewhere.
  */
 class PayoutQueueController extends Controller
@@ -53,7 +56,7 @@ class PayoutQueueController extends Controller
             ->when(in_array($key, ['paid', 'failed'], true), fn (Builder $query) => $query->where('decided_at', '>=', $today));
 
         $items = $inTab($tab)
-            ->with(['partner', 'branch', 'customer', 'beneficiary', 'statementEntry'])
+            ->with(['partner', 'branch', 'customer', 'beneficiary', 'statementEntry', 'payoutPayments.proof', 'payoutPayments.creator', 'payoutPayments.statementEntry', 'payoutPayments.approvedReturn'])
             ->when($search !== '', fn (Builder $query) => TransactionController::search($query, $search))
             ->when(in_array($tab, ['paid', 'failed'], true), fn (Builder $query) => $query->orderByDesc('decided_at'))
             ->orderByDesc('created_at')
@@ -111,14 +114,31 @@ class PayoutQueueController extends Controller
         return back();
     }
 
+    /**
+     * Record one bank transfer (all or part of the payout): amount, UTR,
+     * when it left the bank (India time) and the proof.
+     */
     public function complete(Request $request, Transaction $transaction, ProcessPayout $process): RedirectResponse
     {
         $actor = $this->authorizeProcess($request, $transaction);
-        $data = $request->validate(['bank_utr' => ['required', 'string', 'max:50'], 'note' => ['nullable', 'string', 'max:500']]);
+        $data = $request->validate([
+            'amount' => ['required', 'string', Money::RUPEES_RULE],
+            'bank_utr' => ['required', 'string', 'max:50'],
+            'paid_at' => ['required', 'date'],
+            'proof' => ['required', 'file', 'mimes:'.implode(',', (array) config('paygate.payin.proof_mimes')), 'max:'.config('paygate.payin.proof_max_kb')],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
 
-        $process->complete($actor, $transaction, $data['bank_utr'], $data['note'] ?? null);
+        /** @var UploadedFile $proof */
+        $proof = $request->file('proof');
+        $amount = Money::toPaise((string) $data['amount']);
+        $paidAt = CarbonImmutable::parse((string) $data['paid_at'], (string) config('app.business_timezone'))->utc();
+        $paid = $process->pay($actor, $transaction, $amount, (string) $data['bank_utr'], $paidAt, $proof, $data['note'] ?? null);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference paid · ₹:amount.', ['reference' => $transaction->reference, 'amount' => number_format($transaction->amount / 100, 2)])]);
+        $left = $paid->amount - ProcessPayout::paidSoFar($paid);
+        Inertia::flash('toast', ['type' => 'success', 'message' => $left === 0
+            ? __(':reference paid in full · ₹:amount.', ['reference' => $paid->reference, 'amount' => number_format($paid->amount / 100, 2)])
+            : __('₹:part recorded on :reference; ₹:left left to pay.', ['part' => number_format($amount / 100, 2), 'reference' => $paid->reference, 'left' => number_format($left / 100, 2)])]);
 
         return back();
     }

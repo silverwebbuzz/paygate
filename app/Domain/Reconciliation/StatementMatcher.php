@@ -5,6 +5,7 @@ namespace App\Domain\Reconciliation;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Notification\AlertDispatcher;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
@@ -24,7 +25,8 @@ use Illuminate\Support\Collection;
  *   is then approved by itself (AutoApproveDeposit, decided 2026-10-21),
  *   or by the branch when that is turned off. A credit for an approved
  *   deposit with the same bank UTR is reconciled.
- * - Debits match paid payouts of the same branch by the payout's bank UTR.
+ * - Debits match payout transfers of the same branch by UTR and amount:
+ *   a payout paid in parts has one bank line per part (2026-10-23).
  *
  * Matching also runs the other way, when a transaction changes: a customer
  * submits a UTR the statement already shows, a branch approves or declines
@@ -99,13 +101,13 @@ class StatementMatcher
     }
 
     /**
-     * A payout was paid: link the branch's debit line with its UTR, if the
-     * statement already has it.
+     * The branch recorded a transfer of a payout: link its debit line with
+     * that UTR, if the statement already has it.
      */
-    public function payoutPaid(Transaction $payout, ?User $actor = null): void
+    public function payoutPartPaid(PayoutPayment $part, Transaction $payout, ?User $actor = null): void
     {
         $line = StatementEntry::query()
-            ->where(['branch_id' => $payout->branch_id, 'entry_direction' => 'debit', 'utr_normalized' => $payout->bank_utr_normalized])
+            ->where(['branch_id' => $part->branch_id, 'entry_direction' => 'debit', 'utr_normalized' => $part->utr_normalized])
             ->whereNull('transaction_id')
             ->whereIn('status', ['unmatched'])
             ->lockForUpdate()
@@ -115,19 +117,29 @@ class StatementMatcher
             return;
         }
 
-        $line->amount === $payout->amount
-            ? $this->link($line, $payout, $actor)
-            : $this->retype($line, CaseType::AmountMismatch, $payout, $this->amountNote($line, $payout));
+        $line->amount === $part->amount
+            ? $this->link($line, $payout, $actor, part: $part)
+            : $this->retype($line, CaseType::AmountMismatch, $payout, $this->amountNote($line, $payout, $part->amount));
+    }
+
+    /**
+     * The payout's last part was paid: lines of earlier parts are now
+     * reconciled with a paid payout.
+     */
+    public function payoutCompleted(Transaction $payout): void
+    {
+        StatementEntry::query()->where(['transaction_id' => $payout->id, 'status' => 'matched'])->update(['status' => 'reconciled']);
     }
 
     /**
      * Links a line to a transaction (automatically, or by a person resolving
      * a case) and closes the line's open case.
      */
-    public function link(StatementEntry $entry, Transaction $txn, ?User $actor = null, ?string $note = null): void
+    public function link(StatementEntry $entry, Transaction $txn, ?User $actor = null, ?string $note = null, ?PayoutPayment $part = null): void
     {
         $entry->forceFill([
             'transaction_id' => $txn->id,
+            'payout_payment_id' => $part?->id,
             'status' => $txn->status === 'success' ? 'reconciled' : 'matched',
             'matched_at' => now(),
             'matched_by' => $actor?->id,
@@ -258,33 +270,18 @@ class StatementMatcher
             return;
         }
 
-        /** @var Collection<int, Transaction> $payouts */
-        $payouts = Transaction::query()
-            ->where(['direction' => 'payout', 'bank_utr_normalized' => $utr])
-            ->with('branch')
-            ->orderByDesc('created_at')
-            ->lockForUpdate()
-            ->get();
+        // A UTR is unique among payout transfers.
+        $part = PayoutPayment::query()->where('utr_normalized', $utr)->with('transaction.branch')->lockForUpdate()->first();
 
-        $own = $payouts->where('branch_id', $entry->branch_id);
-
-        if ($own->count() > 1) {
-            $this->openCase($entry, CaseType::DuplicateUtr, $own->first(), __('Several payouts were paid with this UTR: :references.', ['references' => $own->pluck('reference')->join(', ')]));
+        if ($part === null) {
+            $this->openCase($entry, CaseType::UtrNotFound, null, __('No payout transfer has this UTR yet. It links itself when the branch records the transfer with it.'));
 
             return;
         }
 
-        if ($own->count() === 1) {
-            $this->linkOrExplain($entry, $own->firstOrFail());
-
-            return;
-        }
-
-        $elsewhere = $payouts->first();
-
-        $elsewhere !== null
-            ? $this->openCase($entry, CaseType::WrongBranch, $elsewhere, __(':reference was paid by branch :branch.', ['reference' => $elsewhere->reference, 'branch' => $elsewhere->branch->code ?? '—']))
-            : $this->openCase($entry, CaseType::UtrNotFound, null, __('No paid payout has this UTR yet. It links itself when the payout is marked paid with it.'));
+        $part->branch_id === $entry->branch_id
+            ? $this->linkPartOrExplain($entry, $part)
+            : $this->openCase($entry, CaseType::WrongBranch, $part->transaction, __(':reference was paid by branch :branch.', ['reference' => $part->transaction->reference, 'branch' => $part->transaction->branch->code ?? '—']));
     }
 
     /**
@@ -308,6 +305,30 @@ class StatementMatcher
         }
 
         $this->link($entry, $txn);
+    }
+
+    /**
+     * The payout transfer with this line's UTR: link it if the amounts
+     * agree and it has no other line.
+     */
+    private function linkPartOrExplain(StatementEntry $entry, PayoutPayment $part): void
+    {
+        $payout = $part->transaction;
+        $other = StatementEntry::query()->where('payout_payment_id', $part->id)->whereKeyNot($entry->id)->first();
+
+        if ($other !== null) {
+            $this->openCase($entry, CaseType::DuplicateUtr, $payout, __('This transfer of :reference is already linked to another bank line (:date).', ['reference' => $payout->reference, 'date' => $other->value_date->format('d M Y')]), 'duplicate');
+
+            return;
+        }
+
+        if ($part->amount !== $entry->amount) {
+            $this->openCase($entry, CaseType::AmountMismatch, $payout, $this->amountNote($entry, $payout, $part->amount));
+
+            return;
+        }
+
+        $this->link($entry, $payout, part: $part);
     }
 
     /**
@@ -337,7 +358,7 @@ class StatementMatcher
 
     private function openCase(StatementEntry $entry, CaseType $type, ?Transaction $txn, string $note, string $status = 'unmatched'): void
     {
-        $entry->forceFill(['status' => $status, 'transaction_id' => null])->save();
+        $entry->forceFill(['status' => $status, 'transaction_id' => null, 'payout_payment_id' => null])->save();
 
         $case = $entry->openCase()->first();
 
@@ -378,7 +399,7 @@ class StatementMatcher
 
     private function unlink(StatementEntry $entry): void
     {
-        $entry->forceFill(['transaction_id' => null, 'status' => 'unmatched', 'matched_at' => null, 'matched_by' => null])->save();
+        $entry->forceFill(['transaction_id' => null, 'payout_payment_id' => null, 'status' => 'unmatched', 'matched_at' => null, 'matched_by' => null])->save();
     }
 
     private function linkedLine(Transaction $txn): ?StatementEntry
@@ -430,12 +451,12 @@ class StatementMatcher
             ]);
     }
 
-    private function amountNote(StatementEntry $entry, Transaction $txn): string
+    private function amountNote(StatementEntry $entry, Transaction $txn, ?int $partAmount = null): string
     {
-        return __('The bank shows ₹:bank; :reference is for ₹:txn.', [
+        return __($partAmount === null ? 'The bank shows ₹:bank; :reference is for ₹:txn.' : 'The bank shows ₹:bank; this transfer of :reference was recorded as ₹:txn.', [
             'bank' => number_format($entry->amount / 100, 2),
             'reference' => $txn->reference,
-            'txn' => number_format($txn->amount / 100, 2),
+            'txn' => number_format(($partAmount ?? $txn->amount) / 100, 2),
         ]);
     }
 }

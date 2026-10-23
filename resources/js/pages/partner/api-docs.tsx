@@ -362,17 +362,29 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                     back in your balance — send a new request to retry),{' '}
                     <Code>cancelled</Code>. Cancel with{' '}
                     <Code>POST /v1/payouts/{'{id}'}/cancel</Code> while it is
-                    still assigned. Look up with{' '}
+                    still assigned. A branch may pay one payout in several bank
+                    transfers (hours or days apart): it stays{' '}
+                    <Code>processing</Code> until they add up, then{' '}
+                    <Code>success</Code>. <Code>payments</Code> lists each
+                    transfer {'{amount, utr, paid_at}'} and{' '}
+                    <Code>paid_amount</Code> what was sent so far;{' '}
+                    <Code>utr</Code> is the first transfer’s. Each transfer’s
+                    proof is in your Pay-out panel. Look up with{' '}
                     <Code>GET /v1/payouts/{'{id}'}</Code>,{' '}
                     <Code>GET /v1/payouts?order_id=…</Code> or{' '}
                     <Code>POST /v1/payouts/status</Code>. Repeating the same
                     order_id is safe, as for pay-ins. Webhooks:{' '}
-                    <Code>payout.success</Code>, <Code>payout.failed</Code>,{' '}
-                    <Code>payout.returned</Code> (a paid payout, or part of it,
-                    came back to the branch: <Code>status</Code> stays{' '}
-                    <Code>success</Code> and <Code>returned</Code>{' '}
-                    {'{id, amount, utr, returned_at, booked_at}'} is filled —
-                    that amount is credited back to your balance, the fee stays
+                    <Code>payout.partial</Code> (a transfer was sent but not all
+                    of it yet: status <Code>processing</Code>,{' '}
+                    <Code>paid_amount</Code> and <Code>payments</Code> show what
+                    was sent), <Code>payout.success</Code>,{' '}
+                    <Code>payout.failed</Code>, <Code>payout.returned</Code> (a
+                    paid payout, or part of it, came back to the branch:{' '}
+                    <Code>status</Code> stays <Code>success</Code> and{' '}
+                    <Code>returned</Code>{' '}
+                    {'{id, amount, utr, returned_at, booked_at}'} (the latest;{' '}
+                    <Code>returned_total</Code> sums them) is filled — that
+                    amount is credited back to your balance, the fee stays
                     charged) to your payout webhook URL. If your customer says a
                     paid payout never arrived, click <b>Not received</b> on it
                     in Pay-out: the branch checks its bank and confirms.

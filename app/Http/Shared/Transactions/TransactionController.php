@@ -30,7 +30,7 @@ class TransactionController extends Controller
     /**
      * What TransactionPresenter::row() reads, loaded up front.
      */
-    public const ROW_RELATIONS = ['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry', 'decider', 'session', 'latestProof', 'currentChargeback.requester', 'currentReturn.requester', 'currentReturn.decider'];
+    public const ROW_RELATIONS = ['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry', 'decider', 'session', 'latestProof', 'currentChargeback.requester', 'currentReturn.requester', 'currentReturn.decider', 'payoutPayments.proof', 'payoutPayments.creator', 'payoutPayments.statementEntry', 'payoutPayments.approvedReturn'];
 
     public const STATUS_GROUPS = [
         'payin' => [

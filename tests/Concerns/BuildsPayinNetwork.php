@@ -16,6 +16,7 @@ use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Settings;
 use App\Domain\Transaction\Models\Transaction;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Testing\TestResponse;
 
 /**
@@ -181,5 +182,22 @@ trait BuildsPayinNetwork
         $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => $utr])->assertSessionHasNoErrors();
 
         return Transaction::where('reference', $reference)->firstOrFail();
+    }
+
+    /**
+     * One bank transfer of a payout, as the branch records it (payouts may
+     * be paid in parts). Amount in paise.
+     *
+     * @return array<string, mixed>
+     */
+    protected function transfer(int $amount, string $utr, array $overrides = []): array
+    {
+        return [
+            'amount' => number_format($amount / 100, 2, '.', ''),
+            'bank_utr' => $utr,
+            'paid_at' => now()->setTimezone((string) config('app.business_timezone'))->subMinute()->format('Y-m-d\TH:i'),
+            'proof' => UploadedFile::fake()->image('transfer.png'),
+            ...$overrides,
+        ];
     }
 }

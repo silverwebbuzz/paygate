@@ -8,6 +8,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Ledger\Ledger;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\StatementMatcher;
@@ -341,11 +342,16 @@ class StatementMatchingTest extends TestCase
         $this->addLine(['utr' => 'IMPS601234567890', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
         $this->assertSame('utr_not_found', ReconciliationCase::sole()->type->value);
 
-        // Marked paid with that UTR: the waiting debit links itself.
+        // The branch records that transfer: the waiting debit links itself to it.
+        $part = PayoutPayment::create([
+            'transaction_id' => $payout->id, 'branch_id' => $this->branch->id, 'amount' => 250000,
+            'utr' => 'IMPS601234567890', 'utr_normalized' => 'IMPS601234567890', 'paid_at' => now(), 'created_at' => now(),
+        ]);
         $payout->forceFill(['status' => 'success', 'bank_utr_normalized' => 'IMPS601234567890', 'partner_commission' => 0, 'branch_commission' => 0, 'platform_margin' => 0, 'succeeded_at' => now()])->save();
-        DB::transaction(fn () => app(StatementMatcher::class)->payoutPaid($payout));
+        DB::transaction(fn () => app(StatementMatcher::class)->payoutPartPaid($part, $payout));
 
         $this->assertSame('reconciled', $this->line('IMPS601234567890')->status);
+        $this->assertSame($part->id, $this->line('IMPS601234567890')->payout_payment_id);
         $this->assertSame('resolved', ReconciliationCase::sole()->status);
     }
 

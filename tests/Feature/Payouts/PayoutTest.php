@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Concerns\BuildsPayinNetwork;
 use Tests\TestCase;
@@ -30,6 +31,7 @@ class PayoutTest extends TestCase
         parent::setUp();
 
         Queue::fake();
+        Storage::fake('local');
         $this->buildNetwork();
         $this->partner->update(['is_payout_enabled' => true, 'payout_webhook_url' => 'https://atoz.example/hooks/payout']);
         $this->rate('partner', $this->partner->id, 'withdrawal', '5');
@@ -206,7 +208,7 @@ class PayoutTest extends TestCase
         $payout = Transaction::where('reference', $id)->firstOrFail();
 
         $this->actingAs($this->operator)->post(route('branch.payouts.start', $payout))->assertSessionHasNoErrors();
-        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), ['bank_utr' => 'IMPS 5268 1282 0491'])->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(9000, 'IMPS 5268 1282 0491'))->assertSessionHasNoErrors();
 
         $payout->refresh();
         $this->assertSame('success', $payout->status);
@@ -283,7 +285,7 @@ class PayoutTest extends TestCase
         $this->assertSame(9450, $this->position($empty)['reserved']);
         $this->assertDatabaseHas('audit_logs', ['action' => 'payout.reassigned', 'subject_id' => $payout->id]);
 
-        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), ['bank_utr' => '526812820491'])->assertForbidden();
+        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(9000, '526812820491'))->assertForbidden();
     }
 
     public function test_only_the_assigned_branch_or_admin_can_process_and_sees_the_full_details()
@@ -293,7 +295,7 @@ class PayoutTest extends TestCase
         $payout = Transaction::where('reference', $id)->firstOrFail();
         $stranger = User::factory()->branch(SystemRoles::BRANCH_OWNER, Branch::factory()->create())->withTwoFactor()->create();
 
-        $this->actingAs($stranger)->post(route('branch.payouts.complete', $payout), ['bank_utr' => '526812820491'])->assertForbidden();
+        $this->actingAs($stranger)->post(route('branch.payouts.complete', $payout), $this->transfer(9000, '526812820491'))->assertForbidden();
 
         $this->actingAs($this->operator)->get(route('branch.payouts.index'))
             ->assertInertia(fn (Assert $page) => $page->component('payouts/index')->where('items.data.0.pay_to.account_number', '50100482716640'));
@@ -301,7 +303,7 @@ class PayoutTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page->has('items.data', 0));
 
         // After it's paid, even the branch sees it masked.
-        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), ['bank_utr' => '526812820491']);
+        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(9000, '526812820491'))->assertSessionHasNoErrors();
         $this->actingAs($this->operator)->get(route('branch.payouts.index', ['tab' => 'paid']))
             ->assertInertia(fn (Assert $page) => $page->where('items.data.0.pay_to', null));
     }

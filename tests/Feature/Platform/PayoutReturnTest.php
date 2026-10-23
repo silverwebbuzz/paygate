@@ -73,7 +73,7 @@ class PayoutReturnTest extends TestCase
             'beneficiary' => ['type' => 'bank', 'name' => 'Ravi', 'account_number' => '50100482716640', 'ifsc' => 'HDFC0001203'],
         ])->assertCreated();
         $payout = Transaction::where(['direction' => 'payout', 'partner_transaction_id' => $order])->sole();
-        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), ['bank_utr' => 'IMPS60123456'.random_int(1000, 9999)])->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(500000, 'IMPS60123456'.random_int(1000, 9999)))->assertSessionHasNoErrors();
 
         return $payout->refresh();
     }

@@ -31,6 +31,9 @@ use Illuminate\Support\Facades\Cache;
  */
 class AlertDispatcher
 {
+    /** A partly paid payout with no new transfer for this long alerts the branch and Admin. */
+    public const PART_PAID_HOURS = 24;
+
     private const REPEAT_MINUTES = 15;
 
     public function __construct(
@@ -506,6 +509,45 @@ class AlertDispatcher
         }
 
         return $late->count();
+    }
+
+    /**
+     * Payouts partly paid with no transfer for a day (decided 2026-10-23):
+     * the customer has only part of the money. The branch that pays it and
+     * the admins who process payouts; once per payout until another
+     * transfer is recorded.
+     */
+    public function payoutsPartPaid(): int
+    {
+        $since = now()->subHours(self::PART_PAID_HOURS);
+        $stuck = Transaction::query()
+            ->where(['direction' => 'payout', 'status' => 'processing'])
+            ->whereHas('payoutPayments')
+            ->with('payoutPayments')
+            ->get()
+            ->filter(function (Transaction $payout) use ($since) {
+                $last = $payout->payoutPayments->max('created_at');
+
+                return $last !== null && $last->lt($since)
+                    && ! $payout->events()->where('event', 'part_paid_alerted')->where('created_at', '>', $last)->exists();
+            });
+
+        foreach ($stuck->groupBy('branch_id') as $branchId => $payouts) {
+            $title = trans_choice(':count payout only partly paid for over :hours hours|:count payouts only partly paid for over :hours hours', $payouts->count(), ['count' => $payouts->count(), 'hours' => self::PART_PAID_HOURS]);
+            $body = __('Customers have received only part of their money: :list.', ['list' => $payouts->take(5)->map(fn (Transaction $payout) => __(':reference ₹:left left', [
+                'reference' => $payout->reference,
+                'left' => $this->money($payout->amount - (int) $payout->payoutPayments->sum('amount')),
+            ]))->join(', ')]);
+
+            $this->alerts->send(Alert::PayoutPartPaid, $this->alerts->recipients(Permission::PayoutsProcess, UserType::Branch, (string) $branchId), $title, $body, Alerts::link('branch.payouts.index'));
+            $this->alerts->send(Alert::PayoutPartPaid, $this->alerts->recipients(Permission::PayoutsProcess, UserType::Admin), $title, $body, Alerts::link('admin.payouts.index'));
+
+            foreach ($payouts as $payout) {
+                TransactionEvent::record($payout, 'part_paid_alerted', $payout->status, $payout->status, 'system', null, null, ['hours' => self::PART_PAID_HOURS]);
+            }
+        }
+
+        return $stuck->count();
     }
 
     private function money(int $paise): string

@@ -13,6 +13,7 @@ use App\Domain\Core\Rbac\Policies\RolePolicy;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Platform\Models\Page;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
@@ -88,6 +89,7 @@ class AppServiceProvider extends ServiceProvider
             'transaction' => Transaction::class,
             'chargeback' => Chargeback::class,
             'payout_return' => PayoutReturn::class,
+            'payout_payment' => PayoutPayment::class,
             'file' => StoredFile::class,
             'webhook_event' => WebhookEvent::class,
             'statement_entry' => StatementEntry::class,

@@ -12,15 +12,19 @@ use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Payout\Enums\PayoutStatus;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Payout\PayoutReservation;
 use App\Domain\Payout\PayoutRouter;
+use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Transaction\Utr;
 use App\Domain\Webhook\Actions\QueueWebhook;
+use Carbon\CarbonInterface;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -28,14 +32,20 @@ use Illuminate\Validation\ValidationException;
  * What happens to a payout in the branch's queue (decided 2026-09-27):
  *
  * - start: an operator takes it and pays from their bank (processing);
- * - complete: paid, with the bank UTR → success. In one DB transaction the
- *   commission is snapshotted (option W-A: the partner pays amount + fee,
- *   the branch earns its commission on top), the ledger journal is booked,
- *   the balance hold ends and usage is confirmed, and the webhook is queued;
+ * - pay: one bank transfer (amount, UTR, date, proof; 2026-10-23: a payout
+ *   may be paid in several parts, hours or days apart). Until the parts add
+ *   up it stays processing; the last one makes it success: in one DB
+ *   transaction the commission is snapshotted (option W-A: the partner pays
+ *   amount + fee, the branch earns its commission on top), the balance hold
+ *   ends and usage is confirmed, and the webhook is queued. Each transfer is
+ *   booked on the day it is recorded (decided 2026-10-23, so each day's
+ *   settlement matches the branch's bank): partner −amount, branch +amount,
+ *   releasing that much of the hold; the last one also books the fees;
  * - fail: the branch couldn't pay → failed, the hold is released and the
- *   partner is notified; the partner sends a new request to retry;
+ *   partner is notified; the partner sends a new request to retry. Not once
+ *   a part was paid (the money left the bank: pay the rest);
  * - cancel (partner, before the branch starts) and reassign (Admin, before
- *   the branch pays it; the hold moves to the new branch).
+ *   the branch pays any of it; the hold moves to the new branch).
  */
 class ProcessPayout
 {
@@ -61,7 +71,13 @@ class ProcessPayout
         });
     }
 
-    public function complete(User $actor, Transaction $payout, string $bankUtr, ?string $note = null): Transaction
+    /**
+     * The branch sent (part of) the payout: one bank transfer with its
+     * amount, UTR, date and proof, booked the day it is recorded. The
+     * payout is `processing` until the parts add up to its amount, then
+     * `success`.
+     */
+    public function pay(User $actor, Transaction $payout, int $amount, string $bankUtr, CarbonInterface $paidAt, UploadedFile $proof, ?string $note = null): Transaction
     {
         $utr = Transaction::normaliseUtr($bankUtr);
 
@@ -69,67 +85,146 @@ class ProcessPayout
             throw ValidationException::withMessages(['bank_utr' => __('Enter the UTR of your transfer (6–22 letters or digits).')]);
         }
 
+        if ($paidAt->isFuture()) {
+            throw ValidationException::withMessages(['paid_at' => __('The transfer date can’t be in the future.')]);
+        }
+
         try {
-            return $this->pay($actor, $payout, $bankUtr, $utr, $note);
+            return DB::transaction(function () use ($actor, $payout, $amount, $bankUtr, $utr, $paidAt, $proof, $note) {
+                $locked = $this->lock($payout, [PayoutStatus::Assigned, PayoutStatus::Processing]);
+                $remaining = $locked->amount - self::paidSoFar($locked);
+
+                if ($amount <= 0 || $amount > $remaining) {
+                    throw ValidationException::withMessages(['amount' => __('Enter an amount up to what is left to pay (₹:left).', ['left' => number_format($remaining / 100, 2)])]);
+                }
+
+                Utr::ensureFree($utr, null);
+
+                if (PayoutReservation::current($locked) === null) {
+                    throw ValidationException::withMessages(['status' => __('This payout holds no balance; ask an administrator.')]);
+                }
+
+                $from = $locked->status;
+
+                if ($from === PayoutStatus::Assigned->value) {
+                    $locked->forceFill(['status' => PayoutStatus::Processing->value, 'decided_by' => $actor->id])->save();
+                }
+
+                $part = PayoutPayment::create([
+                    'transaction_id' => $locked->id,
+                    'branch_id' => $locked->branch_id,
+                    'amount' => $amount,
+                    'utr' => mb_substr(trim($bankUtr), 0, 50),
+                    'utr_normalized' => $utr,
+                    'paid_at' => $paidAt->copy()->utc(),
+                    'note' => $note === null || trim($note) === '' ? null : trim($note),
+                    'created_by' => $actor->id,
+                    'created_at' => now(),
+                ]);
+                $file = StoredFile::store($proof, 'payout_proof', $part, 'user', $actor->id);
+                $part->forceFill(['proof_file_id' => $file->id])->save();
+
+                $left = $remaining - $amount;
+                $reservation = PayoutReservation::current($locked) ?? throw ValidationException::withMessages(['status' => __('This payout holds no balance; ask an administrator.')]);
+
+                if ($left > 0) {
+                    // Not the last transfer: `payout_part` (payout_success stays once per payout).
+                    $journalId = $this->ledger->post('payout_part', [
+                        $this->ledger->account(Ledger::PARTNER_POSITION, $locked->partner_id, $locked->branch_id) => -$amount,
+                        $this->ledger->account(Ledger::BRANCH_POSITION, $locked->partner_id, $locked->branch_id) => $amount,
+                    ], $locked->id, "Payout {$locked->reference}: transfer {$utr}", $actor->id);
+                    $this->router->releasePart($reservation, $amount);
+                    $part->forceFill(['journal_id' => $journalId])->save();
+                }
+
+                TransactionEvent::record($locked, 'part_paid', $from, $locked->status, 'user', $actor->id, $part->note, [
+                    'bank_utr' => $utr,
+                    'amount' => $amount,
+                    'left' => $left,
+                    'paid_at' => $part->paid_at->toIso8601String(),
+                ]);
+                AuditLog::record('payout.part_paid', $locked, [], ['amount' => $amount, 'bank_utr' => $utr, 'left' => $left], $actor);
+
+                // Partners hear of each part (status processing, paid_amount
+                // and payments filled), then payout.success with the last.
+                $left === 0
+                    ? $this->finish($actor, $locked, $part, $locked->amount - $remaining, $note)
+                    : $this->webhooks->forPayout($locked, 'payout.partial');
+
+                $this->matcher->payoutPartPaid($part, $locked, $actor);
+
+                return $this->sync($payout, $locked);
+            });
         } catch (QueryException $exception) {
             if (Utr::isDuplicateError($exception)) {
-                Utr::ensureFree($utr, $payout->id);
+                Utr::ensureFree($utr, null);
             }
 
             throw $exception;
         }
     }
 
-    private function pay(User $actor, Transaction $payout, string $bankUtr, string $utr, ?string $note): Transaction
+    /**
+     * What the branch has sent so far on this payout.
+     */
+    public static function paidSoFar(Transaction $payout): int
     {
-        return DB::transaction(function () use ($actor, $payout, $bankUtr, $utr, $note) {
-            $locked = $this->lock($payout, [PayoutStatus::Assigned, PayoutStatus::Processing]);
-            Utr::ensureFree($utr, $locked->id);
-            $reservation = PayoutReservation::current($locked) ?? throw ValidationException::withMessages(['status' => __('This payout holds no balance; ask an administrator.')]);
+        return (int) PayoutPayment::query()->where('transaction_id', $payout->id)->sum('amount');
+    }
 
-            $mapping = PartnerBranchMapping::query()->findOrFail($reservation['mapping_id']);
-            $commission = $this->commissions->calculate($mapping, Direction::Withdrawal, $locked->amount);
+    /**
+     * The last transfer arrived: success. It is booked with the fees (the
+     * earlier transfers were booked on their days); the rest of the hold
+     * ends. $paidBefore: what earlier transfers booked and released.
+     */
+    private function finish(User $actor, Transaction $locked, PayoutPayment $last, int $paidBefore, ?string $note): void
+    {
+        $reservation = PayoutReservation::current($locked) ?? throw ValidationException::withMessages(['status' => __('This payout holds no balance; ask an administrator.')]);
+        $mapping = PartnerBranchMapping::query()->findOrFail($reservation['mapping_id']);
+        $commission = $this->commissions->calculate($mapping, Direction::Withdrawal, $locked->amount);
+        // The first transfer's UTR stays the payout's UTR (API `utr`).
+        $first = PayoutPayment::query()->where('transaction_id', $locked->id)->orderBy('paid_at')->orderBy('created_at')->firstOrFail();
 
-            $from = $locked->status;
-            $locked->forceFill([
-                ...$commission,
-                'status' => PayoutStatus::Success->value,
-                'bank_utr' => mb_substr(trim($bankUtr), 0, 50),
-                'bank_utr_normalized' => $utr,
-                'status_note' => $note,
-                'decided_at' => now(),
-                'decided_by' => $actor->id,
-                'succeeded_at' => now(),
-            ])->save();
+        $from = $locked->status;
+        $locked->forceFill([
+            ...$commission,
+            'status' => PayoutStatus::Success->value,
+            'bank_utr' => $first->utr,
+            'bank_utr_normalized' => $first->utr_normalized,
+            'status_note' => $note,
+            'decided_at' => now(),
+            'decided_by' => $actor->id,
+            'succeeded_at' => now(),
+        ])->save();
 
-            // Option W-A: the partner owes amount + its fee; the platform owes
-            // the branch amount + the branch's commission.
-            $this->ledger->post('payout_success', [
-                $this->ledger->account(Ledger::PARTNER_POSITION, $locked->partner_id, $locked->branch_id) => -($locked->amount + $commission['partner_commission']),
-                $this->ledger->account(Ledger::BRANCH_POSITION, $locked->partner_id, $locked->branch_id) => $locked->amount + $commission['branch_commission'],
-                $this->ledger->account(Ledger::PLATFORM_MARGIN) => $commission['platform_margin'],
-            ], $locked->id, "Payout {$locked->reference}", $actor->id);
+        // Option W-A: the partner owes amount + its fee; the platform owes
+        // the branch amount + the branch's commission.
+        $journalId = $this->ledger->post('payout_success', [
+            $this->ledger->account(Ledger::PARTNER_POSITION, $locked->partner_id, $locked->branch_id) => -($last->amount + $commission['partner_commission']),
+            $this->ledger->account(Ledger::BRANCH_POSITION, $locked->partner_id, $locked->branch_id) => $last->amount + $commission['branch_commission'],
+            $this->ledger->account(Ledger::PLATFORM_MARGIN) => $commission['platform_margin'],
+        ], $locked->id, $paidBefore === 0 ? "Payout {$locked->reference}" : "Payout {$locked->reference}: last transfer {$last->utr_normalized} and fees", $actor->id);
+        $last->forceFill(['journal_id' => $journalId, 'fees_booked' => true])->save();
 
-            $this->router->confirm($reservation);
-            TransactionEvent::record($locked, 'reservation_confirmed', $locked->status, $locked->status, 'system');
+        $this->router->confirm($reservation, $paidBefore);
+        TransactionEvent::record($locked, 'reservation_confirmed', $locked->status, $locked->status, 'system');
 
-            TransactionEvent::record($locked, 'paid', $from, $locked->status, 'user', $actor->id, $note, [
-                'bank_utr' => $utr,
-                'partner_commission' => $commission['partner_commission'],
-                'branch_commission' => $commission['branch_commission'],
-            ]);
-            AuditLog::record('payout.paid', $locked, ['status' => $from], ['status' => $locked->status, 'bank_utr' => $utr], $actor);
-            $this->webhooks->forPayout($locked, 'payout.success');
-            $this->matcher->payoutPaid($locked, $actor);
-
-            return $this->sync($payout, $locked);
-        });
+        TransactionEvent::record($locked, 'paid', $from, $locked->status, 'user', $actor->id, $note, [
+            'bank_utr' => $first->utr_normalized,
+            'payments' => PayoutPayment::query()->where('transaction_id', $locked->id)->count(),
+            'partner_commission' => $commission['partner_commission'],
+            'branch_commission' => $commission['branch_commission'],
+        ]);
+        AuditLog::record('payout.paid', $locked, ['status' => $from], ['status' => $locked->status, 'bank_utr' => $first->utr_normalized], $actor);
+        $this->webhooks->forPayout($locked, 'payout.success');
+        $this->matcher->payoutCompleted($locked);
     }
 
     public function fail(User $actor, Transaction $payout, string $reasonCode, ?string $note = null): Transaction
     {
         return DB::transaction(function () use ($actor, $payout, $reasonCode, $note) {
             $locked = $this->lock($payout, [PayoutStatus::Assigned, PayoutStatus::Processing]);
+            $this->ensureNothingPaid($locked, __('it can’t be marked failed. Pay the rest'));
             $this->releaseHold($locked, 'failed');
 
             $from = $locked->status;
@@ -182,6 +277,7 @@ class ProcessPayout
     {
         return DB::transaction(function () use ($actor, $payout, $to, $reason) {
             $locked = $this->lock($payout, [PayoutStatus::Assigned, PayoutStatus::Processing]);
+            $this->ensureNothingPaid($locked, __('it can’t move to another branch. This branch pays the rest'));
 
             if ($locked->branch_id === $to->id) {
                 throw ValidationException::withMessages(['branch_id' => __('The payout is already with this branch.')]);
@@ -215,6 +311,15 @@ class ProcessPayout
 
             return $this->sync($payout, $locked);
         });
+    }
+
+    private function ensureNothingPaid(Transaction $payout, string $consequence): void
+    {
+        $paid = self::paidSoFar($payout);
+
+        if ($paid > 0) {
+            throw ValidationException::withMessages(['status' => __('₹:paid of this payout is already paid, so :consequence.', ['paid' => number_format($paid / 100, 2), 'consequence' => $consequence])]);
+        }
     }
 
     private function releaseHold(Transaction $payout, string $reason): void

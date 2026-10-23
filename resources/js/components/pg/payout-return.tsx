@@ -12,7 +12,7 @@ import partner from '@/routes/partner';
 import type { UserType } from '@/types';
 import { PgButton } from './button';
 import { ProofLinks } from './chargeback';
-import { Field, TextArea, TextInput } from './field';
+import { Field, SelectInput, TextArea, TextInput } from './field';
 import { FormDialog } from './form-dialog';
 import type { TxnPayoutReturn, TxnRow } from './transaction-drawer';
 
@@ -271,14 +271,21 @@ function ConfirmDialog({
     record: boolean;
     onClose: () => void;
 }) {
+    // Transfers that haven't come back yet (a payout may be paid in parts).
+    const open = (txn.payments ?? []).filter((part) => part.returned === null);
+    const only = open.length === 1 ? open[0] : null;
+    const rupees = (paise: number) =>
+        (paise / 100).toFixed(2).replace(/\.00$/, '');
     const form = useForm<{
+        payout_payment_id: string;
         amount: string;
         utr: string;
         returned_at: string;
         note: string;
         proof: File | null;
     }>({
-        amount: (txn.amount / 100).toFixed(2).replace(/\.00$/, ''),
+        payout_payment_id: only?.id ?? '',
+        amount: only ? rupees(only.amount) : '',
         utr: '',
         returned_at: '',
         note: '',
@@ -302,7 +309,7 @@ function ConfirmDialog({
                     ? `Record a return on ${txn.reference}`
                     : `Confirm the return on ${txn.reference}`
             }
-            description="Enter what actually came back to the branch’s account (all of it, or one part if the payout was sent in parts). It is booked today: the branch is debited that amount and the partner credited. Fees stay as they are. The partner is told by webhook."
+            description="Choose the transfer that bounced and enter what actually came back to the branch’s account. It is booked today: the branch is debited that amount and the partner credited. Fees stay as they are. The partner is told by webhook."
             submitLabel={form.processing ? 'Booking…' : 'Confirm and book'}
             processing={form.processing}
             onSubmit={() =>
@@ -319,11 +326,45 @@ function ConfirmDialog({
                     {errors.transaction ?? errors.return}
                 </p>
             )}
+            {open.length > 1 && (
+                <Field
+                    label="Which transfer came back?"
+                    required
+                    error={errors.payout_payment_id}
+                >
+                    <SelectInput
+                        required
+                        value={form.data.payout_payment_id}
+                        onChange={(event) => {
+                            const part = open.find(
+                                (candidate) =>
+                                    candidate.id === event.target.value,
+                            );
+                            form.setData({
+                                ...form.data,
+                                payout_payment_id: event.target.value,
+                                amount: part ? rupees(part.amount) : '',
+                            });
+                        }}
+                    >
+                        <option value="">Choose a transfer…</option>
+                        {open.map((part) => (
+                            <option key={part.id} value={part.id}>
+                                {formatPaise(part.amount)} · UTR {part.utr} ·{' '}
+                                {formatDateTime(part.paid_at)}
+                            </option>
+                        ))}
+                    </SelectInput>
+                </Field>
+            )}
+            {open.length <= 1 && errors.payout_payment_id && (
+                <p className="text-xs text-er">{errors.payout_payment_id}</p>
+            )}
             <Field
                 label="Amount that came back (₹)"
                 required
                 error={errors.amount}
-                hint="Up to the payout’s amount."
+                hint="Up to that transfer’s amount."
             >
                 <TextInput
                     inputMode="decimal"

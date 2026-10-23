@@ -5,6 +5,7 @@ namespace App\Http\Shared\Files;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\StatementImport;
 use App\Domain\Reporting\Models\ReportExport;
@@ -38,6 +39,10 @@ class FileController extends Controller
             $owner instanceof Chargeback => $file->purpose === 'chargeback_proof'
                 && $viewer->type !== UserType::Partner
                 && $viewer->can('view', $owner->transaction),
+            // The branch's proof of a payout transfer: everyone who sees the
+            // payout, the partner too (it shows the transfer, not who made it).
+            $owner instanceof PayoutPayment => $file->purpose === 'payout_proof'
+                && $viewer->can('view', $owner->transaction),
             // The bank's proof that a payout came back: Admin and the branch.
             $owner instanceof PayoutReturn => $file->purpose === 'return_proof'
                 && $viewer->type !== UserType::Partner
@@ -62,7 +67,7 @@ class FileController extends Controller
 
         return response($contents, 200, [
             'Content-Type' => $file->mime,
-            'Content-Disposition' => (in_array($file->purpose, ['payment_proof', 'chargeback_proof', 'return_proof'], true) && $request->query('download') === null ? 'inline' : 'attachment').'; filename="'.$name.'"',
+            'Content-Disposition' => (in_array($file->purpose, ['payment_proof', 'chargeback_proof', 'return_proof', 'payout_proof'], true) && $request->query('download') === null ? 'inline' : 'attachment').'; filename="'.$name.'"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
             // A PDF needs the browser's own viewer (object-src); nothing else may load.

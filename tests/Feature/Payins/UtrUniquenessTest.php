@@ -12,6 +12,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Tests\Concerns\BuildsPayinNetwork;
 use Tests\TestCase;
 
@@ -34,6 +35,7 @@ class UtrUniquenessTest extends TestCase
         parent::setUp();
 
         Queue::fake();
+        Storage::fake('local');
         $this->buildNetwork();
         $this->activeAccount();
         $this->other = Branch::factory()->create();
@@ -78,7 +80,7 @@ class UtrUniquenessTest extends TestCase
 
     private function pay(Transaction $payout, string $utr = self::UTR)
     {
-        return $this->actingAs($this->admin)->post(route('admin.payouts.complete', $payout), ['bank_utr' => $utr]);
+        return $this->actingAs($this->admin)->post(route('admin.payouts.complete', $payout), $this->transfer($payout->amount, $utr));
     }
 
     public function test_a_bank_utr_approves_one_deposit_on_any_account_or_branch()

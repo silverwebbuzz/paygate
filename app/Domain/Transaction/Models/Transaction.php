@@ -9,10 +9,12 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\PaymentSession\Models\PaymentSession;
 use App\Domain\Payout\Models\PayoutBeneficiary;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Transaction\Enums\PayinStatus;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -72,6 +74,7 @@ use Illuminate\Support\Str;
  * @property-read User|null $decider
  * @property-read Chargeback|null $currentChargeback
  * @property-read PayoutReturn|null $currentReturn
+ * @property-read Collection<int, PayoutPayment> $payoutPayments
  */
 class Transaction extends Model
 {
@@ -223,6 +226,16 @@ class Transaction extends Model
     public function currentChargeback(): HasOne
     {
         return $this->hasOne(Chargeback::class)->latest('created_at');
+    }
+
+    /**
+     * The bank transfers of a payout (it may be paid in parts), oldest first.
+     *
+     * @return HasMany<PayoutPayment, $this>
+     */
+    public function payoutPayments(): HasMany
+    {
+        return $this->hasMany(PayoutPayment::class)->orderBy('paid_at')->orderBy('created_at');
     }
 
     /**

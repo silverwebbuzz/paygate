@@ -56,6 +56,12 @@ Schedule::call(fn () => app(AlertDispatcher::class)->approvedWithoutBankLine())
     ->hourly()
     ->withoutOverlapping();
 
+// Payouts partly paid with no transfer for a day: alert the branch and Admin (2026-10-23).
+Schedule::call(fn () => app(AlertDispatcher::class)->payoutsPartPaid())
+    ->name('alerts:payouts-part-paid')
+    ->hourly()
+    ->withoutOverlapping();
+
 // Deposits waiting longer than the Global Settings threshold: alert the branch (G-47, Phase 12).
 Schedule::call(fn () => app(AlertDispatcher::class)->depositsWaiting())
     ->name('alerts:deposits-waiting')

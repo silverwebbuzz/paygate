@@ -6,6 +6,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Payout\PayoutReservation;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Platform\SectionRollout;
@@ -97,6 +98,9 @@ class TransactionPresenter
             ],
             'chargeback' => $chargebacks ? $this->chargeback($txn, $viewer) : null,
             'payout_return' => $returns ? $this->payoutReturn($txn, $viewer) : null,
+            // Payouts: each bank transfer, and how much is paid so far.
+            'payments' => $this->payments($txn, $viewer),
+            'paid_amount' => $payout ? (int) $txn->payoutPayments->sum('amount') : null,
             'can' => [
                 'decide' => $viewer->can('decide', $txn),
                 'process' => $viewer->can('process', $txn),
@@ -157,9 +161,42 @@ class TransactionPresenter
         return $this->open[$viewer->id.$extra] ??= $this->rollout->allows($viewer, $viewer->type->value.'/'.TransactionController::SECTION_PATHS[$extra]);
     }
 
+    /**
+     * A paid payout with no return open and a transfer that hasn't come back.
+     */
     private function returnable(Transaction $txn): bool
     {
-        return $txn->status === 'success' && ! in_array($txn->return_status, ['requested', 'approved'], true);
+        return $txn->status === 'success'
+            && $txn->return_status !== 'requested'
+            && $txn->payoutPayments->contains(fn (PayoutPayment $part) => $part->approvedReturn === null);
+    }
+
+    /**
+     * A payout's bank transfers (it may be paid in parts). Everyone sees the
+     * amount, UTR, date and proof; partners never who paid it or the bank line.
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    private function payments(Transaction $txn, User $viewer): ?array
+    {
+        if ($txn->direction !== 'payout') {
+            return null;
+        }
+
+        $partner = $viewer->isType(UserType::Partner);
+
+        return array_values($txn->payoutPayments->map(fn (PayoutPayment $part) => [
+            'id' => $part->id,
+            'amount' => $part->amount,
+            'utr' => $part->utr_normalized,
+            'paid_at' => $part->paid_at->toIso8601String(),
+            'proof_file_id' => $part->proof_file_id,
+            'proof_mime' => $part->proof?->mime,
+            'note' => $partner ? null : $part->note,
+            'recorded_by' => $partner ? null : $part->creator?->name,
+            'bank_line' => $partner || $part->statementEntry === null ? null : $part->statementEntry->status,
+            'returned' => $part->approvedReturn?->amount,
+        ])->all());
     }
 
     /**
@@ -185,6 +222,7 @@ class TransactionPresenter
             'amount' => $return->amount,
             'utr' => $return->utr,
             'returned_at' => $return->returned_at?->toIso8601String(),
+            'payout_payment_id' => $return->payout_payment_id,
             'reason' => $return->reason,
             'proof_file_id' => $partner ? null : $return->proof_file_id,
             'requested_at' => $return->created_at?->toIso8601String(),

@@ -135,14 +135,26 @@ class PayoutRouter
     }
 
     /**
-     * The payout was paid: the balance hold ends (the ledger journal has
-     * booked the real movement) and the day's usage becomes confirmed.
+     * One transfer of a payout paid in parts was booked: that much of the
+     * balance hold ends (the journal took it from the balance).
      *
      * @param  array<string, mixed>  $reservation
      */
-    public function confirm(array $reservation): void
+    public function releasePart(array $reservation, int $amount): void
     {
-        $this->ledger->release((string) $reservation['ledger_account_id'], (int) $reservation['needed']);
+        $this->ledger->release((string) $reservation['ledger_account_id'], min($amount, (int) $reservation['needed']));
+    }
+
+    /**
+     * The payout was paid: the balance hold ends (the ledger journals have
+     * booked the real movement) and the day's usage becomes confirmed.
+     * $alreadyReleased: what earlier transfers already released.
+     *
+     * @param  array<string, mixed>  $reservation
+     */
+    public function confirm(array $reservation, int $alreadyReleased = 0): void
+    {
+        $this->ledger->release((string) $reservation['ledger_account_id'], max((int) $reservation['needed'] - $alreadyReleased, 0));
 
         foreach ($this->scopes($reservation) as [$type, $id]) {
             $this->usage->confirm($type, $id, (string) $reservation['date'], Direction::Withdrawal, (int) $reservation['amount']);

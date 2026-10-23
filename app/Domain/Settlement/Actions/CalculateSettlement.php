@@ -8,6 +8,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\Payout\PayoutBookings;
 use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Settlement\Models\SettlementLine;
 use App\Domain\Transaction\Models\Transaction;
@@ -68,28 +69,35 @@ class CalculateSettlement
             }
 
             $transactionIds = [];
+            $payoutJournals = [];
 
             foreach ($statement as $figures) {
                 array_push($transactionIds, ...$figures['transactions']);
+                array_push($payoutJournals, ...$figures['payout_journals']);
             }
 
+            // Pay-ins by transaction; payouts by the transfers booked in the
+            // period (a payout paid in parts is booked part by part).
             $transactions = Transaction::query()
                 ->whereIn('id', array_unique($transactionIds))
+                ->where('direction', 'payin')
                 ->get(['id', 'direction', 'amount', 'partner_commission', 'branch_commission', 'platform_margin'])
                 ->keyBy('id');
+            $payoutParts = PayoutBookings::forJournals($payoutJournals);
 
             $lines = [];
 
             foreach ($statement as $accountId => $figures) {
                 $booked = $transactions->only($figures['transactions']);
+                $paid = PayoutBookings::totals($payoutParts->only($figures['payout_journals']));
                 $lines[] = [
                     'ledger_account_id' => $accountId,
                     'opening_balance' => $figures['opening'],
-                    'gross_payin' => (int) $booked->where('direction', 'payin')->sum('amount'),
-                    'gross_payout' => (int) $booked->where('direction', 'payout')->sum('amount'),
-                    'partner_commission' => (int) $booked->sum('partner_commission'),
-                    'branch_commission' => (int) $booked->sum('branch_commission'),
-                    'platform_margin' => (int) $booked->sum('platform_margin'),
+                    'gross_payin' => (int) $booked->sum('amount'),
+                    'gross_payout' => $paid['amount'],
+                    'partner_commission' => (int) $booked->sum('partner_commission') + $paid['partner_commission'],
+                    'branch_commission' => (int) $booked->sum('branch_commission') + $paid['branch_commission'],
+                    'platform_margin' => (int) $booked->sum('platform_margin') + $paid['platform_margin'],
                     'adjustments_total' => ($figures['by_type']['adjustment'] ?? 0) + ($figures['by_type']['reversal'] ?? 0),
                     // Booked on the day Admin approved them, not the deposit's day.
                     'chargebacks_total' => $figures['by_type']['chargeback'] ?? 0,

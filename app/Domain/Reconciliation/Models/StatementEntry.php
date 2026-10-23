@@ -39,6 +39,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $row_hash
  * @property string $status
  * @property string|null $transaction_id
+ * @property string|null $payout_payment_id debit lines: the payout transfer it is
  * @property CarbonInterface|null $matched_at
  * @property string|null $matched_by
  * @property array<string, mixed>|null $raw

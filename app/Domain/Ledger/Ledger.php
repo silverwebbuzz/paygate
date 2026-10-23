@@ -200,16 +200,18 @@ class Ledger
     /**
      * How accounts moved in [start, end) by journal posting time: the
      * opening balance, the sum per journal type, the transactions booked,
-     * and the closing balance (opening + movements).
+     * the payout journals booked (a payout paid in parts has one per
+     * transfer, each on its day) and the closing balance.
      *
      * @param  list<string>  $accountIds
-     * @return array<string, array{opening: int, closing: int, by_type: array<string, int>, transactions: list<string>}>
+     * @return array<string, array{opening: int, closing: int, by_type: array<string, int>, transactions: list<string>, payout_journals: list<string>}>
      */
     public function statement(array $accountIds, CarbonInterface $start, CarbonInterface $end): array
     {
         $opening = [];
         $byType = [];
         $transactions = [];
+        $payoutJournals = [];
 
         if ($accountIds !== []) {
             $entries = fn () => DB::table('ledger_entries as e')
@@ -229,6 +231,10 @@ class Ledger
             foreach ($inPeriod()->whereNotNull('j.transaction_id')->whereIn('j.type', ['payin_success', 'payout_success'])->distinct()->get(['e.ledger_account_id', 'j.transaction_id']) as $row) {
                 $transactions[(string) $row->ledger_account_id][] = (string) $row->transaction_id;
             }
+
+            foreach ($inPeriod()->whereNotNull('j.transaction_id')->whereIn('j.type', ['payout_part', 'payout_success'])->distinct()->get(['e.ledger_account_id', 'j.id']) as $row) {
+                $payoutJournals[(string) $row->ledger_account_id][] = (string) $row->id;
+            }
         }
 
         $result = [];
@@ -240,6 +246,7 @@ class Ledger
                 'closing' => ($opening[$id] ?? 0) + array_sum($types),
                 'by_type' => $types,
                 'transactions' => $transactions[$id] ?? [],
+                'payout_journals' => $payoutJournals[$id] ?? [],
             ];
         }
 

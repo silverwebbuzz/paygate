@@ -5,6 +5,7 @@ namespace App\Domain\Reporting;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\Payout\PayoutBookings;
 use App\Domain\Transaction\Models\Transaction;
 
 /**
@@ -40,9 +41,13 @@ final class SettlementDashboard
         $accountIds = array_column($accounts, 'id');
         $statement = $this->ledger->statement($accountIds, $period->from, $period->to);
         $ids = array_unique(array_merge([], ...array_column($statement, 'transactions')));
+        // Pay-ins by transaction; payouts by the transfers booked in the
+        // period (a payout paid in parts is booked part by part).
         $transactions = Transaction::query()
             ->whereIn('id', $ids)
+            ->where('direction', 'payin')
             ->get(['id', 'direction', 'partner_id', 'branch_id', 'amount', 'partner_commission', 'branch_commission', 'platform_margin']);
+        $payoutParts = PayoutBookings::forJournals(array_merge([], ...array_column($statement, 'payout_journals')));
         $chargebacks = $this->ledger->journalCounts($accountIds, 'chargeback', $period->from, $period->to);
         $returns = $this->ledger->journalCounts($accountIds, 'payout_return', $period->from, $period->to);
 
@@ -54,11 +59,11 @@ final class SettlementDashboard
             $pairs[] = [
                 'partner_id' => $account['partner_id'],
                 'branch_id' => $account['branch_id'],
-                ...$this->figures($side, [$figures], $booked, $chargebacks[$account['id']] ?? 0, $returns[$account['id']] ?? 0),
+                ...$this->figures($side, [$figures], $booked, PayoutBookings::totals($payoutParts->only($figures['payout_journals'])), $chargebacks[$account['id']] ?? 0, $returns[$account['id']] ?? 0),
             ];
         }
 
-        $total = $this->figures($side, array_values($statement), $transactions, array_sum($chargebacks), array_sum($returns));
+        $total = $this->figures($side, array_values($statement), $transactions, PayoutBookings::totals($payoutParts), array_sum($chargebacks), array_sum($returns));
 
         if (! $withPairs) {
             return ['total' => $total, 'pairs' => []];
@@ -101,10 +106,11 @@ final class SettlementDashboard
 
     /**
      * @param  list<array{opening: int, closing: int, by_type: array<string, int>, transactions: list<string>}>  $statements
-     * @param  iterable<Transaction>  $transactions
+     * @param  iterable<Transaction>  $transactions  pay-ins
+     * @param  array{count: int, amount: int, partner_commission: int, branch_commission: int, platform_margin: int}  $payouts  transfers booked
      * @return array<string, mixed>
      */
-    private function figures(string $side, array $statements, iterable $transactions, int $chargebackCount, int $returnCount): array
+    private function figures(string $side, array $statements, iterable $transactions, array $payouts, int $chargebackCount, int $returnCount): array
     {
         $byType = [];
 
@@ -117,7 +123,8 @@ final class SettlementDashboard
         $column = $side === 'partner' ? 'partner_commission' : 'branch_commission';
         /** @var array<string, array{count: int, amount: int, commission: int}> $flow */
         $flow = ['payin' => ['count' => 0, 'amount' => 0, 'commission' => 0], 'payout' => ['count' => 0, 'amount' => 0, 'commission' => 0]];
-        $margin = 0;
+        $flow['payout'] = ['count' => $payouts['count'], 'amount' => $payouts['amount'], 'commission' => $payouts[$column]];
+        $margin = $payouts['platform_margin'];
 
         foreach ($transactions as $txn) {
             $current = $flow[$txn->direction];

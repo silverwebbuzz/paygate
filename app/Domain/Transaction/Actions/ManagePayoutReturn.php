@@ -7,12 +7,14 @@ use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Notification\AlertDispatcher;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Transaction\Models\PayoutReturn;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Webhook\Actions\QueueWebhook;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,8 +26,9 @@ use Illuminate\Validation\ValidationException;
  *
  * - request: the partner (its customer says the money never arrived), or
  *   Admin for it, raises it on a successful payout. Nothing is booked.
- * - confirm: the branch (or Admin, never the admin who raised it) enters
- *   how much came back (full or part, up to the payout), the UTR of that
+ * - confirm: the branch (or Admin, never the admin who raised it) picks
+ *   the transfer that bounced (a payout may be paid in parts) and enters
+ *   how much came back (full or part, up to that transfer), the UTR of that
  *   credit, the date it came back and the bank's proof. Booked that day
  *   (the confirmation day, whatever date it came back): branch −amount, partner
  *   +amount (fees already earned stay earned). It shows in that day's
@@ -33,6 +36,9 @@ use Illuminate\Validation\ValidationException;
  * - record: a branch that sees the money come back first does both at
  *   once (it only ever costs the branch, so no second person is needed).
  * - reject: nothing is booked; it may be raised again.
+ *
+ * One open return per payout at a time, one confirmed return per transfer:
+ * if a second transfer bounces later, the partner raises it again.
  *
  * What the partner then does for its customer (pay them, or have them ask
  * again) is up to the partner. The payout's status stays `success`;
@@ -54,12 +60,12 @@ class ManagePayoutReturn
     /**
      * The branch records a return it found itself: raised and confirmed.
      */
-    public function record(User $actor, Transaction $txn, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note = null): PayoutReturn
+    public function record(User $actor, Transaction $txn, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note = null): PayoutReturn
     {
-        $return = DB::transaction(function () use ($actor, $txn, $amount, $utr, $returnedAt, $proof, $note) {
+        $return = DB::transaction(function () use ($actor, $txn, $paymentId, $amount, $utr, $returnedAt, $proof, $note) {
             $return = $this->open($actor, $txn, $note);
 
-            return $this->book($actor, $return, $amount, $utr, $returnedAt, $proof, $note);
+            return $this->book($actor, $return, $paymentId, $amount, $utr, $returnedAt, $proof, $note);
         });
 
         $this->alerts->payoutReturnDecided($return, $txn);
@@ -67,9 +73,9 @@ class ManagePayoutReturn
         return $return;
     }
 
-    public function confirm(User $actor, PayoutReturn $return, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note = null): PayoutReturn
+    public function confirm(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note = null): PayoutReturn
     {
-        $confirmed = DB::transaction(fn () => $this->book($actor, $return, $amount, $utr, $returnedAt, $proof, $note));
+        $confirmed = DB::transaction(fn () => $this->book($actor, $return, $paymentId, $amount, $utr, $returnedAt, $proof, $note));
 
         $return->setRawAttributes($confirmed->getAttributes(), true);
         $this->alerts->payoutReturnDecided($confirmed, $confirmed->transaction);
@@ -83,7 +89,8 @@ class ManagePayoutReturn
             [$locked, $txn] = $this->lockRequested($actor, $return);
 
             $locked->forceFill(['status' => 'rejected', 'decided_by' => $actor->id, 'decided_at' => now(), 'decision_note' => $note])->save();
-            $txn->forceFill(['return_status' => 'rejected'])->save();
+            // An earlier transfer's confirmed return still stands.
+            $txn->forceFill(['return_status' => PayoutReturn::query()->where(['transaction_id' => $txn->id, 'status' => 'approved'])->exists() ? 'approved' : 'rejected'])->save();
 
             TransactionEvent::record($txn, 'return_rejected', $txn->status, $txn->status, 'user', $actor->id, $note, ['return' => $locked->reference]);
             AuditLog::record('payout_return.rejected', $locked, ['status' => 'requested'], ['status' => 'rejected', 'note' => $note], $actor);
@@ -104,7 +111,8 @@ class ManagePayoutReturn
 
         $problem = match (true) {
             $locked->direction !== 'payout' || $locked->status !== 'success' || $locked->branch_id === null => __(':reference isn’t a paid payout.', ['reference' => $locked->reference]),
-            in_array($locked->return_status, ['requested', 'approved'], true) => __('A return on :reference is already :status.', ['reference' => $locked->reference, 'status' => $locked->return_status === 'approved' ? __('confirmed') : __('raised')]),
+            $locked->return_status === 'requested' => __('A return on :reference is already raised.', ['reference' => $locked->reference]),
+            self::returnableTransfers($locked)->isEmpty() => __('Every transfer of :reference already has a confirmed return.', ['reference' => $locked->reference]),
             default => null,
         };
 
@@ -130,7 +138,7 @@ class ManagePayoutReturn
         return $return;
     }
 
-    private function book(User $actor, PayoutReturn $return, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note): PayoutReturn
+    private function book(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note): PayoutReturn
     {
         [$locked, $txn] = $this->lockRequested($actor, $return);
 
@@ -140,15 +148,28 @@ class ManagePayoutReturn
             throw ValidationException::withMessages(['utr' => __('That doesn’t look like a UTR. Enter the reference of the money that came back, as shown on your bank statement (6–22 letters and digits).')]);
         }
 
-        if ($amount <= 0 || $amount > $txn->amount) {
-            throw ValidationException::withMessages(['amount' => __('Enter an amount up to the payout’s amount.')]);
+        $transfers = self::returnableTransfers($txn);
+        $part = $paymentId === null
+            ? ($transfers->count() === 1 ? $transfers->first() : null)
+            : $transfers->firstWhere('id', $paymentId);
+
+        if ($part === null) {
+            throw ValidationException::withMessages(['payout_payment_id' => $paymentId === null
+                ? __('Choose which transfer came back.')
+                : __('That transfer isn’t part of :reference or already has a confirmed return.', ['reference' => $txn->reference])]);
         }
 
-        // Bank statements often show only the date: not before the day it was paid (India time).
-        $paidDay = $txn->succeeded_at?->copy()->setTimezone((string) config('app.business_timezone'))->startOfDay();
+        if ($amount <= 0 || $amount > $part->amount) {
+            throw ValidationException::withMessages(['amount' => __('Enter an amount up to that transfer’s amount (₹:max).', ['max' => number_format($part->amount / 100, 2)])]);
+        }
 
-        if ($returnedAt->isFuture() || ($paidDay !== null && $returnedAt->lt($paidDay))) {
-            throw ValidationException::withMessages(['returned_at' => __('Enter when the money came back: not before the day the payout was paid, and not in the future.')]);
+        // Bank statements often show only the date: not before the day that
+        // transfer was sent (India time). Not the payout's completion day: a
+        // transfer sent before midnight may bounce before the last one goes.
+        $paidDay = $part->paid_at->copy()->setTimezone((string) config('app.business_timezone'))->startOfDay();
+
+        if ($returnedAt->isFuture() || $returnedAt->lt($paidDay)) {
+            throw ValidationException::withMessages(['returned_at' => __('Enter when the money came back: not before the day that transfer was sent, and not in the future.')]);
         }
 
         $file = StoredFile::store($proof, 'return_proof', $locked, 'user', $actor->id);
@@ -162,7 +183,8 @@ class ManagePayoutReturn
             $txn->id,
             "Return {$locked->reference} of {$txn->reference}",
             $actor->id,
-            array_filter(['reverses_journal_id' => $this->ledger->journalId($txn->id, 'payout_success')]),
+            // The journal that booked the transfer that came back.
+            array_filter(['reverses_journal_id' => $part->journal_id ?? $this->ledger->journalId($txn->id, 'payout_success')]),
         );
 
         $locked->forceFill([
@@ -170,6 +192,7 @@ class ManagePayoutReturn
             'amount' => $amount,
             'utr' => $normalised,
             'returned_at' => $returnedAt->copy()->utc(),
+            'payout_payment_id' => $part->id,
             'proof_file_id' => $file->id,
             'decided_by' => $actor->id,
             'decided_at' => now(),
@@ -183,12 +206,28 @@ class ManagePayoutReturn
             'amount' => $amount,
             'utr' => $normalised,
             'returned_at' => $returnedAt->toIso8601String(),
+            'transfer_utr' => $part->utr_normalized,
         ]);
         AuditLog::record('payout_return.approved', $locked, ['status' => 'requested'], ['status' => 'approved', ...$locked->only(['amount', 'utr', 'returned_at', 'decision_note'])], $actor);
 
         $this->webhooks->forPayout($txn->load('partner'), 'payout.returned');
 
         return $locked->setRelation('transaction', $txn);
+    }
+
+    /**
+     * The payout's transfers that haven't come back yet (one confirmed
+     * return per transfer).
+     *
+     * @return Collection<int, PayoutPayment>
+     */
+    public static function returnableTransfers(Transaction $payout): Collection
+    {
+        return PayoutPayment::query()
+            ->where('transaction_id', $payout->id)
+            ->whereDoesntHave('approvedReturn')
+            ->orderBy('paid_at')
+            ->get();
     }
 
     /**
