@@ -156,7 +156,7 @@ class PayoutReturnTest extends TestCase
         $this->actingAs($this->operator)->post(route('branch.payout-returns.confirm', $return), $this->confirmation())->assertSessionHasErrors('return');
     }
 
-    public function test_the_amount_is_at_most_the_payout_and_the_utr_and_proof_are_required()
+    public function test_the_amount_is_at_most_the_payout_and_the_utr_is_required()
     {
         $payout = $this->paidPayout();
         $this->raise($payout)->assertSessionHasNoErrors();
@@ -166,7 +166,6 @@ class PayoutReturnTest extends TestCase
         $confirm(['amount' => '5000.01'])->assertSessionHasErrors('amount');
         $confirm(['amount' => '0'])->assertSessionHasErrors('amount');
         $confirm(['utr' => 'AB-1'])->assertSessionHasErrors('utr');
-        $confirm(['proof' => null])->assertSessionHasErrors('proof');
         $confirm(['returned_at' => null])->assertSessionHasErrors('returned_at');
         // Not in the future, not before the payout was paid.
         $confirm(['returned_at' => now()->setTimezone('Asia/Kolkata')->addHour()->format('Y-m-d\TH:i')])->assertSessionHasErrors('returned_at');
@@ -213,9 +212,11 @@ class PayoutReturnTest extends TestCase
         $this->actingAs($this->operator)->get(route('branch.payouts.history'))
             ->assertInertia(fn ($page) => $page->where('transactions.data.0.can.return_record', true)->where('transactions.data.0.can.return_raise', false));
 
-        $this->actingAs($this->operator)->post(route('branch.payouts.return', $payout), $this->confirmation())->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.payouts.return', $payout), $this->confirmation(['proof' => null]))->assertSessionHasNoErrors();
 
         $return = PayoutReturn::sole();
+        // The proof is optional: the branch confirms against its own balance.
+        $this->assertNull($return->proof_file_id);
         $this->assertSame(['approved', 250000, $this->operator->id, $this->operator->id], [$return->status, $return->amount, $return->requested_by, $return->decided_by]);
         $this->assertSame([665000, -695000, 30000], $this->positions());
         $this->assertTrue(WebhookEvent::where(['transaction_id' => $payout->id, 'event_type' => 'payout.returned'])->exists());
@@ -243,6 +244,8 @@ class PayoutReturnTest extends TestCase
 
         // Another admin confirms it.
         $checker = User::factory()->admin(SystemRoles::ADMIN_FINANCE)->withTwoFactor()->create();
+        // Admin confirming for the branch must attach the bank's proof.
+        $this->actingAs($checker)->post(route('admin.payout-returns.confirm', $return), $this->confirmation(['proof' => null]))->assertSessionHasErrors('proof');
         $this->actingAs($checker)->post(route('admin.payout-returns.confirm', $return), $this->confirmation(['proof' => UploadedFile::fake()->image('credit.png')]))->assertSessionHasNoErrors();
         $proof = $return->refresh()->proof_file_id;
 

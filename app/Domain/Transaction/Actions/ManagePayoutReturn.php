@@ -29,7 +29,7 @@ use Illuminate\Validation\ValidationException;
  * - confirm: the branch (or Admin, never the admin who raised it) picks
  *   the transfer that bounced (a payout may be paid in parts) and enters
  *   how much came back (full or part, up to that transfer), the UTR of that
- *   credit, the date it came back and the bank's proof. Booked that day
+ *   credit, the date it came back and the bank’s proof (optional for the branch, required from Admin). Booked that day
  *   (the confirmation day, whatever date it came back): branch −amount, partner
  *   +amount (fees already earned stay earned). It shows in that day's
  *   settlements, not the payout's. The partner gets `payout.returned`.
@@ -60,7 +60,7 @@ class ManagePayoutReturn
     /**
      * The branch records a return it found itself: raised and confirmed.
      */
-    public function record(User $actor, Transaction $txn, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note = null): PayoutReturn
+    public function record(User $actor, Transaction $txn, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note = null): PayoutReturn
     {
         $return = DB::transaction(function () use ($actor, $txn, $paymentId, $amount, $utr, $returnedAt, $proof, $note) {
             $return = $this->open($actor, $txn, $note);
@@ -73,7 +73,7 @@ class ManagePayoutReturn
         return $return;
     }
 
-    public function confirm(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note = null): PayoutReturn
+    public function confirm(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note = null): PayoutReturn
     {
         $confirmed = DB::transaction(fn () => $this->book($actor, $return, $paymentId, $amount, $utr, $returnedAt, $proof, $note));
 
@@ -138,7 +138,7 @@ class ManagePayoutReturn
         return $return;
     }
 
-    private function book(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, UploadedFile $proof, ?string $note): PayoutReturn
+    private function book(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note): PayoutReturn
     {
         [$locked, $txn] = $this->lockRequested($actor, $return);
 
@@ -172,7 +172,13 @@ class ManagePayoutReturn
             throw ValidationException::withMessages(['returned_at' => __('Enter when the money came back: not before the day that transfer was sent, and not in the future.')]);
         }
 
-        $file = StoredFile::store($proof, 'return_proof', $locked, 'user', $actor->id);
+        // Optional for the branch: it confirms against its own balance. An
+        // admin confirming for the branch must show the bank's proof.
+        if ($proof === null && $actor->isType(UserType::Admin)) {
+            throw ValidationException::withMessages(['proof' => __('Attach the bank’s proof: the branch didn’t confirm this itself.')]);
+        }
+
+        $file = $proof === null ? null : StoredFile::store($proof, 'return_proof', $locked, 'user', $actor->id);
 
         $journalId = $this->ledger->post(
             'payout_return',
@@ -193,7 +199,7 @@ class ManagePayoutReturn
             'utr' => $normalised,
             'returned_at' => $returnedAt->copy()->utc(),
             'payout_payment_id' => $part->id,
-            'proof_file_id' => $file->id,
+            'proof_file_id' => $file?->id,
             'decided_by' => $actor->id,
             'decided_at' => now(),
             'decision_note' => $note === null || trim($note) === '' ? null : trim($note),

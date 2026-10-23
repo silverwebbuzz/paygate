@@ -258,7 +258,7 @@ function RaiseDialog({
 
 /**
  * The branch (or Admin) confirms a raised return, or the branch records one
- * it found: the amount that came back, the credit's UTR and the proof.
+ * it found: the amount that came back, the credit's UTR and, if they have it, the proof.
  */
 function ConfirmDialog({
     txn,
@@ -406,13 +406,17 @@ function ConfirmDialog({
                 />
             </Field>
             <Field
-                label="Bank proof (image or PDF)"
-                required
+                label={
+                    portal === 'admin'
+                        ? 'Bank proof (image or PDF)'
+                        : 'Bank proof (optional, image or PDF)'
+                }
+                required={portal === 'admin'}
                 error={errors.proof}
             >
                 <input
                     type="file"
-                    required
+                    required={portal === 'admin'}
                     accept=".jpg,.jpeg,.png,.webp,.pdf"
                     onChange={(event) =>
                         form.setData('proof', event.target.files?.[0] ?? null)

@@ -21,7 +21,7 @@ use Inertia\Inertia;
  *   says the money never arrived;
  * - record: Branch › Pay-out history, when the money is back in its bank;
  * - confirm / reject: the branch (or Admin) with the amount that came back,
- *   the credit's UTR and the bank's proof.
+ *   the credit's UTR and the bank's proof (optional for the branch, required from Admin).
  */
 class PayoutReturnController extends Controller
 {
@@ -87,7 +87,7 @@ class PayoutReturnController extends Controller
             'utr' => ['required', 'string', 'max:50'],
             'returned_at' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:500'],
-            'proof' => ['required', 'file', 'mimes:'.implode(',', (array) config('paygate.payin.proof_mimes')), 'max:'.config('paygate.payin.proof_max_kb')],
+            'proof' => ['nullable', 'file', 'mimes:'.implode(',', (array) config('paygate.payin.proof_mimes')), 'max:'.config('paygate.payin.proof_max_kb')],
         ]);
     }
 
@@ -102,9 +102,9 @@ class PayoutReturnController extends Controller
         return CarbonImmutable::parse($data['returned_at'], (string) config('app.business_timezone'))->utc();
     }
 
-    private function proof(Request $request): UploadedFile
+    private function proof(Request $request): ?UploadedFile
     {
-        /** @var UploadedFile */
+        /** @var UploadedFile|null */
         return $request->file('proof');
     }
 
