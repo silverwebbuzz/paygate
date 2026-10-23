@@ -37,7 +37,8 @@ class SectionRollout
                 'deposits' => ['label' => 'Manual Deposit', 'paths' => ['/admin/deposits']],
                 'payouts' => ['label' => 'Manual Payout', 'paths' => ['/admin/payouts']],
                 'refunds' => ['label' => 'Refunds', 'paths' => ['/admin/refunds', '/admin/reversals']],
-                'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/admin/chargebacks', '/admin/reversals']],
+                'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/admin/chargebacks']],
+                'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/admin/payout-returns']],
             ],
             'Reconciliation' => [
                 'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/admin/statements']],
@@ -54,6 +55,10 @@ class SectionRollout
             ],
             'Finance' => [
                 'settlements' => ['label' => 'Settlement', 'paths' => ['/admin/settlements']],
+                // /admin/settlement-dashboard alone shows the Admin side.
+                'settlement_dashboard_admin' => ['label' => 'Admin Settlement Dashboard', 'paths' => ['/admin/settlement-dashboard/admin', '/admin/settlement-dashboard']],
+                'settlement_dashboard_branch' => ['label' => 'Branch Settlement Dashboard', 'paths' => ['/admin/settlement-dashboard/branch']],
+                'settlement_dashboard_partner' => ['label' => 'Partner Settlement Dashboard', 'paths' => ['/admin/settlement-dashboard/partner']],
                 'commissions' => ['label' => 'Commissions', 'paths' => ['/admin/commissions']],
                 'reports' => ['label' => 'Reports', 'paths' => ['/admin/reports']],
             ],
@@ -80,12 +85,15 @@ class SectionRollout
             ],
             'History' => [
                 'payins' => ['label' => 'Pay-in History', 'paths' => ['/branch/payins']],
+                'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/branch/chargebacks']],
                 'payout_history' => ['label' => 'Pay-out History', 'paths' => ['/branch/payout-history']],
+                'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/branch/payout-returns']],
                 'utr' => ['label' => 'UTR Reconciliation', 'paths' => ['/branch/utr-reconciliation']],
             ],
             'Finance' => [
                 'balance' => ['label' => 'Branch Balance', 'paths' => ['/branch/balance']],
                 'settlements' => ['label' => 'Settlement', 'paths' => ['/branch/settlements']],
+                'settlement_dashboard' => ['label' => 'Settlement Dashboard', 'paths' => ['/branch/settlement-dashboard']],
                 'reports' => ['label' => 'Reports', 'paths' => ['/branch/reports']],
             ],
             'Admin' => [
@@ -96,13 +104,16 @@ class SectionRollout
         'partner' => [
             'Payments' => [
                 'payins' => ['label' => 'Pay-in', 'paths' => ['/partner/payins', '/partner/webhooks']],
+                'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/partner/chargebacks']],
                 'payouts' => ['label' => 'Pay-out', 'paths' => ['/partner/payouts']],
+                'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/partner/payout-returns']],
             ],
             'Accounts' => [
                 'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/partner/accounts']],
             ],
             'Finance' => [
                 'settlements' => ['label' => 'Settlements', 'paths' => ['/partner/settlements']],
+                'settlement_dashboard' => ['label' => 'Settlement Dashboard', 'paths' => ['/partner/settlement-dashboard']],
                 'balance' => ['label' => 'Balance', 'paths' => ['/partner/balance']],
                 'reports' => ['label' => 'Reports', 'paths' => ['/partner/reports']],
             ],

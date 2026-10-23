@@ -28,9 +28,13 @@ Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile
 
 // The partner's pay-ins (status, timeline, webhooks + resend).
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
+// Approved chargebacks on the partner's deposits (a Section rollout item).
+Route::get('chargebacks', [TransactionController::class, 'index'])->defaults('group', 'chargeback')->name('chargebacks.index');
 Route::get('payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.index');
 // The customer says a paid payout never arrived: the branch checks and confirms.
-Route::post('payouts/{transaction}/return', [PayoutReturnController::class, 'store'])->name('payouts.return');
+// Under payout-returns/ so Section rollout opens and closes them as one item.
+Route::get('payout-returns', [TransactionController::class, 'index'])->defaults('direction', 'payout')->defaults('group', 'return')->name('payout-returns.index');
+Route::post('payout-returns/payouts/{transaction}', [PayoutReturnController::class, 'store'])->name('payouts.return');
 Route::get('balance', [BalanceController::class, 'show'])->name('balance');
 Route::get('accounts', [AccountController::class, 'index'])->name('accounts.index');
 Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');

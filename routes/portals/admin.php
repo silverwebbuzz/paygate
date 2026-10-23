@@ -48,9 +48,12 @@ Route::post('reports/export', [ReportController::class, 'export'])->middleware('
 // Transactions (all pay-ins) and the Manual Deposit queue of every branch.
 Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
 Route::get('transactions/payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('transactions.payouts');
-Route::post('transactions/{transaction}/chargeback', [ChargebackRequestController::class, 'store'])->name('transactions.chargeback');
+// Under chargebacks/ so Section rollout opens and closes it with Chargebacks.
+Route::post('chargebacks/payins/{transaction}', [ChargebackRequestController::class, 'store'])->name('transactions.chargeback');
 // Payout returns: raise for the partner; confirm / reject for the branch.
-Route::post('transactions/{transaction}/return', [PayoutReturnController::class, 'store'])->name('transactions.return');
+// Under payout-returns/ so Section rollout opens and closes them as one item.
+Route::get('payout-returns', [TransactionController::class, 'index'])->defaults('direction', 'payout')->defaults('group', 'return')->name('payout-returns.index');
+Route::post('payout-returns/payouts/{transaction}', [PayoutReturnController::class, 'store'])->name('transactions.return');
 Route::post('payout-returns/{payoutReturn}/confirm', [PayoutReturnController::class, 'confirm'])->name('payout-returns.confirm');
 Route::post('payout-returns/{payoutReturn}/reject', [PayoutReturnController::class, 'reject'])->name('payout-returns.reject');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');

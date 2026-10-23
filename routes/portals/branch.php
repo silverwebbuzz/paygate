@@ -39,10 +39,14 @@ Route::controller(DepositQueueController::class)->prefix('deposits')->name('depo
 });
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
 // Chargeback: the customer's bank took back an approved deposit (Admin approves).
-Route::post('payins/{transaction}/chargeback', [ChargebackRequestController::class, 'store'])->name('payins.chargeback');
+// Chargebacks page and raising one: under chargebacks/ so Section rollout opens and closes them as one item.
+Route::get('chargebacks', [TransactionController::class, 'index'])->defaults('group', 'chargeback')->name('chargebacks.index');
+Route::post('chargebacks/payins/{transaction}', [ChargebackRequestController::class, 'store'])->name('payins.chargeback');
 Route::get('payout-history', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.history');
 // Payout returns: a paid payout came back to the branch's bank (record, or confirm / reject what the partner raised).
-Route::post('payout-history/{transaction}/return', [PayoutReturnController::class, 'record'])->name('payouts.return');
+// Under payout-returns/ so Section rollout opens and closes them as one item.
+Route::get('payout-returns', [TransactionController::class, 'index'])->defaults('direction', 'payout')->defaults('group', 'return')->name('payout-returns.index');
+Route::post('payout-returns/payouts/{transaction}', [PayoutReturnController::class, 'record'])->name('payouts.return');
 Route::post('payout-returns/{payoutReturn}/confirm', [PayoutReturnController::class, 'confirm'])->name('payout-returns.confirm');
 Route::post('payout-returns/{payoutReturn}/reject', [PayoutReturnController::class, 'reject'])->name('payout-returns.reject');
 

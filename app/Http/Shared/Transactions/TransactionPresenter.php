@@ -8,6 +8,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Payout\PayoutReservation;
 use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Platform\SectionRollout;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
@@ -22,7 +23,10 @@ use App\Domain\Webhook\Models\WebhookEvent;
  */
 class TransactionPresenter
 {
-    public function __construct(private Ledger $ledger) {}
+    /** @var array<string, bool> Per viewer and section: open under Section rollout? */
+    private array $open = [];
+
+    public function __construct(private Ledger $ledger, private SectionRollout $rollout) {}
 
     /**
      * @return array<string, mixed>
@@ -31,6 +35,8 @@ class TransactionPresenter
     {
         $type = $viewer->type;
         $payout = $txn->direction === 'payout';
+        $returns = $payout && $this->sectionOpen($viewer, 'return');
+        $chargebacks = ! $payout && $this->sectionOpen($viewer, 'chargeback');
         $partnerFee = $payout ? PayoutReservation::fee($txn) : $txn->partner_commission;
         // Pay-in: what the partner is credited (amount − fee). Payout: what
         // the partner is charged (amount + fee). Branches see their side.
@@ -89,12 +95,13 @@ class TransactionPresenter
                 // The bank's narration, which usually names the payer.
                 'description' => $txn->statementEntry->description,
             ],
-            'chargeback' => $this->chargeback($txn, $viewer),
-            'payout_return' => $this->payoutReturn($txn, $viewer),
+            'chargeback' => $chargebacks ? $this->chargeback($txn, $viewer) : null,
+            'payout_return' => $returns ? $this->payoutReturn($txn, $viewer) : null,
             'can' => [
                 'decide' => $viewer->can('decide', $txn),
                 'process' => $viewer->can('process', $txn),
-                'chargeback' => $type !== UserType::Partner
+                'chargeback' => $chargebacks
+                    && $type !== UserType::Partner
                     && $txn->direction === 'payin'
                     && $txn->status === 'success'
                     && ! in_array($txn->chargeback_status, ['requested', 'approved'], true)
@@ -102,9 +109,9 @@ class TransactionPresenter
                     && $viewer->can('view', $txn),
                 // Payout returns: raise (partner / Admin) or record (branch)
                 // on a paid payout with none open; confirm / reject a raised one.
-                'return_raise' => $payout && $this->returnable($txn) && $viewer->can('raiseReturn', $txn),
-                'return_record' => $payout && $this->returnable($txn) && $viewer->can('recordReturn', $txn),
-                'return_decide' => $payout
+                'return_raise' => $returns && $this->returnable($txn) && $viewer->can('raiseReturn', $txn),
+                'return_record' => $returns && $this->returnable($txn) && $viewer->can('recordReturn', $txn),
+                'return_decide' => $returns
                     && $txn->return_status === 'requested'
                     && $viewer->can('decideReturn', $txn)
                     && ! ($type === UserType::Admin && $txn->currentReturn?->requested_by === $viewer->id),
@@ -140,6 +147,14 @@ class TransactionPresenter
             'decided_at' => $chargeback->decided_at?->toIso8601String(),
             'decision_note' => $partner ? null : $chargeback->decision_note,
         ];
+    }
+
+    /**
+     * Chargebacks / Payout returns, while their section is open (Section rollout).
+     */
+    private function sectionOpen(User $viewer, string $extra): bool
+    {
+        return $this->open[$viewer->id.$extra] ??= $this->rollout->allows($viewer, $viewer->type->value.'/'.TransactionController::SECTION_PATHS[$extra]);
     }
 
     private function returnable(Transaction $txn): bool

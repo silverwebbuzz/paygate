@@ -268,4 +268,47 @@ class ChargebackTest extends TestCase
         $this->actingAs($owner)->get(route('branch.settlements.index'))
             ->assertInertia(fn ($page) => $page->where('items.data.0.figures.chargebacks', 1000000));
     }
+
+    public function test_chargebacks_and_the_settlement_dashboard_are_their_own_section_rollout_items()
+    {
+        $payin = $this->approved();
+        $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
+        $ops = User::factory()->admin(SystemRoles::ADMIN_OPS)->withTwoFactor()->create();
+        $finance = User::factory()->admin(SystemRoles::ADMIN_FINANCE)->withTwoFactor()->create();
+        $rollout = fn (array $open) => $this->actingAs($this->admin)->put(route('admin.section-rollout.update'), [
+            'active' => true, 'open' => ['admin' => [], 'branch' => [], 'partner' => [], ...$open],
+        ])->assertSessionHasNoErrors();
+
+        // Pay-in history open, Chargebacks closed: no tab, column or button, and raising is refused.
+        $rollout(['branch' => ['payins'], 'partner' => ['payins'], 'admin' => ['transactions']]);
+        $this->actingAs($this->operator)->get(route('branch.payins.index', ['status' => 'chargeback']))
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.status', null)
+                ->missing('summary.chargeback')
+                ->where('transactions.data.0.can.chargeback', false)
+                ->where('rolloutHidden', fn ($hidden) => collect($hidden)->contains('/branch/chargebacks')));
+        $this->actingAs($this->operator)->get(route('branch.chargebacks.index'))->assertRedirect(route('branch.dashboard'));
+        $this->raise($payin)->assertForbidden();
+        $this->actingAs($ops)->get(route('admin.transactions.index'))->assertInertia(fn ($page) => $page->missing('summary.chargeback'));
+        $this->actingAs($ops)->post(route('admin.transactions.chargeback', $payin), [])->assertForbidden();
+        $this->actingAs($partnerUser)->get(route('partner.payins.index'))->assertInertia(fn ($page) => $page->missing('summary.chargeback'));
+
+        // The Settlement Dashboards are separate items too.
+        $this->actingAs($this->operator)->get(route('branch.settlement-dashboard'))->assertRedirect(route('branch.dashboard'));
+        $this->actingAs($finance)->get(route('admin.settlement-dashboard', 'branch'))->assertRedirect(route('admin.dashboard'));
+
+        // Opened: the Chargebacks page lists what the branch raised; the Admin dashboard side opens alone.
+        $rollout(['branch' => ['payins', 'chargebacks'], 'partner' => ['chargebacks'], 'admin' => ['settlement_dashboard_admin']]);
+        $this->raise($payin)->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->get(route('branch.chargebacks.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('page', 'chargeback')
+                ->where('filters.status', 'chargeback')
+                ->where('transactions.total', 1)
+                ->where('transactions.data.0.chargeback.status', 'requested'));
+        $this->actingAs($partnerUser)->get(route('partner.chargebacks.index'))->assertOk();
+        $this->actingAs($finance)->get(route('admin.settlement-dashboard'))->assertOk();
+        $this->actingAs($finance)->get(route('admin.settlement-dashboard', 'admin'))->assertOk();
+        $this->actingAs($finance)->get(route('admin.settlement-dashboard', 'partner'))->assertRedirect(route('admin.dashboard'));
+    }
 }

@@ -406,10 +406,10 @@ class AlertDispatcher
         $body = __('₹:amount · :note', ['amount' => $this->money($chargeback->amount), 'note' => $chargeback->decision_note ?? __('No note.')]);
 
         if ($approved) {
-            $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayinsView, UserType::Partner, $txn->partner_id), $title, $body, Alerts::link('partner.payins.index', ['txn' => $txn->id]));
+            $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayinsView, UserType::Partner, $txn->partner_id), $title, $body, Alerts::link('partner.chargebacks.index', ['txn' => $txn->id]));
         }
 
-        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayinsView, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payins.index', ['txn' => $txn->id]));
+        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayinsView, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.chargebacks.index', ['txn' => $txn->id]));
     }
 
     /**
@@ -421,8 +421,8 @@ class AlertDispatcher
         $title = __('Payout :reference not received', ['reference' => $txn->reference]);
         $body = __(':name raised :return on ₹:amount · :reason', ['name' => $requester->name, 'return' => $return->reference, 'amount' => $this->money($txn->amount), 'reason' => $return->reason ?? __('No note.')]);
 
-        $this->alerts->send(Alert::PayoutReturnRequested, $this->alerts->recipients(Permission::ReversalsCreate, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payouts.history', ['status' => 'return', 'txn' => $txn->id]));
-        $this->alerts->send(Alert::PayoutReturnRequested, $this->alerts->recipients(Permission::ReversalsApprove, UserType::Admin, except: $requester), $title, $body, Alerts::link('admin.transactions.payouts', ['status' => 'return', 'txn' => $txn->id]));
+        $this->alerts->send(Alert::PayoutReturnRequested, $this->alerts->recipients(Permission::ReversalsCreate, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payout-returns.index', ['txn' => $txn->id]));
+        $this->alerts->send(Alert::PayoutReturnRequested, $this->alerts->recipients(Permission::ReversalsApprove, UserType::Admin, except: $requester), $title, $body, Alerts::link('admin.payout-returns.index', ['txn' => $txn->id]));
     }
 
     /**
@@ -438,8 +438,8 @@ class AlertDispatcher
             ? __('Credited back to your balance today. UTR :utr', ['utr' => $return->utr])
             : __('The branch says the money didn’t come back · :note', ['note' => $return->decision_note ?? __('No note.')]);
 
-        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayoutsView, UserType::Partner, $txn->partner_id), $title, $body, Alerts::link('partner.payouts.index', ['txn' => $txn->id]));
-        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayoutsView, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payouts.history', ['txn' => $txn->id]));
+        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayoutsView, UserType::Partner, $txn->partner_id), $title, $body, Alerts::link('partner.payout-returns.index', ['txn' => $txn->id]));
+        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayoutsView, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payout-returns.index', ['txn' => $txn->id]));
     }
 
     /**

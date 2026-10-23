@@ -315,4 +315,36 @@ class PayoutReturnTest extends TestCase
         $this->actingAs($this->partnerUser)->get(route('partner.settlement-dashboard', ['range' => '24h']))
             ->assertInertia(fn ($page) => $page->where('figures.total.return.count', 1)->where('figures.total.return.amount', 250000)->where('figures.total.withdraw.count', 0));
     }
+
+    public function test_payout_returns_are_their_own_section_rollout_item()
+    {
+        $payout = $this->paidPayout();
+        $rollout = fn (array $branch, array $partner) => $this->actingAs($this->admin)->put(route('admin.section-rollout.update'), [
+            'active' => true, 'open' => ['admin' => [], 'branch' => $branch, 'partner' => $partner],
+        ])->assertSessionHasNoErrors();
+
+        // Pay-out open, Payout returns closed: no tab, column or buttons, and the actions are refused.
+        $rollout(['payout_history'], ['payouts']);
+        $this->actingAs($this->partnerUser)->get(route('partner.payouts.index', ['status' => 'return']))
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.status', null)
+                ->missing('summary.return')
+                ->where('transactions.data.0.can.return_raise', false)
+                ->where('transactions.data.0.payout_return', null)
+                ->where('rolloutHidden', fn ($hidden) => collect($hidden)->contains('/partner/payout-returns')));
+        $this->actingAs($this->partnerUser)->get(route('partner.payout-returns.index'))->assertRedirect(route('partner.dashboard'));
+        $this->raise($payout)->assertForbidden();
+        $this->actingAs($this->operator)->post(route('branch.payouts.return', $payout), $this->confirmation())->assertForbidden();
+        $this->assertSame(0, PayoutReturn::count());
+
+        // Opened: the page, the tab and the buttons are back.
+        $rollout(['payout_history', 'payout_returns'], ['payouts', 'payout_returns']);
+        $this->raise($payout)->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->get(route('branch.payout-returns.index'))
+            ->assertInertia(fn ($page) => $page
+                ->where('page', 'return')
+                ->where('filters.status', 'return')
+                ->where('transactions.total', 1)
+                ->where('transactions.data.0.can.return_decide', true));
+    }
 }

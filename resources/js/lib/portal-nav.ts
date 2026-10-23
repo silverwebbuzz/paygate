@@ -48,6 +48,7 @@ import partner, {
 import partnerAccounts from '@/routes/partner/accounts';
 import partnerDevelopers from '@/routes/partner/developers';
 import partnerPayins from '@/routes/partner/payins';
+import partnerPayoutReturns from '@/routes/partner/payout-returns';
 import partnerPayouts from '@/routes/partner/payouts';
 import partnerSettlements from '@/routes/partner/settlements';
 import partnerUsers from '@/routes/partner/users';
@@ -161,9 +162,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 },
                 {
                     label: 'Payout returns',
-                    href: adminTransactions.payouts({
-                        query: { status: 'return' },
-                    }),
+                    href: admin.payoutReturns.index(),
                     permission: 'reversals.view',
                 },
             ],
@@ -326,9 +325,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 },
                 {
                     label: 'Chargebacks',
-                    href: branchPayins.index({
-                        query: { status: 'chargeback' },
-                    }),
+                    href: branch.chargebacks.index(),
                     permission: 'reversals.view',
                 },
                 {
@@ -338,9 +335,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 },
                 {
                     label: 'Payout returns',
-                    href: branchPayouts.history({
-                        query: { status: 'return' },
-                    }),
+                    href: branch.payoutReturns.index(),
                     permission: 'payouts.view',
                 },
                 {
@@ -412,15 +407,18 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'payins.view',
                 },
                 {
+                    label: 'Chargebacks',
+                    href: partner.chargebacks.index(),
+                    permission: 'payins.view',
+                },
+                {
                     label: 'Pay-out',
                     href: partnerPayouts.index(),
                     permission: 'payouts.view',
                 },
                 {
                     label: 'Payout returns',
-                    href: partnerPayouts.index({
-                        query: { status: 'return' },
-                    }),
+                    href: partnerPayoutReturns.index(),
                     permission: 'payouts.view',
                 },
             ],

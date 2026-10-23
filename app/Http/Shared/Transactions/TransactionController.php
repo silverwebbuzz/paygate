@@ -6,6 +6,7 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\Platform\SectionRollout;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Webhook\Actions\ResendWebhook;
 use App\Domain\Webhook\Models\WebhookEvent;
@@ -49,6 +50,11 @@ class TransactionController extends Controller
         ],
     ];
 
+    /**
+     * The Section rollout item that owns each extra tab (under the portal).
+     */
+    public const SECTION_PATHS = ['chargeback' => 'chargebacks', 'return' => 'payout-returns'];
+
     public function __construct(private TransactionPresenter $presenter) {}
 
     public function index(Request $request): Response
@@ -60,9 +66,14 @@ class TransactionController extends Controller
         $actor = $this->actor($request);
         $groups = self::STATUS_GROUPS[$direction];
         $chargebacks = $direction === 'payin';
-        // The extra tab beside the statuses: chargebacks (pay-ins) or returns (payouts).
+        // The extra tab beside the statuses: chargebacks (pay-ins) or returns
+        // (payouts), while its section is open (Section rollout). The
+        // Chargebacks / Payout returns pages are this list fixed on that tab.
+        $page = $request->route()?->defaults['group'] ?? null;
         $extra = $chargebacks ? 'chargeback' : 'return';
-        $group = array_key_exists((string) $request->query('status'), $groups) || $request->query('status') === $extra ? (string) $request->query('status') : null;
+        $extra = app(SectionRollout::class)->allows($actor, $actor->type->value.'/'.self::SECTION_PATHS[$extra]) ? $extra : null;
+        $status = $page ?? (string) $request->query('status');
+        $group = array_key_exists($status, $groups) || ($extra !== null && $status === $extra) ? $status : null;
         $search = trim((string) $request->query('search'));
         $selected = $request->query('txn');
 
@@ -74,7 +85,7 @@ class TransactionController extends Controller
             ->with(self::ROW_RELATIONS)
             ->when($group === 'chargeback', fn (Builder $query) => self::withChargeback($query, $actor))
             ->when($group === 'return', fn (Builder $query) => $query->whereNotNull('return_status'))
-            ->when($group !== null && $group !== $extra, fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
+            ->when($group !== null && $group !== 'chargeback' && $group !== 'return', fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
             ->when($search !== '', fn (Builder $query) => self::search($query, $search))
             ->latest('created_at')
             ->paginate(25)
@@ -94,7 +105,8 @@ class TransactionController extends Controller
             'summary' => collect($groups)->map(fn (array $statuses) => [
                 'count' => (int) $counts->whereIn('status', $statuses)->sum('total'),
                 'amount' => (int) $counts->whereIn('status', $statuses)->sum('amount'),
-            ])->put($extra, $chargebacks ? self::chargebackSummary(self::withChargeback($base(), $actor)) : self::returnSummary($base()->whereNotNull('return_status'))),
+            ])->when($extra !== null, fn ($summary) => $summary->put((string) $extra, $chargebacks ? self::chargebackSummary(self::withChargeback($base(), $actor)) : self::returnSummary($base()->whereNotNull('return_status')))),
+            'page' => $page,
             'selected' => is_string($selected) ? $selected : null,
             'detail' => Inertia::optional(function () use ($selected, $actor) {
                 $txn = is_string($selected) ? Transaction::query()->find($selected) : null;

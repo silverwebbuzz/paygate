@@ -93,10 +93,47 @@ class SectionRolloutTest extends TestCase
             foreach ($groups as $items) {
                 foreach ($items as $key => $item) {
                     $path = ltrim($item['paths'][0], '/');
-                    $found = collect(Route::getRoutes()->getRoutes())->contains(fn ($route) => $route->uri() === $path && in_array('GET', $route->methods(), true));
+                    // Route parameters match one segment ({side?} may also be absent).
+                    $pattern = fn (string $uri) => '#^'.preg_replace(['#/\\\{[^}]+\?\\\}#', '#\\\{[^}]+\\\}#'], ['(/[^/]+)?', '[^/]+'], preg_quote($uri, '#')).'$#';
+                    $found = collect(Route::getRoutes()->getRoutes())->contains(fn ($route) => in_array('GET', $route->methods(), true) && preg_match($pattern($route->uri()), $path) === 1);
                     $this->assertTrue($found, "{$portal}.{$key}: no page at /{$path}");
                 }
             }
         }
+    }
+
+    public function test_every_portal_page_belongs_to_a_section_or_is_always_open()
+    {
+        // Dashboards (exact) and the super-admin tools are never closed.
+        $alwaysOpen = ['/admin', '/branch', '/partner', '/admin/qa-checklist', '/admin/section-rollout', '/admin/ui-kit'];
+        $paths = [];
+
+        foreach (SectionRollout::SECTIONS as $portal => $groups) {
+            foreach ($groups as $items) {
+                foreach ($items as $item) {
+                    $paths[$portal] = [...$paths[$portal] ?? [], ...$item['paths']];
+                }
+            }
+        }
+
+        foreach (Route::getRoutes()->getRoutes() as $route) {
+            $uri = '/'.$route->uri();
+
+            if (preg_match('#^/(admin|branch|partner)(/|$)#', $uri, $match) !== 1 || $this->underAny($uri, $alwaysOpen, exactOnly: ['/admin', '/branch', '/partner'])) {
+                continue;
+            }
+
+            $owned = collect($paths[$match[1]])->contains(fn (string $prefix) => $uri === $prefix || str_starts_with($uri, $prefix.'/'));
+            $this->assertTrue($owned, "{$uri} is in no Section rollout item: add it to SectionRollout::SECTIONS or to the always-open list here.");
+        }
+    }
+
+    /**
+     * @param  list<string>  $prefixes
+     * @param  list<string>  $exactOnly  prefixes that match only themselves
+     */
+    private function underAny(string $uri, array $prefixes, array $exactOnly = []): bool
+    {
+        return collect($prefixes)->contains(fn (string $prefix) => $uri === $prefix || (! in_array($prefix, $exactOnly, true) && str_starts_with($uri, $prefix.'/')));
     }
 }

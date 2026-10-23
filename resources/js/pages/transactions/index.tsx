@@ -60,6 +60,8 @@ type Props = {
     >;
     selected: string | null;
     detail?: TxnDetail | null;
+    /** The Chargebacks / Payout returns page: this list fixed on that tab. */
+    page?: 'chargeback' | 'return' | null;
 };
 
 const LIST_ROUTE = {
@@ -73,6 +75,52 @@ const LIST_ROUTE = {
         partner: partner.payouts.index,
         branch: branch.payouts.history,
     },
+};
+
+/**
+ * Chargebacks and Payout returns have their own pages (Section rollout
+ * items). Admin's chargebacks are on Admin › Chargebacks, so its pay-in list
+ * keeps the tab.
+ */
+const PAGE_ROUTE: Record<
+    'chargeback' | 'return',
+    Partial<Record<UserType, typeof admin.payoutReturns.index>>
+> = {
+    chargeback: {
+        partner: partner.chargebacks.index,
+        branch: branch.chargebacks.index,
+    },
+    return: {
+        admin: admin.payoutReturns.index,
+        partner: partner.payoutReturns.index,
+        branch: branch.payoutReturns.index,
+    },
+};
+
+const CHARGEBACK_TITLES: Partial<Record<UserType, [string, string]>> = {
+    partner: [
+        'Chargebacks',
+        'Deposits your customers’ banks took back after success. The amount is debited from your balance on the day it was approved; fees stay charged.',
+    ],
+    branch: [
+        'Chargebacks',
+        'Chargebacks your branch raised on approved deposits and what Admin decided.',
+    ],
+};
+
+const RETURNS_TITLES: Record<UserType, [string, string]> = {
+    admin: [
+        'Payout returns',
+        'Paid payouts that came back (all or part). Partners raise “Not received”; the branch, or another admin, confirms what came back.',
+    ],
+    partner: [
+        'Payout returns',
+        'Payouts your customers said they didn’t receive. A confirmed amount is credited back to your balance that day; fees stay charged.',
+    ],
+    branch: [
+        'Payout returns',
+        'Partners say these payouts weren’t received. Check your bank: confirm what came back (amount, UTR, proof) or reject with a note.',
+    ],
 };
 
 const TITLES: Record<'payin' | 'payout', Record<UserType, [string, string]>> = {
@@ -155,26 +203,44 @@ export default function Transactions({
     summary,
     selected,
     detail,
+    page = null,
 }: Props) {
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(selected);
     const [raising, setRaising] = useState<TxnRow | null>(null);
     const [returning, setReturning] = useState<ReturnAction | null>(null);
     const open = transactions.data.find((txn) => txn.id === openId) ?? null;
-    const [title, description] = TITLES[direction][portal];
+    const [title, description] =
+        (page === 'return' && RETURNS_TITLES[portal]) ||
+        (page === 'chargeback' && CHARGEBACK_TITLES[portal]) ||
+        TITLES[direction][portal];
+    // Chargebacks / returns show only while their section is open (Section rollout).
+    const returnsOpen = direction === 'payout' && summary.return !== undefined;
+    const chargebacksOpen =
+        direction === 'payin' && summary.chargeback !== undefined;
 
-    const visit = (next: Partial<Props['filters']>) =>
-        router.get(
-            LIST_ROUTE[direction][portal]({
-                query: Object.fromEntries(
-                    Object.entries({ ...filters, search, ...next }).filter(
-                        ([, v]) => (Array.isArray(v) ? v.length > 0 : v),
-                    ),
-                ),
-            }).url,
-            {},
-            { preserveState: true, replace: true },
+    const visit = (next: Partial<Props['filters']>) => {
+        const merged = { ...filters, search, ...next };
+        const target =
+            merged.status === 'chargeback' || merged.status === 'return'
+                ? (PAGE_ROUTE[merged.status][portal] ?? null)
+                : null;
+        const query = Object.fromEntries(
+            Object.entries({
+                ...merged,
+                status: target ? null : merged.status,
+            }).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : v)),
         );
+
+        router.get(
+            (target ?? LIST_ROUTE[direction][portal])({ query }).url,
+            {},
+            {
+                preserveState: (target !== null) === (page !== null),
+                replace: true,
+            },
+        );
+    };
 
     useEffect(() => {
         if (search === filters.search) return;
@@ -339,7 +405,7 @@ export default function Transactions({
             header: 'Status',
             cell: (t) => <StatusBadge status={t.status} />,
         },
-        ...(direction === 'payin'
+        ...(chargebacksOpen
             ? [
                   {
                       key: 'chargeback',
@@ -349,15 +415,17 @@ export default function Transactions({
                       ),
                   },
               ]
-            : [
-                  {
-                      key: 'return',
-                      header: 'Return',
-                      cell: (t: TxnRow) => (
-                          <ReturnCell txn={t} onAction={setReturning} />
-                      ),
-                  },
-              ]),
+            : returnsOpen
+              ? [
+                    {
+                        key: 'return',
+                        header: 'Return',
+                        cell: (t: TxnRow) => (
+                            <ReturnCell txn={t} onAction={setReturning} />
+                        ),
+                    },
+                ]
+              : []),
         {
             key: 'created',
             header: 'Created ↓',
@@ -409,24 +477,36 @@ export default function Transactions({
             />
 
             <KpiGrid>
-                {KPIS[direction].map(([group, label, icon, tone]) => (
-                    <StatTile
-                        key={group}
-                        label={label}
-                        value={`${formatPaise(figure(group).amount, 0)} · ${figure(group).count}`}
-                        icon={icon}
-                        tone={tone}
-                    />
-                ))}
+                {KPIS[direction]
+                    .filter(
+                        ([group]) =>
+                            (group !== 'return' || returnsOpen) &&
+                            (group !== 'chargeback' || chargebacksOpen),
+                    )
+                    .map(([group, label, icon, tone]) => (
+                        <StatTile
+                            key={group}
+                            label={label}
+                            value={`${formatPaise(figure(group).amount, 0)} · ${figure(group).count}`}
+                            icon={icon}
+                            tone={tone}
+                        />
+                    ))}
             </KpiGrid>
 
             <Panel className="overflow-hidden">
                 <ViewTabs
-                    views={TABS[direction].map(([key, label]) => ({
-                        key,
-                        label,
-                        count: key === 'all' ? total : figure(key).count,
-                    }))}
+                    views={TABS[direction]
+                        .filter(
+                            ([key]) =>
+                                (key !== 'return' || returnsOpen) &&
+                                (key !== 'chargeback' || chargebacksOpen),
+                        )
+                        .map(([key, label]) => ({
+                            key,
+                            label,
+                            count: key === 'all' ? total : figure(key).count,
+                        }))}
                     active={filters.status ?? 'all'}
                     onChange={(key) =>
                         visit({ status: key === 'all' ? null : (key as Group) })
