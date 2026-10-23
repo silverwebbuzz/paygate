@@ -9,6 +9,7 @@ use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
 use App\Http\Shared\Settlements\SettlementDashboardController;
+use App\Http\Shared\Transactions\PayoutReturnController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,8 @@ Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile
 // The partner's pay-ins (status, timeline, webhooks + resend).
 Route::get('payins', [TransactionController::class, 'index'])->name('payins.index');
 Route::get('payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.index');
+// The customer says a paid payout never arrived: the branch checks and confirms.
+Route::post('payouts/{transaction}/return', [PayoutReturnController::class, 'store'])->name('payouts.return');
 Route::get('balance', [BalanceController::class, 'show'])->name('balance');
 Route::get('accounts', [AccountController::class, 'index'])->name('accounts.index');
 Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');

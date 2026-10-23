@@ -33,6 +33,15 @@ final class PayoutData
             ] : null,
             'utr' => $payout->bank_utr_normalized,
             'reason' => $payout->status === 'failed' ? $payout->status_reason_code : null,
+            // Confirmed return: the status stays success; the amount that came back is credited to the partner.
+            'returned' => $payout->return_status === 'approved' && ($return = $payout->currentReturn) !== null ? [
+                'id' => $return->reference,
+                'amount' => $return->amount,
+                'utr' => $return->utr,
+                // When it came back per the bank; booked (credited) at booked_at.
+                'returned_at' => $return->returned_at?->toIso8601String(),
+                'booked_at' => $return->decided_at?->toIso8601String(),
+            ] : null,
             'completed_at' => ($payout->succeeded_at ?? $payout->decided_at)?->toIso8601String(),
             'created_at' => $payout->created_at?->toIso8601String(),
             'metadata' => $payout->metadata,

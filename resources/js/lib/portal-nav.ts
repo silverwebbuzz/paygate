@@ -159,6 +159,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: admin.chargebacks.index(),
                     permission: 'reversals.view',
                 },
+                {
+                    label: 'Payout returns',
+                    href: adminTransactions.payouts({
+                        query: { status: 'return' },
+                    }),
+                    permission: 'reversals.view',
+                },
             ],
         },
         {
@@ -330,6 +337,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'payouts.view',
                 },
                 {
+                    label: 'Payout returns',
+                    href: branchPayouts.history({
+                        query: { status: 'return' },
+                    }),
+                    permission: 'payouts.view',
+                },
+                {
                     label: 'UTR Reconciliation',
                     href: branchReconciliation.index(),
                     permission: 'reconciliation.view',
@@ -400,6 +414,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 {
                     label: 'Pay-out',
                     href: partnerPayouts.index(),
+                    permission: 'payouts.view',
+                },
+                {
+                    label: 'Payout returns',
+                    href: partnerPayouts.index({
+                        query: { status: 'return' },
+                    }),
                     permission: 'payouts.view',
                 },
             ],

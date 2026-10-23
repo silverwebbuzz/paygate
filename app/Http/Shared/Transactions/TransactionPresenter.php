@@ -90,6 +90,7 @@ class TransactionPresenter
                 'description' => $txn->statementEntry->description,
             ],
             'chargeback' => $this->chargeback($txn, $viewer),
+            'payout_return' => $this->payoutReturn($txn, $viewer),
             'can' => [
                 'decide' => $viewer->can('decide', $txn),
                 'process' => $viewer->can('process', $txn),
@@ -99,6 +100,14 @@ class TransactionPresenter
                     && ! in_array($txn->chargeback_status, ['requested', 'approved'], true)
                     && $viewer->can('reversals.create')
                     && $viewer->can('view', $txn),
+                // Payout returns: raise (partner / Admin) or record (branch)
+                // on a paid payout with none open; confirm / reject a raised one.
+                'return_raise' => $payout && $this->returnable($txn) && $viewer->can('raiseReturn', $txn),
+                'return_record' => $payout && $this->returnable($txn) && $viewer->can('recordReturn', $txn),
+                'return_decide' => $payout
+                    && $txn->return_status === 'requested'
+                    && $viewer->can('decideReturn', $txn)
+                    && ! ($type === UserType::Admin && $txn->currentReturn?->requested_by === $viewer->id),
             ],
         ];
     }
@@ -130,6 +139,44 @@ class TransactionPresenter
             'requested_by' => $partner ? null : $chargeback->requester->name,
             'decided_at' => $chargeback->decided_at?->toIso8601String(),
             'decision_note' => $partner ? null : $chargeback->decision_note,
+        ];
+    }
+
+    private function returnable(Transaction $txn): bool
+    {
+        return $txn->status === 'success' && ! in_array($txn->return_status, ['requested', 'approved'], true);
+    }
+
+    /**
+     * The latest return on a payout. Partners see it all (they raise it)
+     * except the bank's proof.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function payoutReturn(Transaction $txn, User $viewer): ?array
+    {
+        $return = $txn->return_status === null ? null : $txn->currentReturn;
+
+        if ($return === null) {
+            return null;
+        }
+
+        $partner = $viewer->isType(UserType::Partner);
+
+        return [
+            'id' => $return->id,
+            'reference' => $return->reference,
+            'status' => $return->status,
+            'amount' => $return->amount,
+            'utr' => $return->utr,
+            'returned_at' => $return->returned_at?->toIso8601String(),
+            'reason' => $return->reason,
+            'proof_file_id' => $partner ? null : $return->proof_file_id,
+            'requested_at' => $return->created_at?->toIso8601String(),
+            'requested_by' => $partner ? null : $return->requester->name,
+            'decided_at' => $return->decided_at?->toIso8601String(),
+            'decided_by' => $partner ? null : $return->decider?->name,
+            'decision_note' => $return->decision_note,
         ];
     }
 

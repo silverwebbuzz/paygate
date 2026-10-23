@@ -17,6 +17,7 @@ use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Settlement\Models\Adjustment;
 use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Transaction\Models\Chargeback;
+use App\Domain\Transaction\Models\PayoutReturn;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Transaction\Models\TransactionReversal;
@@ -409,6 +410,36 @@ class AlertDispatcher
         }
 
         $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayinsView, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payins.index', ['txn' => $txn->id]));
+    }
+
+    /**
+     * A partner (or Admin for it) says a paid payout wasn't received: the
+     * branch, to check its bank and confirm, and the admins who can.
+     */
+    public function payoutReturnRequested(PayoutReturn $return, Transaction $txn, User $requester): void
+    {
+        $title = __('Payout :reference not received', ['reference' => $txn->reference]);
+        $body = __(':name raised :return on ₹:amount · :reason', ['name' => $requester->name, 'return' => $return->reference, 'amount' => $this->money($txn->amount), 'reason' => $return->reason ?? __('No note.')]);
+
+        $this->alerts->send(Alert::PayoutReturnRequested, $this->alerts->recipients(Permission::ReversalsCreate, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payouts.history', ['status' => 'return', 'txn' => $txn->id]));
+        $this->alerts->send(Alert::PayoutReturnRequested, $this->alerts->recipients(Permission::ReversalsApprove, UserType::Admin, except: $requester), $title, $body, Alerts::link('admin.transactions.payouts', ['status' => 'return', 'txn' => $txn->id]));
+    }
+
+    /**
+     * Confirmed or rejected: the partner and the branch.
+     */
+    public function payoutReturnDecided(PayoutReturn $return, Transaction $txn): void
+    {
+        $approved = $return->status === 'approved';
+        $title = $approved
+            ? __('Payout :reference returned: ₹:amount', ['reference' => $txn->reference, 'amount' => $this->money((int) $return->amount)])
+            : __('Return on :reference rejected', ['reference' => $txn->reference]);
+        $body = $approved
+            ? __('Credited back to your balance today. UTR :utr', ['utr' => $return->utr])
+            : __('The branch says the money didn’t come back · :note', ['note' => $return->decision_note ?? __('No note.')]);
+
+        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayoutsView, UserType::Partner, $txn->partner_id), $title, $body, Alerts::link('partner.payouts.index', ['txn' => $txn->id]));
+        $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayoutsView, UserType::Branch, $txn->branch_id), $title, $body, Alerts::link('branch.payouts.history', ['txn' => $txn->id]));
     }
 
     /**

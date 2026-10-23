@@ -28,6 +28,7 @@ type Figures = {
     commission: number;
     margin: number;
     chargeback: { count: number; amount: number };
+    return: { count: number; amount: number };
     adjustments: number;
     settlement: number;
     current: number;
@@ -76,7 +77,8 @@ const local = (iso: string) => iso.slice(0, 16);
  * Settlement Dashboard, as in the client's system: range buttons, dates and
  * filters, deposit / withdraw tiles with the commission, and the summary
  * (Deposit, Withdraw, Commission, Settlement, Chargeback, Current Balance,
- * Net Balance). Chargebacks count on the day Admin approved them.
+ * Net Balance). Chargebacks count on the day Admin approved them, payout
+ * returns on the day the branch confirmed them.
  */
 export default function SettlementDashboard({
     portal,
@@ -127,8 +129,8 @@ export default function SettlementDashboard({
                 title={TITLES[side]}
                 description={
                     portal === 'partner'
-                        ? 'What moved on your balance in the period. Chargebacks count on the day Admin approved them.'
-                        : 'What moved on the positions in the period, as settlements calculate it. Chargebacks count on the day Admin approved them.'
+                        ? 'What moved on your balance in the period. Chargebacks count on the day Admin approved them; payout returns on the day the branch confirmed them.'
+                        : 'What moved on the positions in the period, as settlements calculate it. Chargebacks count on the day Admin approved them; payout returns on the day the branch confirmed them.'
                 }
                 actions={
                     portal === 'admin' && (
@@ -392,6 +394,10 @@ function Summary({
             `Chargeback (${figures.chargeback.count})`,
             <Signed key="c" value={figures.chargeback.amount} />,
         ],
+        [
+            `Payout return (${figures.return.count})`,
+            <Signed key="r" value={figures.return.amount} />,
+        ],
         ...(figures.adjustments !== 0
             ? ([
                   [
@@ -540,6 +546,7 @@ function Pairs({
                         <th className="px-3 py-2 text-right">Withdraw</th>
                         <th className="px-3 py-2 text-right">Commission</th>
                         <th className="px-3 py-2 text-right">Chargeback</th>
+                        <th className="px-3 py-2 text-right">Return</th>
                         <th className="px-3 py-2 text-right">Settlement</th>
                         <th className="px-3 py-2 text-right">Net Balance</th>
                         <th className="px-3 py-2 text-right">
@@ -577,6 +584,9 @@ function Pairs({
                             </td>
                             <td className="px-3 py-2 text-right">
                                 <Signed value={pair.chargeback.amount} />
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                                <Signed value={pair.return.amount} />
                             </td>
                             <td className="px-3 py-2 text-right">
                                 <Signed value={pair.settlement} />

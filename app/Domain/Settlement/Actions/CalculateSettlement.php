@@ -20,7 +20,7 @@ use Illuminate\Validation\ValidationException;
  * its previous settlement up to `$periodEnd`, per partner↔branch pair:
  *
  *   opening position + pay-ins + payouts + adjustments + chargebacks
- *   + payments recorded
+ *   + payout returns + payments recorded
  *   = closing position (all from the ledger, by journal posting time)
  *
  * The closing position is what is owed now, including anything left unpaid
@@ -93,6 +93,8 @@ class CalculateSettlement
                     'adjustments_total' => ($figures['by_type']['adjustment'] ?? 0) + ($figures['by_type']['reversal'] ?? 0),
                     // Booked on the day Admin approved them, not the deposit's day.
                     'chargebacks_total' => $figures['by_type']['chargeback'] ?? 0,
+                    // Likewise on the day the branch confirmed them.
+                    'returns_total' => $figures['by_type']['payout_return'] ?? 0,
                     'settlements_total' => $figures['by_type']['settlement'] ?? 0,
                     'closing_balance' => $figures['closing'],
                     'net_amount' => abs($figures['closing']),
@@ -112,8 +114,8 @@ class CalculateSettlement
                 'period_start' => $start,
                 'period_end' => $periodEnd,
                 ...array_combine(
-                    ['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'chargebacks_total', 'settlements_total'],
-                    array_map($sum, ['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'chargebacks_total', 'settlements_total']),
+                    ['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'chargebacks_total', 'returns_total', 'settlements_total'],
+                    array_map($sum, ['opening_balance', 'gross_payin', 'gross_payout', 'partner_commission', 'branch_commission', 'platform_margin', 'adjustments_total', 'chargebacks_total', 'returns_total', 'settlements_total']),
                 ),
                 'closing_balance' => $closing,
                 'net_amount' => abs($closing),

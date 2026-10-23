@@ -368,9 +368,14 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
                     <Code>POST /v1/payouts/status</Code>. Repeating the same
                     order_id is safe, as for pay-ins. Webhooks:{' '}
                     <Code>payout.success</Code>, <Code>payout.failed</Code>,{' '}
-                    <Code>payout.returned</Code> (a paid payout came back: the
-                    amount and fee are back in your balance; status{' '}
-                    <Code>returned</Code>) to your payout webhook URL.
+                    <Code>payout.returned</Code> (a paid payout, or part of it,
+                    came back to the branch: <Code>status</Code> stays{' '}
+                    <Code>success</Code> and <Code>returned</Code>{' '}
+                    {'{id, amount, utr, returned_at, booked_at}'} is filled —
+                    that amount is credited back to your balance, the fee stays
+                    charged) to your payout webhook URL. If your customer says a
+                    paid payout never arrived, click <b>Not received</b> on it
+                    in Pay-out: the branch checks its bank and confirms.
                 </p>
                 <p>
                     <Code>GET /v1/balance</Code> returns <Code>balance</Code>,{' '}

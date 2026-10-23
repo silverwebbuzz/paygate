@@ -30,6 +30,7 @@ use App\Http\Shared\Settlements\SettlementDashboardController;
 use App\Http\Shared\Transactions\ChargebackRequestController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
+use App\Http\Shared\Transactions\PayoutReturnController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +49,10 @@ Route::post('reports/export', [ReportController::class, 'export'])->middleware('
 Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
 Route::get('transactions/payouts', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('transactions.payouts');
 Route::post('transactions/{transaction}/chargeback', [ChargebackRequestController::class, 'store'])->name('transactions.chargeback');
+// Payout returns: raise for the partner; confirm / reject for the branch.
+Route::post('transactions/{transaction}/return', [PayoutReturnController::class, 'store'])->name('transactions.return');
+Route::post('payout-returns/{payoutReturn}/confirm', [PayoutReturnController::class, 'confirm'])->name('payout-returns.confirm');
+Route::post('payout-returns/{payoutReturn}/reject', [PayoutReturnController::class, 'reject'])->name('payout-returns.reject');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');
 Route::controller(DepositQueueController::class)->prefix('deposits')->name('deposits.')->group(function () {
     Route::get('/', 'index')->name('index');

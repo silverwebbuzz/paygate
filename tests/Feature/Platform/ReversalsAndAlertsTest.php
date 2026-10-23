@@ -70,7 +70,7 @@ class ReversalsAndAlertsTest extends TestCase
         ];
     }
 
-    public function test_a_refund_debits_the_partner_and_a_returned_payout_is_fully_reversed()
+    public function test_a_refund_debits_the_partner_once()
     {
         $payin = $this->approved();
         $this->reverse($payin, 'refund')->assertSessionHasNoErrors();
@@ -78,31 +78,11 @@ class ReversalsAndAlertsTest extends TestCase
         $this->assertSame([-60000, 40000, 20000], $this->positions());
         $this->assertTrue(WebhookEvent::where(['transaction_id' => $payin->id, 'event_type' => 'payin.refunded'])->exists());
 
-        // Once only; chargebacks are no longer recorded here.
+        // Once only; chargebacks and payout returns are no longer recorded here.
         $this->reverse($payin, 'refund')->assertSessionHasErrors('transaction');
         $this->reverse($payin, 'chargeback')->assertSessionHasErrors('kind');
-
-        // Fund and pay a ₹5,000 payout, then it comes back.
-        $second = $this->approved(1000000, '626812820492');
-        $this->assertSame([880000, -920000, 40000], $this->positions());
-        $this->api('POST', '/v1/payouts', [
-            'order_id' => 'WD-1', 'amount' => 500000, 'customer' => ['id' => 'c1'],
-            'beneficiary' => ['type' => 'bank', 'name' => 'Ravi', 'account_number' => '50100482716640', 'ifsc' => 'HDFC0001203'],
-        ])->assertCreated();
-        $payout = Transaction::where('direction', 'payout')->sole();
-        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), ['bank_utr' => 'IMPS601234567890'])->assertSessionHasNoErrors();
-        $this->assertSame([880000 - 525000, -920000 + 515000, 50000], $this->positions());
-
-        $this->reverse($payout->refresh(), 'return')->assertSessionHasNoErrors();
-
-        $this->assertSame([880000, -920000, 40000], $this->positions());
-        $this->assertSame('returned', $payout->refresh()->status);
-        $this->assertTrue(WebhookEvent::where(['transaction_id' => $payout->id, 'event_type' => 'payout.returned'])->exists());
+        $this->reverse($payin, 'return')->assertSessionHasErrors('kind');
         $this->assertSame(0, (int) DB::table('ledger_entries')->sum('amount'));
-
-        // A payout can't be "refunded" like a deposit.
-        $this->assertSame('success', $second->status);
-        $this->reverse($second, 'return')->assertSessionHasErrors('transaction');
     }
 
     public function test_only_admins_with_the_permission_record_reversals()

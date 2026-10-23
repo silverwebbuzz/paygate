@@ -281,7 +281,7 @@ sha256 hex of the exact body</div>
     <p class="small">fee in this example is 200 paisa, charged on top of amount. The live fee follows this partner’s rate.</p>
     <div class="lbl">Response failed</div>
     <p class="small">Same error object. insufficient_balance means the amount plus the fee does not fit. no_branch_available means no branch can take it right now. duplicate_order_id is HTTP 409 when this order_id already exists with different details.</p>
-    <p class="small">Payout status words: assigned, processing, success (utr is set), failed (the held amount is back in your balance), cancelled, returned. POST {{ $base }}/payouts/{id}/cancel while it is still assigned.</p>
+    <p class="small">Payout status words: assigned, processing, success (utr is set), failed (the held amount is back in your balance), cancelled. POST {{ $base }}/payouts/{id}/cancel while it is still assigned.</p>
 
     <h2>6. Payout webhook</h2>
     <table class="facts">
@@ -289,7 +289,7 @@ sha256 hex of the exact body</div>
         <tr><td class="k">Method</td><td>POST</td></tr>
         <tr><td class="k">Header</td><td>X-PayGate-Event-Id, X-PayGate-Event, X-PayGate-Signature</td></tr>
     </table>
-    <p class="small">Events: payout.success, payout.failed, payout.returned. Check the signature the same way as a pay-in webhook. Reply with any HTTP 2xx within 10 seconds.</p>
+    <p class="small">Events: payout.success, payout.failed, payout.returned. A return (the paid money, or part of it, came back to the branch) keeps status success and fills returned {id, amount, utr, returned_at, booked_at} (returned_at = when it came back to the branch, booked_at = when it was credited to you): that amount is credited back to your balance; the fee stays charged. Check the signature the same way as a pay-in webhook. Reply with any HTTP 2xx within 10 seconds.</p>
     <div class="lbl">Request we send</div>
     <div class="code">{
   "id": "...",

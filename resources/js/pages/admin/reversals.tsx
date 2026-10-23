@@ -69,9 +69,10 @@ const KIND_LABELS: Record<Kind, string> = {
 };
 
 /**
- * Refunds (deposits sent back, payouts returned), decided 2026-09-28
- * (G-21, G-22). Recording one books it at once and tells the partner by
- * webhook. Chargebacks have their own screen (raised by branches).
+ * Refunds (deposits sent back), decided 2026-09-28 (G-22). Recording one
+ * books it at once and tells the partner by webhook. Returned payouts listed
+ * here were booked before 2026-10-22; payout returns are now raised on the
+ * payout. Chargebacks have their own screen (raised by branches).
  */
 export default function Reversals({
     items,
@@ -155,7 +156,7 @@ export default function Reversals({
             <Head title="Refunds" />
             <PageHeader
                 title="Refunds"
-                description="A deposit sent back to the customer (the partner is debited the amount; fees kept), or a paid payout that came back (fully reversed: the partner gets amount + fee back)."
+                description="A deposit sent back to the customer: the partner is debited the amount; fees kept. A payout that came back is raised on the payout itself (Payout returns)."
 
                 actions={
                     can.create && (
@@ -163,8 +164,7 @@ export default function Reversals({
                             variant="primary"
                             onClick={() => setRecording(true)}
                         >
-                            <Plus className="size-3.5" /> Record refund or
-                            return
+                            <Plus className="size-3.5" /> Record refund
                         </PgButton>
                     )
                 }
@@ -248,7 +248,7 @@ function RecordDialog({
     onFind: () => void;
     onClose: () => void;
 }) {
-    const kind: Kind = candidate?.direction === 'payout' ? 'return' : 'refund';
+    const kind: Kind = 'refund';
     const form = useForm({
         transaction_id: candidate?.id ?? '',
         kind,
@@ -256,21 +256,22 @@ function RecordDialog({
         external_reference: '',
     });
     const errors = form.errors as Record<string, string | undefined>;
-    const usable = candidate !== null && candidate.status === 'success';
+    const usable =
+        candidate !== null &&
+        candidate.direction === 'payin' &&
+        candidate.status === 'success';
 
     const effect =
         candidate === null
             ? ''
-            : kind === 'return'
-              ? `The partner gets back ${formatPaise(candidate.amount + (candidate.partner_commission ?? 0))} (amount + fee); the branch owes back ${formatPaise(candidate.amount + (candidate.branch_commission ?? 0))}; the margin of ${formatPaise(candidate.platform_margin)} is reversed.`
-              : `The partner is debited ${formatPaise(candidate.amount)}; the branch owes ${formatPaise(candidate.amount)} less. Fees stay earned.`;
+            : `The partner is debited ${formatPaise(candidate.amount)}; the branch owes ${formatPaise(candidate.amount)} less. Fees stay earned.`;
 
     return (
         <FormDialog
             open
             onOpenChange={(next) => !next && onClose()}
             width={520}
-            title="Record a refund or returned payout"
+            title="Record a refund"
             description="Booked at once, can’t be undone, and the partner is told by webhook."
             submitLabel={form.processing ? 'Recording…' : 'Record'}
             processing={form.processing || !usable}
@@ -287,7 +288,7 @@ function RecordDialog({
                 <Field label="Transaction id" error={errors.transaction}>
                     <TextInput
                         className="font-mono"
-                        placeholder="PI… or PO…"
+                        placeholder="PI…"
                         value={reference}
                         onChange={(event) => onReference(event.target.value)}
                     />
@@ -314,8 +315,9 @@ function RecordDialog({
                     </div>
                     {!usable && (
                         <div className="mt-2 text-xs text-er">
-                            Only a successful transaction can be refunded or
-                            returned.
+                            {candidate.direction === 'payout'
+                                ? 'A payout that came back is raised on the payout (Transactions › Payouts › Not received).'
+                                : 'Only a successful deposit can be refunded.'}
                         </div>
                     )}
                 </div>

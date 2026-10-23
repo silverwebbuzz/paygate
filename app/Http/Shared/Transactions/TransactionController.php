@@ -29,7 +29,7 @@ class TransactionController extends Controller
     /**
      * What TransactionPresenter::row() reads, loaded up front.
      */
-    public const ROW_RELATIONS = ['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry', 'decider', 'session', 'latestProof', 'currentChargeback.requester'];
+    public const ROW_RELATIONS = ['partner', 'branch', 'paymentAccount', 'customer', 'beneficiary', 'statementEntry', 'decider', 'session', 'latestProof', 'currentChargeback.requester', 'currentReturn.requester', 'currentReturn.decider'];
 
     public const STATUS_GROUPS = [
         'payin' => [
@@ -60,7 +60,9 @@ class TransactionController extends Controller
         $actor = $this->actor($request);
         $groups = self::STATUS_GROUPS[$direction];
         $chargebacks = $direction === 'payin';
-        $group = array_key_exists((string) $request->query('status'), $groups) || ($chargebacks && $request->query('status') === 'chargeback') ? (string) $request->query('status') : null;
+        // The extra tab beside the statuses: chargebacks (pay-ins) or returns (payouts).
+        $extra = $chargebacks ? 'chargeback' : 'return';
+        $group = array_key_exists((string) $request->query('status'), $groups) || $request->query('status') === $extra ? (string) $request->query('status') : null;
         $search = trim((string) $request->query('search'));
         $selected = $request->query('txn');
 
@@ -71,7 +73,8 @@ class TransactionController extends Controller
         $transactions = $base()
             ->with(self::ROW_RELATIONS)
             ->when($group === 'chargeback', fn (Builder $query) => self::withChargeback($query, $actor))
-            ->when($group !== null && $group !== 'chargeback', fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
+            ->when($group === 'return', fn (Builder $query) => $query->whereNotNull('return_status'))
+            ->when($group !== null && $group !== $extra, fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
             ->when($search !== '', fn (Builder $query) => self::search($query, $search))
             ->latest('created_at')
             ->paginate(25)
@@ -91,7 +94,7 @@ class TransactionController extends Controller
             'summary' => collect($groups)->map(fn (array $statuses) => [
                 'count' => (int) $counts->whereIn('status', $statuses)->sum('total'),
                 'amount' => (int) $counts->whereIn('status', $statuses)->sum('amount'),
-            ])->when($chargebacks, fn ($summary) => $summary->put('chargeback', self::chargebackSummary(self::withChargeback($base(), $actor)))),
+            ])->put($extra, $chargebacks ? self::chargebackSummary(self::withChargeback($base(), $actor)) : self::returnSummary($base()->whereNotNull('return_status'))),
             'selected' => is_string($selected) ? $selected : null,
             'detail' => Inertia::optional(function () use ($selected, $actor) {
                 $txn = is_string($selected) ? Transaction::query()->find($selected) : null;
@@ -192,6 +195,23 @@ class TransactionController extends Controller
             DB::raw('COUNT(*) AS total'),
             DB::raw("COALESCE(SUM((SELECT cb.amount FROM chargebacks cb WHERE cb.transaction_id = transactions.id AND cb.status = 'approved')), 0) AS amount"),
             DB::raw("COUNT(*) FILTER (WHERE chargeback_status = 'requested') AS pending"),
+        ]);
+
+        return ['count' => (int) ($row->total ?? 0), 'amount' => (int) ($row->amount ?? 0), 'pending' => (int) ($row->pending ?? 0)];
+    }
+
+    /**
+     * Count of payouts with a return; amount = what came back (confirmed).
+     *
+     * @param  Builder<Transaction>  $query
+     * @return array{count: int, amount: int, pending: int}
+     */
+    private static function returnSummary(Builder $query): array
+    {
+        $row = $query->toBase()->first([
+            DB::raw('COUNT(*) AS total'),
+            DB::raw("COALESCE(SUM((SELECT pr.amount FROM payout_returns pr WHERE pr.transaction_id = transactions.id AND pr.status = 'approved')), 0) AS amount"),
+            DB::raw("COUNT(*) FILTER (WHERE return_status = 'requested') AS pending"),
         ]);
 
         return ['count' => (int) ($row->total ?? 0), 'amount' => (int) ($row->amount ?? 0), 'pending' => (int) ($row->pending ?? 0)];

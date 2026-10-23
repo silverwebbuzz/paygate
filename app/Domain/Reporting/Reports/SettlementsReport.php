@@ -47,6 +47,7 @@ class SettlementsReport extends Report
             $scope->sees('margin') ? $this->column('platform_margin', 'Margin', 'money') : null,
             $this->column('adjustments', 'Adjustments', 'signed'),
             $this->column('chargebacks', 'Chargebacks', 'signed'),
+            $this->column('returns', 'Payout returns', 'signed'),
             $this->column('closing', 'Position at end', 'signed'),
             $this->column('net_amount', 'To settle', 'money'),
             $this->column('direction', 'Who pays'),
@@ -83,6 +84,7 @@ class SettlementsReport extends Report
                 'platform_margin' => $settlement->platform_margin,
                 'adjustments' => $settlement->adjustments_total,
                 'chargebacks' => $settlement->chargebacks_total,
+                'returns' => $settlement->returns_total,
                 'closing' => $settlement->closing_balance,
                 'net_amount' => $settlement->net_amount,
                 'direction' => match ($settlement->direction) {

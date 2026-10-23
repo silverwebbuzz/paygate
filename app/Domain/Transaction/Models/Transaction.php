@@ -44,6 +44,7 @@ use Illuminate\Support\Str;
  * @property string|null $status_reason_code
  * @property string|null $status_note
  * @property string|null $chargeback_status requested / approved / rejected (pay-ins; status stays success)
+ * @property string|null $return_status requested / approved / rejected (payouts; status stays success)
  * @property string|null $customer_utr
  * @property string|null $customer_utr_normalized
  * @property string|null $bank_utr
@@ -70,6 +71,7 @@ use Illuminate\Support\Str;
  * @property-read StatementEntry|null $statementEntry
  * @property-read User|null $decider
  * @property-read Chargeback|null $currentChargeback
+ * @property-read PayoutReturn|null $currentReturn
  */
 class Transaction extends Model
 {
@@ -221,6 +223,16 @@ class Transaction extends Model
     public function currentChargeback(): HasOne
     {
         return $this->hasOne(Chargeback::class)->latest('created_at');
+    }
+
+    /**
+     * The payout return raised most recently (requested, approved or rejected).
+     *
+     * @return HasOne<PayoutReturn, $this>
+     */
+    public function currentReturn(): HasOne
+    {
+        return $this->hasOne(PayoutReturn::class)->latest('created_at');
     }
 
     /**

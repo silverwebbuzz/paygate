@@ -9,6 +9,7 @@ use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Models\StatementImport;
 use App\Domain\Reporting\Models\ReportExport;
 use App\Domain\Transaction\Models\Chargeback;
+use App\Domain\Transaction\Models\PayoutReturn;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Http\Shared\Reconciliation\ReconciliationScope;
@@ -17,8 +18,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Serves a private file after checking the viewer may see what it belongs
- * to. Payment proofs and chargeback notices: Admin and the receiving branch
- * only; statement files: Admin and the branch (downloaded, never shown
+ * to. Payment proofs, chargeback notices and payout-return proofs: Admin
+ * and the branch only; statement files: Admin and the branch (downloaded, never shown
  * inline). Never cached.
  */
 class FileController extends Controller
@@ -35,6 +36,10 @@ class FileController extends Controller
                 && $viewer->can('view', $owner),
             // The bank's chargeback notice: Admin and the branch that raised it.
             $owner instanceof Chargeback => $file->purpose === 'chargeback_proof'
+                && $viewer->type !== UserType::Partner
+                && $viewer->can('view', $owner->transaction),
+            // The bank's proof that a payout came back: Admin and the branch.
+            $owner instanceof PayoutReturn => $file->purpose === 'return_proof'
                 && $viewer->type !== UserType::Partner
                 && $viewer->can('view', $owner->transaction),
             // Imported bank statements: the branch's statement users and Admin.
@@ -57,7 +62,7 @@ class FileController extends Controller
 
         return response($contents, 200, [
             'Content-Type' => $file->mime,
-            'Content-Disposition' => (in_array($file->purpose, ['payment_proof', 'chargeback_proof'], true) && $request->query('download') === null ? 'inline' : 'attachment').'; filename="'.$name.'"',
+            'Content-Disposition' => (in_array($file->purpose, ['payment_proof', 'chargeback_proof', 'return_proof'], true) && $request->query('download') === null ? 'inline' : 'attachment').'; filename="'.$name.'"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
             // A PDF needs the browser's own viewer (object-src); nothing else may load.

@@ -15,12 +15,15 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Refunds (Admin): pay-in refunds and returned payouts, the list, and
- * recording a new one against a successful transaction found by its id
- * (decided 2026-09-28, G-21 / G-22). Chargebacks: ChargebackController.
+ * Refunds (Admin): pay-in refunds, the list (with returned payouts booked
+ * before 2026-10-22), and recording a new refund against a successful
+ * deposit found by its id (decided 2026-09-28, G-22). Chargebacks:
+ * ChargebackController. Payout returns: raised on the payout
+ * (PayoutReturnController).
  */
 class ReversalController extends Controller
 {
+    /** Listed; only refunds are recorded now. */
     private const KINDS = ['refund', 'return'];
 
     public function index(Request $request): Response
@@ -98,7 +101,7 @@ class ReversalController extends Controller
 
         $data = $request->validate([
             'transaction_id' => ['required', 'uuid'],
-            'kind' => ['required', Rule::in(self::KINDS)],
+            'kind' => ['required', Rule::in(['refund'])],
             'reason' => ['required', 'string', 'max:500'],
             'external_reference' => ['nullable', 'string', 'max:100'],
         ]);

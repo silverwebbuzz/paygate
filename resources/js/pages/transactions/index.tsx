@@ -7,6 +7,8 @@ import {
     RaiseChargebackDialog,
 } from '@/components/pg/chargeback';
 import { DataTable, Panel } from '@/components/pg/data-table';
+import { ReturnCell, ReturnDialog } from '@/components/pg/payout-return';
+import type { ReturnAction } from '@/components/pg/payout-return';
 import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { ViewTabs } from '@/components/pg/filter-bar';
@@ -36,7 +38,8 @@ type Group =
     | 'success'
     | 'rejected'
     | 'closed'
-    | 'chargeback';
+    | 'chargeback'
+    | 'return';
 
 type Props = {
     portal: UserType;
@@ -118,6 +121,7 @@ const TABS: Record<'payin' | 'payout', [Group | 'all', string][]> = {
         ['success', 'Paid'],
         ['rejected', 'Failed'],
         ['closed', 'Cancelled'],
+        ['return', 'Returns'],
     ],
 };
 
@@ -137,6 +141,7 @@ const KPIS: Record<
         ['pending', 'Waiting for branch', '◷', 'wn'],
         ['hold', 'Being paid', '‖', 'hd'],
         ['rejected', 'Failed', '✕', 'er'],
+        ['return', 'Returned', '↺', 'rv'],
     ],
 };
 
@@ -154,6 +159,7 @@ export default function Transactions({
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(selected);
     const [raising, setRaising] = useState<TxnRow | null>(null);
+    const [returning, setReturning] = useState<ReturnAction | null>(null);
     const open = transactions.data.find((txn) => txn.id === openId) ?? null;
     const [title, description] = TITLES[direction][portal];
 
@@ -188,12 +194,14 @@ export default function Transactions({
         router.reload({ only: ['detail', 'selected'], data: { txn: id } });
     };
 
-    // A deposit with a chargeback is also counted under Success.
+    // A deposit with a chargeback (a payout with a return) is also counted under Success.
     const total = (
         Object.entries(summary) as [Group, { count: number }][]
     ).reduce(
         (sum, [group, figures]) =>
-            group === 'chargeback' ? sum : sum + figures.count,
+            group === 'chargeback' || group === 'return'
+                ? sum
+                : sum + figures.count,
         0,
     );
 
@@ -341,7 +349,15 @@ export default function Transactions({
                       ),
                   },
               ]
-            : []),
+            : [
+                  {
+                      key: 'return',
+                      header: 'Return',
+                      cell: (t: TxnRow) => (
+                          <ReturnCell txn={t} onAction={setReturning} />
+                      ),
+                  },
+              ]),
         {
             key: 'created',
             header: 'Created ↓',
@@ -488,6 +504,14 @@ export default function Transactions({
                     txn={raising}
                     portal={portal}
                     onClose={() => setRaising(null)}
+                />
+            )}
+
+            {returning && (
+                <ReturnDialog
+                    action={returning}
+                    portal={portal}
+                    onClose={() => setReturning(null)}
                 />
             )}
 

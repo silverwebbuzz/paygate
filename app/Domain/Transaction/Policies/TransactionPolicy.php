@@ -41,6 +41,47 @@ class TransactionPolicy
             && $user->type !== UserType::Partner;
     }
 
+    /**
+     * Say a paid payout wasn't received (payout returns): the partner (those
+     * who may request payouts), or Admin for it. Branches record or confirm
+     * instead.
+     */
+    public function raiseReturn(User $user, Transaction $transaction): bool
+    {
+        return $transaction->direction === 'payout'
+            && match ($user->type) {
+                UserType::Partner => $user->hasPermission(Permission::PayoutsCreate),
+                UserType::Admin => $user->hasPermission(Permission::ReversalsCreate),
+                UserType::Branch => false,
+            }
+        && $this->view($user, $transaction);
+    }
+
+    /**
+     * Record a return straight away: the branch that paid it, when the money
+     * shows up back in its bank.
+     */
+    public function recordReturn(User $user, Transaction $transaction): bool
+    {
+        return $transaction->direction === 'payout'
+            && $user->type === UserType::Branch
+            && $user->hasPermission(Permission::ReversalsCreate)
+            && $this->view($user, $transaction);
+    }
+
+    /**
+     * Confirm or reject a raised return: the branch that paid it, or Admin.
+     */
+    public function decideReturn(User $user, Transaction $transaction): bool
+    {
+        return $transaction->direction === 'payout'
+            && match ($user->type) {
+                UserType::Branch => $user->hasPermission(Permission::ReversalsCreate) && $this->view($user, $transaction),
+                UserType::Admin => $user->hasPermission(Permission::ReversalsApprove),
+                UserType::Partner => false,
+            };
+    }
+
     private function inScope(User $user, Transaction $transaction): bool
     {
         return match ($user->type) {

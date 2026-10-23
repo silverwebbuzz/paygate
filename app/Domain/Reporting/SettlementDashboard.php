@@ -13,7 +13,8 @@ use App\Domain\Transaction\Models\Transaction;
  * from the ledger by posting time, the same way settlements are calculated:
  *
  *   deposits − commission, payouts + commission, chargebacks (on the day
- *   Admin approved them), adjustments and refunds = Current Balance;
+ *   Admin approved them), payout returns (on the day the branch confirmed
+ *   them), adjustments and refunds = Current Balance;
  *   + settlement payments recorded = Net Balance.
  *
  * Signs follow the ledger: positive = PayGate owes the party, negative =
@@ -43,6 +44,7 @@ final class SettlementDashboard
             ->whereIn('id', $ids)
             ->get(['id', 'direction', 'partner_id', 'branch_id', 'amount', 'partner_commission', 'branch_commission', 'platform_margin']);
         $chargebacks = $this->ledger->journalCounts($accountIds, 'chargeback', $period->from, $period->to);
+        $returns = $this->ledger->journalCounts($accountIds, 'payout_return', $period->from, $period->to);
 
         $pairs = [];
 
@@ -52,11 +54,11 @@ final class SettlementDashboard
             $pairs[] = [
                 'partner_id' => $account['partner_id'],
                 'branch_id' => $account['branch_id'],
-                ...$this->figures($side, [$figures], $booked, $chargebacks[$account['id']] ?? 0),
+                ...$this->figures($side, [$figures], $booked, $chargebacks[$account['id']] ?? 0, $returns[$account['id']] ?? 0),
             ];
         }
 
-        $total = $this->figures($side, array_values($statement), $transactions, array_sum($chargebacks));
+        $total = $this->figures($side, array_values($statement), $transactions, array_sum($chargebacks), array_sum($returns));
 
         if (! $withPairs) {
             return ['total' => $total, 'pairs' => []];
@@ -102,7 +104,7 @@ final class SettlementDashboard
      * @param  iterable<Transaction>  $transactions
      * @return array<string, mixed>
      */
-    private function figures(string $side, array $statements, iterable $transactions, int $chargebackCount): array
+    private function figures(string $side, array $statements, iterable $transactions, int $chargebackCount, int $returnCount): array
     {
         $byType = [];
 
@@ -137,6 +139,7 @@ final class SettlementDashboard
             'commission' => $flow['payin']['commission'] + $flow['payout']['commission'],
             'margin' => $margin,
             'chargeback' => ['count' => $chargebackCount, 'amount' => $byType['chargeback'] ?? 0],
+            'return' => ['count' => $returnCount, 'amount' => $byType['payout_return'] ?? 0],
             'adjustments' => ($byType['adjustment'] ?? 0) + ($byType['reversal'] ?? 0),
             'settlement' => $settlement,
             // Before / after the settlement payments recorded in the period.

@@ -62,7 +62,34 @@ export type TxnRow = {
     } | null;
     /** Latest chargeback; partners see approved ones only. */
     chargeback?: TxnChargeback | null;
-    can: { decide: boolean; process?: boolean; chargeback?: boolean };
+    /** Latest payout return (payouts only). */
+    payout_return?: TxnPayoutReturn | null;
+    can: {
+        decide: boolean;
+        process?: boolean;
+        chargeback?: boolean;
+        return_raise?: boolean;
+        return_record?: boolean;
+        return_decide?: boolean;
+    };
+};
+
+/** A paid payout that came back; partners never get the proof. */
+export type TxnPayoutReturn = {
+    id: string;
+    reference: string;
+    status: 'requested' | 'approved' | 'rejected';
+    amount: number | null;
+    utr: string | null;
+    /** When it came back per the bank (booked on decided_at). */
+    returned_at: string | null;
+    reason: string | null;
+    proof_file_id: string | null;
+    requested_at: string | null;
+    requested_by: string | null;
+    decided_at: string | null;
+    decided_by: string | null;
+    decision_note: string | null;
 };
 
 export type TxnChargeback = {
@@ -190,6 +217,9 @@ const EVENT_LABELS: Record<string, string> = {
     chargeback_rejected: 'Chargeback rejected',
     refunded: 'Refunded to the customer',
     returned: 'Payout returned',
+    return_requested: 'Not received: raised (waiting for the branch)',
+    return_approved: 'Return confirmed: partner credited',
+    return_rejected: 'Return rejected',
     waiting_alerted: 'Branch alerted: waiting too long',
     declined: 'Declined',
     expired: 'Expired',

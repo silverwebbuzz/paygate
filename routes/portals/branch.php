@@ -14,6 +14,7 @@ use App\Http\Shared\Settlements\SettlementDashboardController;
 use App\Http\Shared\Transactions\ChargebackRequestController;
 use App\Http\Shared\Transactions\DepositQueueController;
 use App\Http\Shared\Transactions\PayoutQueueController;
+use App\Http\Shared\Transactions\PayoutReturnController;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Users\UserController;
 use Illuminate\Support\Facades\Route;
@@ -40,6 +41,10 @@ Route::get('payins', [TransactionController::class, 'index'])->name('payins.inde
 // Chargeback: the customer's bank took back an approved deposit (Admin approves).
 Route::post('payins/{transaction}/chargeback', [ChargebackRequestController::class, 'store'])->name('payins.chargeback');
 Route::get('payout-history', [TransactionController::class, 'index'])->defaults('direction', 'payout')->name('payouts.history');
+// Payout returns: a paid payout came back to the branch's bank (record, or confirm / reject what the partner raised).
+Route::post('payout-history/{transaction}/return', [PayoutReturnController::class, 'record'])->name('payouts.return');
+Route::post('payout-returns/{payoutReturn}/confirm', [PayoutReturnController::class, 'confirm'])->name('payout-returns.confirm');
+Route::post('payout-returns/{payoutReturn}/reject', [PayoutReturnController::class, 'reject'])->name('payout-returns.reject');
 
 // Manual Payout: withdrawals waiting to be paid (pay with UTR / fail).
 Route::controller(PayoutQueueController::class)->prefix('payouts')->name('payouts.')->group(function () {

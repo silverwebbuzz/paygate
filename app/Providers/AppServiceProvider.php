@@ -22,6 +22,7 @@ use App\Domain\Reporting\Models\ReportExport;
 use App\Domain\Settlement\Models\Adjustment;
 use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Transaction\Models\Chargeback;
+use App\Domain\Transaction\Models\PayoutReturn;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Policies\TransactionPolicy;
 use App\Domain\Webhook\Models\WebhookEvent;
@@ -86,6 +87,7 @@ class AppServiceProvider extends ServiceProvider
             'payment_account' => PaymentAccount::class,
             'transaction' => Transaction::class,
             'chargeback' => Chargeback::class,
+            'payout_return' => PayoutReturn::class,
             'file' => StoredFile::class,
             'webhook_event' => WebhookEvent::class,
             'statement_entry' => StatementEntry::class,
