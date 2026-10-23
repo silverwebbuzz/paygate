@@ -205,7 +205,7 @@ class TransactionController extends Controller
     {
         $row = $query->toBase()->first([
             DB::raw('COUNT(*) AS total'),
-            DB::raw("COALESCE(SUM((SELECT cb.amount FROM chargebacks cb WHERE cb.transaction_id = transactions.id AND cb.status = 'approved')), 0) AS amount"),
+            DB::raw("COALESCE(SUM((SELECT SUM(cb.amount) FROM chargebacks cb WHERE cb.transaction_id = transactions.id AND cb.status = 'approved')), 0) AS amount"),
             DB::raw("COUNT(*) FILTER (WHERE chargeback_status = 'requested') AS pending"),
         ]);
 
@@ -214,6 +214,7 @@ class TransactionController extends Controller
 
     /**
      * Count of payouts with a return; amount = what came back (confirmed).
+     * A payout paid in parts may have one confirmed return per transfer.
      *
      * @param  Builder<Transaction>  $query
      * @return array{count: int, amount: int, pending: int}
@@ -222,7 +223,7 @@ class TransactionController extends Controller
     {
         $row = $query->toBase()->first([
             DB::raw('COUNT(*) AS total'),
-            DB::raw("COALESCE(SUM((SELECT pr.amount FROM payout_returns pr WHERE pr.transaction_id = transactions.id AND pr.status = 'approved')), 0) AS amount"),
+            DB::raw("COALESCE(SUM((SELECT SUM(pr.amount) FROM payout_returns pr WHERE pr.transaction_id = transactions.id AND pr.status = 'approved')), 0) AS amount"),
             DB::raw("COUNT(*) FILTER (WHERE return_status = 'requested') AS pending"),
         ]);
 

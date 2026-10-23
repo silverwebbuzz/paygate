@@ -248,6 +248,12 @@ class PayoutInPartsTest extends TestCase
         $this->assertSame($before + 100000, $partner());
         $this->api('GET', "/v1/payouts/{$payout->reference}")->assertJsonPath('data.returned_total', 100000);
 
+        // Two confirmed returns on one payout: the lists still open and add both up.
+        foreach ([[$this->partnerUser, 'partner.payouts.index'], [$this->partnerUser, 'partner.payout-returns.index'], [$this->operator, 'branch.payouts.history'], [$this->operator, 'branch.payout-returns.index']] as [$viewer, $page]) {
+            $this->actingAs($viewer)->get(route($page, ['status' => 'return']))->assertOk()
+                ->assertInertia(fn (Assert $inertia) => $inertia->where('summary.return.amount', 100000)->where('summary.return.count', 1));
+        }
+
         // Both transfers came back: nothing left to return.
         $this->actingAs($this->partnerUser)->post(route('partner.payouts.return', $payout), ['reason' => 'x'])->assertSessionHasErrors('transaction');
     }
