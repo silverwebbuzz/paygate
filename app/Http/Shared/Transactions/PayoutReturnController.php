@@ -21,7 +21,7 @@ use Inertia\Inertia;
  *   says the money never arrived;
  * - record: Branch › Pay-out history, when the money is back in its bank;
  * - confirm / reject: the branch (or Admin) with the amount that came back,
- *   the credit's UTR and the bank's proof (optional for the branch, required from Admin).
+ *   the date and the bank's proof (optional for the branch, required from Admin).
  */
 class PayoutReturnController extends Controller
 {
@@ -43,7 +43,7 @@ class PayoutReturnController extends Controller
         Gate::authorize('recordReturn', $transaction);
 
         $data = $this->confirmation($request);
-        $return = $returns->record($this->user($request), $transaction, $data['payout_payment_id'] ?? null, Money::toPaise((string) $data['amount']), (string) $data['utr'], $this->returnedAt($data), $this->proof($request), $data['note'] ?? null);
+        $return = $returns->record($this->user($request), $transaction, $data['payout_payment_id'] ?? null, Money::toPaise((string) $data['amount']), $this->returnedAt($data), $this->proof($request), $data['note'] ?? null);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference recorded: booked today, the partner is notified.', ['reference' => $return->reference])]);
 
@@ -55,7 +55,7 @@ class PayoutReturnController extends Controller
         Gate::authorize('decideReturn', $payoutReturn->transaction);
 
         $data = $this->confirmation($request);
-        $returns->confirm($this->user($request), $payoutReturn, $data['payout_payment_id'] ?? null, Money::toPaise((string) $data['amount']), (string) $data['utr'], $this->returnedAt($data), $this->proof($request), $data['note'] ?? null);
+        $returns->confirm($this->user($request), $payoutReturn, $data['payout_payment_id'] ?? null, Money::toPaise((string) $data['amount']), $this->returnedAt($data), $this->proof($request), $data['note'] ?? null);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference confirmed: booked today, the partner is notified.', ['reference' => $payoutReturn->reference])]);
 
@@ -75,16 +75,15 @@ class PayoutReturnController extends Controller
     }
 
     /**
-     * @return array{payout_payment_id?: string|null, amount: string, utr: string, returned_at: string, note?: string|null}
+     * @return array{payout_payment_id?: string|null, amount: string, returned_at: string, note?: string|null}
      */
     private function confirmation(Request $request): array
     {
-        /** @var array{payout_payment_id?: string|null, amount: string, utr: string, returned_at: string, note?: string|null} */
+        /** @var array{payout_payment_id?: string|null, amount: string, returned_at: string, note?: string|null} */
         return $request->validate([
             // Which transfer came back (optional when the payout was one transfer).
             'payout_payment_id' => ['nullable', 'uuid'],
             'amount' => ['required', 'string', Money::RUPEES_RULE],
-            'utr' => ['required', 'string', 'max:50'],
             'returned_at' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:500'],
             'proof' => ['nullable', 'file', 'mimes:'.implode(',', (array) config('paygate.payin.proof_mimes')), 'max:'.config('paygate.payin.proof_max_kb')],

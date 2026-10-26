@@ -24,7 +24,7 @@ type Row = {
     reference: string;
     status: Tab;
     amount: number;
-    utr: string;
+    utr: string | null;
     utr_also_on: string[];
     reason: string | null;
     proof: { id: string; name: string | null; mime: string } | null;
@@ -183,7 +183,7 @@ export default function Chargebacks({ tab, search, items, totals }: Props) {
                 <div className="text-xs">
                     <div>
                         <span className="text-tx3">Debit </span>
-                        <span className="font-mono">{row.utr}</span>
+                        <span className="font-mono">{row.utr ?? '—'}</span>
                     </div>
                     <div>
                         <span className="text-tx3">Deposit </span>

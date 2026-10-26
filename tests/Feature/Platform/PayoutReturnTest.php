@@ -140,7 +140,7 @@ class PayoutReturnTest extends TestCase
         $this->assertSame([665000, -695000, 30000], $this->positions());
         $this->assertSame(['success', 'approved'], [$payout->refresh()->status, $payout->return_status]);
         $return->refresh();
-        $this->assertSame(['approved', 250000, 'IMPS77310455', $this->operator->id], [$return->status, $return->amount, $return->utr, $return->decided_by]);
+        $this->assertSame(['approved', 250000, null, $this->operator->id], [$return->status, $return->amount, $return->utr, $return->decided_by]);
         $this->assertSame('payout_return', DB::table('ledger_journals')->where('id', $return->journal_id)->value('type'));
         $this->assertSame($this->ledger->journalId($payout->id, 'payout_success'), DB::table('ledger_journals')->where('id', $return->journal_id)->value('reverses_journal_id'));
         $this->assertSame(0, (int) DB::table('ledger_entries')->sum('amount'));
@@ -149,14 +149,14 @@ class PayoutReturnTest extends TestCase
         $hook = WebhookEvent::where(['transaction_id' => $payout->id, 'event_type' => 'payout.returned'])->sole();
         $this->assertSame('success', $hook->payload['data']['status']);
         $this->assertSame(250000, $hook->payload['data']['returned']['amount']);
-        $this->assertSame('IMPS77310455', PayoutData::forPartner($payout)['returned']['utr']);
+        $this->assertNull(PayoutData::forPartner($payout)['returned']['utr']);
 
         // Confirmed: no second return on the same payout.
         $this->raise($payout)->assertSessionHasErrors('transaction');
         $this->actingAs($this->operator)->post(route('branch.payout-returns.confirm', $return), $this->confirmation())->assertSessionHasErrors('return');
     }
 
-    public function test_the_amount_is_at_most_the_payout_and_the_utr_is_required()
+    public function test_the_amount_is_at_most_the_payout_and_no_utr_is_needed()
     {
         $payout = $this->paidPayout();
         $this->raise($payout)->assertSessionHasNoErrors();
@@ -165,16 +165,15 @@ class PayoutReturnTest extends TestCase
 
         $confirm(['amount' => '5000.01'])->assertSessionHasErrors('amount');
         $confirm(['amount' => '0'])->assertSessionHasErrors('amount');
-        $confirm(['utr' => 'AB-1'])->assertSessionHasErrors('utr');
         $confirm(['returned_at' => null])->assertSessionHasErrors('returned_at');
         // Not in the future, not before the payout was paid.
         $confirm(['returned_at' => now()->setTimezone('Asia/Kolkata')->addHour()->format('Y-m-d\TH:i')])->assertSessionHasErrors('returned_at');
         $confirm(['returned_at' => now()->setTimezone('Asia/Kolkata')->subDays(2)->format('Y-m-d\TH:i')])->assertSessionHasErrors('returned_at');
         $this->assertSame('requested', $return->refresh()->status);
 
-        // The full payout may come back; the UTR is normalised.
-        $confirm(['amount' => '5000', 'utr' => ' imps 7731 0455 '])->assertSessionHasNoErrors();
-        $this->assertSame([500000, 'IMPS77310455'], [$return->refresh()->amount, $return->utr]);
+        // The full payout may come back; no UTR is asked for (one sent is ignored).
+        $confirm(['amount' => '5000', 'utr' => 'AB-1'])->assertSessionHasNoErrors();
+        $this->assertSame([500000, null], [$return->refresh()->amount, $return->utr]);
         // Full return: still success, the fee stays earned.
         $this->assertSame([915000, -945000, 30000], $this->positions());
         $this->assertSame('success', $payout->refresh()->status);

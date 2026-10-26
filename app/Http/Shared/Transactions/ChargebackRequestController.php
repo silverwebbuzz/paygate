@@ -15,8 +15,7 @@ use Inertia\Inertia;
 
 /**
  * Raise a chargeback on a successful deposit (Branch › Pay-in history, or
- * Admin › Transactions): the bank's notice, the transaction's UTR and the
- * amount. Admin approves it on the Chargebacks screen.
+ * Admin › Transactions): the bank's notice and the amount. Admin approves it on the Chargebacks screen.
  */
 class ChargebackRequestController extends Controller
 {
@@ -27,7 +26,6 @@ class ChargebackRequestController extends Controller
 
         $data = $request->validate([
             'amount' => ['required', 'string', Money::RUPEES_RULE],
-            'utr' => ['required', 'string', 'max:50'],
             'reason' => ['nullable', 'string', 'max:500'],
             'proof' => ['required', 'file', 'mimes:'.implode(',', (array) config('paygate.payin.proof_mimes')), 'max:'.config('paygate.payin.proof_max_kb')],
         ]);
@@ -36,7 +34,7 @@ class ChargebackRequestController extends Controller
         $actor = $request->user();
         /** @var UploadedFile $proof */
         $proof = $request->file('proof');
-        $chargeback = $chargebacks->request($actor, $transaction, Money::toPaise((string) $data['amount']), (string) $data['utr'], $proof, $data['reason'] ?? null);
+        $chargeback = $chargebacks->request($actor, $transaction, Money::toPaise((string) $data['amount']), $proof, $data['reason'] ?? null);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Chargeback :reference raised on :txn; Admin will review it.', ['reference' => $chargeback->reference, 'txn' => $transaction->reference])]);
 

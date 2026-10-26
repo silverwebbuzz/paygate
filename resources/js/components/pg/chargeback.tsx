@@ -130,7 +130,7 @@ export function ChargebackCell({
 
 /**
  * Raise a chargeback (branch, or Admin for it): the amount (starts as the
- * deposit's), the transaction's UTR and the bank's notice. Admin approves.
+ * deposit's) and the bank's notice. Admin approves.
  */
 export function RaiseChargebackDialog({
     txn,
@@ -143,12 +143,10 @@ export function RaiseChargebackDialog({
 }) {
     const form = useForm<{
         amount: string;
-        utr: string;
         reason: string;
         proof: File | null;
     }>({
         amount: (txn.amount / 100).toFixed(2).replace(/\.00$/, ''),
-        utr: '',
         reason: '',
         proof: null,
     });
@@ -202,21 +200,6 @@ export function RaiseChargebackDialog({
                     value={form.data.amount}
                     onChange={(event) =>
                         form.setData('amount', event.target.value)
-                    }
-                />
-            </Field>
-            <Field
-                label="Debit UTR"
-                required
-                error={errors.utr}
-                hint="The UTR of the money taken back from your account, as shown on the bank statement or notice (not the deposit’s UTR)."
-            >
-                <TextInput
-                    className="font-mono"
-                    required
-                    value={form.data.utr}
-                    onChange={(event) =>
-                        form.setData('utr', event.target.value)
                     }
                 />
             </Field>

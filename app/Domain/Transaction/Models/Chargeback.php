@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A customer's bank took back an approved deposit (decided 2026-10-21).
- * The branch raises it with the bank's notice and the transaction's UTR;
+ * The branch raises it with the bank's notice (no UTR since 2026-10-26);
  * Admin approves (booked that day: partner −amount, branch +amount) or
  * rejects. The partner always bears it. The deposit's status stays
  * `success`; `transactions.chargeback_status` mirrors this row's status.
@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $partner_id
  * @property string $branch_id
  * @property int $amount
- * @property string $utr
+ * @property string|null $utr no longer asked for (2026-10-26); kept on older chargebacks
  * @property string|null $reason
  * @property string|null $proof_file_id
  * @property string $status requested / approved / rejected

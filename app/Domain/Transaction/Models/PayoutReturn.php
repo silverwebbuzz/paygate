@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $partner_id
  * @property string $branch_id
  * @property int|null $amount set on confirmation
- * @property string|null $utr set on confirmation
+ * @property string|null $utr no longer asked for (2026-10-26); kept on older returns
  * @property CarbonInterface|null $returned_at when it came back per the bank (set on confirmation)
  * @property string|null $reason
  * @property string|null $proof_file_id

@@ -275,7 +275,7 @@ function RaiseDialog({
 
 /**
  * The branch (or Admin) confirms a raised return, or the branch records one
- * it found: the amount that came back, the credit's UTR and, if they have it, the proof.
+ * it found: the amount that came back, the date and, if they have it, the proof.
  */
 function ConfirmDialog({
     txn,
@@ -296,14 +296,12 @@ function ConfirmDialog({
     const form = useForm<{
         payout_payment_id: string;
         amount: string;
-        utr: string;
         returned_at: string;
         note: string;
         proof: File | null;
     }>({
         payout_payment_id: only?.id ?? '',
         amount: only ? rupees(only.amount) : '',
-        utr: '',
         returned_at: '',
         note: '',
         proof: null,
@@ -389,21 +387,6 @@ function ConfirmDialog({
                     value={form.data.amount}
                     onChange={(event) =>
                         form.setData('amount', event.target.value)
-                    }
-                />
-            </Field>
-            <Field
-                label="Credit UTR"
-                required
-                error={errors.utr}
-                hint="The UTR of the money that came back to your account, as shown on the bank statement (not the payout’s UTR)."
-            >
-                <TextInput
-                    className="font-mono"
-                    required
-                    value={form.data.utr}
-                    onChange={(event) =>
-                        form.setData('utr', event.target.value)
                     }
                 />
             </Field>

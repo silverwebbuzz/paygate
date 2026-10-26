@@ -438,7 +438,7 @@ class AlertDispatcher
             ? __('Payout :reference returned: ₹:amount', ['reference' => $txn->reference, 'amount' => $this->money((int) $return->amount)])
             : __('Return on :reference rejected', ['reference' => $txn->reference]);
         $body = $approved
-            ? __('Credited back to your balance today. UTR :utr', ['utr' => $return->utr])
+            ? ($return->utr === null ? __('Credited back to your balance today.') : __('Credited back to your balance today. UTR :utr', ['utr' => $return->utr]))
             : __('The branch says the money didn’t come back · :note', ['note' => $return->decision_note ?? __('No note.')]);
 
         $this->alerts->send(Alert::Reversal, $this->alerts->recipients(Permission::PayoutsView, UserType::Partner, $txn->partner_id), $title, $body, Alerts::link('partner.payout-returns.index', ['txn' => $txn->id]));

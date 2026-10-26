@@ -20,9 +20,9 @@ use Illuminate\Validation\ValidationException;
  * approved deposit, a few days after it was settled.
  *
  * - request: the branch (or Admin) raises it on a successful deposit with
- *   the bank's notice (image / PDF) and the UTR of the debit (a new bank
- *   reference for the money taken back, not the deposit's UTR). The amount
- *   starts as the deposit's and may be lowered. Nothing is booked.
+ *   the bank's notice (image / PDF). No UTR is asked for (decided
+ *   2026-10-26): the notice is the evidence. The amount starts as the
+ *   deposit's and may be lowered. Nothing is booked.
  * - approve: Admin (reversals.approve, never the person who raised it)
  *   books it that day: partner −amount, branch +amount (the partner always
  *   bears it; fees already earned stay earned). It shows in that day's
@@ -36,9 +36,9 @@ class ManageChargeback
 {
     public function __construct(private Ledger $ledger, private QueueWebhook $webhooks, private AlertDispatcher $alerts) {}
 
-    public function request(User $actor, Transaction $txn, int $amount, string $utr, UploadedFile $proof, ?string $reason = null): Chargeback
+    public function request(User $actor, Transaction $txn, int $amount, UploadedFile $proof, ?string $reason = null): Chargeback
     {
-        $chargeback = DB::transaction(function () use ($actor, $txn, $amount, $utr, $proof, $reason) {
+        $chargeback = DB::transaction(function () use ($actor, $txn, $amount, $proof, $reason) {
             /** @var Transaction $locked */
             $locked = Transaction::query()->whereKey($txn->id)->lockForUpdate()->firstOrFail();
 
@@ -52,12 +52,6 @@ class ManageChargeback
                 throw ValidationException::withMessages(['transaction' => $problem]);
             }
 
-            $normalised = Transaction::normaliseUtr($utr);
-
-            if (preg_match(SubmitPayinProof::UTR_PATTERN, $normalised) !== 1) {
-                throw ValidationException::withMessages(['utr' => __('That doesn’t look like a UTR. Enter the reference of the debit shown on the bank statement or notice (6–22 letters and digits).')]);
-            }
-
             if ($amount <= 0 || $amount > $locked->amount) {
                 throw ValidationException::withMessages(['amount' => __('Enter an amount up to the deposit’s amount.')]);
             }
@@ -68,7 +62,6 @@ class ManageChargeback
                 'partner_id' => $locked->partner_id,
                 'branch_id' => $locked->branch_id,
                 'amount' => $amount,
-                'utr' => $normalised,
                 'reason' => $reason === null || trim($reason) === '' ? null : trim($reason),
                 'status' => 'requested',
                 'requested_by' => $actor->id,
@@ -82,9 +75,8 @@ class ManageChargeback
             TransactionEvent::record($locked, 'chargeback_requested', $locked->status, $locked->status, 'user', $actor->id, $chargeback->reason, [
                 'chargeback' => $chargeback->reference,
                 'amount' => $amount,
-                'utr' => $normalised,
             ]);
-            AuditLog::record('chargeback.requested', $chargeback, [], $chargeback->only(['reference', 'amount', 'utr', 'reason']), $actor);
+            AuditLog::record('chargeback.requested', $chargeback, [], $chargeback->only(['reference', 'amount', 'reason']), $actor);
 
             return $chargeback;
         });

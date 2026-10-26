@@ -28,8 +28,8 @@ use Illuminate\Validation\ValidationException;
  *   Admin for it, raises it on a successful payout. Nothing is booked.
  * - confirm: the branch (or Admin, never the admin who raised it) picks
  *   the transfer that bounced (a payout may be paid in parts) and enters
- *   how much came back (full or part, up to that transfer), the UTR of that
- *   credit, the date it came back and the bank’s proof (optional for the branch, required from Admin). Booked that day
+ *   how much came back (full or part, up to that transfer), the date it
+ *   came back (no UTR asked for since 2026-10-26) and the bank’s proof (optional for the branch, required from Admin). Booked that day
  *   (the confirmation day, whatever date it came back): branch −amount, partner
  *   +amount (fees already earned stay earned). It shows in that day's
  *   settlements, not the payout's. The partner gets `payout.returned`.
@@ -60,12 +60,12 @@ class ManagePayoutReturn
     /**
      * The branch records a return it found itself: raised and confirmed.
      */
-    public function record(User $actor, Transaction $txn, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note = null): PayoutReturn
+    public function record(User $actor, Transaction $txn, ?string $paymentId, int $amount, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note = null): PayoutReturn
     {
-        $return = DB::transaction(function () use ($actor, $txn, $paymentId, $amount, $utr, $returnedAt, $proof, $note) {
+        $return = DB::transaction(function () use ($actor, $txn, $paymentId, $amount, $returnedAt, $proof, $note) {
             $return = $this->open($actor, $txn, $note);
 
-            return $this->book($actor, $return, $paymentId, $amount, $utr, $returnedAt, $proof, $note);
+            return $this->book($actor, $return, $paymentId, $amount, $returnedAt, $proof, $note);
         });
 
         $this->alerts->payoutReturnDecided($return, $txn);
@@ -73,9 +73,9 @@ class ManagePayoutReturn
         return $return;
     }
 
-    public function confirm(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note = null): PayoutReturn
+    public function confirm(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note = null): PayoutReturn
     {
-        $confirmed = DB::transaction(fn () => $this->book($actor, $return, $paymentId, $amount, $utr, $returnedAt, $proof, $note));
+        $confirmed = DB::transaction(fn () => $this->book($actor, $return, $paymentId, $amount, $returnedAt, $proof, $note));
 
         $return->setRawAttributes($confirmed->getAttributes(), true);
         $this->alerts->payoutReturnDecided($confirmed, $confirmed->transaction);
@@ -138,15 +138,9 @@ class ManagePayoutReturn
         return $return;
     }
 
-    private function book(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, string $utr, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note): PayoutReturn
+    private function book(User $actor, PayoutReturn $return, ?string $paymentId, int $amount, CarbonInterface $returnedAt, ?UploadedFile $proof, ?string $note): PayoutReturn
     {
         [$locked, $txn] = $this->lockRequested($actor, $return);
-
-        $normalised = Transaction::normaliseUtr($utr);
-
-        if (preg_match(SubmitPayinProof::UTR_PATTERN, $normalised) !== 1) {
-            throw ValidationException::withMessages(['utr' => __('That doesn’t look like a UTR. Enter the reference of the money that came back, as shown on your bank statement (6–22 letters and digits).')]);
-        }
 
         $transfers = self::returnableTransfers($txn);
         $part = $paymentId === null
@@ -196,7 +190,6 @@ class ManagePayoutReturn
         $locked->forceFill([
             'status' => 'approved',
             'amount' => $amount,
-            'utr' => $normalised,
             'returned_at' => $returnedAt->copy()->utc(),
             'payout_payment_id' => $part->id,
             'proof_file_id' => $file?->id,
@@ -210,11 +203,10 @@ class ManagePayoutReturn
         TransactionEvent::record($txn, 'return_approved', $txn->status, $txn->status, 'user', $actor->id, $locked->decision_note, [
             'return' => $locked->reference,
             'amount' => $amount,
-            'utr' => $normalised,
             'returned_at' => $returnedAt->toIso8601String(),
             'transfer_utr' => $part->utr_normalized,
         ]);
-        AuditLog::record('payout_return.approved', $locked, ['status' => 'requested'], ['status' => 'approved', ...$locked->only(['amount', 'utr', 'returned_at', 'decision_note'])], $actor);
+        AuditLog::record('payout_return.approved', $locked, ['status' => 'requested'], ['status' => 'approved', ...$locked->only(['amount', 'returned_at', 'decision_note'])], $actor);
 
         $this->webhooks->forPayout($txn->load('partner'), 'payout.returned');
 

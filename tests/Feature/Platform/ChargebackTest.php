@@ -122,20 +122,19 @@ class ChargebackTest extends TestCase
         $this->actingAs($this->admin)->post(route('admin.reversals.store'), ['transaction_id' => $payin->id, 'kind' => 'refund', 'reason' => 'x'])->assertSessionHasErrors('transaction');
     }
 
-    public function test_the_debit_utr_must_look_like_a_utr_and_the_amount_at_most_the_deposit()
+    public function test_no_utr_is_needed_and_the_amount_is_at_most_the_deposit()
     {
         $payin = $this->approved();
 
-        $this->raise($payin, ['utr' => 'AB-1'])->assertSessionHasErrors('utr');
         $this->raise($payin, ['amount' => '10000.01'])->assertSessionHasErrors('amount');
         $this->raise($payin, ['proof' => null])->assertSessionHasErrors('proof');
         $this->raise($payin, ['proof' => UploadedFile::fake()->create('notice.exe', 10)])->assertSessionHasErrors('proof');
         $this->assertSame(0, Chargeback::count());
 
-        // The branch may lower the amount; the UTR is normalised.
-        $this->raise($payin, ['amount' => '4000', 'utr' => ' 7319 0455 6120 '])->assertSessionHasNoErrors();
+        // The branch may lower the amount; no UTR is asked for (one sent is ignored).
+        $this->raise($payin, ['amount' => '4000', 'utr' => 'AB-1'])->assertSessionHasNoErrors();
         $this->assertSame(400000, Chargeback::sole()->amount);
-        $this->assertSame('731904556120', Chargeback::sole()->utr);
+        $this->assertNull(Chargeback::sole()->utr);
 
         // One open chargeback per deposit.
         $this->raise($payin)->assertSessionHasErrors('transaction');
@@ -231,7 +230,7 @@ class ChargebackTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->where('transactions.total', 1)
                 ->where('transactions.data.0.chargeback.status', 'requested')
-                ->where('transactions.data.0.chargeback.utr', '731904556120')
+                ->where('transactions.data.0.chargeback.utr', null)
                 ->where('transactions.data.0.can.chargeback', false)
                 ->where('summary.chargeback.pending', 1));
     }
