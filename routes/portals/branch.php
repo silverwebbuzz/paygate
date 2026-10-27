@@ -76,6 +76,7 @@ Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->g
     Route::get('/', 'index')->name('index');
     Route::post('{case}/link', 'link')->name('link');
     Route::post('{case}/close', 'close')->name('close');
+    Route::post('{case}/move-line', 'moveLine')->name('move-line');
 });
 Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
 

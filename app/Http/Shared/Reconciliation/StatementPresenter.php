@@ -86,7 +86,36 @@ class StatementPresenter
             ],
             // "Wrong branch": the waiting deposit Admin can move to this line's account.
             'move' => $this->movable($case, $viewer),
+            // A typed line under the wrong account: the branch's other accounts it can move to.
+            'move_line' => $this->lineAccounts($case, $viewer),
         ];
+    }
+
+    /**
+     * @return list<array{id: string, label: string, bank: ?string, last4: ?string, upi: ?string}>
+     */
+    private function lineAccounts(ReconciliationCase $case, User $viewer): array
+    {
+        $entry = $case->entry;
+
+        if (! $case->isOpen() || $entry === null || $entry->import_id !== null || $entry->transaction_id !== null || ! $viewer->can('reconciliation.resolve')) {
+            return [];
+        }
+
+        return PaymentAccount::query()
+            ->where('branch_id', $entry->branch_id)
+            ->whereKeyNot($entry->payment_account_id)
+            ->orderBy('label')
+            ->get()
+            ->map(fn (PaymentAccount $account) => [
+                'id' => $account->id,
+                'label' => $account->label,
+                'bank' => $account->is_bank_enabled ? $account->bank_name : null,
+                'last4' => $account->is_bank_enabled ? $account->account_number_last4 : null,
+                'upi' => $account->is_upi_enabled ? $account->maskedUpiId() : null,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

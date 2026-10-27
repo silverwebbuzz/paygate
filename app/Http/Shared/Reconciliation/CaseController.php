@@ -5,6 +5,7 @@ namespace App\Http\Shared\Reconciliation;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Actions\ResolveCase;
 use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Enums\Resolution;
@@ -149,6 +150,28 @@ class CaseController extends Controller
         $payin = $resolve->moveDeposit($actor, $case, $data['note']);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference moved to this line’s account; the branch can approve it now.', ['reference' => $payin->reference])]);
+
+        return back();
+    }
+
+    /**
+     * The line was typed under the wrong account of its branch: move it.
+     */
+    public function moveLine(Request $request, ReconciliationCase $case, ResolveCase $resolve): RedirectResponse
+    {
+        $actor = $this->authorizeResolve($request, $case);
+        $data = $request->validate([
+            'payment_account_id' => ['required', 'uuid'],
+            'note' => ['required', 'string', 'max:500'],
+        ]);
+
+        $account = PaymentAccount::query()->where('branch_id', $case->branch_id)->findOrFail((string) $data['payment_account_id']);
+        $entry = $resolve->moveLine($actor, $case, $account, $data['note']);
+        $settled = $entry->openCase()->doesntExist();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $settled
+            ? __('Line moved to :account and matched: :case is settled.', ['account' => $account->label, 'case' => $case->reference])
+            : __('Line moved to :account. It still needs a look: :reason', ['account' => $account->label, 'reason' => $entry->openCase()->first()?->type->label() ?? ''])]);
 
         return back();
     }

@@ -282,6 +282,76 @@ class StatementMatchingTest extends TestCase
         $this->assertSame('duplicate_utr', ReconciliationCase::sole()->type->value);
     }
 
+    /**
+     * The deposit went to the branch's second account, but the line is typed
+     * under the first one: a "wrong account" case.
+     */
+    private function lineTypedUnderTheWrongAccount(): array
+    {
+        $second = $this->activeAccount($this->branch);
+        $this->account->update(['status' => 'inactive']);
+        $payin = $this->submittedPayin(['amount' => 500000]);
+        $this->assertSame($second->id, $payin->payment_account_id);
+        $this->account->update(['status' => 'active']);
+
+        $this->addLine()->assertSessionHasNoErrors();
+        $case = ReconciliationCase::sole();
+        $this->assertSame('wrong_branch', $case->type->value);
+
+        return [$second, $payin, $case];
+    }
+
+    public function test_a_line_typed_under_the_wrong_account_moves_to_the_right_one_and_settles()
+    {
+        [$second, $payin, $case] = $this->lineTypedUnderTheWrongAccount();
+
+        $this->partial($this->owner, route('branch.cases.index', ['case' => $case->id]), 'reconciliation/cases', 'cases')
+            ->assertJsonPath('props.cases.data.0.move_line.0.id', $second->id);
+
+        // The operator role may not resolve cases; another branch's account is refused.
+        $this->actingAs($this->operator)->post(route('branch.cases.move-line', $case), ['payment_account_id' => $second->id, 'note' => 'x'])->assertForbidden();
+        $foreign = $this->activeAccount(Branch::factory()->create());
+        $this->actingAs($this->owner)->post(route('branch.cases.move-line', $case), ['payment_account_id' => $foreign->id, 'note' => 'x'])->assertNotFound();
+        $this->actingAs($this->owner)->post(route('branch.cases.move-line', $case), ['payment_account_id' => $second->id])->assertSessionHasErrors('note');
+
+        $this->actingAs($this->owner)->post(route('branch.cases.move-line', $case), ['payment_account_id' => $second->id, 'note' => 'Typed under the wrong account'])
+            ->assertSessionHasNoErrors();
+
+        $line = $this->line();
+        $this->assertSame($second->id, $line->payment_account_id);
+        $this->assertSame('matched', $line->status);
+        $this->assertSame($payin->id, $line->transaction_id);
+        $this->assertSame('linked', $case->refresh()->resolution->value);
+        $this->assertStringContainsString('Typed under the wrong account', (string) $case->notes);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'statement.entry_moved', 'subject_id' => $line->id, 'actor_id' => $this->owner->id]);
+
+        // Linked: nothing more to move.
+        $this->actingAs($this->owner)->post(route('branch.cases.move-line', $case), ['payment_account_id' => $this->account->id, 'note' => 'x'])
+            ->assertSessionHasErrors('case');
+    }
+
+    public function test_closing_the_wrong_line_lets_the_same_line_typed_again_on_the_right_account_settle()
+    {
+        [$second, $payin, $wrong] = $this->lineTypedUnderTheWrongAccount();
+
+        // Typed again under the right account: a duplicate of the wrong line for now.
+        $this->addLine(['payment_account_id' => $second->id])->assertSessionHasNoErrors();
+        $right = StatementEntry::where('payment_account_id', $second->id)->sole();
+        $this->assertSame('duplicate', $right->status);
+
+        // Moving the wrong line onto the right account is refused: that line is already there.
+        $this->actingAs($this->owner)->post(route('branch.cases.move-line', $wrong), ['payment_account_id' => $second->id, 'note' => 'x'])
+            ->assertSessionHasErrors('payment_account_id');
+
+        $this->actingAs($this->owner)->post(route('branch.cases.close', $wrong), ['resolution' => 'rejected', 'note' => 'Typed under the wrong account by mistake'])
+            ->assertSessionHasNoErrors();
+
+        $right->refresh();
+        $this->assertSame('matched', $right->status);
+        $this->assertSame($payin->id, $right->transaction_id);
+        $this->assertSame(0, ReconciliationCase::query()->where('status', '!=', 'resolved')->count());
+    }
+
     public function test_a_line_without_utr_is_linked_by_hand_only_to_the_same_amount()
     {
         $payin = $this->submittedPayin(['amount' => 500000]);

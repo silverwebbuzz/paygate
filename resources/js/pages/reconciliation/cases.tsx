@@ -47,6 +47,14 @@ type CaseRow = CaseSummary & {
         status: string;
         branch: string | null;
     } | null;
+    /** A typed line: the branch's other accounts it can be moved to. */
+    move_line: {
+        id: string;
+        label: string;
+        bank: string | null;
+        last4: string | null;
+        upi: string | null;
+    }[];
 };
 
 type Candidate = LineTxn & { late: boolean; same_amount: boolean };
@@ -80,6 +88,7 @@ type Action =
     | { kind: 'link'; txn: Candidate }
     | { kind: 'late'; txn: Candidate }
     | { kind: 'move' }
+    | { kind: 'move_line' }
     | { kind: 'close'; resolution: 'rejected' | 'refunded' };
 
 /**
@@ -444,7 +453,11 @@ function CaseDrawer({
     const errors = pageErrors as Record<string, string | undefined>;
     const canAdjust = auth.permissions.includes('adjustments.create');
     const problem =
-        errors.transaction ?? errors.case ?? errors.resolution ?? errors.note;
+        errors.transaction ??
+        errors.case ??
+        errors.resolution ??
+        errors.payment_account_id ??
+        errors.note;
 
     const lookup = () =>
         router.reload({
@@ -646,6 +659,30 @@ function CaseDrawer({
                         </section>
                     )}
 
+                    {item.move_line.length > 0 && (
+                        <section className="flex items-center justify-between gap-3 rounded-lg border border-ln p-3 text-[12.5px]">
+                            <div className="min-w-0">
+                                <div className="font-medium">
+                                    Typed under the wrong account?
+                                </div>
+                                <div className="text-xs text-tx2">
+                                    This line is on {line.account.label}. If
+                                    the money came into another account of the
+                                    branch, move the line there; it is matched
+                                    again.
+                                </div>
+                            </div>
+                            <PgButton
+                                className="h-7 flex-none px-2 text-xs"
+                                onClick={() =>
+                                    setAction({ kind: 'move_line' })
+                                }
+                            >
+                                Change account
+                            </PgButton>
+                        </section>
+                    )}
+
                     <section className="flex flex-col gap-2.5">
                         <h3 className="text-[12px] font-semibold tracking-[.04em] text-tx3 uppercase">
                             Or close it
@@ -739,6 +776,15 @@ function CaseDrawer({
                     }
                 />
             )}
+            {action?.kind === 'move_line' && line && (
+                <MoveLine
+                    url={routes.moveLine(item.id).url}
+                    from={line.account.label}
+                    accounts={item.move_line}
+                    onClose={() => setAction(null)}
+                    onDone={onClose}
+                />
+            )}
             {action?.kind === 'late' && line && (
                 <ApproveLate
                     url={adminCases.approveLate(item.id).url}
@@ -759,7 +805,7 @@ function CaseDrawer({
                     }
                     description={
                         action.resolution === 'rejected'
-                            ? 'For bank charges, interest, own transfers or a line typed by mistake. The line stays in the statement, marked closed.'
+                            ? 'For bank charges, interest, own transfers or a line typed by mistake. The line stays in the statement, marked closed, and its UTR is freed: a line with the same UTR waiting as a duplicate is matched again.'
                             : 'The branch sent this money back to the customer outside PayGate. Nothing is credited to any partner.'
                     }
                     confirmLabel="Close case"
@@ -779,6 +825,85 @@ function CaseDrawer({
                 />
             )}
         </Drawer>
+    );
+}
+
+/** Move a line typed under the wrong account to the right one. */
+function MoveLine({
+    url,
+    from,
+    accounts,
+    onClose,
+    onDone,
+}: {
+    url: string;
+    from: string;
+    accounts: CaseRow['move_line'];
+    onClose: () => void;
+    onDone: () => void;
+}) {
+    const form = useForm({
+        payment_account_id: accounts.length === 1 ? accounts[0].id : '',
+        note: '',
+    });
+
+    return (
+        <FormDialog
+            open
+            onOpenChange={(next) => !next && onClose()}
+            width={460}
+            title="Move this line to another account"
+            description={`The line was typed under ${from}. Choose the account the money actually came into: the line moves there and is matched again, and the case settles if it now matches. The move is kept in the history.`}
+            submitLabel={form.processing ? 'Moving…' : 'Move line'}
+            processing={form.processing}
+            onSubmit={() =>
+                form.post(url, {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        onClose();
+                        onDone();
+                    },
+                })
+            }
+        >
+            <Field
+                label="Correct account"
+                required
+                error={form.errors.payment_account_id}
+            >
+                <SelectInput
+                    required
+                    value={form.data.payment_account_id}
+                    onChange={(event) =>
+                        form.setData('payment_account_id', event.target.value)
+                    }
+                >
+                    <option value="">Choose…</option>
+                    {accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                            {[
+                                account.label,
+                                account.bank &&
+                                    `${account.bank}${account.last4 ? ` ··${account.last4}` : ''}`,
+                                account.upi,
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                        </option>
+                    ))}
+                </SelectInput>
+            </Field>
+            <Field label="Note" required error={form.errors.note}>
+                <TextInput
+                    required
+                    placeholder="e.g. Typed under HDFC 1 by mistake; credit is in HDFC 2"
+                    value={form.data.note}
+                    onChange={(event) =>
+                        form.setData('note', event.target.value)
+                    }
+                />
+            </Field>
+        </FormDialog>
     );
 }
 

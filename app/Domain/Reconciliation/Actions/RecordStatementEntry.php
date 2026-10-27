@@ -17,7 +17,9 @@ use Illuminate\Validation\ValidationException;
  * Manual A/C statement entry (Req 18, design "New statement line"): a branch
  * operator or Admin types one line of a branch account's bank statement.
  * It is matched straight away (StatementMatcher). Lines are never edited or
- * deleted; a wrong one is closed from its case ("not a customer payment").
+ * deleted; a wrong one is closed from its case ("not a customer payment"),
+ * or, when typed under the wrong account of the branch, moved to the right
+ * one from its case (ResolveCase::moveLine, 2026-10-27).
  */
 class RecordStatementEntry
 {

@@ -410,12 +410,17 @@ class StatementMatcher
     /**
      * An earlier bank line with the same UTR, in any account and either
      * direction: a UTR is one bank transfer, so the second line needs a person.
+     * A line closed as not a customer payment (e.g. typed under the wrong
+     * account) doesn't count.
      */
     private function twin(StatementEntry $entry): ?StatementEntry
     {
         return StatementEntry::query()
             ->where('utr_normalized', $entry->utr_normalized)
             ->whereKeyNot($entry->id)
+            ->where(fn ($query) => $query
+                ->where('status', '!=', 'ignored')
+                ->orWhereDoesntHave('cases', fn ($cases) => $cases->where('resolution', Resolution::Rejected->value)))
             ->with(['branch', 'paymentAccount'])
             ->orderBy('created_at')
             ->first();

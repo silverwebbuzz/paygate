@@ -91,6 +91,7 @@ Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->g
     Route::get('/', 'index')->name('index');
     Route::post('{case}/link', 'link')->name('link');
     Route::post('{case}/close', 'close')->name('close');
+    Route::post('{case}/move-line', 'moveLine')->name('move-line');
     Route::post('{case}/approve-late', 'approveLate')->name('approve-late');
     Route::post('{case}/move', 'move')->name('move');
 });
