@@ -213,10 +213,10 @@ Constraint: `EXCLUDE USING gist (subject_type WITH =, subject_id WITH =, side WI
 | is_bank_enabled, is_upi_enabled           | boolean               | One account = bank details and/or a UPI ID (D-2); at least one must be enabled                         |
 | label                                     | text                  | Internal name                                                                                          |
 | bank_name, ifsc                           | text null             | Bank                                                                                                   |
-| account_holder_name                       | text                  |                                                                                                        |
+| account_holder_name                       | text null             | Bank side's name (needed when bank transfer is on; nullable since 2026-10-27)                           |
 | account_number_encrypted / _hash / _last4 | text null             | Bank. `UNIQUE (account_number_hash, ifsc)`                                                             |
 | upi_id_encrypted / _hash / _last4         | text null             | UPI. `UNIQUE (upi_id_hash)`                                                                            |
-| upi_display_name, upi_code                | text null             |                                                                                                        |
+| upi_display_name, upi_code                | text null             | UPI name: the UPI side's name, may differ from the bank holder (needed when UPI is on, 2026-10-27)     |
 | is_qr_enabled, is_intent_enabled          | boolean               | UPI capabilities                                                                                       |
 | status                                    | text                  | `new` / `verification_pending` / `verified` / `active` / `paused` / `disabled` / `rejected` (Req §7.5) |
 | verified_at, verified_by, rejected_reason |                       |                                                                                                        |

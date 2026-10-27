@@ -1,9 +1,10 @@
 <?php
 
-namespace App\Http\Admin\Accounts;
+namespace App\Http\Shared\Accounts;
 
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Audit\Models\AuditLog;
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Http\Controller;
@@ -15,6 +16,10 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Every change to Bank & UPI accounts. Admin sees all branches; a branch
+ * sees only its own accounts (and not PayGate staff's IP addresses).
+ */
 class AccountLogController extends Controller
 {
     public const EVENTS = [
@@ -38,28 +43,32 @@ class AccountLogController extends Controller
     {
         Gate::authorize('accounts.view');
 
+        $actor = $this->actor($request);
         $filters = $this->filters($request);
 
         $logs = $this->query($filters)
             ->paginate(50)
             ->withQueryString()
-            ->through(fn (AuditLog $log) => $this->row($log));
+            ->through(fn (AuditLog $log) => $this->row($log, $actor));
 
-        $account = $filters['account'] === null ? null : PaymentAccount::query()->find($filters['account']);
+        $account = $filters['account'] === null ? null : PaymentAccount::query()
+            ->when($filters['branch'] !== null, fn (Builder $query) => $query->where('branch_id', $filters['branch']))
+            ->find($filters['account']);
 
-        return Inertia::render('admin/accounts/logs', [
+        return Inertia::render('accounts/logs', [
+            'portal' => $actor->type->value,
             'logs' => $logs,
             'filters' => [
                 'from' => $filters['from']->toDateString(),
                 'to' => $filters['to']->toDateString(),
                 'event' => $filters['event'],
-                'branch' => $filters['branch'],
+                'branch' => $actor->isType(UserType::Admin) ? $filters['branch'] : null,
                 'account' => $filters['account'],
                 'search' => $filters['search'],
             ],
-            'account' => $account === null ? null : ['id' => $account->id, 'label' => $account->label, 'holder' => $account->account_holder_name],
+            'account' => $account === null ? null : ['id' => $account->id, 'label' => $account->label],
             'events' => collect(self::EVENTS)->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])->values(),
-            'branches' => Branch::query()->orderBy('code')->get(['id', 'code', 'name']),
+            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
         ]);
     }
 
@@ -67,11 +76,12 @@ class AccountLogController extends Controller
     {
         Gate::authorize('accounts.view');
 
+        $actor = $this->actor($request);
         $filters = $this->filters($request);
         $query = $this->query($filters);
         $zone = (string) config('app.business_timezone');
 
-        return response()->streamDownload(function () use ($query, $zone) {
+        return response()->streamDownload(function () use ($query, $zone, $actor) {
             $out = fopen('php://output', 'w');
 
             if ($out === false) {
@@ -80,11 +90,11 @@ class AccountLogController extends Controller
 
             $safe = fn (?string $value) => $value !== null && preg_match('/^[=+\-@\t\r]/', $value) === 1 ? "'".$value : $value;
 
-            fputcsv($out, ['When', 'Event', 'From status', 'To status', 'Changed fields', 'Account holder', 'Account label', 'Bank', 'Account number', 'UPI ID', 'Branch code', 'Branch', 'By', 'Username', 'Role', 'Reason', 'IP']);
+            fputcsv($out, ['When', 'Event', 'From status', 'To status', 'Changed fields', 'Bank account holder', 'Account label', 'Bank', 'Account number', 'UPI ID', 'UPI name', 'Branch code', 'Branch', 'By', 'Username', 'Role', 'Reason', 'IP']);
 
             foreach ($query->lazy(500) as $log) {
                 /** @var AuditLog $log */
-                $row = $this->row($log);
+                $row = $this->row($log, $actor);
 
                 fputcsv($out, [
                     CarbonImmutable::parse($row['at'])->setTimezone($zone)->format('Y-m-d H:i:s'),
@@ -97,6 +107,7 @@ class AccountLogController extends Controller
                     $safe($row['account']['bank_name'] ?? null),
                     $row['account']['account_number'] ?? null,
                     $row['account']['upi_id'] ?? null,
+                    $safe($row['account']['upi_name'] ?? null),
                     $safe($row['branch']['code'] ?? null),
                     $safe($row['branch']['name'] ?? null),
                     $safe($row['who']['name']),
@@ -127,7 +138,8 @@ class AccountLogController extends Controller
             'from' => $date('from', CarbonImmutable::now($zone)->subDays(29))->startOfDay(),
             'to' => $date('to', CarbonImmutable::now($zone))->endOfDay(),
             'event' => is_string($event) && array_key_exists($event, self::EVENTS) ? $event : null,
-            'branch' => $uuid('branch'),
+            // A branch user only ever sees its own branch.
+            'branch' => $this->actor($request)->isType(UserType::Admin) ? $uuid('branch') : (string) $this->actor($request)->branch_id,
             'account' => $uuid('account'),
             'search' => trim((string) $request->query('search')),
         ];
@@ -157,6 +169,7 @@ class AccountLogController extends Controller
                 ->whereIn('subject_id', PaymentAccount::query()->where(fn (Builder $query) => $query
                     ->whereLike('label', "%{$search}%")
                     ->orWhereLike('account_holder_name', "%{$search}%")
+                    ->orWhereLike('upi_display_name', "%{$search}%")
                     ->orWhereLike('bank_name', "%{$search}%")
                     ->orWhere('account_number_last4', $search)
                     ->orWhere('upi_id_last4', $search))->select('id'))
@@ -173,7 +186,7 @@ class AccountLogController extends Controller
     /**
      * @return array{id: string, at: string, event: string, event_label: string, from: string|null, to: string|null, fields: list<string>, changes: list<array{field: string, before: string|null, now: string}>, reason: string|null, ip: string|null, account: array<string, string|null>|null, branch: array{code: string, name: string}|null, who: array{name: string, username: string|null, role: string|null, portal: string|null}}
      */
-    private function row(AuditLog $log): array
+    private function row(AuditLog $log, User $viewer): array
     {
         $old = $log->old_values ?? [];
         $new = $log->new_values ?? [];
@@ -209,14 +222,15 @@ class AccountLogController extends Controller
             'fields' => $fields,
             'changes' => $log->changePairs(['updated_at', 'created_at', 'rejected_reason']),
             'reason' => isset($new['reason']) && is_string($new['reason']) ? $new['reason'] : null,
-            'ip' => $log->ip_address,
+            'ip' => $viewer->isType(UserType::Admin) || $actor?->type === $viewer->type ? $log->ip_address : null,
             'account' => $account === null ? null : [
                 'id' => $account->id,
                 'label' => $account->label,
-                'holder' => $account->account_holder_name,
-                'bank_name' => $account->bank_name,
-                'account_number' => $account->maskedAccountNumber(),
-                'upi_id' => $account->maskedUpiId(),
+                'holder' => $account->is_bank_enabled ? $account->account_holder_name : null,
+                'bank_name' => $account->is_bank_enabled ? $account->bank_name : null,
+                'account_number' => $account->is_bank_enabled ? $account->maskedAccountNumber() : null,
+                'upi_id' => $account->is_upi_enabled ? $account->maskedUpiId() : null,
+                'upi_name' => $account->is_upi_enabled ? $account->upi_display_name : null,
             ],
             'branch' => $account === null ? null : ['code' => $account->branch->code, 'name' => $account->branch->name],
             'who' => [
@@ -226,5 +240,11 @@ class AccountLogController extends Controller
                 'portal' => $actor?->type->value,
             ],
         ];
+    }
+
+    private function actor(Request $request): User
+    {
+        /** @var User */
+        return $request->user();
     }
 }

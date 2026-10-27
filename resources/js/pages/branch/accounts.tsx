@@ -1,5 +1,5 @@
-import { Head } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react';
+import { History, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { AccountActions } from '@/components/pg/account-actions';
 import { AccountFormDialog } from '@/components/pg/account-form-dialog';
@@ -45,14 +45,22 @@ export default function BranchAccounts({ branch, accounts, can }: Props) {
                 title="Bank & UPI Accounts"
                 description={`Accounts of ${branch.name} that customers pay into. Only verified, active accounts receive customers. Limits reset daily at 00:00 IST.`}
                 actions={
-                    can.create && (
-                        <PgButton
-                            variant="primary"
-                            onClick={() => setEditing('new')}
+                    <>
+                        <Link
+                            href={accountsRoutes.logs.index().url}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
                         >
-                            <Plus className="size-4" /> Add account
-                        </PgButton>
-                    )
+                            <History className="size-3.5" /> Account log
+                        </Link>
+                        {can.create && (
+                            <PgButton
+                                variant="primary"
+                                onClick={() => setEditing('new')}
+                            >
+                                <Plus className="size-4" /> Add account
+                            </PgButton>
+                        )}
+                    </>
                 }
             />
 
@@ -99,11 +107,25 @@ export default function BranchAccounts({ branch, accounts, can }: Props) {
                     detailed
                     empty="Add the bank accounts and UPI IDs your customers should pay into. PayGate verifies each one first."
                     actions={(account) => (
-                        <AccountActions
-                            account={account}
-                            statusUrl={accountsRoutes.status(account.id).url}
-                            onEdit={() => setEditing(account)}
-                        />
+                        <>
+                            <AccountActions
+                                account={account}
+                                statusUrl={
+                                    accountsRoutes.status(account.id).url
+                                }
+                                onEdit={() => setEditing(account)}
+                            />
+                            <Link
+                                href={
+                                    accountsRoutes.logs.index({
+                                        query: { account: account.id },
+                                    }).url
+                                }
+                                className="inline-flex h-7 items-center rounded-[7px] border border-ln bg-sf px-3 text-xs font-medium"
+                            >
+                                Log
+                            </Link>
+                        </>
                     )}
                 />
             </Panel>

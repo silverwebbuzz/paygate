@@ -9,7 +9,8 @@ import { SwitchField } from './switch-field';
 export type AccountRow = {
     id: string;
     label: string;
-    holder: string;
+    /** Bank side: the bank account's holder name. */
+    holder: string | null;
     branch?: { id: string; code: string; name: string };
     is_bank_enabled: boolean;
     bank_name: string | null;
@@ -17,6 +18,7 @@ export type AccountRow = {
     account_number: string | null;
     is_upi_enabled: boolean;
     upi_id: string | null;
+    /** UPI side: the name on the UPI ID. */
     upi_display_name: string | null;
     upi_code: string | null;
     is_qr_enabled: boolean;
@@ -73,7 +75,7 @@ export function AccountFormDialog({
         account_number: '',
         is_upi_enabled: account?.is_upi_enabled ?? false,
         upi_id: '',
-        upi_display_name: account?.upi_display_name ?? '',
+        upi_display_name: account?.upi_display_name ?? account?.holder ?? '',
         is_qr_enabled: account?.is_qr_enabled ?? false,
         min_amount: account ? rupees(account.min_amount) : '1',
         max_amount: rupees(account?.max_amount ?? null),
@@ -138,7 +140,7 @@ export function AccountFormDialog({
             title={editing ? `Edit ${account.label}` : 'Add bank / UPI account'}
             description={
                 editing
-                    ? 'Changing the holder, bank, IFSC, account number or UPI ID sends the account back for verification.'
+                    ? 'Changing the bank holder name, bank, IFSC, account number, UPI ID or UPI name sends the account back for verification.'
                     : 'PayGate verifies every new account before customers are sent to it.'
             }
             submitLabel={editing ? 'Save' : 'Add account'}
@@ -161,14 +163,13 @@ export function AccountFormDialog({
                         </Field>
                     </div>
                 )}
-                {text('label', 'Label', {
-                    required: true,
-                    autoFocus: true,
-                    hint: 'Your own name for it, e.g. “SBI current 2”.',
-                })}
-                {text('account_holder_name', 'Account holder name', {
-                    required: true,
-                })}
+                <div className="sm:col-span-2">
+                    {text('label', 'Label', {
+                        required: true,
+                        autoFocus: true,
+                        hint: 'Your own name for it, e.g. “SBI current 2”.',
+                    })}
+                </div>
 
                 <div className="sm:col-span-2">
                     <SwitchField
@@ -182,6 +183,16 @@ export function AccountFormDialog({
                 </div>
                 {data.is_bank_enabled && (
                     <>
+                        <div className="sm:col-span-2">
+                            {text(
+                                'account_holder_name',
+                                'Account holder name (bank)',
+                                {
+                                    required: true,
+                                    hint: 'Exactly as on the bank account. Customers paying by bank transfer see this name.',
+                                },
+                            )}
+                        </div>
                         {text('bank_name', 'Bank name', { required: true })}
                         {text('ifsc', 'IFSC', {
                             required: true,
@@ -226,7 +237,10 @@ export function AccountFormDialog({
                                     ? `${account.upi_id} (leave empty to keep)`
                                     : 'name@bank',
                         })}
-                        {text('upi_display_name', 'Name shown to customers')}
+                        {text('upi_display_name', 'UPI name', {
+                            required: true,
+                            hint: 'The name the UPI ID is registered to; customers paying by UPI see it. It may differ from the bank holder name.',
+                        })}
                         <SwitchField
                             label="QR code"
                             checked={data.is_qr_enabled}

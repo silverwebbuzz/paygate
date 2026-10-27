@@ -24,14 +24,14 @@ use Illuminate\Support\Carbon;
  * @property string $label
  * @property string|null $bank_name
  * @property string|null $ifsc
- * @property string $account_holder_name
+ * @property string|null $account_holder_name the bank account's holder (bank side)
  * @property string|null $account_number_encrypted plain value (encrypted cast)
  * @property string|null $account_number_hash
  * @property string|null $account_number_last4
  * @property string|null $upi_id_encrypted plain value (encrypted cast)
  * @property string|null $upi_id_hash
  * @property string|null $upi_id_last4
- * @property string|null $upi_display_name
+ * @property string|null $upi_display_name the name on the UPI ID (UPI side)
  * @property string|null $upi_code
  * @property bool $is_qr_enabled
  * @property AccountVerification $verification

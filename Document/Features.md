@@ -180,13 +180,14 @@ Architecture.md calls the partner customer the "payer". Both terms mean the same
 | ACC-01 | Bank account: bank name, holder name, account number, IFSC                                                              | A     | 📝     | Account number encrypted at rest, masked in lists               |
 | ACC-02 | Bank "credentials/details"                                                                                              | A     | ❓     | Q-ACC-1: netbanking logins? If so, a separate security decision |
 | ACC-03 | Limits per account: deposit limit, daily limit, minimum deposit                                                         | A     | 📝     |                                                                 |
-| ACC-04 | UPI: UPI ID, UPI/merchant name, intent configuration                                                                    | A     | 📝     |                                                                 |
+| ACC-04 | UPI: UPI ID, UPI/merchant name, intent configuration                                                                    | A     | 📝     | 2026-10-27: bank holder name and UPI name are separate fields, each shown on its own side (lists, checkout, log) |
 | ACC-05 | Verification status (Admin verifies)                                                                                    | A/B   | 📝     |                                                                 |
 | ACC-06 | Enable/disable, availability, partner visibility, branch association                                                    | A     | 📝     |                                                                 |
 | ACC-07 | Branch adds its own accounts in its panel                                                                               | B     | 📝     |                                                                 |
 | ACC-08 | Account fields: UPI code, Dynamic QR available, UPI intent available                                                    | A     | 📝     | Source 3                                                        |
 | ACC-09 | Lifecycle: NEW → VERIFICATION_PENDING → VERIFIED → ACTIVE (or → REJECTED). Only VERIFIED + ACTIVE accounts are eligible | A/B   | ✅     | Sources 3, 5; matches Architecture §5.1                         |
 | ACC-10 | Admin can also create/manage accounts on a branch's behalf                                                              | A     | 📝     | Source 3                                                        |
+| ACC-11 | Account log: every change, who, reason, IP; Admin for all branches, branch for its own accounts                         | A/B   | ✅     | 2026-10-27: branch portal too (`/branch/accounts/logs`); PayGate staff IPs hidden from branches |
 
 ### PGW — Payment gateways & credentials
 

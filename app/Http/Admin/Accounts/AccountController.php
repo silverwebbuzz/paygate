@@ -49,6 +49,7 @@ class AccountController extends Controller
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->whereLike('label', "%{$search}%")
                 ->orWhereLike('account_holder_name', "%{$search}%")
+                ->orWhereLike('upi_display_name', "%{$search}%")
                 ->orWhereLike('bank_name', "%{$search}%")
                 ->orWhere('account_number_last4', $search)
                 ->orWhere('upi_id_last4', $search)))

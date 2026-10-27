@@ -147,7 +147,7 @@ export default function AdminAccounts({
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Label, holder, bank or last 4 digits"
+                            placeholder="Label, holder, UPI name, bank or last 4"
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
@@ -312,7 +312,6 @@ function ReviewDialog({
         >
             <KeyValues
                 items={[
-                    { label: 'Account holder', value: account.holder },
                     {
                         label: 'Bank',
                         value: account.is_bank_enabled
@@ -323,6 +322,10 @@ function ReviewDialog({
                         label: 'IFSC',
                         value: account.is_bank_enabled ? account.ifsc : null,
                         mono: true,
+                    },
+                    {
+                        label: 'Account holder (bank)',
+                        value: account.is_bank_enabled ? account.holder : null,
                     },
                     {
                         label: 'Account number',
@@ -343,8 +346,10 @@ function ReviewDialog({
                         mono: true,
                     },
                     {
-                        label: 'Name shown to customers',
-                        value: account.upi_display_name,
+                        label: 'UPI name',
+                        value: account.is_upi_enabled
+                            ? account.upi_display_name
+                            : null,
                     },
                     {
                         label: 'Per payment',

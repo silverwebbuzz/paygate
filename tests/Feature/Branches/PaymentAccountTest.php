@@ -105,6 +105,37 @@ class PaymentAccountTest extends TestCase
         $this->assertNull($account->daily_count_limit);
     }
 
+    public function test_the_bank_side_and_the_upi_side_each_have_their_own_name()
+    {
+        $post = fn (array $overrides) => $this->actingAs($this->owner)->post(route('branch.accounts.store'), $this->payload($overrides));
+
+        // Each enabled side needs its name.
+        $post(['account_holder_name' => ''])->assertSessionHasErrors('account_holder_name');
+        $post(['upi_display_name' => ''])->assertSessionHasErrors('upi_display_name');
+        $this->assertSame(0, PaymentAccount::count());
+
+        // Different names are kept apart.
+        $account = $this->add(['account_holder_name' => 'RADHE BHAI', 'upi_display_name' => 'AMAR ENTERPRISES']);
+        $this->assertSame(['RADHE BHAI', 'AMAR ENTERPRISES'], [$account->account_holder_name, $account->upi_display_name]);
+
+        // A UPI-only account needs no bank holder name.
+        $this->add([
+            'label' => 'UPI only', 'is_bank_enabled' => false, 'account_holder_name' => '', 'bank_name' => '', 'ifsc' => '', 'account_number' => '',
+            'upi_id' => 'shop@okaxis', 'upi_display_name' => 'Shop',
+        ]);
+        $upiOnly = PaymentAccount::query()->where('label', 'UPI only')->sole();
+        $this->assertNull($upiOnly->account_holder_name);
+        $this->assertSame('Shop', $upiOnly->upi_display_name);
+
+        // Changing the UPI name is a payment detail: back to verification.
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $this->actingAs($admin)->post(route('admin.accounts.approve', $account));
+        $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload(['account_number' => '', 'upi_id' => '', 'account_holder_name' => 'RADHE BHAI', 'upi_display_name' => 'AMAR TRADERS']))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(AccountVerification::Pending, $account->refresh()->verification);
+        $this->assertSame('AMAR TRADERS', $account->upi_display_name);
+    }
+
     public function test_the_same_account_or_upi_id_cannot_be_registered_twice_even_by_another_branch()
     {
         $this->add();

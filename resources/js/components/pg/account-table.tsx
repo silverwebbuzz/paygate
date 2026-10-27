@@ -62,10 +62,7 @@ function compactColumns(
             header: 'Account',
             className: 'min-w-[180px]',
             cell: (a) => (
-                <div>
-                    <div className="font-medium">{a.holder}</div>
-                    <div className="text-xs text-tx3">{a.label}</div>
-                </div>
+                <div className="font-medium">{a.label}</div>
             ),
         },
         {
@@ -76,6 +73,9 @@ function compactColumns(
                 a.is_bank_enabled ? (
                     <div>
                         <div>{a.bank_name}</div>
+                        {a.holder && (
+                            <div className="text-xs text-tx2">{a.holder}</div>
+                        )}
                         <div className="font-mono text-xs text-tx3">
                             {a.account_number} · {a.ifsc}
                         </div>
@@ -92,7 +92,7 @@ function compactColumns(
                     <div>
                         <div className="font-mono text-xs">{a.upi_id}</div>
                         {a.upi_display_name && (
-                            <div className="text-xs text-tx3">
+                            <div className="text-xs text-tx2">
                                 {a.upi_display_name}
                             </div>
                         )}
@@ -182,10 +182,7 @@ function detailedColumns(
                             .charAt(0)
                             .toUpperCase()}
                     </span>
-                    <div className="min-w-0">
-                        <div className="font-semibold">{a.label}</div>
-                        <div className="text-xs text-tx2">{a.holder}</div>
-                    </div>
+                    <div className="min-w-0 font-semibold">{a.label}</div>
                 </div>
             ),
         },
@@ -252,36 +249,56 @@ function detailedColumns(
                             <div className="font-mono text-sm font-semibold tracking-wide">
                                 {a.account_number}
                             </div>
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                                {a.holder && (
+                                    <Mark
+                                        label="Holder"
+                                        value={a.holder}
+                                        tone="ok"
+                                    />
+                                )}
+                                {a.ifsc && (
+                                    <Mark
+                                        label="IFSC"
+                                        value={a.ifsc}
+                                        tone="in"
+                                        mono
+                                    />
+                                )}
+                            </div>
                         </div>
                     )}
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                        {a.is_bank_enabled && a.ifsc && (
-                            <Mark label="IFSC" value={a.ifsc} tone="in" mono />
-                        )}
-                        {a.is_upi_enabled && a.upi_id && (
+                    {a.is_upi_enabled && a.upi_id && (
+                        <div
+                            className={cn(
+                                'flex flex-wrap gap-1',
+                                a.is_bank_enabled &&
+                                    'mt-2 border-t border-ln2 pt-2',
+                            )}
+                        >
                             <Mark
                                 label="UPI"
                                 value={a.upi_id}
                                 tone="brand"
                                 mono
                             />
-                        )}
-                        {a.upi_display_name && (
-                            <Mark
-                                label="Shown as"
-                                value={a.upi_display_name}
-                                tone="ok"
-                            />
-                        )}
-                        {a.upi_code && (
-                            <Mark
-                                label="UPI code"
-                                value={a.upi_code}
-                                tone="nt"
-                                mono
-                            />
-                        )}
-                    </div>
+                            {a.upi_display_name && (
+                                <Mark
+                                    label="UPI name"
+                                    value={a.upi_display_name}
+                                    tone="ok"
+                                />
+                            )}
+                            {a.upi_code && (
+                                <Mark
+                                    label="UPI code"
+                                    value={a.upi_code}
+                                    tone="nt"
+                                    mono
+                                />
+                            )}
+                        </div>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-1">
                         <Method on={a.is_bank_enabled}>Bank</Method>
                         <Method on={a.is_upi_enabled}>UPI</Method>

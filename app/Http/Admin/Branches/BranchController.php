@@ -244,9 +244,10 @@ class BranchController extends Controller
             'created_at' => $branch->created_at?->toIso8601String(),
             'accounts' => $branch->paymentAccounts()->orderBy('label')->get()->map(fn ($account) => [
                 'label' => $account->label,
-                'holder' => $account->account_holder_name,
+                'holder' => $account->is_bank_enabled ? $account->account_holder_name : null,
                 'bank' => $account->is_bank_enabled ? "{$account->bank_name} · {$account->maskedAccountNumber()}" : null,
-                'upi' => $account->maskedUpiId(),
+                'upi' => $account->is_upi_enabled ? $account->maskedUpiId() : null,
+                'upi_name' => $account->is_upi_enabled ? $account->upi_display_name : null,
                 'status' => $account->status->value,
             ]),
             'partners' => PartnerBranchMapping::query()->where('branch_id', $branch->id)->with('partner')->orderByDesc('status')->get()->map(fn (PartnerBranchMapping $mapping) => [

@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Admin\Accounts\AccountController;
-use App\Http\Admin\Accounts\AccountLogController;
 use App\Http\Admin\Activity\OrganisationActivityController;
 use App\Http\Admin\Branches\BranchController;
 use App\Http\Admin\Commissions\CommissionController;
@@ -18,6 +17,7 @@ use App\Http\Admin\Reversals\ReversalController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Admin\Settings\GlobalSettingsController;
 use App\Http\Admin\Settlements\AdjustmentController;
+use App\Http\Shared\Accounts\AccountLogController;
 use App\Http\Shared\Audit\AuditLogController;
 use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reconciliation\CaseController;

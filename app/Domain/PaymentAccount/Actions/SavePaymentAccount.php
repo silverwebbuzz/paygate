@@ -21,8 +21,9 @@ use Illuminate\Validation\ValidationException;
  *   readable account number and UPI ID when they change; the ciphertext
  *   and blind index are not logged.
  * - A new account goes straight to Admin for verification.
- * - Changing the details customers pay to (holder, bank, IFSC, account
- *   number, UPI ID) sends a verified account back for verification.
+ * - Changing the details customers pay to (bank holder name, bank, IFSC,
+ *   account number, UPI ID, UPI name) sends a verified account back for
+ *   verification. The bank side and the UPI side each carry their own name.
  * - Per-transaction limits must sit inside the branch's deposit limits.
  */
 class SavePaymentAccount
@@ -30,7 +31,7 @@ class SavePaymentAccount
     /** Changing any of these needs a new verification. */
     private const VERIFIED_DETAILS = [
         'account_holder_name', 'is_bank_enabled', 'bank_name', 'ifsc', 'account_number_hash',
-        'is_upi_enabled', 'upi_id_hash', 'upi_code',
+        'is_upi_enabled', 'upi_id_hash', 'upi_display_name', 'upi_code',
     ];
 
     /**
@@ -123,6 +124,14 @@ class SavePaymentAccount
     {
         if (! $account->is_bank_enabled && ! $account->is_upi_enabled) {
             throw ValidationException::withMessages(['is_bank_enabled' => __('Enable bank transfer, UPI or both.')]);
+        }
+
+        if ($account->is_bank_enabled && blank($account->account_holder_name)) {
+            throw ValidationException::withMessages(['account_holder_name' => __('Enter the name on the bank account.')]);
+        }
+
+        if ($account->is_upi_enabled && blank($account->upi_display_name)) {
+            throw ValidationException::withMessages(['upi_display_name' => __('Enter the name on the UPI ID.')]);
         }
 
         if ($account->is_bank_enabled && ($account->account_number_hash === null || $account->ifsc === null || $account->bank_name === null)) {

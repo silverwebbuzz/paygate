@@ -35,14 +35,15 @@ class PaymentAccountRequest extends FormRequest
         return [
             'branch_id' => $isAdmin && $this->account() === null ? ['required', 'uuid', Rule::exists('branches', 'id')] : ['prohibited'],
             'label' => ['required', 'string', 'max:255'],
-            'account_holder_name' => ['required', 'string', 'max:255'],
+            // Each side has its own name: the bank account's holder, and the name on the UPI ID.
+            'account_holder_name' => ['nullable', 'required_if_accepted:is_bank_enabled', 'string', 'max:255'],
             'is_bank_enabled' => ['boolean'],
             'bank_name' => ['nullable', 'required_if_accepted:is_bank_enabled', 'string', 'max:255'],
             'ifsc' => ['nullable', 'required_if_accepted:is_bank_enabled', 'string', 'regex:/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/'],
             'account_number' => ['nullable', 'string', 'regex:/^[0-9][0-9 -]{7,24}$/'],
             'is_upi_enabled' => ['boolean'],
             'upi_id' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9.-]{1,63}$/'],
-            'upi_display_name' => ['nullable', 'string', 'max:255'],
+            'upi_display_name' => ['nullable', 'required_if_accepted:is_upi_enabled', 'string', 'max:255'],
             'is_qr_enabled' => ['boolean'],
             'min_amount' => $this->limitRules(),
             'max_amount' => $this->limitRules(),
@@ -58,6 +59,8 @@ class PaymentAccountRequest extends FormRequest
             'ifsc.regex' => __('An IFSC has 11 characters, like HDFC0001203.'),
             'account_number.regex' => __('Digits only, 8 to 25 of them.'),
             'upi_id.regex' => __('A UPI ID looks like name@bank.'),
+            'account_holder_name.required_if_accepted' => __('Enter the name on the bank account.'),
+            'upi_display_name.required_if_accepted' => __('Enter the name on the UPI ID.'),
             'daily_count_limit.not_in' => __('Enter -1 for unlimited, or a number above zero.'),
             'daily_count_limit.between' => __('Enter -1 for unlimited, or a number above zero.'),
         ];
@@ -105,17 +108,18 @@ class PaymentAccountRequest extends FormRequest
     public function accountData(): array
     {
         $bank = $this->boolean('is_bank_enabled');
+        $upi = $this->boolean('is_upi_enabled');
 
         return [
             'label' => $this->string('label')->value(),
-            'account_holder_name' => $this->string('account_holder_name')->value(),
+            'account_holder_name' => $bank ? $this->string('account_holder_name')->trim()->value() : $this->account()?->account_holder_name,
             'is_bank_enabled' => $bank,
             'bank_name' => $bank ? $this->input('bank_name') : $this->account()?->bank_name,
             'ifsc' => $bank ? $this->input('ifsc') : $this->account()?->ifsc,
             'account_number' => $this->input('account_number'),
             'is_upi_enabled' => $this->boolean('is_upi_enabled'),
             'upi_id' => $this->input('upi_id'),
-            'upi_display_name' => $this->input('upi_display_name'),
+            'upi_display_name' => $upi ? $this->string('upi_display_name')->trim()->value() : $this->account()?->upi_display_name,
             'is_qr_enabled' => $this->boolean('is_qr_enabled'),
             'min_amount' => $this->paise('min_amount'),
             'max_amount' => $this->paise('max_amount'),

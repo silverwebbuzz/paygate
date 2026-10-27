@@ -25,7 +25,7 @@ final class UpiLinks
     {
         return array_filter([
             'pa' => (string) $account->upi_id_encrypted,
-            'pn' => $account->upi_display_name ?? $account->account_holder_name,
+            'pn' => (string) ($account->upi_display_name ?? $account->account_holder_name),
             'am' => number_format($payin->amount / 100, 2, '.', ''),
             'cu' => 'INR',
             'tn' => $payin->reference,

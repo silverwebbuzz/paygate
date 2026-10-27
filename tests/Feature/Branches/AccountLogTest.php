@@ -74,7 +74,7 @@ class AccountLogTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('admin/accounts/logs')
+                ->component('accounts/logs')
                 ->where('logs.total', 5)
                 ->where('logs.data.0.event', 'activated')
                 ->where('logs.data.0.from', 'inactive')
@@ -177,10 +177,49 @@ class AccountLogTest extends TestCase
         $this->assertStringNotContainsString('50100482716640', $csv);
     }
 
-    public function test_only_admins_can_open_the_log()
+    public function test_only_admins_open_the_admin_log()
     {
         $this->actingAs($this->owner)->get(route('admin.accounts.logs.index'))->assertForbidden();
         $this->actingAs($this->owner)->get(route('admin.accounts.logs.export'))->assertForbidden();
         $this->actingAs(User::factory()->partner()->create())->get(route('admin.accounts.logs.index'))->assertForbidden();
+        $this->actingAs(User::factory()->partner()->create())->get(route('branch.accounts.logs.index'))->assertForbidden();
+    }
+
+    public function test_a_branch_sees_the_log_of_its_own_accounts_only()
+    {
+        $account = $this->activeAccount();
+        $this->actingAs($this->admin)->put(route('admin.accounts.status', $account), ['status' => 'inactive', 'reason' => 'Checked by ops'])->assertSessionHasNoErrors();
+
+        // Another branch's account never shows, even when asked for by id or branch.
+        $other = Branch::factory()->create(['deposit_min_amount' => 50000, 'deposit_max_amount' => 5000000]);
+        $otherOwner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $other)->withTwoFactor()->create();
+        $this->actingAs($otherOwner)->post(route('branch.accounts.store'), [
+            'label' => 'Other', 'account_holder_name' => 'Other Holder', 'is_bank_enabled' => true, 'bank_name' => 'SBI',
+            'ifsc' => 'SBIN0001203', 'account_number' => '11112222333344', 'is_upi_enabled' => false,
+            'min_amount' => '500', 'max_amount' => '50000', 'daily_amount_limit' => '200000', 'daily_count_limit' => '-1', 'max_open_sessions' => 5,
+        ])->assertSessionHasNoErrors();
+        $foreign = PaymentAccount::query()->where('label', 'Other')->sole();
+
+        $this->actingAs($this->owner)->get(route('branch.accounts.logs.index', ['branch' => $other->id]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('accounts/logs')
+                ->where('portal', 'branch')
+                ->where('branches', [])
+                ->where('filters.branch', null)
+                ->where('logs.total', 4)
+                ->where('logs.data.0.event', 'deactivated')
+                ->where('logs.data.0.who.portal', 'admin')
+                // PayGate staff's IP stays hidden from the branch; its own users' shows.
+                ->where('logs.data.0.ip', null)
+                ->where('logs.data.1.who.portal', 'branch')
+                ->where('logs.data.1.ip', '127.0.0.1'));
+
+        $this->actingAs($this->owner)->get(route('branch.accounts.logs.index', ['account' => $foreign->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('logs.total', 0)->where('account', null));
+
+        $csv = $this->actingAs($this->owner)->get(route('branch.accounts.logs.export'))->streamedContent();
+        $this->assertStringNotContainsString('Other Holder', $csv);
+        $this->assertStringContainsString('Checked by ops', $csv);
     }
 }

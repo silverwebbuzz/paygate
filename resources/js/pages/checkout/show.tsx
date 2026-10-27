@@ -41,7 +41,7 @@ type Props = {
     server_time: string;
     methods: Method[];
     account: {
-        holder: string;
+        holder: string | null;
         bank_name: string | null;
         account_number: string | null;
         ifsc: string | null;
@@ -503,7 +503,7 @@ function PayView({
                         />
                         <CopyRow
                             label="Account holder"
-                            value={account!.holder}
+                            value={account!.holder ?? ''}
                             copyable={false}
                         />
                         <CopyRow

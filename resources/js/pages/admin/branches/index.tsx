@@ -49,9 +49,10 @@ type Detail = {
     created_at: string | null;
     accounts: {
         label: string;
-        holder: string;
+        holder: string | null;
         bank: string | null;
         upi: string | null;
+        upi_name: string | null;
         status: string;
     }[];
     partners: {
@@ -654,19 +655,33 @@ export default function BranchesIndex({
                                         'Status',
                                     ]}
                                     rows={loaded.accounts.map((a) => [
-                                        <span key="a">
-                                            {a.holder}
-                                            <span className="block text-xs text-tx3">
-                                                {a.label}
+                                        <span key="a">{a.label}</span>,
+                                        a.bank ? (
+                                            <span key="b">
+                                                {a.bank}
+                                                {a.holder && (
+                                                    <span className="block text-xs text-tx3">
+                                                        {a.holder}
+                                                    </span>
+                                                )}
                                             </span>
-                                        </span>,
-                                        a.bank ?? '—',
-                                        <span
-                                            key="u"
-                                            className="font-mono text-xs"
-                                        >
-                                            {a.upi ?? '—'}
-                                        </span>,
+                                        ) : (
+                                            '—'
+                                        ),
+                                        a.upi ? (
+                                            <span key="u">
+                                                <span className="font-mono text-xs">
+                                                    {a.upi}
+                                                </span>
+                                                {a.upi_name && (
+                                                    <span className="block text-xs text-tx3">
+                                                        {a.upi_name}
+                                                    </span>
+                                                )}
+                                            </span>
+                                        ) : (
+                                            '—'
+                                        ),
                                         <StatusBadge
                                             key="s"
                                             status={a.status}

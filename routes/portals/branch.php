@@ -2,6 +2,7 @@
 
 use App\Http\Branch\Accounts\AccountController;
 use App\Http\Branch\Balance\BranchBalanceController;
+use App\Http\Shared\Accounts\AccountLogController;
 use App\Http\Shared\Audit\AuditLogController;
 use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reconciliation\CaseController;
@@ -86,7 +87,12 @@ Route::get('balance', [BranchBalanceController::class, 'show'])->name('balance')
 // What the branch's own users did (read-only).
 Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
 
-// The branch's own bank & UPI accounts.
+// The branch's own bank & UPI accounts, and their change log.
+Route::controller(AccountLogController::class)->prefix('accounts/logs')->name('accounts.logs.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('export', 'export')->name('export');
+});
+
 Route::controller(AccountController::class)->prefix('accounts')->name('accounts.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('/', 'store')->name('store');

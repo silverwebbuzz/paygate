@@ -9,7 +9,9 @@ import { SearchSelect } from '@/components/pg/multi-select';
 import { PageHeader } from '@/components/pg/page-header';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDateTime } from '@/lib/dates';
-import accountsRoutes from '@/routes/admin/accounts';
+import adminAccounts from '@/routes/admin/accounts';
+import branchAccounts from '@/routes/branch/accounts';
+import type { UserType } from '@/types';
 
 type Row = {
     id: string;
@@ -29,6 +31,7 @@ type Row = {
         bank_name: string | null;
         account_number: string | null;
         upi_id: string | null;
+        upi_name: string | null;
     } | null;
     branch: { code: string; name: string } | null;
     who: {
@@ -49,6 +52,7 @@ type Filters = {
 };
 
 type Props = {
+    portal: UserType;
     logs: {
         data: Row[];
         total: number;
@@ -56,7 +60,7 @@ type Props = {
         next_page_url: string | null;
     };
     filters: Filters;
-    account: { id: string; label: string; holder: string | null } | null;
+    account: { id: string; label: string } | null;
     events: { value: string; label: string }[];
     branches: { id: string; code: string; name: string }[];
 };
@@ -72,6 +76,20 @@ const EVENT_STATUS: Record<string, string> = {
     disabled: 'disabled',
     verification_changed: 'pending',
     revealed: 'pending_review',
+};
+
+const branchColumn: Column<Row> = {
+    key: 'branch',
+    header: 'Branch',
+    cell: (row) =>
+        row.branch ? (
+            <div className="whitespace-nowrap">
+                <div className="font-mono text-xs">{row.branch.code}</div>
+                <div className="text-xs text-tx3">{row.branch.name}</div>
+            </div>
+        ) : (
+            '—'
+        ),
 };
 
 const PORTAL_LABEL: Record<string, string> = {
@@ -108,6 +126,7 @@ function ChangeValues({
 }
 
 export default function AccountLogs({
+    portal,
     logs,
     filters,
     account,
@@ -115,6 +134,8 @@ export default function AccountLogs({
     branches,
 }: Props) {
     const [search, setSearch] = useState(filters.search);
+    const admin = portal === 'admin';
+    const accountsRoutes = admin ? adminAccounts : branchAccounts;
 
     const query = (next: Partial<Filters>) =>
         Object.fromEntries(
@@ -159,18 +180,27 @@ export default function AccountLogs({
                         className="text-left"
                         title="Show only this account"
                     >
-                        <div className="font-medium">
-                            {row.account.holder ?? row.account.label}
-                        </div>
-                        <div className="text-xs text-tx3">
-                            {[
-                                row.account.bank_name,
-                                row.account.account_number,
-                                row.account.upi_id,
-                            ]
-                                .filter(Boolean)
-                                .join(' · ')}
-                        </div>
+                        <div className="font-medium">{row.account.label}</div>
+                        {row.account.bank_name && (
+                            <div className="text-xs text-tx3">
+                                Bank:{' '}
+                                {[
+                                    row.account.holder,
+                                    row.account.bank_name,
+                                    row.account.account_number,
+                                ]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </div>
+                        )}
+                        {row.account.upi_id && (
+                            <div className="text-xs text-tx3">
+                                UPI:{' '}
+                                {[row.account.upi_name, row.account.upi_id]
+                                    .filter(Boolean)
+                                    .join(' · ')}
+                            </div>
+                        )}
                     </button>
                 ) : (
                     '—'
@@ -225,23 +255,7 @@ export default function AccountLogs({
                 </span>
             ),
         },
-        {
-            key: 'branch',
-            header: 'Branch',
-            cell: (row) =>
-                row.branch ? (
-                    <div className="whitespace-nowrap">
-                        <div className="font-mono text-xs">
-                            {row.branch.code}
-                        </div>
-                        <div className="text-xs text-tx3">
-                            {row.branch.name}
-                        </div>
-                    </div>
-                ) : (
-                    '—'
-                ),
-        },
+        ...(admin ? [branchColumn] : []),
         {
             key: 'ip',
             header: 'IP',
@@ -258,7 +272,11 @@ export default function AccountLogs({
             <Head title="Account log" />
             <PageHeader
                 title="Account log"
-                description="Every change to branch Bank & UPI accounts: added, edited, verified, rejected, activated, paused, disabled and full numbers viewed, by branch users and PayGate staff. Entries can’t be changed or deleted."
+                description={
+                    admin
+                        ? 'Every change to branch Bank & UPI accounts: added, edited, verified, rejected, activated, paused, disabled and full numbers viewed, by branch users and PayGate staff. Entries can’t be changed or deleted.'
+                        : 'Every change to your Bank & UPI accounts: added, edited, verified, rejected, activated, turned off and full numbers viewed, by your users and PayGate staff. Entries can’t be changed or deleted.'
+                }
                 actions={
                     <>
                         <Link
@@ -319,21 +337,23 @@ export default function AccountLogs({
                             </option>
                         ))}
                     </SelectInput>
-                    <SearchSelect
-                        noun="branches"
-                        ariaLabel="Branch"
-                        className="h-[30px] w-[200px] text-[12.5px]"
-                        items={branches}
-                        value={filters.branch ?? ''}
-                        allLabel="All branches"
-                        onChange={(id) => visit({ branch: id || null })}
-                    />
+                    {admin && (
+                        <SearchSelect
+                            noun="branches"
+                            ariaLabel="Branch"
+                            className="h-[30px] w-[200px] text-[12.5px]"
+                            items={branches}
+                            value={filters.branch ?? ''}
+                            allLabel="All branches"
+                            onChange={(id) => visit({ branch: id || null })}
+                        />
+                    )}
                     <label className="flex h-[30px] w-[280px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Holder, bank, last 4, person, reason or IP"
+                            placeholder="Label, name, bank, last 4, person, reason or IP"
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
@@ -343,7 +363,7 @@ export default function AccountLogs({
                             onClick={() => visit({ account: null })}
                             className="flex h-[30px] items-center gap-1.5 rounded-[7px] border border-ac px-2.5 text-[12.5px] text-ac"
                         >
-                            {account.holder ?? account.label}
+                            {account.label}
                             <X className="size-3.5" />
                         </button>
                     )}
