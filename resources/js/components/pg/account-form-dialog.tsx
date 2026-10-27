@@ -1,7 +1,8 @@
 import { useForm } from '@inertiajs/react';
 import type { ComponentProps, ReactNode } from 'react';
-import { Field, SelectInput, TextInput } from './field';
+import { Field, TextInput } from './field';
 import { FormDialog } from './form-dialog';
+import { SearchSelect } from './multi-select';
 import { SwitchField } from './switch-field';
 
 /** Row shape from App\Http\Shared\Accounts\AccountPresenter. */
@@ -148,21 +149,15 @@ export function AccountFormDialog({
                 {branches && (
                     <div className="sm:col-span-2">
                         <Field label="Branch" error={errors.branch_id}>
-                            <SelectInput
-                                required
+                            <SearchSelect
+                                noun="branches"
+                                ariaLabel="Branch"
+                                items={branches}
                                 value={data.branch_id}
                                 invalid={!!errors.branch_id}
-                                onChange={(event) =>
-                                    setData('branch_id', event.target.value)
-                                }
-                            >
-                                <option value="">Choose…</option>
-                                {branches.map((branch) => (
-                                    <option key={branch.id} value={branch.id}>
-                                        {branch.code} · {branch.name}
-                                    </option>
-                                ))}
-                            </SelectInput>
+                                placeholder="Choose a branch…"
+                                onChange={(id) => setData('branch_id', id)}
+                            />
                         </Field>
                     </div>
                 )}

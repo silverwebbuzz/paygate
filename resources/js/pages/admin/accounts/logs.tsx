@@ -5,6 +5,7 @@ import { DataTable, Panel } from '@/components/pg/data-table';
 import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { SelectInput } from '@/components/pg/field';
+import { SearchSelect } from '@/components/pg/multi-select';
 import { PageHeader } from '@/components/pg/page-header';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDateTime } from '@/lib/dates';
@@ -318,21 +319,15 @@ export default function AccountLogs({
                             </option>
                         ))}
                     </SelectInput>
-                    <SelectInput
-                        aria-label="Branch"
+                    <SearchSelect
+                        noun="branches"
+                        ariaLabel="Branch"
                         className="h-[30px] w-[200px] text-[12.5px]"
+                        items={branches}
                         value={filters.branch ?? ''}
-                        onChange={(event) =>
-                            visit({ branch: event.target.value || null })
-                        }
-                    >
-                        <option value="">All branches</option>
-                        {branches.map((branch) => (
-                            <option key={branch.id} value={branch.id}>
-                                {branch.code} · {branch.name}
-                            </option>
-                        ))}
-                    </SelectInput>
+                        allLabel="All branches"
+                        onChange={(id) => visit({ branch: id || null })}
+                    />
                     <label className="flex h-[30px] w-[280px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
                         <input

@@ -9,10 +9,11 @@ import type { AccountVerification } from '@/components/pg/account-table';
 import { PgButton } from '@/components/pg/button';
 import { Panel } from '@/components/pg/data-table';
 import { KeyValues } from '@/components/pg/drawer';
-import { SelectInput, TextInput } from '@/components/pg/field';
+import { TextInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
+import { SearchSelect } from '@/components/pg/multi-select';
 import { PageHeader } from '@/components/pg/page-header';
 import { formatLimit } from '@/lib/money';
 import accountsRoutes from '@/routes/admin/accounts';
@@ -150,20 +151,15 @@ export default function AdminAccounts({
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
-                    <SelectInput
+                    <SearchSelect
+                        noun="branches"
+                        ariaLabel="Branch"
                         className="h-[30px] w-[220px] text-[12.5px]"
+                        items={branches}
                         value={filters.branch ?? ''}
-                        onChange={(event) =>
-                            visit({ branch: event.target.value || null })
-                        }
-                    >
-                        <option value="">All branches</option>
-                        {branches.map((branch) => (
-                            <option key={branch.id} value={branch.id}>
-                                {branch.code} · {branch.name}
-                            </option>
-                        ))}
-                    </SelectInput>
+                        allLabel="All branches"
+                        onChange={(id) => visit({ branch: id || null })}
+                    />
                     <div className="flex-1" />
                     <span className="text-xs text-tx3">
                         {accounts.total} accounts
