@@ -126,6 +126,35 @@ class AccountLogTest extends TestCase
                 ->where('logs.data.0.changes.0.now', '₹40,000.00'));
     }
 
+    public function test_changing_the_upi_id_shows_before_and_now()
+    {
+        $account = $this->activeAccount();
+        $edit = fn (string $upi) => $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), [
+            'label' => 'HDFC current 1',
+            'account_holder_name' => 'Ashan Ali Shaik',
+            'is_bank_enabled' => true,
+            'bank_name' => 'HDFC Bank',
+            'ifsc' => 'HDFC0001203',
+            'is_upi_enabled' => true,
+            'upi_id' => $upi,
+            'upi_display_name' => 'Amar Enterprises',
+            'min_amount' => '500',
+            'max_amount' => '50000',
+            'daily_amount_limit' => '200000',
+            'daily_count_limit' => '-1',
+            'max_open_sessions' => 5,
+        ])->assertSessionHasNoErrors();
+
+        $edit('amar.old@ybl');
+        $edit('amar.new@ybl');
+
+        $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['event' => 'updated']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('logs.total', 2)
+                ->where('logs.data.0.changes', fn ($changes) => collect($changes)->contains(fn ($change) => $change['field'] === 'UPI ID' && $change['before'] === 'amar.old@ybl' && $change['now'] === 'amar.new@ybl'))
+                ->where('logs.data.1.changes', fn ($changes) => collect($changes)->contains(fn ($change) => $change['field'] === 'UPI ID' && $change['before'] === '—' && $change['now'] === 'amar.old@ybl')));
+    }
+
     public function test_filters_narrow_the_log()
     {
         $first = $this->activeAccount();

@@ -209,7 +209,8 @@ class AuditLog extends Model
     private function hiddenChange(string $key): bool
     {
         return in_array($key, ['reason', 'purpose', 'effective_from', 'created_by', 'verified_by', 'verified_at', 'negative_margin_pairs'], true)
-            || str_ends_with($key, '_id')
+            // Internal ids (branch_id, created_by_id…), but not the UPI ID itself.
+            || (str_ends_with($key, '_id') && $key !== 'upi_id')
             || str_contains($key, 'encrypted')
             || str_contains($key, 'hash')
             || str_contains($key, 'password')
