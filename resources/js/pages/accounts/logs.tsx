@@ -255,16 +255,8 @@ export default function AccountLogs({
                 </span>
             ),
         },
+        // The IP stays in the CSV export, not on screen (client, 2026-10-28).
         ...(admin ? [branchColumn] : []),
-        {
-            key: 'ip',
-            header: 'IP',
-            cell: (row) => (
-                <span className="font-mono text-xs whitespace-nowrap text-tx3">
-                    {row.ip ?? '—'}
-                </span>
-            ),
-        },
     ];
 
     return (
@@ -353,7 +345,7 @@ export default function AccountLogs({
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Label, name, bank, last 4, person, reason or IP"
+                            placeholder="Label, name, bank, last 4, person or reason"
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
