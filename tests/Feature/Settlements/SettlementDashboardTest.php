@@ -70,7 +70,7 @@ class SettlementDashboardTest extends TestCase
                 // The branch holds ₹9,600 for PayGate.
                 ->where('figures.total.current', -960000)
                 ->where('figures.total.net', -960000)
-                ->where('figures.pairs.0.partner.code', $this->partner->code));
+                ->where('figures.pairs', []));
 
         // Raised two days later, approved a week after the deposit.
         $this->travel(2)->days();

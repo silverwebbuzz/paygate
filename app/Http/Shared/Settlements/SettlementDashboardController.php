@@ -53,9 +53,8 @@ class SettlementDashboardController extends Controller
 
         $figures = match ($side) {
             'admin' => ['admin' => $dashboard->admin($period, $partnerIds, $branchIds)],
-            // Admin's branch and partner views show the totals only, no
-            // partner × branch table; a branch still sees its own partners.
-            'branch' => $dashboard->side('branch', $period, $partnerIds, $branchIds, withPairs: $actor->isType(UserType::Branch)),
+            // Totals only in every portal: no partner × branch table.
+            'branch' => $dashboard->side('branch', $period, $partnerIds, $branchIds, withPairs: false),
             default => $dashboard->side('partner', $period, $partnerIds, $branchIds, withPairs: false),
         };
 
