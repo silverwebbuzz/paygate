@@ -53,8 +53,10 @@ class SettlementDashboardController extends Controller
 
         $figures = match ($side) {
             'admin' => ['admin' => $dashboard->admin($period, $partnerIds, $branchIds)],
-            'branch' => $dashboard->side('branch', $period, $partnerIds, $branchIds),
-            default => $dashboard->side('partner', $period, $partnerIds, $branchIds, withPairs: $actor->isType(UserType::Admin)),
+            // Admin's branch and partner views show the totals only, no
+            // partner × branch table; a branch still sees its own partners.
+            'branch' => $dashboard->side('branch', $period, $partnerIds, $branchIds, withPairs: $actor->isType(UserType::Branch)),
+            default => $dashboard->side('partner', $period, $partnerIds, $branchIds, withPairs: false),
         };
 
         return Inertia::render('settlements/dashboard', [

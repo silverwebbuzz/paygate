@@ -122,8 +122,10 @@ class SettlementDashboardTest extends TestCase
         // Admin's branch view, filtered to another branch: nothing; to this one: the deposit.
         $this->actingAs($this->admin)->get(route('admin.settlement-dashboard', ['side' => 'branch', 'branches' => [$other->branch_id]]))
             ->assertInertia(fn ($page) => $page->where('figures.total.deposit.count', 0));
+        $this->actingAs($this->admin)->get(route('admin.settlement-dashboard', ['side' => 'branch', 'branches' => [$this->branch->id]]))
+            ->assertInertia(fn ($page) => $page->where('figures.total.deposit.count', 1)->where('figures.pairs', []));
         $this->actingAs($this->admin)->get(route('admin.settlement-dashboard', ['side' => 'partner', 'branches' => [$this->branch->id]]))
-            ->assertInertia(fn ($page) => $page->where('figures.total.deposit.commission', 60000)->where('figures.pairs.0.branch.code', $this->branch->code));
+            ->assertInertia(fn ($page) => $page->where('figures.total.deposit.commission', 60000)->where('figures.pairs', []));
 
         // Without settlements.view: no dashboard.
         $this->actingAs($this->operator)->get(route('branch.settlement-dashboard'))->assertForbidden();

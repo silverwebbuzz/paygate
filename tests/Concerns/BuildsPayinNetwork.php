@@ -82,6 +82,7 @@ trait BuildsPayinNetwork
             'account_number' => '5010048271'.str_pad((string) $this->accountSeq, 4, '0', STR_PAD_LEFT),
             'is_upi_enabled' => true,
             'upi_id' => "holder{$this->accountSeq}@hdfcbank",
+            'upi_display_name' => "Holder {$this->accountSeq}",
             'is_qr_enabled' => true,
             'max_open_sessions' => 5,
             ...$overrides,
