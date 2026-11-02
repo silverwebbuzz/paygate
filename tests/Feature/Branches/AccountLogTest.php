@@ -182,7 +182,7 @@ class AccountLogTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['search' => 'ops.admin']))
             ->assertInertia(fn (Assert $page) => $page->where('logs.total', 3));
 
-        $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['from' => now()->subDays(60)->toDateString(), 'to' => now()->subDays(40)->toDateString()]))
+        $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['range' => 'custom', 'from' => now()->subDays(60)->toDateString(), 'to' => now()->subDays(40)->toDateString()]))
             ->assertInertia(fn (Assert $page) => $page->where('logs.total', 0));
     }
 

@@ -8,6 +8,8 @@ import { SelectInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodValue } from '@/components/pg/period-filter';
 import { Segmented } from '@/components/pg/segmented';
 import { TransactionDrawer } from '@/components/pg/transaction-drawer';
 import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
@@ -32,11 +34,11 @@ type Props = {
         next_page_url: string | null;
     };
     filters: {
-        from: string;
-        to: string;
         branch: string | null;
         search: string;
     };
+    /** By approval (pay-ins) or payment (payouts) time. */
+    period: PeriodValue;
     summary: Record<'all' | 'matched' | 'missing', Figure>;
     open_cases: number;
     branches: { id: string; code: string; name: string }[];
@@ -57,7 +59,7 @@ export default function Reconciliation(props: Props) {
     const [openId, setOpenId] = useState<string | null>(props.selected);
     const open = items.data.find((txn) => txn.id === openId) ?? null;
 
-    const visit = (next: Record<string, string | null>) =>
+    const visit = (next: Record<string, string | null | undefined>) =>
         router.get(
             routes.index({
                 query: Object.fromEntries(
@@ -65,6 +67,7 @@ export default function Reconciliation(props: Props) {
                         direction,
                         tab,
                         ...filters,
+                        ...('range' in next ? {} : periodQuery(props.period)),
                         search,
                         ...next,
                     }).filter(([, value]) => value),
@@ -250,33 +253,12 @@ export default function Reconciliation(props: Props) {
                     active={tab}
                     onChange={(key) => visit({ tab: key })}
                 />
+                <PeriodFilter
+                    period={props.period}
+                    onChange={visit}
+                    className="border-b border-ln2 px-3 py-2.5"
+                />
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
-                    <label className="flex h-[30px] items-center gap-1.5 rounded-[7px] border border-ln px-2.5 text-[12.5px]">
-                        <span className="text-tx3">
-                            {direction === 'payin' ? 'Approved' : 'Paid'}
-                        </span>
-                        <input
-                            type="date"
-                            value={filters.from}
-                            max={filters.to}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ from: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                        <span className="text-tx3">–</span>
-                        <input
-                            type="date"
-                            value={filters.to}
-                            min={filters.from}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ to: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                    </label>
                     {portal === 'admin' && (
                         <SelectInput
                             className="h-[30px] w-[190px] text-[12.5px]"

@@ -5,11 +5,11 @@ namespace App\Http\Shared\Reconciliation;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Transactions\TransactionPresenter;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -36,16 +36,12 @@ class ReconciliationController extends Controller
         $tab = $request->query('tab') === 'matched' ? 'matched' : 'missing';
         $branch = $request->query('branch');
         $search = trim((string) $request->query('search'));
-        $today = CarbonImmutable::now(config('app.business_timezone'));
-        $date = fn (string $key, CarbonImmutable $default) => is_string($request->query($key)) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($key)) === 1
-            ? CarbonImmutable::parse((string) $request->query($key), config('app.business_timezone'))
-            : $default;
-        $from = $date('from', $today->subDays(6))->startOfDay();
-        $to = $date('to', $today)->endOfDay();
+        // Succeeded in the period (Today by default).
+        $period = Period::fromRequest($request);
 
         $base = fn () => TransactionController::scoped($actor)
             ->where(['direction' => $direction, 'status' => 'success'])
-            ->whereBetween('succeeded_at', [$from->utc(), $to->utc()])
+            ->where(fn (Builder $query) => $period->apply($query, 'succeeded_at'))
             ->when(is_string($branch) && $branch !== '' && $actor->isType(UserType::Admin), fn (Builder $query) => $query->where('branch_id', $branch))
             ->when($search !== '', fn (Builder $query) => TransactionController::search($query, $search));
         $inTab = fn (string $key) => $key === 'matched' ? $base()->whereHas('statementEntry') : $base()->whereDoesntHave('statementEntry');
@@ -70,7 +66,8 @@ class ReconciliationController extends Controller
             'direction' => $direction,
             'tab' => $tab,
             'items' => [...$items->toArray(), 'data' => $rows],
-            'filters' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'branch' => is_string($branch) ? $branch : null, 'search' => $search],
+            'filters' => ['branch' => is_string($branch) ? $branch : null, 'search' => $search],
+            'period' => $period->toArray(),
             'summary' => collect(['all' => $base(), 'matched' => $inTab('matched'), 'missing' => $inTab('missing')])
                 ->map(fn (Builder $query) => ['count' => (clone $query)->count(), 'amount' => (int) $query->sum('amount')]),
             'open_cases' => ReconciliationScope::cases($actor)->where('status', '!=', 'resolved')->count(),

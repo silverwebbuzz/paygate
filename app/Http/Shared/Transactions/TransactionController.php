@@ -7,11 +7,11 @@ use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Platform\SectionRollout;
+use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Webhook\Actions\ResendWebhook;
 use App\Domain\Webhook\Models\WebhookEvent;
 use App\Http\Controller;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -78,8 +78,12 @@ class TransactionController extends Controller
         $selected = $request->query('txn');
 
         $filters = self::filters($request, $actor);
+        // Created in the period (Today by default). The Chargebacks and
+        // Payout returns pages are work queues: every open case, any date.
+        $period = $page === null ? Period::fromRequest($request) : null;
 
-        $base = fn () => self::filtered(self::scoped($actor)->where('direction', $direction), $filters);
+        $base = fn () => self::filtered(self::scoped($actor)->where('direction', $direction), $filters)
+            ->when($period !== null, fn (Builder $query) => $period->apply($query, 'created_at'));
 
         $transactions = $base()
             ->with(self::ROW_RELATIONS)
@@ -101,6 +105,7 @@ class TransactionController extends Controller
                 'data' => $transactions->getCollection()->map(fn (Transaction $txn) => $this->presenter->row($txn, $actor))->values(),
             ],
             'filters' => ['status' => $group, 'search' => $search, ...$filters],
+            'period' => $period?->toArray(),
             ...self::filterOptions($actor),
             'summary' => collect($groups)->map(fn (array $statuses) => [
                 'count' => (int) $counts->whereIn('status', $statuses)->sum('total'),
@@ -131,38 +136,31 @@ class TransactionController extends Controller
     }
 
     /**
-     * Partner, branches (Admin only) and a created-date range (India dates).
+     * Partner and branches (Admin only). The period is separate (Period).
      *
-     * @return array{partner: ?string, branches: list<string>, from: ?string, to: ?string}
+     * @return array{partner: ?string, branches: list<string>}
      */
     public static function filters(Request $request, User $actor): array
     {
-        $date = fn (string $key) => is_string($value = $request->query($key)) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? $value : null;
         $partner = $request->query('partner');
         $branches = $actor->isType(UserType::Admin) ? array_values(array_filter((array) $request->query('branches', []), 'is_string')) : [];
 
         return [
             'partner' => is_string($partner) && $partner !== '' && ! $actor->isType(UserType::Partner) ? $partner : null,
             'branches' => $branches,
-            'from' => $date('from'),
-            'to' => $date('to'),
         ];
     }
 
     /**
      * @param  Builder<Transaction>  $query
-     * @param  array{partner: ?string, branches: list<string>, from: ?string, to: ?string}  $filters
+     * @param  array{partner: ?string, branches: list<string>}  $filters
      * @return Builder<Transaction>
      */
     public static function filtered(Builder $query, array $filters): Builder
     {
-        $zone = config('app.business_timezone');
-
         return $query
             ->when($filters['partner'] !== null, fn (Builder $query) => $query->where('partner_id', $filters['partner']))
-            ->when($filters['branches'] !== [], fn (Builder $query) => $query->whereIn('branch_id', $filters['branches']))
-            ->when($filters['from'] !== null, fn (Builder $query) => $query->where('created_at', '>=', CarbonImmutable::parse($filters['from'], $zone)->startOfDay()->utc()))
-            ->when($filters['to'] !== null, fn (Builder $query) => $query->where('created_at', '<', CarbonImmutable::parse($filters['to'], $zone)->addDay()->startOfDay()->utc()));
+            ->when($filters['branches'] !== [], fn (Builder $query) => $query->whereIn('branch_id', $filters['branches']));
     }
 
     /**

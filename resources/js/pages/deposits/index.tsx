@@ -16,6 +16,8 @@ import {
     TransactionDrawer,
 } from '@/components/pg/transaction-drawer';
 import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodValue } from '@/components/pg/period-filter';
 import { TxnFilters } from '@/components/pg/txn-filters';
 import type { TxnFilterValues } from '@/components/pg/txn-filters';
 import { formatDateTime, formatRelative } from '@/lib/dates';
@@ -40,6 +42,8 @@ type Props = {
         next_page_url: string | null;
     };
     filters: TxnFilterValues & { search: string };
+    /** Applies to the Approved and Declined tabs (decision time). */
+    period: PeriodValue;
     partners: { id: string; code: string; name: string }[];
     branch_options: { id: string; code: string; name: string }[];
     reasons: Record<string, string>;
@@ -78,7 +82,7 @@ type MoveOption = {
 const NOT_IN_BANK = 'not_in_our_bank';
 
 export default function Deposits(props: Props) {
-    const { portal, tab, tabs, items, filters, partners } = props;
+    const { portal, tab, tabs, items, filters, period, partners } = props;
     const routes = portal === 'admin' ? adminDeposits : branchDeposits;
     const [mode, setMode] = useState<'cards' | 'list'>(() =>
         typeof window !== 'undefined' &&
@@ -91,14 +95,18 @@ export default function Deposits(props: Props) {
     const [dialog, setDialog] = useState<Dialog>(null);
     const open = items.data.find((txn) => txn.id === openId) ?? null;
 
-    const dated = filters.from !== null || filters.to !== null;
+    const today = period.range === 'today';
     const visit = (next: Record<string, string | string[] | null>) =>
         router.get(
             routes.index({
                 query: Object.fromEntries(
-                    Object.entries({ tab, ...filters, search, ...next }).filter(
-                        ([, v]) => (Array.isArray(v) ? v.length > 0 : v),
-                    ),
+                    Object.entries({
+                        tab,
+                        ...filters,
+                        ...('range' in next ? {} : periodQuery(period)),
+                        search,
+                        ...next,
+                    }).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : v)),
                 ),
             }).url,
             {},
@@ -248,9 +256,9 @@ export default function Deposits(props: Props) {
                             >
                                 {TAB_INFO[key].icon}
                             </span>
-                            {dated
-                                ? TAB_INFO[key].label.replace(' today', '')
-                                : TAB_INFO[key].label}
+                            {today
+                                ? TAB_INFO[key].label
+                                : TAB_INFO[key].label.replace(' today', '')}
                         </span>
                         <span className="text-lg font-semibold">
                             {tabs[key].count}
@@ -261,6 +269,15 @@ export default function Deposits(props: Props) {
                     </button>
                 ))}
             </div>
+
+            <Panel className="px-3 py-2.5">
+                <PeriodFilter period={period} onChange={visit} />
+                <p className="mt-1.5 text-[11.5px] text-tx3">
+                    The period applies to Approved and Declined (by decision
+                    time). Pending, Payment hold and Not paid yet always show
+                    every open deposit.
+                </p>
+            </Panel>
 
             <Panel className="flex flex-wrap items-center gap-2 px-3 py-2.5">
                 <label className="flex h-[30px] w-[300px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">

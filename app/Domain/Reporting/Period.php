@@ -3,6 +3,8 @@
 namespace App\Domain\Reporting;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -40,6 +42,44 @@ final class Period
         };
 
         return new self($range, $from->utc(), $to->utc());
+    }
+
+    /**
+     * The period a list or dashboard asks for (?range=, ?from=, ?to=);
+     * $default (Today) when none is given.
+     */
+    public static function fromRequest(Request $request, string $default = 'today'): self
+    {
+        $query = fn (string $key) => is_string($value = $request->query($key)) ? $value : null;
+
+        return self::resolve($query('range') ?? $default, $query('from'), $query('to'));
+    }
+
+    /**
+     * Rows whose $column falls in the period. A period that runs up to now
+     * (Today, 7 Days, ...) includes now itself.
+     */
+    public function apply(Builder $query, string $column): void
+    {
+        $endsNow = ! in_array($this->range, ['yesterday', 'prev_month', 'custom'], true);
+
+        $query->where($column, '>=', $this->from)->where($column, $endsNow ? '<=' : '<', $this->to);
+    }
+
+    /**
+     * Business dates the period touches, for date columns (e.g. a bank
+     * line's value date): [first day, last day], inclusive.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function dates(): array
+    {
+        $zone = (string) config('app.business_timezone');
+
+        return [
+            $this->from->setTimezone($zone)->toDateString(),
+            $this->to->setTimezone($zone)->subSecond()->toDateString(),
+        ];
     }
 
     /**

@@ -14,6 +14,8 @@ import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { MultiSelect } from '@/components/pg/multi-select';
 import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import {
     CompareBlock,
     DISPLAY_LABELS,
@@ -87,6 +89,7 @@ type Props = {
         next_page_url: string | null;
     };
     filters: Filters;
+    period: PeriodValue;
     counts: Record<
         'all' | 'pending' | 'approved' | 'unsettled' | 'ignored',
         number
@@ -138,14 +141,21 @@ export default function Statements(props: Props) {
     const [decision, setDecision] = useState<Decision>(null);
     const open = items.data.find((line) => line.id === openId) ?? null;
 
-    const query = (next: Partial<Filters> = {}) =>
+    // from / to are the business dates the period covers; the URL keeps the period.
+    const query = (next: Partial<Filters & PeriodQuery> = {}) =>
         Object.fromEntries(
-            Object.entries({ ...filters, search, ...next }).filter(
-                ([, value]) =>
-                    Array.isArray(value) ? value.length > 0 : value,
+            Object.entries({
+                ...filters,
+                from: null,
+                to: null,
+                ...('range' in next ? {} : periodQuery(props.period)),
+                search,
+                ...next,
+            }).filter(([, value]) =>
+                Array.isArray(value) ? value.length > 0 : value,
             ),
         ) as Record<string, string | string[]>;
-    const visit = (next: Partial<Filters>) =>
+    const visit = (next: Partial<Filters & PeriodQuery>) =>
         router.get(
             routes.index({ query: query(next) }).url,
             {},
@@ -482,31 +492,12 @@ export default function Statements(props: Props) {
             )}
 
             <Panel className="overflow-hidden">
+                <PeriodFilter
+                    period={props.period}
+                    onChange={visit}
+                    className="border-b border-ln2 px-3 py-2.5"
+                />
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
-                    <label className="flex h-[30px] items-center gap-1.5 rounded-[7px] border border-ln px-2.5 text-[12.5px]">
-                        <span className="text-tx3">Period</span>
-                        <input
-                            type="date"
-                            value={filters.from}
-                            max={filters.to}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ from: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                        <span className="text-tx3">–</span>
-                        <input
-                            type="date"
-                            value={filters.to}
-                            min={filters.from}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ to: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                    </label>
                     {portal === 'admin' && (
                         <MultiSelect
                             noun="branches"

@@ -6,8 +6,8 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\Reporting\Period;
 use App\Http\Controller;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -75,9 +75,8 @@ class OrganisationActivityController extends Controller
         return Inertia::render('admin/activity/index', [
             'kind' => $kind,
             'logs' => $logs,
+            'period' => $filters['period']->toArray(),
             'filters' => [
-                'from' => $filters['from']->toDateString(),
-                'to' => $filters['to']->toDateString(),
                 'event' => $filters['event'],
                 'party' => $filters['party'],
                 'search' => $filters['search'],
@@ -89,28 +88,25 @@ class OrganisationActivityController extends Controller
 
     /**
      * @param  list<string>  $events
-     * @return array{from: CarbonImmutable, to: CarbonImmutable, event: string|null, party: string|null, search: string}
+     * @return array{period: Period, event: string|null, party: string|null, search: string}
      */
     private function filters(Request $request, array $events): array
     {
-        $zone = (string) config('app.business_timezone');
-        $date = fn (string $key, CarbonImmutable $default) => is_string($request->query($key)) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($key)) === 1
-            ? CarbonImmutable::parse((string) $request->query($key), $zone)
-            : $default;
         $event = $request->query('event');
         $party = $request->query('party');
+        $party = is_string($party) && preg_match('/^[0-9a-f-]{36}$/i', $party) === 1 ? $party : null;
 
         return [
-            'from' => $date('from', CarbonImmutable::now($zone)->subDays(29))->startOfDay(),
-            'to' => $date('to', CarbonImmutable::now($zone))->endOfDay(),
+            // Today by default; one partner's / branch's activity opens on 30 days.
+            'period' => Period::fromRequest($request, $party === null ? 'today' : '30d'),
             'event' => is_string($event) && in_array($event, $events, true) ? $event : null,
-            'party' => is_string($party) && preg_match('/^[0-9a-f-]{36}$/i', $party) === 1 ? $party : null,
+            'party' => $party,
             'search' => trim((string) $request->query('search')),
         ];
     }
 
     /**
-     * @param  array{from: CarbonImmutable, to: CarbonImmutable, event: string|null, party: string|null, search: string}  $filters
+     * @param  array{period: Period, event: string|null, party: string|null, search: string}  $filters
      * @return Builder<AuditLog>
      */
     private function query(string $kind, array $filters): Builder
@@ -119,7 +115,7 @@ class OrganisationActivityController extends Controller
         $party = $filters['party'];
 
         return AuditLog::query()
-            ->whereBetween('created_at', [$filters['from']->utc(), $filters['to']->utc()])
+            ->where(fn (Builder $query) => $filters['period']->apply($query, 'created_at'))
             ->where(fn (Builder $query) => $this->scope($query, $kind, $party))
             ->when($filters['event'] === 'api_key.issued', fn (Builder $query) => $query->where('action', 'like', 'api_key.%'))
             ->when($filters['event'] !== null && $filters['event'] !== 'api_key.issued', fn (Builder $query) => $query->where('action', $filters['event']))

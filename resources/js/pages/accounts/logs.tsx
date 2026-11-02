@@ -7,6 +7,8 @@ import { EmptyState } from '@/components/pg/empty-state';
 import { SelectInput } from '@/components/pg/field';
 import { SearchSelect } from '@/components/pg/multi-select';
 import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDateTime } from '@/lib/dates';
 import adminAccounts from '@/routes/admin/accounts';
@@ -43,8 +45,6 @@ type Row = {
 };
 
 type Filters = {
-    from: string;
-    to: string;
     event: string | null;
     branch: string | null;
     account: string | null;
@@ -60,6 +60,7 @@ type Props = {
         next_page_url: string | null;
     };
     filters: Filters;
+    period: PeriodValue;
     account: { id: string; label: string } | null;
     events: { value: string; label: string }[];
     branches: { id: string; code: string; name: string }[];
@@ -129,6 +130,7 @@ export default function AccountLogs({
     portal,
     logs,
     filters,
+    period,
     account,
     events,
     branches,
@@ -137,14 +139,17 @@ export default function AccountLogs({
     const admin = portal === 'admin';
     const accountsRoutes = admin ? adminAccounts : branchAccounts;
 
-    const query = (next: Partial<Filters>) =>
+    const query = (next: Partial<Filters & PeriodQuery>) =>
         Object.fromEntries(
-            Object.entries({ ...filters, search, ...next }).filter(
-                ([, value]) => value !== null && value !== '',
-            ),
+            Object.entries({
+                ...filters,
+                ...('range' in next ? {} : periodQuery(period)),
+                search,
+                ...next,
+            }).filter(([, value]) => value !== null && value !== ''),
         ) as Record<string, string>;
 
-    const visit = (next: Partial<Filters>) =>
+    const visit = (next: Partial<Filters & PeriodQuery>) =>
         router.get(
             accountsRoutes.logs.index({ query: query(next) }).url,
             {},
@@ -290,30 +295,12 @@ export default function AccountLogs({
                 }
             />
             <Panel className="overflow-hidden">
+                <PeriodFilter
+                    period={period}
+                    onChange={visit}
+                    className="border-b border-ln2 px-3 py-2.5"
+                />
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
-                    <label className="flex h-[30px] items-center gap-1.5 rounded-[7px] border border-ln px-2.5 text-[12.5px]">
-                        <input
-                            type="date"
-                            aria-label="From"
-                            value={filters.from}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ from: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                        <span className="text-tx3">–</span>
-                        <input
-                            type="date"
-                            aria-label="To"
-                            value={filters.to}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ to: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                    </label>
                     <SelectInput
                         aria-label="Event"
                         className="h-[30px] w-[180px] text-[12.5px]"

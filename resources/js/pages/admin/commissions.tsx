@@ -4,6 +4,8 @@ import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import { Segmented } from '@/components/pg/segmented';
 import { formatPaise } from '@/lib/money';
 import admin from '@/routes/admin';
@@ -21,7 +23,7 @@ type Row = {
 
 type Props = {
     by: 'partner' | 'branch';
-    filters: { from: string; to: string };
+    period: PeriodValue;
     rows: Row[];
     totals: {
         partner_commission: number;
@@ -35,10 +37,16 @@ type Props = {
  * Commissions: what partners paid and branches earned on successful
  * transactions in a period, with the margin between them.
  */
-export default function Commissions({ by, filters, rows, totals }: Props) {
-    const visit = (next: Record<string, string>) =>
+export default function Commissions({ by, period, rows, totals }: Props) {
+    const visit = (next: { by?: string } & Partial<PeriodQuery>) =>
         router.get(
-            admin.commissions.index({ query: { by, ...filters, ...next } }).url,
+            admin.commissions.index({
+                query: {
+                    by,
+                    ...(next.range ? {} : periodQuery(period)),
+                    ...next,
+                },
+            }).url,
             {},
             { preserveState: true, replace: true },
         );
@@ -163,32 +171,11 @@ export default function Commissions({ by, filters, rows, totals }: Props) {
             </KpiGrid>
 
             <Panel className="overflow-hidden">
-                <div className="flex items-center gap-2 border-b border-ln2 px-3 py-2.5">
-                    <label className="flex h-[30px] items-center gap-1.5 rounded-[7px] border border-ln px-2.5 text-[12.5px]">
-                        <span className="text-tx3">Succeeded</span>
-                        <input
-                            type="date"
-                            value={filters.from}
-                            max={filters.to}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ from: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                        <span className="text-tx3">–</span>
-                        <input
-                            type="date"
-                            value={filters.to}
-                            min={filters.from}
-                            onChange={(event) =>
-                                event.target.value &&
-                                visit({ to: event.target.value })
-                            }
-                            className="bg-transparent outline-none"
-                        />
-                    </label>
-                </div>
+                <PeriodFilter
+                    period={period}
+                    onChange={visit}
+                    className="border-b border-ln2 px-3 py-2.5"
+                />
                 <DataTable
                     columns={columns}
                     rows={rows}

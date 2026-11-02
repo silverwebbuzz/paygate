@@ -169,17 +169,23 @@ class TransactionScreensTest extends TestCase
             $this->assertSame(1, $count($route, ['branches' => [$this->branch->id]], $key));
             $this->assertSame(0, $count($route, ['branches' => [$other->id]], $key));
             $this->assertSame(1, $count($route, ['partner' => $this->partner->id], $key));
-            $this->assertSame(1, $count($route, ['from' => $today, 'to' => $today], $key));
-            $this->assertSame(0, $count($route, ['from' => $tomorrow], $key));
+            $this->assertSame(1, $count($route, ['range' => 'custom', 'from' => $today, 'to' => $today], $key));
         }
+
+        // The list shows today by default; Manual Deposit's open tabs ignore the period.
+        $this->assertSame(0, $count('admin.transactions.index', ['range' => 'custom', 'from' => $tomorrow, 'to' => $tomorrow], 'transactions'));
+        $this->assertSame(0, $count('admin.transactions.index', ['range' => 'yesterday'], 'transactions'));
+        $this->assertSame(1, $count('admin.deposits.index', ['range' => 'yesterday'], 'items'));
+        $this->actingAs($admin)->get(route('admin.transactions.index'))
+            ->assertInertia(fn (Assert $page) => $page->where('period.range', 'today'));
 
         $this->actingAs($admin)->get(route('admin.transactions.index'))
             ->assertInertia(fn (Assert $page) => $page->has('branch_options', 2)->has('partners', 1));
 
-        // Approved normally means today only; a date range widens it.
+        // Approved means decided today by default; a period widens it.
         $this->actingAs($admin)->post(route('admin.deposits.approve', $payin), ['bank_utr' => '626812820491']);
         $this->travel(2)->days();
         $this->assertSame(0, $count('admin.deposits.index', ['tab' => 'approved'], 'items'));
-        $this->assertSame(1, $count('admin.deposits.index', ['tab' => 'approved', 'from' => $today], 'items'));
+        $this->assertSame(1, $count('admin.deposits.index', ['tab' => 'approved', 'range' => '7d'], 'items'));
     }
 }

@@ -7,6 +7,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Reporting\Period;
 use App\Http\Controller;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,9 +59,8 @@ class AccountLogController extends Controller
         return Inertia::render('accounts/logs', [
             'portal' => $actor->type->value,
             'logs' => $logs,
+            'period' => $filters['period']->toArray(),
             'filters' => [
-                'from' => $filters['from']->toDateString(),
-                'to' => $filters['to']->toDateString(),
                 'event' => $filters['event'],
                 'branch' => $actor->isType(UserType::Admin) ? $filters['branch'] : null,
                 'account' => $filters['account'],
@@ -119,24 +119,20 @@ class AccountLogController extends Controller
             }
 
             fclose($out);
-        }, 'account-log-'.$filters['from']->toDateString().'-to-'.$filters['to']->toDateString().'.csv', ['Content-Type' => 'text/csv']);
+        }, 'account-log-'.implode('-to-', $filters['period']->dates()).'.csv', ['Content-Type' => 'text/csv']);
     }
 
     /**
-     * @return array{from: CarbonImmutable, to: CarbonImmutable, event: string|null, branch: string|null, account: string|null, search: string}
+     * @return array{period: Period, event: string|null, branch: string|null, account: string|null, search: string}
      */
     private function filters(Request $request): array
     {
-        $zone = (string) config('app.business_timezone');
-        $date = fn (string $key, CarbonImmutable $default) => is_string($request->query($key)) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($key)) === 1
-            ? CarbonImmutable::parse((string) $request->query($key), $zone)
-            : $default;
         $uuid = fn (string $key) => is_string($request->query($key)) && preg_match('/^[0-9a-f-]{36}$/i', (string) $request->query($key)) === 1 ? (string) $request->query($key) : null;
         $event = $request->query('event');
 
         return [
-            'from' => $date('from', CarbonImmutable::now($zone)->subDays(29))->startOfDay(),
-            'to' => $date('to', CarbonImmutable::now($zone))->endOfDay(),
+            // Today by default; one account's log (its "Log" link) opens on 30 days.
+            'period' => Period::fromRequest($request, $uuid('account') === null ? 'today' : '30d'),
             'event' => is_string($event) && array_key_exists($event, self::EVENTS) ? $event : null,
             // A branch user only ever sees its own branch.
             'branch' => $this->actor($request)->isType(UserType::Admin) ? $uuid('branch') : (string) $this->actor($request)->branch_id,
@@ -146,7 +142,7 @@ class AccountLogController extends Controller
     }
 
     /**
-     * @param  array{from: CarbonImmutable, to: CarbonImmutable, event: string|null, branch: string|null, account: string|null, search: string}  $filters
+     * @param  array{period: Period, event: string|null, branch: string|null, account: string|null, search: string}  $filters
      * @return Builder<AuditLog>
      */
     private function query(array $filters): Builder
@@ -158,7 +154,7 @@ class AccountLogController extends Controller
             ->with(['actor.role', 'subject' => fn ($morph) => $morph->morphWith([PaymentAccount::class => ['branch']])])
             ->where('subject_type', 'payment_account')
             ->where('action', 'like', 'payment_account.%')
-            ->whereBetween('created_at', [$filters['from']->utc(), $filters['to']->utc()])
+            ->where(fn (Builder $query) => $filters['period']->apply($query, 'created_at'))
             ->when($event !== null && isset(self::STATUS_EVENTS[$event]), fn (Builder $query) => $query
                 ->where('action', 'payment_account.status_changed')
                 ->where('new_values->status', self::STATUS_EVENTS[(string) $event]))

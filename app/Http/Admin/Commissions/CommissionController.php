@@ -4,9 +4,9 @@ namespace App\Http\Admin\Commissions;
 
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Partner\Models\Partner;
+use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -23,18 +23,13 @@ class CommissionController extends Controller
     {
         Gate::authorize('commissions.view');
 
-        $zone = config('app.business_timezone');
-        $today = CarbonImmutable::now($zone);
-        $date = fn (string $key, CarbonImmutable $default) => is_string($request->query($key)) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($key)) === 1
-            ? CarbonImmutable::parse((string) $request->query($key), $zone)
-            : $default;
-        $from = $date('from', $today->startOfMonth())->startOfDay();
-        $to = $date('to', $today)->endOfDay();
+        // Succeeded in the period (Today by default).
+        $period = Period::fromRequest($request);
         $by = $request->query('by') === 'branch' ? 'branch' : 'partner';
 
         $rows = Transaction::query()
             ->where('status', 'success')
-            ->whereBetween('succeeded_at', [$from->utc(), $to->utc()])
+            ->where(fn ($query) => $period->apply($query, 'succeeded_at'))
             ->groupBy($by.'_id', 'direction')
             ->selectRaw("{$by}_id AS party_id, direction, COUNT(*) AS count, SUM(amount) AS amount, SUM(partner_commission) AS partner_commission, SUM(branch_commission) AS branch_commission, SUM(platform_margin) AS margin")
             ->toBase()
@@ -74,7 +69,7 @@ class CommissionController extends Controller
 
         return Inertia::render('admin/commissions', [
             'by' => $by,
-            'filters' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            'period' => $period->toArray(),
             'rows' => $parties,
             'totals' => [
                 'partner_commission' => (int) $rows->sum('partner_commission'),

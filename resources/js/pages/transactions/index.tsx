@@ -14,6 +14,8 @@ import { EmptyState } from '@/components/pg/empty-state';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import { Segmented } from '@/components/pg/segmented';
 import { StatusBadge } from '@/components/pg/status-badge';
 import {
@@ -53,6 +55,8 @@ type Props = {
         next_page_url: string | null;
     };
     filters: TxnFilterValues & { status: Group | null; search: string };
+    /** Null on the Chargebacks / Payout returns pages (every open case). */
+    period: PeriodValue | null;
     partners: { id: string; code: string; name: string }[];
     branch_options: { id: string; code: string; name: string }[];
     summary: Partial<
@@ -198,6 +202,7 @@ export default function Transactions({
     direction,
     transactions,
     filters,
+    period,
     partners,
     branch_options,
     summary,
@@ -219,8 +224,9 @@ export default function Transactions({
     const chargebacksOpen =
         direction === 'payin' && summary.chargeback !== undefined;
 
-    const visit = (next: Partial<Props['filters']>) => {
-        const merged = { ...filters, search, ...next };
+    const visit = (next: Partial<Props['filters'] & PeriodQuery>) => {
+        const kept = period && !('range' in next) ? periodQuery(period) : {};
+        const merged = { ...filters, ...kept, search, ...next };
         const target =
             merged.status === 'chargeback' || merged.status === 'return'
                 ? (PAGE_ROUTE[merged.status][portal] ?? null)
@@ -512,6 +518,13 @@ export default function Transactions({
                         visit({ status: key === 'all' ? null : (key as Group) })
                     }
                 />
+                {period && (
+                    <PeriodFilter
+                        period={period}
+                        onChange={visit}
+                        className="border-b border-ln2 px-3 py-2.5"
+                    />
+                )}
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
                     <label className="flex h-[30px] w-[320px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
@@ -549,9 +562,8 @@ export default function Transactions({
                                 filters.status ||
                                 filters.partner ||
                                 filters.branches.length > 0 ||
-                                filters.from ||
-                                filters.to
-                                    ? 'Try another search, filter or tab.'
+                                period
+                                    ? 'Try another search, filter, period or tab.'
                                     : 'Pay-ins appear here as soon as they are created.'
                             }
                         />

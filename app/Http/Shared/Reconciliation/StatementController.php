@@ -9,10 +9,10 @@ use App\Domain\Platform\Models\ReasonCode;
 use App\Domain\Reconciliation\Actions\RecordStatementEntry;
 use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Models\StatementEntry;
+use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Support\Money;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,6 +73,7 @@ class StatementController extends Controller
             'portal' => $actor->type->value,
             'items' => [...$items->toArray(), 'data' => $rows],
             'filters' => $filters,
+            'period' => Period::fromRequest($request)->toArray(),
             'counts' => [
                 'all' => $base()->count(),
                 ...collect(self::TABS)->map(fn (array $statuses) => $base()->whereIn('status', $statuses)->count())->all(),
@@ -189,17 +190,14 @@ class StatementController extends Controller
      */
     private function filters(Request $request): array
     {
-        $today = CarbonImmutable::now(config('app.business_timezone'));
-        $date = function (string $key, CarbonImmutable $default) use ($request): string {
-            $value = $request->query($key);
-
-            return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1 ? $value : $default->toDateString();
-        };
+        // Bank lines carry a value date only: the business days the period
+        // (Today by default) touches.
+        [$from, $to] = Period::fromRequest($request)->dates();
         $text = fn (string $key) => is_string($request->query($key)) && $request->query($key) !== '' ? (string) $request->query($key) : null;
 
         return [
-            'from' => $date('from', $today->subDays(6)),
-            'to' => $date('to', $today),
+            'from' => $from,
+            'to' => $to,
             'branches' => array_values(array_filter((array) $request->query('branches', []), fn ($id) => is_string($id) && $id !== '')),
             'account' => $text('account'),
             'status' => $text('status'),

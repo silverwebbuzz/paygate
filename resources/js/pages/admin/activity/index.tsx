@@ -6,6 +6,8 @@ import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { SelectInput } from '@/components/pg/field';
 import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import { formatDateTime } from '@/lib/dates';
 import branchesRoutes from '@/routes/admin/branches';
 import partnersRoutes from '@/routes/admin/partners';
@@ -30,9 +32,8 @@ type Props = {
         prev_page_url: string | null;
         next_page_url: string | null;
     };
+    period: PeriodValue;
     filters: {
-        from: string;
-        to: string;
         event: string | null;
         party: string | null;
         search: string;
@@ -71,18 +72,18 @@ function ChangeValues({
 export default function Activity({
     kind,
     logs,
+    period,
     filters,
     events,
     parties,
 }: Props) {
     const routes = kind === 'partner' ? partnersRoutes : branchesRoutes;
     const [search, setSearch] = useState(filters.search);
-    const visit = (next: Partial<Props['filters']>) => {
+    const visit = (next: Partial<Props['filters'] & PeriodQuery>) => {
         router.get(
             routes.logs().url,
             {
-                from: next.from ?? filters.from,
-                to: next.to ?? filters.to,
+                ...(next.range ? next : periodQuery(period)),
                 event: next.event === undefined ? filters.event : next.event,
                 party: next.party === undefined ? filters.party : next.party,
                 search:
@@ -177,23 +178,12 @@ export default function Activity({
                 }
             />
             <Panel>
+                <PeriodFilter
+                    period={period}
+                    onChange={visit}
+                    className="border-b border-ln px-3 py-2.5"
+                />
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln px-3 py-2.5">
-                    <input
-                        type="date"
-                        aria-label="From"
-                        value={filters.from}
-                        onChange={(event) =>
-                            visit({ from: event.target.value })
-                        }
-                        className="h-[30px] rounded-[7px] border border-ln bg-transparent px-2 text-[12.5px]"
-                    />
-                    <input
-                        type="date"
-                        aria-label="To"
-                        value={filters.to}
-                        onChange={(event) => visit({ to: event.target.value })}
-                        className="h-[30px] rounded-[7px] border border-ln bg-transparent px-2 text-[12.5px]"
-                    />
                     <SelectInput
                         aria-label="Event"
                         className="h-[30px] w-[180px] text-[12.5px]"
