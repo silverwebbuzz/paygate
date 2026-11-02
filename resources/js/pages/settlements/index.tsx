@@ -460,7 +460,7 @@ export default function Settlements(props: Props) {
                         columns={columns}
                         rows={items.data}
                         rowKey={(row) => row.id}
-                        onRowClick={(row) => openRow(row.id)}
+                        onView={(row) => openRow(row.id)}
                         empty={
                             <EmptyState
                                 title={

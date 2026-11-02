@@ -540,7 +540,7 @@ export default function Transactions({
                     columns={columns}
                     rows={transactions.data}
                     rowKey={(t) => t.id}
-                    onRowClick={(t) => openTxn(t.id)}
+                    onView={(t) => openTxn(t.id)}
                     empty={
                         <EmptyState
                             title="No pay-ins found"

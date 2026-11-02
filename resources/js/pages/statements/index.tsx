@@ -141,7 +141,8 @@ export default function Statements(props: Props) {
     const query = (next: Partial<Filters> = {}) =>
         Object.fromEntries(
             Object.entries({ ...filters, search, ...next }).filter(
-                ([, value]) => (Array.isArray(value) ? value.length > 0 : value),
+                ([, value]) =>
+                    Array.isArray(value) ? value.length > 0 : value,
             ),
         ) as Record<string, string | string[]>;
     const visit = (next: Partial<Filters>) =>
@@ -578,7 +579,7 @@ export default function Statements(props: Props) {
                             columns={columns}
                             rows={items.data}
                             rowKey={(line) => line.id}
-                            onRowClick={(line) => openLine(line.id)}
+                            onView={(line) => openLine(line.id)}
                             empty={
                                 <EmptyState
                                     title="No statement lines"

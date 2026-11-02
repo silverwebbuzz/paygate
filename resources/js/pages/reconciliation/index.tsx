@@ -311,7 +311,7 @@ export default function Reconciliation(props: Props) {
                     columns={columns}
                     rows={items.data}
                     rowKey={(t) => t.id}
-                    onRowClick={(t) => openTxn(t.id)}
+                    onView={(t) => openTxn(t.id)}
                     empty={
                         <EmptyState
                             title={

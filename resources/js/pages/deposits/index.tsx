@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { PgButton } from '@/components/pg/button';
 import { ConfirmDialog } from '@/components/pg/confirm-dialog';
-import { DataTable, Panel } from '@/components/pg/data-table';
+import { DataTable, Panel, ViewDetails } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { FormDialog } from '@/components/pg/form-dialog';
@@ -307,8 +307,7 @@ export default function Deposits(props: Props) {
                     {items.data.map((txn) => (
                         <div
                             key={txn.id}
-                            onClick={() => openTxn(txn.id)}
-                            className="flex cursor-pointer flex-col gap-3 rounded-[12px] border border-ln bg-sf p-4 hover:border-ac hover:shadow-[0_4px_16px_rgba(15,23,42,.06)]"
+                            className="flex flex-col gap-3 rounded-[12px] border border-ln bg-sf p-4 hover:border-ac hover:shadow-[0_4px_16px_rgba(15,23,42,.06)]"
                         >
                             <div className="flex items-start gap-2.5">
                                 <span className="grid size-9 flex-none place-items-center rounded-lg bg-acs text-xs font-semibold text-act">
@@ -322,7 +321,12 @@ export default function Deposits(props: Props) {
                                         </span>
                                     </div>
                                 </div>
-                                <StatusBadge status={txn.status} />
+                                <div className="flex flex-col items-end gap-1">
+                                    <StatusBadge status={txn.status} />
+                                    <ViewDetails
+                                        onClick={() => openTxn(txn.id)}
+                                    />
+                                </div>
                             </div>
                             <div className="flex items-baseline justify-between">
                                 <span className="text-[22px] font-semibold tracking-[-.02em]">
@@ -577,7 +581,7 @@ export default function Deposits(props: Props) {
                         ]}
                         rows={items.data}
                         rowKey={(t) => t.id}
-                        onRowClick={(t) => openTxn(t.id)}
+                        onView={(t) => openTxn(t.id)}
                     />
                 </Panel>
             )}

@@ -343,7 +343,7 @@ export default function UsersIndex({
                     columns={columns}
                     rows={users.data}
                     rowKey={(user) => user.id}
-                    onRowClick={(user) => setOpenId(user.id)}
+                    onView={(user) => setOpenId(user.id)}
                     empty={
                         <EmptyState
                             title="No users found"

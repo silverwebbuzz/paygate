@@ -12,33 +12,64 @@ export type Column<T> = {
 };
 
 /**
+ * Small "View details" link that opens a row's drawer. Rows themselves are
+ * not clickable, so their text can be selected and copied.
+ */
+export function ViewDetails({ onClick }: { onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={(event) => {
+                event.stopPropagation();
+                onClick();
+            }}
+            className="text-xs font-medium whitespace-nowrap text-ac hover:underline"
+        >
+            View details
+        </button>
+    );
+}
+
+/**
  * Dense data table following the design (row padding follows the
- * compact/comfortable density via --pg-rp). Rows are clickable when
- * `onRowClick` is given (typically to open a drawer).
+ * compact/comfortable density via --pg-rp). When `onView` is given
+ * (typically to open a drawer), a last column holds a "View details" link.
  */
 export function DataTable<T>({
     columns,
     rows,
     rowKey,
-    onRowClick,
+    onView,
     empty,
 }: {
     columns: Column<T>[];
     rows: T[];
     rowKey: (row: T) => string;
-    onRowClick?: (row: T) => void;
+    onView?: (row: T) => void;
     empty?: ReactNode;
 }) {
     if (rows.length === 0) {
         return <>{empty ?? <EmptyState title="Nothing here yet" />}</>;
     }
 
+    const shown: Column<T>[] = onView
+        ? [
+              ...columns,
+              {
+                  key: '__view',
+                  header: '',
+                  align: 'right',
+                  cell: (row) => <ViewDetails onClick={() => onView(row)} />,
+              },
+          ]
+        : columns;
+
     return (
         <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[13px]">
                 <thead>
                     <tr>
-                        {columns.map((column) => (
+                        {shown.map((column) => (
                             <th
                                 key={column.key}
                                 className={cn(
@@ -53,16 +84,8 @@ export function DataTable<T>({
                 </thead>
                 <tbody>
                     {rows.map((row) => (
-                        <tr
-                            key={rowKey(row)}
-                            onClick={
-                                onRowClick ? () => onRowClick(row) : undefined
-                            }
-                            className={cn(
-                                onRowClick && 'cursor-pointer hover:bg-sf2',
-                            )}
-                        >
-                            {columns.map((column) => (
+                        <tr key={rowKey(row)} className="hover:bg-sf2">
+                            {shown.map((column) => (
                                 <td
                                     key={column.key}
                                     className={cn(

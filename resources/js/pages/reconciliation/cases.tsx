@@ -381,7 +381,7 @@ export default function Cases(props: Props) {
                         columns={columns}
                         rows={cases.data}
                         rowKey={(item) => item.id}
-                        onRowClick={(item) => openCase(item.id)}
+                        onView={(item) => openCase(item.id)}
                         empty={
                             <EmptyState
                                 title={
@@ -666,17 +666,15 @@ function CaseDrawer({
                                     Typed under the wrong account?
                                 </div>
                                 <div className="text-xs text-tx2">
-                                    This line is on {line.account.label}. If
-                                    the money came into another account of the
+                                    This line is on {line.account.label}. If the
+                                    money came into another account of the
                                     branch, move the line there; it is matched
                                     again.
                                 </div>
                             </div>
                             <PgButton
                                 className="h-7 flex-none px-2 text-xs"
-                                onClick={() =>
-                                    setAction({ kind: 'move_line' })
-                                }
+                                onClick={() => setAction({ kind: 'move_line' })}
                             >
                                 Change account
                             </PgButton>

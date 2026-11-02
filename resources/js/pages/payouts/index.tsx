@@ -2,7 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { Check, Copy, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PgButton } from '@/components/pg/button';
-import { Panel } from '@/components/pg/data-table';
+import { Panel, ViewDetails } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { FormDialog } from '@/components/pg/form-dialog';
@@ -249,8 +249,7 @@ export default function Payouts(props: Props) {
                     {items.data.map((payout) => (
                         <div
                             key={payout.id}
-                            onClick={() => openPayout(payout.id)}
-                            className="flex cursor-pointer flex-col gap-3 rounded-[12px] border border-ln bg-sf p-4 hover:border-ac"
+                            className="flex flex-col gap-3 rounded-[12px] border border-ln bg-sf p-4 hover:border-ac"
                         >
                             <div className="flex items-start gap-2.5">
                                 <div className="min-w-0 flex-1">
@@ -269,7 +268,12 @@ export default function Payouts(props: Props) {
                                         · {formatRelative(payout.created_at)}
                                     </div>
                                 </div>
-                                <StatusBadge status={payout.status} />
+                                <div className="flex flex-col items-end gap-1">
+                                    <StatusBadge status={payout.status} />
+                                    <ViewDetails
+                                        onClick={() => openPayout(payout.id)}
+                                    />
+                                </div>
                             </div>
                             <div className="text-[24px] font-semibold tracking-[-.02em]">
                                 {formatPaise(payout.amount)}

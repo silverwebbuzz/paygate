@@ -502,7 +502,7 @@ export default function PartnersIndex({
                     columns={columns}
                     rows={partners.data}
                     rowKey={(p) => p.id}
-                    onRowClick={(p) => openPartner(p.id)}
+                    onView={(p) => openPartner(p.id)}
                     empty={
                         <EmptyState
                             title="No partners found"

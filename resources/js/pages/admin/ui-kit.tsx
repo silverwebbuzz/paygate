@@ -248,7 +248,7 @@ export default function UiKit() {
                     columns={columns}
                     rows={rows}
                     rowKey={(row) => row.id}
-                    onRowClick={(row) => {
+                    onView={(row) => {
                         setSelected(row);
                         setTab('overview');
                     }}

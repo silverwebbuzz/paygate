@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { PgButton } from '@/components/pg/button';
 import { ConfirmDialog } from '@/components/pg/confirm-dialog';
-import { Panel } from '@/components/pg/data-table';
+import { Panel, ViewDetails } from '@/components/pg/data-table';
 import { Drawer, KeyValues } from '@/components/pg/drawer';
 import { EmptyState } from '@/components/pg/empty-state';
 import { Field, SelectInput, TextInput } from '@/components/pg/field';
@@ -313,11 +313,7 @@ export default function BranchesIndex({
                             </thead>
                             <tbody>
                                 {branches.data.map((b) => (
-                                    <tr
-                                        key={b.id}
-                                        onClick={() => openBranch(b.id)}
-                                        className="cursor-pointer hover:bg-sf2"
-                                    >
+                                    <tr key={b.id} className="hover:bg-sf2">
                                         <Td className="min-w-[210px]">
                                             <div className="font-medium whitespace-nowrap">
                                                 {b.name}{' '}
@@ -383,7 +379,12 @@ export default function BranchesIndex({
                                             <StatusBadge status={b.status} />
                                         </Td>
                                         <Td>
-                                            <div className="flex justify-end gap-1.5">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                                <ViewDetails
+                                                    onClick={() =>
+                                                        openBranch(b.id)
+                                                    }
+                                                />
                                                 {can.users && (
                                                     <Link
                                                         href={
