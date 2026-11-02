@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { History, Plus, Search } from 'lucide-react';
+import { History, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AccountActions } from '@/components/pg/account-actions';
 import { AccountFormDialog } from '@/components/pg/account-form-dialog';
@@ -53,6 +53,7 @@ export default function AdminAccounts({
     const [search, setSearch] = useState(filters.search);
     const [editing, setEditing] = useState<AccountRow | 'new' | null>(null);
     const [reviewing, setReviewing] = useState<AccountRow | null>(null);
+    const deleted = filters.status === 'deleted';
 
     const visit = (next: Partial<Props['filters']>) => {
         const query = Object.fromEntries(
@@ -130,17 +131,43 @@ export default function AdminAccounts({
             </KpiGrid>
 
             <Panel className="overflow-hidden">
-                <ViewTabs
-                    views={TABS.map(([key, label]) => ({
-                        key,
-                        label,
-                        count: counts[key] ?? 0,
-                    }))}
-                    active={filters.status ?? 'all'}
-                    onChange={(key) =>
-                        visit({ status: key === 'all' ? null : key })
-                    }
-                />
+                <div className="flex items-center border-b border-ln2">
+                    <ViewTabs
+                        className="min-w-0 flex-1 border-b-0"
+                        views={TABS.map(([key, label]) => ({
+                            key,
+                            label,
+                            count: counts[key] ?? 0,
+                        }))}
+                        active={filters.status ?? 'all'}
+                        onChange={(key) =>
+                            visit({ status: key === 'all' ? null : key })
+                        }
+                    />
+                    {/* Deleted accounts are kept apart from every other view. */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            visit({ status: deleted ? null : 'deleted' })
+                        }
+                        className={
+                            'mr-3 flex h-7 flex-none items-center gap-1.5 rounded-[7px] border px-2.5 text-[12.5px] font-medium ' +
+                            (deleted
+                                ? 'border-er bg-er text-white'
+                                : 'border-er/40 bg-er/5 text-er hover:bg-er/10')
+                        }
+                    >
+                        <Trash2 className="size-3.5" /> Deleted
+                        <span
+                            className={
+                                'rounded-[5px] px-1.5 py-px text-[11px] ' +
+                                (deleted ? 'bg-white/20' : 'bg-er/10')
+                            }
+                        >
+                            {counts.deleted ?? 0}
+                        </span>
+                    </button>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
                     <label className="flex h-[30px] w-[260px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
@@ -173,7 +200,11 @@ export default function AdminAccounts({
                         setVerification(account, verification)
                     }
                     onActive={(account, active) => setActive(account, active)}
-                    empty="Branches add their accounts in the branch portal; you can also add one here."
+                    empty={
+                        deleted
+                            ? 'No deleted accounts.'
+                            : 'Branches add their accounts in the branch portal; you can also add one here.'
+                    }
                     actions={(account) => (
                         <>
                             {account.can.verify && (
@@ -196,6 +227,9 @@ export default function AdminAccounts({
                                 hideStatus
                                 statusUrl={
                                     accountsRoutes.status(account.id).url
+                                }
+                                deleteUrl={
+                                    accountsRoutes.destroy(account.id).url
                                 }
                                 onEdit={() => setEditing(account)}
                             />

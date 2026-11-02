@@ -9,11 +9,16 @@ use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SetAccountVerification
 {
     public function handle(User $actor, PaymentAccount $account, AccountVerification $verification, ?string $reason = null): PaymentAccount
     {
+        if ($account->isDeleted()) {
+            throw ValidationException::withMessages(['verification' => __('A deleted account cannot be verified.')]);
+        }
+
         if ($account->verification === $verification) {
             return $account;
         }

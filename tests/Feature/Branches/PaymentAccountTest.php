@@ -365,4 +365,49 @@ class PaymentAccountTest extends TestCase
         $this->assertNull($account->verified_at);
         $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active'])->assertSessionHasErrors('status');
     }
+
+    public function test_only_admin_deletes_an_account_and_it_moves_to_the_deleted_tab()
+    {
+        $account = $this->add();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $this->actingAs($admin)->post(route('admin.accounts.approve', $account));
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'active']);
+
+        // Branches cannot delete, nor reach "deleted" through the status switch.
+        $this->actingAs($this->owner)->put(route('branch.accounts.status', $account), ['status' => 'deleted'])->assertSessionHasErrors('status');
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'deleted'])->assertSessionHasErrors('status');
+        $this->actingAs($this->owner)->get(route('branch.accounts.index'))
+            ->assertInertia(fn (Assert $page) => $page->where('accounts.0.can.delete', false));
+        $this->assertSame(AccountStatus::Active, $account->fresh()?->status);
+
+        $this->actingAs($admin)->delete(route('admin.accounts.destroy', $account), ['reason' => 'Branch closed it'])->assertSessionHasNoErrors();
+
+        $this->assertSame(AccountStatus::Deleted, $account->fresh()?->status);
+        $this->assertDatabaseHas('payment_accounts', ['id' => $account->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'payment_account.deleted', 'subject_id' => $account->id, 'actor_id' => $admin->id]);
+
+        $this->actingAs($admin)->get(route('admin.accounts.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('accounts.data', 0)
+                ->where('counts.all', 0)
+                ->where('counts.deleted', 1));
+        $this->actingAs($admin)->get(route('admin.accounts.index', ['status' => 'deleted']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('accounts.data', 1)
+                ->where('accounts.data.0.status', 'deleted')
+                ->where('accounts.data.0.can.update', false)
+                ->where('accounts.data.0.can.delete', false));
+        $this->actingAs($this->owner)->get(route('branch.accounts.index'))
+            ->assertInertia(fn (Assert $page) => $page->has('accounts', 0));
+
+        // A deleted account cannot be changed or switched back on.
+        $this->actingAs($this->owner)->put(route('branch.accounts.update', $account), $this->payload())->assertNotFound();
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'active'])->assertSessionHasErrors('status');
+        $this->actingAs($admin)->put(route('admin.accounts.update', $account), $this->payload())->assertSessionHasErrors('label');
+
+        // Its account number and UPI ID can be added again.
+        $this->add();
+        $this->assertSame(1, PaymentAccount::query()->notDeleted()->count());
+        $this->assertSame(2, PaymentAccount::query()->count());
+    }
 }

@@ -6,6 +6,7 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountVerification;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,7 +16,8 @@ use Illuminate\Support\Carbon;
  * A bank account and/or UPI ID of a branch, shown to customers who pay in.
  * Numbers are encrypted; the *_hash columns (BlindIndex) enforce uniqueness
  * and *_last4 is what lists show. Only active, verified accounts receive
- * customers (Requirements §7.5).
+ * customers (Requirements §7.5). Admin can delete an account: the row stays
+ * (status "deleted") for history but leaves every list except "Deleted".
  *
  * @property string $id
  * @property string $branch_id
@@ -75,6 +77,21 @@ class PaymentAccount extends Model
             'verified_at' => 'datetime',
             'last_allocated_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Accounts that are not deleted: what every normal list shows.
+     *
+     * @param  Builder<PaymentAccount>  $query
+     */
+    public function scopeNotDeleted(Builder $query): void
+    {
+        $query->where('status', '!=', AccountStatus::Deleted);
+    }
+
+    public function isDeleted(): bool
+    {
+        return $this->status === AccountStatus::Deleted;
     }
 
     /**

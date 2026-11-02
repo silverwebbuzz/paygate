@@ -4,6 +4,7 @@ namespace App\Http\Shared\Accounts;
 
 use App\Domain\Allocation\UsageCounters;
 use App\Domain\Commission\Enums\Direction;
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountVerification;
@@ -55,11 +56,19 @@ class AccountPresenter
             'rejected_reason' => $account->rejected_reason,
             'verified_at' => $account->verified_at?->toIso8601String(),
             'created_at' => $account->created_at?->toIso8601String(),
-            'can' => [
+            'can' => $account->isDeleted() ? [
+                'update' => false,
+                'verify' => false,
+                'set_verification' => false,
+                'switch_to' => [],
+                'delete' => false,
+            ] : [
                 'update' => $actor->can('accounts.update'),
                 'verify' => $actor->can('accounts.verify') && $account->verification === AccountVerification::Pending,
                 'set_verification' => $actor->can('accounts.verify'),
                 'switch_to' => $actor->can('accounts.update') ? $this->switchTo($account) : [],
+                // Only Admin deletes accounts.
+                'delete' => $actor->isType(UserType::Admin) && $actor->can('accounts.update'),
             ],
         ])->values()->all();
     }

@@ -45,6 +45,7 @@ const STATUSES: Record<string, StatusStyle> = {
     paused: { label: 'Paused', tone: 'hd', icon: '‖' },
     exhausted: { label: 'Limit exhausted', tone: 'hd', icon: '!' },
     disabled: { label: 'Disabled', tone: 'nt', icon: '–' },
+    deleted: { label: 'Deleted', tone: 'er', icon: '✕' },
     suspended: { label: 'Suspended', tone: 'er', icon: '✕' },
     // API keys
     rotating: { label: 'Rotating out', tone: 'wn', icon: '↻' },

@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 export type FilterChip = {
     key: string;
@@ -73,13 +74,20 @@ export function ViewTabs({
     views,
     active,
     onChange,
+    className,
 }: {
     views: { key: string; label: string; count?: number }[];
     active: string;
     onChange: (key: string) => void;
+    className?: string;
 }) {
     return (
-        <div className="flex items-center gap-0.5 overflow-x-auto border-b border-ln2 px-3">
+        <div
+            className={cn(
+                'flex items-center gap-0.5 overflow-x-auto border-b border-ln2 px-3',
+                className,
+            )}
+        >
             {views.map((view) => (
                 <button
                     key={view.key}

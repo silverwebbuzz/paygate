@@ -242,7 +242,7 @@ class BranchController extends Controller
             ],
             'verified_at' => $branch->verified_at?->toIso8601String(),
             'created_at' => $branch->created_at?->toIso8601String(),
-            'accounts' => $branch->paymentAccounts()->orderBy('label')->get()->map(fn ($account) => [
+            'accounts' => $branch->paymentAccounts()->notDeleted()->orderBy('label')->get()->map(fn ($account) => [
                 'label' => $account->label,
                 'holder' => $account->is_bank_enabled ? $account->account_holder_name : null,
                 'bank' => $account->is_bank_enabled ? "{$account->bank_name} · {$account->maskedAccountNumber()}" : null,

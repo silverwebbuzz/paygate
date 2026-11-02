@@ -180,7 +180,7 @@ class DepositQueueController extends Controller
             'reason' => ['required', 'string', 'max:500'],
         ]);
 
-        $account = PaymentAccount::query()->with('branch')->findOrFail((string) $data['payment_account_id']);
+        $account = PaymentAccount::query()->notDeleted()->with('branch')->findOrFail((string) $data['payment_account_id']);
         // The new branch's statement may already show it: then it is approved at once.
         $approved = DB::transaction(fn () => $autoApprove->forPayin($move->handle($actor, $transaction, $account, $data['reason'])));
 
@@ -208,6 +208,7 @@ class DepositQueueController extends Controller
     private function moveOptions(Transaction $payin): array
     {
         return PaymentAccount::query()
+            ->notDeleted()
             ->whereIn('branch_id', PartnerBranchMapping::query()->where('partner_id', $payin->partner_id)->select('branch_id'))
             ->whereKeyNot((string) $payin->payment_account_id)
             ->with('branch')

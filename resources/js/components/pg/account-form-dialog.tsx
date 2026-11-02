@@ -38,6 +38,8 @@ export type AccountRow = {
         verify: boolean;
         set_verification: boolean;
         switch_to: string[];
+        /** Admin only; the account moves to the Deleted tab. */
+        delete: boolean;
     };
 };
 

@@ -25,6 +25,7 @@ use Illuminate\Validation\ValidationException;
  *   account number, UPI ID, UPI name) sends a verified account back for
  *   verification. The bank side and the UPI side each carry their own name.
  * - Per-transaction limits must sit inside the branch's deposit limits.
+ * - A deleted account cannot be edited, and its numbers may be added again.
  */
 class SavePaymentAccount
 {
@@ -40,6 +41,10 @@ class SavePaymentAccount
      */
     public function handle(User $actor, Branch $branch, ?PaymentAccount $account, array $data): PaymentAccount
     {
+        if ($account?->isDeleted()) {
+            throw ValidationException::withMessages(['label' => __('A deleted account cannot be edited.')]);
+        }
+
         $account ??= new PaymentAccount(['branch_id' => $branch->id, 'created_by' => $actor->id]);
         $isNew = ! $account->exists;
 
@@ -145,7 +150,7 @@ class SavePaymentAccount
 
     private function ensureUnique(PaymentAccount $account): void
     {
-        $others = PaymentAccount::query()->when($account->exists, fn ($query) => $query->whereKeyNot($account->id));
+        $others = PaymentAccount::query()->notDeleted()->when($account->exists, fn ($query) => $query->whereKeyNot($account->id));
 
         if ($account->is_bank_enabled && (clone $others)->where(['account_number_hash' => $account->account_number_hash, 'ifsc' => $account->ifsc])->exists()) {
             throw ValidationException::withMessages(['account_number' => __('This bank account is already registered.')]);

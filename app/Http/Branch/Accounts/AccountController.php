@@ -42,7 +42,7 @@ class AccountController extends Controller
                 'deposit_min_amount' => Money::toRupees($branch->deposit_min_amount),
                 'deposit_max_amount' => Money::toRupees($branch->deposit_max_amount),
             ],
-            'accounts' => $presenter->rows($branch->paymentAccounts()->with('branch')->orderBy('label')->get(), $actor),
+            'accounts' => $presenter->rows($branch->paymentAccounts()->notDeleted()->with('branch')->orderBy('label')->get(), $actor),
             'can' => ['create' => $actor->can('accounts.create')],
         ]);
     }
@@ -76,7 +76,7 @@ class AccountController extends Controller
         $this->ensureOwn($actor, $account);
 
         $data = $request->validate([
-            'status' => ['required', Rule::enum(AccountStatus::class)],
+            'status' => ['required', Rule::in(AccountStatus::switchable())],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -103,6 +103,6 @@ class AccountController extends Controller
 
     private function ensureOwn(User $actor, PaymentAccount $account): void
     {
-        abort_unless($account->branch_id === $actor->branch_id, 404);
+        abort_unless($account->branch_id === $actor->branch_id && ! $account->isDeleted(), 404);
     }
 }

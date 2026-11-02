@@ -188,6 +188,7 @@ Architecture.md calls the partner customer the "payer". Both terms mean the same
 | ACC-09 | Lifecycle: NEW → VERIFICATION_PENDING → VERIFIED → ACTIVE (or → REJECTED). Only VERIFIED + ACTIVE accounts are eligible | A/B   | ✅     | Sources 3, 5; matches Architecture §5.1                         |
 | ACC-10 | Admin can also create/manage accounts on a branch's behalf                                                              | A     | 📝     | Source 3                                                        |
 | ACC-11 | Account log: every change, who, reason (IP in the CSV only); Admin for all branches, branch for its own accounts      | A/B   | ✅     | 2026-10-27: branch portal too (`/branch/accounts/logs`); no IP column on screen (2026-10-28) |
+| ACC-12 | Delete account (soft): Admin only. Status becomes `deleted`; hidden from Admin and branch lists, shown only under Admin's red "Deleted" button; history, transactions and log kept; cannot be edited or switched on again | A     | ✅     | Client request 2026-11-02 |
 
 ### PGW — Payment gateways & credentials
 

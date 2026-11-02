@@ -6,6 +6,7 @@ use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Actions\ChangeAccountStatus;
+use App\Domain\PaymentAccount\Actions\DeletePaymentAccount;
 use App\Domain\PaymentAccount\Actions\ReviewPaymentAccount;
 use App\Domain\PaymentAccount\Actions\SavePaymentAccount;
 use App\Domain\PaymentAccount\Actions\SetAccountVerification;
@@ -25,11 +26,12 @@ use Inertia\Response;
 
 /**
  * Bank & UPI accounts of every branch: Admin verifies new or changed
- * accounts, and can add, edit, pause or disable them.
+ * accounts, and can add, edit, pause, disable or delete them. Deleted
+ * accounts only show under the "Deleted" tab.
  */
 class AccountController extends Controller
 {
-    public const VIEWS = ['pending', 'verified', 'unverified', 'active', 'inactive'];
+    public const VIEWS = ['pending', 'verified', 'unverified', 'active', 'inactive', 'deleted'];
 
     public function index(Request $request, AccountPresenter $presenter): Response
     {
@@ -43,6 +45,7 @@ class AccountController extends Controller
 
         $accounts = PaymentAccount::query()
             ->with('branch')
+            ->when($status === 'deleted', fn (Builder $query) => $query->where('status', AccountStatus::Deleted), fn (Builder $query) => $query->notDeleted())
             ->when(in_array($status, ['pending', 'verified', 'unverified'], true), fn (Builder $query) => $query->where('verification', $status))
             ->when(in_array($status, ['active', 'inactive'], true), fn (Builder $query) => $query->where('status', $status))
             ->when(is_string($branchId) && $branchId !== '', fn (Builder $query) => $query->where('branch_id', $branchId))
@@ -67,8 +70,8 @@ class AccountController extends Controller
             ],
             'filters' => ['status' => $status, 'branch' => $branchId, 'search' => $search],
             'counts' => [
-                'all' => PaymentAccount::query()->count(),
-                ...PaymentAccount::query()->toBase()->selectRaw('verification, count(*) as total')->groupBy('verification')->pluck('total', 'verification')->all(),
+                'all' => PaymentAccount::query()->notDeleted()->count(),
+                ...PaymentAccount::query()->notDeleted()->toBase()->selectRaw('verification, count(*) as total')->groupBy('verification')->pluck('total', 'verification')->all(),
                 ...PaymentAccount::query()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
             ],
             'branches' => Branch::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name']),
@@ -156,7 +159,7 @@ class AccountController extends Controller
         Gate::authorize('accounts.update');
 
         $data = $request->validate([
-            'status' => ['required', Rule::enum(AccountStatus::class)],
+            'status' => ['required', Rule::in(AccountStatus::switchable())],
             'reason' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -165,6 +168,24 @@ class AccountController extends Controller
         $change->handle($actor, $account, AccountStatus::from($data['status']), $data['reason'] ?? null);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('“:label” is now :status.', ['label' => $account->label, 'status' => $data['status']])]);
+
+        return back();
+    }
+
+    /**
+     * Soft delete: the account moves to the "Deleted" tab.
+     */
+    public function destroy(Request $request, PaymentAccount $account, DeletePaymentAccount $delete): RedirectResponse
+    {
+        Gate::authorize('accounts.update');
+
+        $reason = $request->validate(['reason' => ['nullable', 'string', 'max:500']])['reason'] ?? null;
+
+        /** @var User $actor */
+        $actor = $request->user();
+        $delete->handle($actor, $account, $reason);
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => __('“:label” deleted. It is listed under Deleted.', ['label' => $account->label])]);
 
         return back();
     }

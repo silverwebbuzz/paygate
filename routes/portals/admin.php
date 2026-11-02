@@ -196,6 +196,7 @@ Route::controller(AccountController::class)->prefix('accounts')->name('accounts.
     Route::post('{account}/reject', 'reject')->name('reject');
     Route::put('{account}/verification', 'verification')->name('verification');
     Route::put('{account}/status', 'status')->name('status');
+    Route::delete('{account}', 'destroy')->name('destroy');
 });
 
 // Roles & permissions.

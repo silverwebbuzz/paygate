@@ -14,6 +14,10 @@ class ChangeAccountStatus
 {
     public function handle(User $actor, PaymentAccount $account, AccountStatus $status, ?string $reason = null, bool $requireReason = false): PaymentAccount
     {
+        if ($account->isDeleted() || $status === AccountStatus::Deleted) {
+            throw ValidationException::withMessages(['status' => __('A deleted account cannot be switched on or off.')]);
+        }
+
         if ($status === $account->status) {
             throw ValidationException::withMessages(['status' => __('This account is already :status.', ['status' => $status->value])]);
         }

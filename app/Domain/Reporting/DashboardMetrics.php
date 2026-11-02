@@ -196,7 +196,7 @@ class DashboardMetrics
         $pending = $this->transactions($scope)->where('direction', 'payin')->whereIn('status', self::WAITING_PAYIN);
         $oldest = (clone $pending)->min('submitted_at');
         $cases = ReconciliationCase::query()->where('branch_id', $scope->branchId)->where('status', '!=', 'resolved');
-        $accounts = PaymentAccount::query()->where('branch_id', $scope->branchId);
+        $accounts = PaymentAccount::query()->notDeleted()->where('branch_id', $scope->branchId);
         $position = $this->ledger->unsettled(branchId: $scope->branchId);
         $settlement = Settlement::query()->current()->where(['party_type' => 'branch', 'branch_id' => $scope->branchId])->whereIn('status', ['calculated', 'partially_settled'])->first();
 
@@ -287,7 +287,7 @@ class DashboardMetrics
 
         // Accounts belong to branches: Admin and the branch see them.
         if ($scope->partnerId === null) {
-            $pendingAccounts = $scope->apply(PaymentAccount::query())->where('verification', AccountVerification::Pending)->count();
+            $pendingAccounts = $scope->apply(PaymentAccount::query()->notDeleted())->where('verification', AccountVerification::Pending)->count();
             $items[] = $this->item('accounts', 'Bank accounts awaiting verification', 'Added or changed, not yet approved', (string) $pendingAccounts, 'pending_verification', 'accounts');
         }
 
@@ -341,7 +341,7 @@ class DashboardMetrics
      */
     private function accountUsage(Scope $scope): array
     {
-        $accounts = PaymentAccount::query()->where('branch_id', $scope->branchId)->where('verification', AccountVerification::Verified)->orderBy('label')->limit(8)->get();
+        $accounts = PaymentAccount::query()->notDeleted()->where('branch_id', $scope->branchId)->where('verification', AccountVerification::Verified)->orderBy('label')->limit(8)->get();
         $used = $this->usage->today('account', $accounts->pluck('id')->all(), Direction::Deposit);
 
         return [

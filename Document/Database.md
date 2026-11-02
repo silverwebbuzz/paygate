@@ -214,11 +214,12 @@ Constraint: `EXCLUDE USING gist (subject_type WITH =, subject_id WITH =, side WI
 | label                                     | text                  | Internal name                                                                                          |
 | bank_name, ifsc                           | text null             | Bank                                                                                                   |
 | account_holder_name                       | text null             | Bank side's name (needed when bank transfer is on; nullable since 2026-10-27)                           |
-| account_number_encrypted / _hash / _last4 | text null             | Bank. `UNIQUE (account_number_hash, ifsc)`                                                             |
-| upi_id_encrypted / _hash / _last4         | text null             | UPI. `UNIQUE (upi_id_hash)`                                                                            |
+| account_number_encrypted / _hash / _last4 | text null             | Bank. `UNIQUE (account_number_hash, ifsc) WHERE status <> 'deleted'`                                   |
+| upi_id_encrypted / _hash / _last4         | text null             | UPI. `UNIQUE (upi_id_hash) WHERE status <> 'deleted'` (a deleted account's number can be added again)  |
 | upi_display_name, upi_code                | text null             | UPI name: the UPI side's name, may differ from the bank holder (needed when UPI is on, 2026-10-27)     |
 | is_qr_enabled, is_intent_enabled          | boolean               | UPI capabilities                                                                                       |
-| status                                    | text                  | `new` / `verification_pending` / `verified` / `active` / `paused` / `disabled` / `rejected` (Req §7.5) |
+| verification                              | text                  | `pending` / `verified` / `unverified` (split from status 2026-10-08)                                    |
+| status                                    | text                  | `active` / `inactive` / `deleted`. `deleted` = soft delete by Admin (2026-11-02): row kept for history, hidden from every list except Admin's "Deleted" tab |
 | verified_at, verified_by, rejected_reason |                       |                                                                                                        |
 | min_amount, max_amount                    | bigint null           | Per transaction; must sit inside the branch's limits (checked by the app)                              |
 | daily_amount_limit, daily_count_limit     | bigint / integer null |                                                                                                        |
