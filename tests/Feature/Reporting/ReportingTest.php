@@ -172,7 +172,7 @@ class ReportingTest extends TestCase
     {
         $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'payins', 'range' => 'today']))
             ->assertInertia(fn ($page) => $page->component('reports/index')
-                ->has('catalog', 8)
+                ->has('catalog', 12)
                 ->has('rows', 4)
                 ->where('totals._count', 4)
                 ->where('totals.amount', 1670000)
@@ -240,5 +240,35 @@ class ReportingTest extends TestCase
         $this->assertSame('expired', $csv->refresh()->status);
         $this->assertNull($csv->file_id);
         Storage::disk('local')->assertMissing($path);
+    }
+
+    public function test_the_deposit_and_withdrawal_reports_list_each_branch_and_partner_with_its_rate()
+    {
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_deposits']))
+            ->assertInertia(fn ($page) => $page
+                ->where('period.range', 'today')
+                ->where('rows', [[
+                    'sr' => 1,
+                    'name' => $this->branch->code.' '.$this->branch->name,
+                    'amount' => 1250000,
+                    'rate' => 4,
+                    'commission' => 50000,
+                ]])
+                ->where('totals._count', 1)
+                ->where('totals.amount', 1250000)
+                ->missing('totals.sr'));
+
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'partner_deposits']))
+            ->assertInertia(fn ($page) => $page->where('rows.0.rate', 6)->where('rows.0.commission', 75000));
+
+        // Search by name, the branch filter, and no withdrawals in this period.
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_deposits', 'search' => 'no such branch']))
+            ->assertInertia(fn ($page) => $page->where('rows', []));
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_deposits', 'branch' => Branch::factory()->create()->id]))
+            ->assertInertia(fn ($page) => $page->where('rows', []));
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_withdrawals']))
+            ->assertInertia(fn ($page) => $page->where('rows', []));
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'partner_deposits', 'range' => 'yesterday']))
+            ->assertInertia(fn ($page) => $page->where('rows', []));
     }
 }

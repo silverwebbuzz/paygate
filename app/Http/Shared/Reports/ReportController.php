@@ -117,7 +117,7 @@ class ReportController extends Controller
     {
         $input = fn (string $key) => is_string($request->input($key)) ? (string) $request->input($key) : null;
 
-        return Period::resolve($input('range') ?? 'this_month', $input('from'), $input('to'));
+        return Period::resolve($input('range') ?? 'today', $input('from'), $input('to'));
     }
 
     /**

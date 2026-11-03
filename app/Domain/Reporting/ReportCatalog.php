@@ -8,13 +8,15 @@ use App\Domain\Payout\PartnerBalance;
 use App\Domain\Reporting\Reports\BalancesReport;
 use App\Domain\Reporting\Reports\CommissionReport;
 use App\Domain\Reporting\Reports\GroupedReport;
+use App\Domain\Reporting\Reports\PartyReport;
 use App\Domain\Reporting\Reports\Report;
 use App\Domain\Reporting\Reports\SettlementsReport;
 use App\Domain\Reporting\Reports\TransactionsReport;
 
 /**
  * The report catalogue (decided 2026-09-28, G-49: the full list, merged
- * into eight reports). Each portal gets the ones about its own data.
+ * into eight reports; the four Deposit / Withdrawal reports added
+ * 2026-11-03). Each portal gets the ones about its own data.
  */
 class ReportCatalog
 {
@@ -28,6 +30,11 @@ class ReportCatalog
         $reports = [
             new TransactionsReport('payin'),
             new TransactionsReport('payout'),
+            // The client's old Deposit / Withdrawal reports (Admin).
+            new PartyReport('payin', 'branch'),
+            new PartyReport('payin', 'partner'),
+            new PartyReport('payout', 'branch'),
+            new PartyReport('payout', 'partner'),
             new GroupedReport('partners', $this->ledger),
             new GroupedReport('branches', $this->ledger),
             new GroupedReport('pairs', $this->ledger),

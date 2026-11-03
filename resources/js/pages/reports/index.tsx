@@ -7,6 +7,7 @@ import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { SelectInput } from '@/components/pg/field';
 import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
 import { SimpleTable } from '@/components/pg/simple-table';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDateTime } from '@/lib/dates';
@@ -52,16 +53,6 @@ type Props = {
     }[];
     can: { export: boolean };
 };
-
-const RANGES: [string, string][] = [
-    ['today', 'Today'],
-    ['yesterday', 'Yesterday'],
-    ['7d', 'Last 7 days'],
-    ['30d', 'Last 30 days'],
-    ['this_month', 'This month'],
-    ['prev_month', 'Previous month'],
-    ['custom', 'Custom…'],
-];
 
 const STATUSES: Record<string, [string, string][]> = {
     payins: [
@@ -112,6 +103,8 @@ function cell(type: string, value: Row[string]) {
         }
         case 'count':
             return Number(value).toLocaleString('en-IN');
+        case 'percent':
+            return `${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}%`;
         case 'date':
             return (
                 <span className="whitespace-nowrap">
@@ -134,27 +127,22 @@ export default function Reports(props: Props) {
     const { portal, catalog, report, period, filters, rows, totals, options } =
         props;
     const routes = { admin, branch, partner }[portal].reports;
-    const [custom, setCustom] = useState({
-        from: period.from.slice(0, 10),
-        to: period.to.slice(0, 10),
-    });
-    const [range, setRange] = useState(period.range);
+    const [search, setSearch] = useState(filters.search ?? '');
     const pending = props.exports.some((item) =>
         ['queued', 'running'].includes(item.status),
     );
 
-    const query = (next: Record<string, string | null> = {}) =>
+    const query = (next: Record<string, string | null | undefined> = {}) =>
         Object.fromEntries(
             Object.entries({
                 report: report.key,
-                range: period.range,
-                ...(period.range === 'custom' ? custom : {}),
+                ...('range' in next ? {} : periodQuery(period)),
                 ...filters,
                 ...next,
             }).filter(([, value]) => value),
         ) as Record<string, string>;
 
-    const visit = (next: Record<string, string | null>) =>
+    const visit = (next: Record<string, string | null | undefined>) =>
         router.get(
             routes.index({ query: query(next) }).url,
             {},
@@ -256,129 +244,95 @@ export default function Reports(props: Props) {
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                             {report.uses_period ? (
-                                <>
-                                    <SelectInput
-                                        className="h-[30px] w-[170px] text-[12.5px]"
-                                        value={range}
-                                        onChange={(event) => {
-                                            setRange(event.target.value);
-
-                                            if (
-                                                event.target.value !== 'custom'
-                                            ) {
-                                                visit({
-                                                    range: event.target.value,
-                                                });
-                                            }
-                                        }}
-                                    >
-                                        {RANGES.map(([key, label]) => (
-                                            <option key={key} value={key}>
-                                                {label}
-                                            </option>
-                                        ))}
-                                    </SelectInput>
-                                    {range === 'custom' && (
-                                        <form
-                                            className="flex items-center gap-1.5 text-[12.5px]"
-                                            onSubmit={(event) => {
-                                                event.preventDefault();
-                                                visit({
-                                                    range: 'custom',
-                                                    ...custom,
-                                                });
-                                            }}
-                                        >
-                                            <input
-                                                type="date"
-                                                value={custom.from}
-                                                onChange={(event) =>
-                                                    setCustom({
-                                                        ...custom,
-                                                        from: event.target
-                                                            .value,
-                                                    })
-                                                }
-                                                className="h-[30px] rounded-md border border-ln bg-sf px-2"
-                                            />
-                                            –
-                                            <input
-                                                type="date"
-                                                value={custom.to}
-                                                onChange={(event) =>
-                                                    setCustom({
-                                                        ...custom,
-                                                        to: event.target.value,
-                                                    })
-                                                }
-                                                className="h-[30px] rounded-md border border-ln bg-sf px-2"
-                                            />
-                                            <PgButton
-                                                type="submit"
-                                                variant="primary"
-                                                className="h-[30px]"
-                                            >
-                                                Show
-                                            </PgButton>
-                                        </form>
-                                    )}
-                                    <span className="text-xs text-tx3">
-                                        {period.label}
-                                    </span>
-                                </>
+                                <PeriodFilter
+                                    period={period}
+                                    onChange={visit}
+                                    className="w-full"
+                                />
                             ) : (
                                 <span className="text-xs text-tx3">
                                     As of now
                                 </span>
                             )}
                             {Object.entries(report.filters).map(
-                                ([key, label]) => (
-                                    <SelectInput
-                                        key={key}
-                                        className="h-[30px] w-[180px] text-[12.5px]"
-                                        value={filters[key] ?? ''}
-                                        onChange={(event) =>
-                                            visit({
-                                                [key]:
-                                                    event.target.value || null,
-                                            })
-                                        }
-                                    >
-                                        <option value="">{`${label}: all`}</option>
-                                        {key === 'status' &&
-                                            (STATUSES[report.key] ?? []).map(
-                                                ([value, text]) => (
+                                ([key, label]) =>
+                                    key === 'search' ? (
+                                        <form
+                                            key={key}
+                                            onSubmit={(event) => {
+                                                event.preventDefault();
+                                                visit({
+                                                    search: search || null,
+                                                });
+                                            }}
+                                        >
+                                            <input
+                                                value={search}
+                                                onChange={(event) =>
+                                                    setSearch(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                onBlur={() =>
+                                                    search !==
+                                                        (filters.search ??
+                                                            '') &&
+                                                    visit({
+                                                        search: search || null,
+                                                    })
+                                                }
+                                                placeholder={`${label} by name or code`}
+                                                className="h-[30px] w-[220px] rounded-[7px] border border-ln bg-sf px-2.5 text-[12.5px]"
+                                            />
+                                        </form>
+                                    ) : (
+                                        <SelectInput
+                                            key={key}
+                                            className="h-[30px] w-[180px] text-[12.5px]"
+                                            value={filters[key] ?? ''}
+                                            onChange={(event) =>
+                                                visit({
+                                                    [key]:
+                                                        event.target.value ||
+                                                        null,
+                                                })
+                                            }
+                                        >
+                                            <option value="">{`${label}: all`}</option>
+                                            {key === 'status' &&
+                                                (
+                                                    STATUSES[report.key] ?? []
+                                                ).map(([value, text]) => (
                                                     <option
                                                         key={value}
                                                         value={value}
                                                     >
                                                         {text}
                                                     </option>
-                                                ),
+                                                ))}
+                                            {key === 'party_type' && (
+                                                <>
+                                                    <option value="partner">
+                                                        Partners
+                                                    </option>
+                                                    <option value="branch">
+                                                        Branches
+                                                    </option>
+                                                </>
                                             )}
-                                        {key === 'party_type' && (
-                                            <>
-                                                <option value="partner">
-                                                    Partners
-                                                </option>
-                                                <option value="branch">
-                                                    Branches
-                                                </option>
-                                            </>
-                                        )}
-                                        {(key === 'partner' ||
-                                            key === 'branch') &&
-                                            options[key].map((option) => (
-                                                <option
-                                                    key={option.id}
-                                                    value={option.id}
-                                                >
-                                                    {option.code} ·{' '}
-                                                    {option.name}
-                                                </option>
-                                            ))}
-                                    </SelectInput>
-                                ),
+                                            {(key === 'partner' ||
+                                                key === 'branch') &&
+                                                options[key].map((option) => (
+                                                    <option
+                                                        key={option.id}
+                                                        value={option.id}
+                                                    >
+                                                        {option.code} ·{' '}
+                                                        {option.name}
+                                                    </option>
+                                                ))}
+                                        </SelectInput>
+                                    ),
                             )}
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -407,6 +361,7 @@ export default function Reports(props: Props) {
                                     String(
                                         row.reference ??
                                             row.day ??
+                                            row.sr ??
                                             `${row.partner ?? ''}-${row.branch ?? ''}-${rows.indexOf(row)}`,
                                     )
                                 }
