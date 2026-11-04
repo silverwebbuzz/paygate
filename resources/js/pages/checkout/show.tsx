@@ -124,14 +124,6 @@ export default function Checkout(props: Props) {
                             Complete payment within session time
                         </div>
                     </div>
-                    <div className="flex-none text-right">
-                        <div className="text-[10.5px] font-semibold tracking-wide text-[#64748B] uppercase">
-                            Amount to pay
-                        </div>
-                        <div className="text-[17px] font-bold">
-                            {formatPaise(payin.amount)}
-                        </div>
-                    </div>
                 </header>
 
                 {(open || waiting) && <AmountCard {...props} ticking={open} />}
