@@ -495,32 +495,32 @@ function PayView({
 
             {current === 'bank_transfer' && account!.account_number && (
                 <>
-                    <div className="overflow-hidden rounded-[14px] border border-[#E4E7EC]">
-                        <CopyRow
+                    <div className="rounded-[14px] border border-[#E4E7EC] px-4 pt-3.5 pb-1">
+                        <div className="text-[15px] font-medium">
+                            Bank Account Details
+                        </div>
+                        <DetailRow
                             label="Bank name"
                             value={account!.bank_name ?? ''}
-                            copyable={false}
+                            upper
                         />
-                        <CopyRow
-                            label="Account holder"
+                        <DetailRow
+                            label="Holder name"
                             value={account!.holder ?? ''}
-                            copyable={false}
+                            upper
                         />
-                        <CopyRow
-                            label="Account number"
+                        <DetailRow
+                            label="Account no"
                             value={account!.account_number}
-                            mono
                         />
-                        <CopyRow
-                            label="IFSC"
+                        <DetailRow
+                            label="IFSC code"
                             value={account!.ifsc ?? ''}
-                            mono
+                            upper
                         />
-                        <CopyRow
-                            label="Amount"
-                            value={formatPaise(payin.amount)}
-                            copyValue={(payin.amount / 100).toFixed(2)}
-                        />
+                        {account!.upi_id && (
+                            <DetailRow label="UPI ID" value={account!.upi_id} />
+                        )}
                     </div>
                     <Note>
                         Transfer the <b>exact amount</b> by IMPS / NEFT from
@@ -785,6 +785,51 @@ function CopyRow({
                     {copied === target ? 'Copied' : 'Copy'}
                 </button>
             )}
+        </div>
+    );
+}
+
+/**
+ * One line of Bank Account Details (bank transfer tab): label on the left,
+ * the value and a copy icon on the right.
+ */
+function DetailRow({
+    label,
+    value,
+    upper,
+}: {
+    label: string;
+    value: string;
+    upper?: boolean;
+}) {
+    const [copied, copy] = useClipboard();
+
+    return (
+        <div className="flex items-center gap-3 border-b border-[#EEF0F3] py-3 last:border-b-0">
+            <span className="flex-none text-[12.5px] font-semibold text-[#64748B] uppercase">
+                {label}
+            </span>
+            <span
+                className={cn(
+                    'min-w-0 flex-1 text-right text-[14px] font-semibold break-all',
+                    upper && 'uppercase',
+                )}
+            >
+                {value}
+            </span>
+            <button
+                type="button"
+                onClick={() => copy(value)}
+                aria-label={`Copy ${label}`}
+                title={copied === value ? 'Copied' : `Copy ${label}`}
+                className="grid size-7 flex-none place-items-center rounded-md text-[#16A34A] hover:bg-[#F0FDF4]"
+            >
+                {copied === value ? (
+                    <Check className="size-[18px]" />
+                ) : (
+                    <Copy className="size-[18px]" />
+                )}
+            </button>
         </div>
     );
 }
