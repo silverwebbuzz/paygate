@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import { Code, FlaskConical } from 'lucide-react';
+import { FlaskConical } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PortalSidebar } from '@/components/pg/portal-sidebar';
 import { PortalTopbar } from '@/components/pg/portal-topbar';
@@ -63,17 +63,20 @@ export default function PortalLayout({
                   },
               ]
             : []),
-        ...(portal === 'admin' && superAdmin
-            ? [
-                  {
-                      label: 'Developer',
-                      icon: Code,
-                      items: [{ label: 'UI kit', href: admin.uiKit() }],
-                  },
-              ]
-            : []),
     ];
-    const groups = [...PORTAL_NAV[portal], ...extras]
+    // Super admins also get the UI kit under Developer.
+    const nav = PORTAL_NAV[portal].map((group) =>
+        portal === 'admin' && superAdmin && group.label === 'Developer'
+            ? {
+                  ...group,
+                  items: [
+                      ...group.items,
+                      { label: 'UI kit', href: admin.uiKit() },
+                  ],
+              }
+            : group,
+    );
+    const groups = [...nav, ...extras]
         .map((group) => ({
             ...group,
             items: group.items.filter(

@@ -71,6 +71,11 @@
             <div class="mono">{{ $secret }}</div>
             <p class="small" style="margin: 4px 0 0;">Store it now. A later download from the partner list does not include the secret.</p>
         </div>
+    @elseif ($standard ?? false)
+        <div class="box note">
+            <strong>Key ID and secret key.</strong>
+            PayGate gives each partner its own key ID and secret key separately. This guide does not include them.
+        </div>
     @elseif ($last4)
         <div class="box warn">
             <strong>Secret key.</strong>
@@ -83,7 +88,9 @@
         </div>
     @endif
 
-    @if ($ips === null)
+    @if ($standard ?? false)
+        <div class="box note"><strong>Allowed IPs.</strong> Send PayGate the public IP addresses of your servers before you go live. Calls from any other address are refused.</div>
+    @elseif ($ips === null)
         <div class="box warn"><strong>No allowed IPs.</strong> An empty list blocks every API call. Add your server addresses before you go live.</div>
     @else
         <p class="small">Calls are accepted only from the allowed addresses above.</p>
@@ -108,7 +115,11 @@
             <td><div class="url">{{ $payoutWebhookUrl }}</div><div class="small">PayGate POSTs payout updates here.</div></td>
         </tr>
     </table>
-    <p class="small">Pay-in limits: {{ $depositMin }} to {{ $depositMax }}. The payment page stays open for {{ $sessionMinutes }} minutes.</p>
+    @if ($standard ?? false)
+        <p class="small">Send these URLs to PayGate. Pay-in limits and how long the payment page stays open are set for each partner.</p>
+    @else
+        <p class="small">Pay-in limits: {{ $depositMin }} to {{ $depositMax }}. The payment page stays open for {{ $sessionMinutes }} minutes.</p>
+    @endif
 
     <div class="box good">
         <strong>Credit the customer only when pay-in status is success.</strong>

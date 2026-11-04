@@ -262,6 +262,19 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 },
             ],
         },
+        {
+            // Hidden from admins until a super admin opens it in Section
+            // rollout (super admins also get the UI kit here).
+            label: 'Developer',
+            icon: Code,
+            items: [
+                {
+                    label: 'Partner API Docs',
+                    href: admin.partnerApiDocs.show(),
+                    permission: 'partners.view',
+                },
+            ],
+        },
         account,
     ],
     branch: [

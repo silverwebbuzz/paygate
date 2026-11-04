@@ -4,6 +4,7 @@ use App\Http\Admin\Accounts\AccountController;
 use App\Http\Admin\Activity\OrganisationActivityController;
 use App\Http\Admin\Branches\BranchController;
 use App\Http\Admin\Commissions\CommissionController;
+use App\Http\Admin\Developer\PartnerApiDocsController;
 use App\Http\Admin\Mappings\MappingController;
 use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerIntegrationFileController;
@@ -154,6 +155,12 @@ Route::controller(PartnerController::class)->prefix('partners')->name('partners.
     Route::put('{partner}/status', 'status')->name('status');
     Route::put('{partner}/direction', 'direction')->name('direction');
     Route::put('{partner}/limits', 'limits')->name('limits');
+});
+// Developer › Partner API Docs: the standard integration guide (page, preview, PDF).
+Route::controller(PartnerApiDocsController::class)->prefix('partner-api-docs')->name('partner-api-docs.')->group(function () {
+    Route::get('/', 'show')->name('show');
+    Route::get('preview', 'preview')->name('preview');
+    Route::get('download', 'download')->name('download');
 });
 Route::post('partners/{partner}/api-keys', [PartnerKeyController::class, 'store'])->middleware('throttle:10,1')->name('partners.api-keys.store');
 Route::delete('partners/{partner}/api-keys/{key}', [PartnerKeyController::class, 'destroy'])->middleware('throttle:10,1')->name('partners.api-keys.destroy');

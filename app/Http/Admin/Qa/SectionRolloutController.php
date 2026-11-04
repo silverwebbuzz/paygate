@@ -27,7 +27,7 @@ class SectionRolloutController extends Controller
             foreach ($groups as $group => $items) {
                 $portals[$portal][] = [
                     'label' => $group,
-                    'items' => array_map(fn (string $key, array $item) => ['key' => $key, 'label' => $item['label'], 'path' => $item['paths'][0]], array_keys($items), $items),
+                    'items' => array_map(fn (string $key, array $item) => ['key' => $key, 'label' => $item['label'], 'path' => $item['paths'][0], 'gated' => $item['gated'] ?? false], array_keys($items), $items),
                 ];
             }
         }

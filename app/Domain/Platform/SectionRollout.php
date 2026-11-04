@@ -19,6 +19,9 @@ use App\Domain\Core\Identity\Models\User;
  * Statement" (/branch/statements) is closed. Dashboards and Profile & settings
  * are always open. The first path of each item is its menu link.
  *
+ * A gated item (Developer › Partner API Docs) stays closed to everyone but
+ * super admins until it is opened here, even while rollout is off.
+ *
  * Keep SECTIONS in step with resources/js/lib/portal-nav.ts when a menu
  * item is added.
  */
@@ -28,7 +31,7 @@ class SectionRollout
     public const SETTING = 'rollout.sections';
 
     /**
-     * @var array<string, array<string, array<string, array{label: string, paths: list<string>}>>>
+     * @var array<string, array<string, array<string, array{label: string, paths: list<string>, gated?: bool}>>>
      */
     public const SECTIONS = [
         'admin' => [
@@ -68,6 +71,9 @@ class SectionRollout
                 'settings' => ['label' => 'Global Settings', 'paths' => ['/admin/settings']],
                 'ip' => ['label' => 'IP Management', 'paths' => ['/admin/ip-management']],
                 'audit' => ['label' => 'Audit Logs', 'paths' => ['/admin/audit-logs']],
+            ],
+            'Developer' => [
+                'partner_api_docs' => ['label' => 'Partner API Docs', 'paths' => ['/admin/partner-api-docs'], 'gated' => true],
             ],
         ],
         'branch' => [
@@ -177,16 +183,16 @@ class SectionRollout
      */
     public function hiddenLinks(?User $user): array
     {
-        if ($user === null || ! $this->limits($user)) {
+        if ($user === null || $user->isSuperAdmin()) {
             return [];
         }
 
         $portal = $user->type->value;
-        $open = $this->state()['open'][$portal] ?? [];
+        $state = $this->state();
         $hidden = [];
 
         foreach ($this->items($portal) as $key => $item) {
-            if (! in_array($key, $open, true)) {
+            if ($this->closed($state, $portal, $key, $item)) {
                 $hidden[] = $item['paths'][0];
             }
         }
@@ -199,7 +205,7 @@ class SectionRollout
      */
     public function allows(?User $user, string $path): bool
     {
-        if ($user === null || ! $this->limits($user)) {
+        if ($user === null || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -223,11 +229,27 @@ class SectionRollout
         }
 
         // Not part of any section (dashboard, settings, files…): always open.
-        return $owners === [] || array_intersect($owners, $this->state()['open'][$portal] ?? []) !== [];
+        $items = $this->items($portal);
+        $state = $this->state();
+
+        return $owners === [] || collect($owners)->contains(fn (string $key) => ! $this->closed($state, $portal, $key, $items[$key]));
     }
 
     /**
-     * @return array<string, array{label: string, paths: list<string>}>
+     * Closed while rollout is on and it isn't open; a gated item is closed
+     * until it is opened, whether rollout is on or off.
+     *
+     * @param  array{active: bool, open: array<string, list<string>>}  $state
+     * @param  array{label: string, paths: list<string>, gated?: bool}  $item
+     */
+    private function closed(array $state, string $portal, string $key, array $item): bool
+    {
+        return ! in_array($key, $state['open'][$portal] ?? [], true)
+            && ($state['active'] || ($item['gated'] ?? false));
+    }
+
+    /**
+     * @return array<string, array{label: string, paths: list<string>, gated?: bool}>
      */
     private function items(string $portal): array
     {

@@ -12,7 +12,7 @@ type Portal = 'admin' | 'branch' | 'partner';
 
 type Group = {
     label: string;
-    items: { key: string; label: string; path: string }[];
+    items: { key: string; label: string; path: string; gated: boolean }[];
 };
 
 type Props = {
@@ -135,7 +135,11 @@ export default function SectionRollout({ portals, state }: Props) {
                                 <SwitchField
                                     key={item.key}
                                     label={item.label}
-                                    hint={item.path}
+                                    hint={
+                                        item.gated
+                                            ? `${item.path} · hidden from admins until opened, even with rollout off`
+                                            : item.path
+                                    }
                                     checked={open.includes(item.key)}
                                     onChange={(checked) =>
                                         setOpen(

@@ -87,6 +87,27 @@ class SectionRolloutTest extends TestCase
         $this->actingAs($this->ops)->get(route('admin.branches.index'))->assertOk();
     }
 
+    public function test_partner_api_docs_stay_hidden_from_admins_until_a_super_admin_opens_them()
+    {
+        // Rollout off, nothing opened: hidden and refused for admins, open for super admins.
+        $this->actingAs($this->ops)->get(route('admin.dashboard'))
+            ->assertInertia(fn ($page) => $page->where('rolloutHidden', ['/admin/partner-api-docs']));
+        $this->actingAs($this->ops)->get(route('admin.partner-api-docs.show'))->assertRedirect(route('admin.dashboard'));
+        $this->actingAs($this->ops)->get(route('admin.partner-api-docs.download'))->assertRedirect(route('admin.dashboard'));
+        $this->actingAs($this->super)->get(route('admin.partner-api-docs.show'))->assertOk();
+
+        // Opened, rollout still off: the menu item shows and the guide opens and downloads.
+        $this->rollout(false, ['admin' => ['partner_api_docs']])->assertSessionHasNoErrors();
+        $this->actingAs($this->ops)->get(route('admin.dashboard'))
+            ->assertInertia(fn ($page) => $page->where('rolloutHidden', []));
+        $this->actingAs($this->ops)->get(route('admin.partner-api-docs.show'))
+            ->assertInertia(fn ($page) => $page->component('admin/partner-api-docs'));
+        $this->actingAs($this->ops)->get(route('admin.partner-api-docs.preview'))
+            ->assertOk()->assertSee('Standard guide')->assertDontSee('No key yet');
+        $this->actingAs($this->ops)->get(route('admin.partner-api-docs.download'))
+            ->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
     public function test_every_section_link_is_a_real_page()
     {
         foreach (SectionRollout::SECTIONS as $portal => $groups) {

@@ -10,9 +10,10 @@ use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Section rollout: while it is on, users other than super admins can't open
- * a section that isn't open yet. Opening one sends them back to their
- * dashboard with a message; any other request is refused.
+ * Section rollout: users other than super admins can't open a section that
+ * isn't open yet (any section while rollout is on; a gated one, such as
+ * Partner API Docs, also while it is off). Opening one sends them back to
+ * their dashboard with a message; any other request is refused.
  */
 class EnforceSectionRollout
 {

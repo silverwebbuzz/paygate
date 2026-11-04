@@ -54,13 +54,53 @@ class PartnerIntegrationFile
     {
         $code = preg_replace('/[^A-Za-z0-9._-]/', '', $partner->code) ?: 'partner';
 
+        return $this->pdf($this->html($partner, $secret), $code);
+    }
+
+    /**
+     * The standard guide (Admin › Developer › Partner API Docs): the same
+     * file without any partner's key, IPs, URLs or limits, to share before a
+     * partner is set up.
+     */
+    public function downloadStandard(): Response
+    {
+        return $this->pdf($this->standardHtml(), 'partner-api-guide');
+    }
+
+    public function standardHtml(): string
+    {
+        return view('partners.integration-file', [
+            'standard' => true,
+            'partnerName' => 'Standard guide',
+            'partnerCode' => 'All partners',
+            'generatedAt' => now()->timezone((string) config('app.business_timezone'))->format('j M Y, H:i'),
+            'base' => Hosts::url('api', '/v1'),
+            'keyId' => 'Given to each partner',
+            'secret' => null,
+            'last4' => null,
+            'ips' => 'Your servers’ public IP addresses',
+            'rateLimit' => (int) config('paygate.api.rate_limit'),
+            'clockMinutes' => (int) (ApiAuthenticator::MAX_CLOCK_SKEW / 60),
+            'returnUrl' => 'Your page the customer returns to',
+            'callbackUrl' => 'Your pay-in callback URL',
+            'payinWebhookUrl' => 'Your pay-in webhook URL',
+            'payoutWebhookUrl' => 'Your payout webhook URL',
+            'sampleReturn' => 'https://your-site/deposit/done',
+            'depositMin' => null,
+            'depositMax' => null,
+            'sessionMinutes' => null,
+        ])->render();
+    }
+
+    private function pdf(string $html, string $code): Response
+    {
         $options = new Options;
         $options->setIsRemoteEnabled(false);
         $options->setIsHtml5ParserEnabled(true);
         $options->setDefaultFont('DejaVu Sans');
 
         $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($this->html($partner, $secret), 'UTF-8');
+        $dompdf->loadHtml($html, 'UTF-8');
         $dompdf->setPaper('A4');
         $dompdf->render();
         $dompdf->addInfo('Title', 'PayGate integration '.$code);
