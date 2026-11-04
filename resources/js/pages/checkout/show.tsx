@@ -344,12 +344,12 @@ function AmountCard({
     const urgent = left !== null && left < 120;
 
     return (
-        <div className="mx-5 mt-4 rounded-[14px] border border-[#EEF0F3] bg-[#F8FAFC] p-4">
+        <div className="mx-5 mt-4 rounded-[14px] border border-[#EEF0F3] bg-[#F8FAFC] px-4 py-3">
             <div className="text-xs text-[#64748B]">Amount to pay</div>
-            <div className="mt-0.5 text-[30px] font-bold tracking-[-.02em]">
+            <div className="mt-0.5 text-[30px] leading-tight font-bold tracking-[-.02em]">
                 {formatPaise(payin.amount)}
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-[#475569]">
+            <div className="mt-1.5 flex items-center justify-between text-xs text-[#475569]">
                 <span>
                     Order <span className="font-mono">{payin.order_id}</span>
                 </span>
@@ -367,7 +367,7 @@ function AmountCard({
                 )}
             </div>
             {ticking && left !== null && (
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#E4E7EC]">
+                <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-[#E4E7EC]">
                     <div
                         className={cn(
                             'h-full',
