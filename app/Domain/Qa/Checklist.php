@@ -321,7 +321,7 @@ final class Checklist
             ]),
 
             self::section('reconciliation', 'Statements & reconciliation', [
-                self::item('recon.manual_lines', 'A/C Statement Entry (typed lines)', '/branch/statements',
+                self::item('recon.manual_lines', 'Manual A/C Statement (typed lines)', '/branch/statements',
                     'The branch types bank statement lines; a credit with the deposit’s UTR + amount + account is linked (the branch still approves); an approved deposit is reconciled when its line arrives.',
                     ['Submit a UTR on a test pay-in, then add a statement line with the same UTR, amount and account: the deposit shows the bank line.', 'Approve it: the line shows Reconciled.', 'Add the same line twice: refused.', 'Approve with another UTR than the linked line: the line goes to review.'],
                     ['branch', 'operator'],
@@ -336,7 +336,7 @@ final class Checklist
                     ['Open Statement History after an import: it is listed with rows / matched / skipped.', 'Download the file.'],
                     ['branch'],
                     ['StatementImportTest::test_statement_history_lists_imports_of_the_branch_and_the_file_downloads']),
-                self::item('recon.cases', 'Deposit Unsettled / Unsettled UTR cases', '/branch/unsettled',
+                self::item('recon.cases', 'Unsettled UTR cases', '/branch/unsettled',
                     'Lines that don’t match exactly become cases (amount mismatch, wrong branch, duplicate, no UTR…). They are linked by hand (same amount only) or closed with a reason. Admin sees all at /admin/unsettled.',
                     ['Add a line with a pending deposit’s UTR but a different amount: an "Amount mismatch" case opens.', 'Add a line without UTR, then link it by hand to a deposit of the same amount.', 'Close a case as "Not a customer payment".', 'Branches only see their own cases.'],
                     ['branch', 'admin'],

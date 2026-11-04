@@ -1,16 +1,11 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import {
-    ArrowLeftRight,
     Code,
-    CreditCard,
-    FileText,
     GitCompareArrows,
-    History,
     Landmark,
     LayoutDashboard,
     Network,
     Settings,
-    ShieldCheck,
     User,
     Wallet,
 } from 'lucide-react';
@@ -266,8 +261,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             items: [{ label: 'Dashboard', href: branch.dashboard() }],
         },
         {
-            label: 'Accounts',
-            icon: CreditCard,
+            label: 'Network',
+            icon: Network,
             items: [
                 {
                     label: 'Bank & UPI Accounts',
@@ -277,9 +272,14 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'Operations',
-            icon: ArrowLeftRight,
+            label: 'Payments',
+            icon: Wallet,
             items: [
+                {
+                    label: 'Pay-in History',
+                    href: branchPayins.index(),
+                    permission: 'payins.view',
+                },
                 {
                     label: 'Manual Deposit',
                     href: branchDeposits.index(),
@@ -291,18 +291,28 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'payouts.view',
                 },
                 {
-                    label: 'Deposit Unsettled',
-                    href: branchCases.index(),
-                    permission: 'reconciliation.view',
+                    label: 'Pay-out History',
+                    href: branchPayouts.history(),
+                    permission: 'payouts.view',
+                },
+                {
+                    label: 'Chargebacks',
+                    href: branch.chargebacks.index(),
+                    permission: 'reversals.view',
+                },
+                {
+                    label: 'Payout returns',
+                    href: branch.payoutReturns.index(),
+                    permission: 'payouts.view',
                 },
             ],
         },
         {
-            label: 'Statements',
-            icon: FileText,
+            label: 'Reconciliation',
+            icon: GitCompareArrows,
             items: [
                 {
-                    label: 'A/C Statement Entry',
+                    label: 'Manual A/C Statement',
                     href: branchStatements.index(),
                     permission: 'statements.view',
                 },
@@ -312,35 +322,14 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: branchImports.index(),
                     permission: 'statements.view',
                 },
-            ],
-        },
-        {
-            label: 'History',
-            icon: History,
-            items: [
-                {
-                    label: 'Pay-in History',
-                    href: branchPayins.index(),
-                    permission: 'payins.view',
-                },
-                {
-                    label: 'Chargebacks',
-                    href: branch.chargebacks.index(),
-                    permission: 'reversals.view',
-                },
-                {
-                    label: 'Pay-out History',
-                    href: branchPayouts.history(),
-                    permission: 'payouts.view',
-                },
-                {
-                    label: 'Payout returns',
-                    href: branch.payoutReturns.index(),
-                    permission: 'payouts.view',
-                },
                 {
                     label: 'UTR Reconciliation',
                     href: branchReconciliation.index(),
+                    permission: 'reconciliation.view',
+                },
+                {
+                    label: 'Unsettled UTR',
+                    href: branchCases.index(),
                     permission: 'reconciliation.view',
                 },
             ],
@@ -372,8 +361,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'Admin',
-            icon: ShieldCheck,
+            label: 'System',
+            icon: Settings,
             items: [
                 {
                     label: 'Users',
@@ -394,6 +383,17 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Overview',
             icon: LayoutDashboard,
             items: [{ label: 'Dashboard', href: partner.dashboard() }],
+        },
+        {
+            label: 'Network',
+            icon: Network,
+            items: [
+                {
+                    label: 'Bank & UPI Accounts',
+                    href: partnerAccounts.index(),
+                    permission: 'accounts.view',
+                },
+            ],
         },
         {
             label: 'Payments',
@@ -424,22 +424,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'Accounts',
-            icon: CreditCard,
-            items: [
-                {
-                    label: 'Bank & UPI Accounts',
-                    href: partnerAccounts.index(),
-                    permission: 'accounts.view',
-                },
-            ],
-        },
-        {
             label: 'Finance',
             icon: Landmark,
             items: [
                 {
-                    label: 'Settlements',
+                    label: 'Settlement',
                     href: partnerSettlements.index(),
                     permission: 'settlements.view',
                 },
@@ -482,8 +471,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'Admin',
-            icon: ShieldCheck,
+            label: 'System',
+            icon: Settings,
             items: [
                 {
                     label: 'Users',

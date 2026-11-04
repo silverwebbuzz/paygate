@@ -22,7 +22,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Unsettled UTR (Admin) / Deposit Unsettled (branch): bank statement lines
+ * Unsettled UTR (Admin and branch): bank statement lines
  * that didn't match cleanly, one case each, until someone resolves it:
  * link it to its transaction, approve a late payment (Admin), or close it as
  * not a customer payment / returned to the customer.
