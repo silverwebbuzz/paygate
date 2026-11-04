@@ -33,7 +33,14 @@ class CheckoutTest extends TestCase
     {
         parent::setUp();
 
+        Storage::fake('local');
         $this->buildNetwork();
+    }
+
+    /** "I've made the payment": the page requires a screenshot. */
+    private function submitProof(string $token, array $data = [])
+    {
+        return $this->post($this->page($token).'/proof', $data + ['photo' => UploadedFile::fake()->image('paid.png')]);
     }
 
     private function page(string $token): string
@@ -368,23 +375,23 @@ class CheckoutTest extends TestCase
         [$reference, $token] = $this->createPayin(['amount' => 200000]);
         $this->choose($token, 'upi');
         $this->choose($token, 'bank_transfer');
-        $this->post($this->page($token).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        $this->submitProof($token, ['utr' => '626812820491'])->assertSessionHasNoErrors();
         $this->actingAs(User::factory()->admin()->withTwoFactor()->create())->post(route('admin.deposits.approve', $this->payin($reference)), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
 
         $this->assertSame(0, $this->reserved('account', $bank->id));
     }
 
-    public function test_the_customer_submits_a_utr_or_a_screenshot()
+    public function test_the_customer_submits_a_screenshot_with_or_without_a_utr()
     {
-        Storage::fake('local');
         $this->activeAccount();
 
         [$reference, $token] = $this->createPayin();
-        $this->post($this->page($token).'/proof', ['utr' => '6268 1282 0491'])->assertSessionHasErrors('utr'); // no method yet
+        $this->submitProof($token, ['utr' => '6268 1282 0491'])->assertSessionHasErrors('utr'); // no method yet
         $this->choose($token, 'upi');
-        $this->post($this->page($token).'/proof', [])->assertSessionHasErrors('utr');
-        $this->post($this->page($token).'/proof', ['utr' => '12'])->assertSessionHasErrors('utr');
-        $this->post($this->page($token).'/proof', ['utr' => '6268 1282 0491'])->assertSessionHasNoErrors();
+        $this->post($this->page($token).'/proof', [])->assertSessionHasErrors('photo');
+        $this->post($this->page($token).'/proof', ['utr' => '6268 1282 0491'])->assertSessionHasErrors('photo');
+        $this->submitProof($token, ['utr' => '12'])->assertSessionHasErrors('utr');
+        $this->submitProof($token, ['utr' => '6268 1282 0491'])->assertSessionHasNoErrors();
 
         $payin = $this->payin($reference);
         $this->assertSame('payment_submitted', $payin->status);
@@ -413,19 +420,19 @@ class CheckoutTest extends TestCase
             $this->choose($tokens[$order], 'upi');
         }
 
-        $this->post($this->page($tokens['A']).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        $this->submitProof($tokens['A'], ['utr' => '626812820491'])->assertSessionHasNoErrors();
 
         // Same UTR (typed differently) while A is pending: refused, saying so; Admin alerted once.
-        $this->post($this->page($tokens['B']).'/proof', ['utr' => '6268 1282 0491'])
+        $this->submitProof($tokens['B'], ['utr' => '6268 1282 0491'])
             ->assertSessionHasErrors(['utr' => __('This UTR has already been submitted for another payment that is pending (being checked). If that was you, please wait for it to be confirmed — don’t submit it again. Otherwise check the UTR in your bank or UPI app.')]);
-        $this->post($this->page($tokens['B']).'/proof', ['utr' => '626812820491'])->assertSessionHasErrors('utr');
+        $this->submitProof($tokens['B'], ['utr' => '626812820491'])->assertSessionHasErrors('utr');
         $this->assertSame('awaiting_payment', $this->payin($refB)->status);
         $this->assertCount(1, Notification::sent(User::where('type', 'admin')->first(), PortalAlert::class, fn (PortalAlert $alert) => $alert->alert === Alert::UtrConflict));
 
         // Once A is declined, the UTR is released, and the branch sees it was used on A.
         $admin = User::factory()->admin()->withTwoFactor()->create();
         $this->actingAs($admin)->post(route('admin.deposits.decline', $this->payin($refA)), ['reason_code' => 'payment_not_found'])->assertSessionHasNoErrors();
-        $this->post($this->page($tokens['B']).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        $this->submitProof($tokens['B'], ['utr' => '626812820491'])->assertSessionHasNoErrors();
         $event = TransactionEvent::where(['transaction_id' => $this->payin($refB)->id, 'event' => 'proof_submitted'])->firstOrFail();
         $this->assertSame($refA, $event->data['possible_duplicate_of']);
 
@@ -433,7 +440,7 @@ class CheckoutTest extends TestCase
         $this->rate('partner', $this->partner->id, 'deposit', '6');
         $this->rate('branch', $this->branch->id, 'deposit', '4');
         $this->actingAs($admin)->post(route('admin.deposits.approve', $this->payin($refB)), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
-        $this->post($this->page($tokens['C']).'/proof', ['utr' => '626812820491'])
+        $this->submitProof($tokens['C'], ['utr' => '626812820491'])
             ->assertSessionHasErrors(['utr' => __('This UTR has already been used for a successful payment, so it can’t be used again. Check the UTR in your bank or UPI app; if it is right, contact support.')]);
     }
 
@@ -463,7 +470,7 @@ class CheckoutTest extends TestCase
         $this->activeAccount();
         [$reference, $token] = $this->createPayin();
         $this->choose($token, 'upi');
-        $this->post($this->page($token).'/proof', ['utr' => '626812820491']);
+        $this->submitProof($token, ['utr' => '626812820491']);
 
         $this->travel(1)->hours();
         app(ClosePayin::class)->expireDue();
@@ -496,7 +503,7 @@ class CheckoutTest extends TestCase
             $this->choose($token, $i % 2 ? 'upi' : 'qr')->assertRedirect();
         }
 
-        $this->post($this->page($token).'/proof', ['utr' => '626812820491'])->assertRedirect()->assertSessionHasNoErrors();
+        $this->submitProof($token, ['utr' => '626812820491'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('payment_submitted', $this->payin($reference)->status);
     }
 
@@ -513,7 +520,7 @@ class CheckoutTest extends TestCase
 
         // Once the first customer submits their UTR the slot frees up,
         // while their amount stays reserved.
-        $this->post($this->page($tokenA).'/proof', ['utr' => '626812820491'])->assertSessionHasNoErrors();
+        $this->submitProof($tokenA, ['utr' => '626812820491'])->assertSessionHasNoErrors();
         $this->choose($tokenB, 'upi')->assertSessionHasNoErrors();
 
         $this->assertSame(200000, $this->reserved('account', $account->id));

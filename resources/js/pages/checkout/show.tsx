@@ -80,8 +80,8 @@ const UPI_LOGOS: [string, string][] = [
 
 /**
  * The customer's payment page (design: checkout). States: choose a method →
- * pay (UPI / bank / QR) and submit UTR or screenshot → verifying → success;
- * or failed / expired / unavailable.
+ * pay (UPI / bank / QR) and submit a screenshot (and UTR) → verifying →
+ * success; or failed / expired / unavailable.
  */
 export default function Checkout(props: Props) {
     const { partner, payin, account } = props;
@@ -628,9 +628,14 @@ function PayView({
                 <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-dashed border-[#CBD5E1] px-3 py-2.5 text-[13px] text-[#475569] hover:border-ac">
                     <ImageUp className="size-4 flex-none" />
                     <span className="flex-1 truncate">
-                        {form.data.photo
-                            ? form.data.photo.name
-                            : 'Or upload a screenshot of the payment'}
+                        {form.data.photo ? (
+                            form.data.photo.name
+                        ) : (
+                            <>
+                                Upload a screenshot of the payment{' '}
+                                <span className="text-[#B91C1C]">*</span>
+                            </>
+                        )}
                     </span>
                     {form.data.photo && (
                         <button
@@ -645,7 +650,8 @@ function PayView({
                     )}
                     <input
                         type="file"
-                        className="hidden"
+                        required
+                        className="sr-only"
                         accept={proof.types.map((type) => `.${type}`).join(',')}
                         onChange={(event) =>
                             form.setData(
@@ -662,11 +668,7 @@ function PayView({
                 )}
                 <button
                     type="submit"
-                    disabled={
-                        form.processing ||
-                        (form.data.utr.trim() === '' &&
-                            form.data.photo === null)
-                    }
+                    disabled={form.processing || form.data.photo === null}
                     className="h-12 rounded-xl bg-brand text-[15px] font-semibold text-white disabled:opacity-50"
                 >
                     I’ve made the payment
