@@ -40,7 +40,7 @@ class SectionRollout
                 'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/admin/chargebacks']],
                 'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/admin/payout-returns']],
             ],
-            'Reconciliation' => [
+            'Account' => [
                 'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/admin/statements']],
                 'utr' => ['label' => 'UTR Reconciliation', 'paths' => ['/admin/utr-reconciliation']],
                 'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/admin/unsettled']],
@@ -79,7 +79,7 @@ class SectionRollout
                 'payouts' => ['label' => 'Manual Payout', 'paths' => ['/branch/payouts']],
                 'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/branch/unsettled']],
             ],
-            'Reconciliation' => [
+            'Account' => [
                 'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/branch/statements']],
                 'imports' => ['label' => 'Statement History', 'paths' => ['/branch/statements/imports']],
             ],

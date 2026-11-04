@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
+import { navGroupId } from '@/lib/portal-nav';
 import type { NavGroup } from '@/lib/portal-nav';
 import { logout } from '@/routes';
 
@@ -32,16 +33,16 @@ export function PortalSidebar({
     const [openGroups, setOpenGroups] = useState<string[]>(() => {
         const foldable = groups.filter((group) => group.items.length > 1);
 
-        return foldable.some((group) => group.label === activeGroup)
+        return foldable.some((group) => navGroupId(group) === activeGroup)
             ? []
-            : foldable.slice(0, 1).map((group) => group.label);
+            : foldable.slice(0, 1).map(navGroupId);
     });
-    const isOpen = (label: string) =>
-        label === activeGroup || openGroups.includes(label);
-    const toggleGroup = (label: string) => {
-        const next = isOpen(label)
-            ? openGroups.filter((group) => group !== label)
-            : [...openGroups, label];
+    const isOpen = (id: string) =>
+        id === activeGroup || openGroups.includes(id);
+    const toggleGroup = (id: string) => {
+        const next = isOpen(id)
+            ? openGroups.filter((group) => group !== id)
+            : [...openGroups, id];
         setOpenGroups(next);
     };
 
@@ -78,12 +79,12 @@ export function PortalSidebar({
                         const item =
                             group.items.find(
                                 (link) =>
-                                    `${group.label}/${link.label}` ===
+                                    `${navGroupId(group)}/${link.label}` ===
                                     activeKey,
                             ) ??
                             group.items.find((link) => link.href) ??
                             group.items[0];
-                        const active = group.label === activeGroup;
+                        const active = navGroupId(group) === activeGroup;
                         const label =
                             group.items.length === 1 ? item.label : group.label;
                         const classes = cn(
@@ -107,7 +108,7 @@ export function PortalSidebar({
 
                         return item.href ? (
                             <Link
-                                key={group.label}
+                                key={navGroupId(group)}
                                 href={item.href}
                                 prefetch
                                 className={classes}
@@ -117,7 +118,7 @@ export function PortalSidebar({
                             </Link>
                         ) : (
                             <span
-                                key={group.label}
+                                key={navGroupId(group)}
                                 className={classes}
                                 title={label}
                             >
@@ -126,18 +127,18 @@ export function PortalSidebar({
                         );
                     }
 
-                    const open = isOpen(group.label);
+                    const open = isOpen(navGroupId(group));
 
                     return (
-                        <div key={group.label} className="flex flex-col">
+                        <div key={navGroupId(group)} className="flex flex-col">
                             <button
                                 type="button"
-                                onClick={() => toggleGroup(group.label)}
+                                onClick={() => toggleGroup(navGroupId(group))}
                                 aria-expanded={open}
-                                disabled={group.label === activeGroup}
+                                disabled={navGroupId(group) === activeGroup}
                                 className={cn(
                                     'flex h-10 w-full items-center gap-3 rounded-[9px] px-3 text-left font-medium',
-                                    group.label === activeGroup
+                                    navGroupId(group) === activeGroup
                                         ? 'text-white'
                                         : 'text-white hover:bg-white/[.06]',
                                 )}
@@ -146,7 +147,7 @@ export function PortalSidebar({
                                 <span className="flex-1 truncate">
                                     {group.label}
                                 </span>
-                                {group.label !== activeGroup && (
+                                {navGroupId(group) !== activeGroup && (
                                     <ChevronDown
                                         className={cn(
                                             'size-4 flex-none text-white transition-transform',
@@ -159,7 +160,7 @@ export function PortalSidebar({
                                 <div className="flex flex-col gap-0.5 py-1">
                                     {group.items.map((item) => {
                                         const active =
-                                            `${group.label}/${item.label}` ===
+                                            `${navGroupId(group)}/${item.label}` ===
                                             activeKey;
                                         const content = (
                                             <>

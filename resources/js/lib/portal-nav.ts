@@ -68,9 +68,17 @@ export type NavLink = {
 
 /**
  * A group with one item shows as a single link (e.g. Dashboard); larger
- * groups fold open under their heading.
+ * groups fold open under their heading. `id` tells apart groups that share
+ * a label (the statements group and Profile & settings are both "Account").
  */
-export type NavGroup = { label: string; icon: LucideIcon; items: NavLink[] };
+export type NavGroup = {
+    id?: string;
+    label: string;
+    icon: LucideIcon;
+    items: NavLink[];
+};
+
+export const navGroupId = (group: NavGroup): string => group.id ?? group.label;
 
 export const PORTAL_LABELS: Record<UserType, string> = {
     admin: 'Admin',
@@ -164,7 +172,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'Reconciliation',
+            id: 'reconciliation',
+            label: 'Account',
             icon: GitCompareArrows,
             items: [
                 {
@@ -294,7 +303,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'Reconciliation',
+            id: 'reconciliation',
+            label: 'Account',
             icon: GitCompareArrows,
             items: [
                 {
