@@ -532,6 +532,7 @@ function PayView({
 
             {current === 'upi' && account!.upi_id && (
                 <>
+                    <YonoWarning />
                     <div className="overflow-hidden rounded-[14px] border border-[#E4E7EC]">
                         <CopyRow
                             label="Pay to UPI ID"
@@ -558,15 +559,21 @@ function PayView({
             )}
 
             {current === 'qr' && account!.qr_svg && (
-                <div className="flex flex-col items-center gap-2 rounded-[14px] border border-[#E4E7EC] p-4">
-                    <div
-                        className="size-[220px] [&_svg]:size-full"
-                        dangerouslySetInnerHTML={{ __html: account!.qr_svg }}
-                    />
-                    <div className="text-center text-xs text-[#64748B]">
-                        Scan with any UPI app. The amount is filled in for you.
+                <>
+                    <YonoWarning />
+                    <div className="flex flex-col items-center gap-2 rounded-[14px] border border-[#E4E7EC] p-4">
+                        <div
+                            className="size-[220px] [&_svg]:size-full"
+                            dangerouslySetInnerHTML={{
+                                __html: account!.qr_svg,
+                            }}
+                        />
+                        <div className="text-center text-xs text-[#64748B]">
+                            Scan with any UPI app. The amount is filled in for
+                            you.
+                        </div>
                     </div>
-                </div>
+                </>
             )}
 
             <ChangeDetails token={token} />
@@ -772,6 +779,34 @@ function CopyRow({
                     {copied === target ? 'Copied' : 'Copy'}
                 </button>
             )}
+        </div>
+    );
+}
+
+/**
+ * UPI payments from Yono SBI may fail, so the UPI and QR code tabs ask the
+ * payer, in English and Hindi, to use another app. The image keeps the
+ * box's background colour.
+ */
+function YonoWarning() {
+    return (
+        <div className="flex items-center gap-3 rounded-xl border border-[#F5E6A8] bg-[#FDFBED] px-3 py-2.5 text-[#B45F2A]">
+            <img
+                src="/images/checkout/no-yono-sbi.png"
+                alt="Yono SBI crossed out"
+                className="size-16 flex-none"
+            />
+            <div className="flex flex-col gap-1 text-[12.5px] leading-snug">
+                <b className="text-[13px] tracking-wide">WARNING :</b>
+                <span>
+                    Please do not use Yono SBI for UPI payments, as the payment
+                    may fail.
+                </span>
+                <span lang="hi">
+                    कृपया UPI भुगतान के लिए Yono SBI का उपयोग न करें, क्योंकि
+                    भुगतान असफल हो सकता है।
+                </span>
+            </div>
         </div>
     );
 }
