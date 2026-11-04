@@ -68,6 +68,17 @@ const METHOD_INFO: Record<
 };
 
 /**
+ * Logos under the QR code (public/images/checkout/upi), each at its own
+ * width so none is stretched.
+ */
+const UPI_LOGOS: [string, string][] = [
+    ['upi', 'UPI'],
+    ['gpay', 'Google Pay'],
+    ['phonepe', 'PhonePe'],
+    ['paytm', 'Paytm'],
+];
+
+/**
  * The customer's payment page (design: checkout). States: choose a method →
  * pay (UPI / bank / QR) and submit UTR or screenshot → verifying → success;
  * or failed / expired / unavailable.
@@ -580,11 +591,16 @@ function PayView({
                             Scan with any UPI app. The amount is filled in for
                             you.
                         </div>
-                        <img
-                            src="/images/checkout/upi-apps.png"
-                            alt="PhonePe, Google Pay, BHIM, Paytm"
-                            className="h-7 w-auto"
-                        />
+                        <div className="flex items-center gap-4">
+                            {UPI_LOGOS.map(([file, name]) => (
+                                <img
+                                    key={file}
+                                    src={`/images/checkout/upi/${file}.png`}
+                                    alt={name}
+                                    className="h-8 w-auto"
+                                />
+                            ))}
+                        </div>
                     </div>
                 </>
             )}
