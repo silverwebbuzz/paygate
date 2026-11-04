@@ -124,7 +124,7 @@ const TABS: [string, string][] = [
 type Decision = null | { kind: 'approve' | 'hold'; line: StatementLine };
 
 /**
- * Manual A/C Statement (Admin) / A/C Statement Entry (branch), as designed:
+ * Manual A/C Statement (Admin and branch), as designed:
  * KPIs, a one-line entry form, filters, the dense lines table and the line
  * drawer with the branch compare block.
  */
@@ -407,19 +407,9 @@ export default function Statements(props: Props) {
 
     return (
         <>
-            <Head
-                title={
-                    portal === 'admin'
-                        ? 'Manual A/C Statement'
-                        : 'A/C Statement Entry'
-                }
-            />
+            <Head title="Manual A/C Statement" />
             <PageHeader
-                title={
-                    portal === 'admin'
-                        ? 'Manual A/C Statement Entry'
-                        : 'A/C Statement Entry'
-                }
+                title="Manual A/C Statement Entry"
                 description="Record bank statement lines and reconcile them against pay-in transactions and branches."
                 actions={
                     <>

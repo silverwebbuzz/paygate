@@ -200,10 +200,7 @@ export default function Reconciliation(props: Props) {
                             href={cases.index().url}
                             className="inline-flex h-8 items-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
                         >
-                            {portal === 'admin'
-                                ? 'Unsettled UTR'
-                                : 'Deposit Unsettled'}{' '}
-                            · {props.open_cases}
+                            Unsettled UTR · {props.open_cases}
                         </Link>
                     </>
                 }

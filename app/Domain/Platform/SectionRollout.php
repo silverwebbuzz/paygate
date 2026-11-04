@@ -15,8 +15,8 @@ use App\Domain\Core\Identity\Models\User;
  * A closed item disappears from the menu and its pages are refused
  * (EnforceSectionRollout). Each item owns the URL paths under it; a path
  * belongs to the item with the longest matching path, so "Statement
- * History" (/branch/statements/imports) can be open while "A/C Statement
- * Entry" (/branch/statements) is closed. Dashboards and Profile & settings
+ * History" (/branch/statements/imports) can be open while "Manual A/C
+ * Statement" (/branch/statements) is closed. Dashboards and Profile & settings
  * are always open. The first path of each item is its menu link.
  *
  * Keep SECTIONS in step with resources/js/lib/portal-nav.ts when a menu
@@ -71,16 +71,16 @@ class SectionRollout
             ],
         ],
         'branch' => [
-            'Accounts' => [
+            'Network' => [
                 'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/branch/accounts']],
             ],
-            'Operations' => [
+            'Payments' => [
                 'deposits' => ['label' => 'Manual Deposit', 'paths' => ['/branch/deposits']],
                 'payouts' => ['label' => 'Manual Payout', 'paths' => ['/branch/payouts']],
-                'unsettled' => ['label' => 'Deposit Unsettled', 'paths' => ['/branch/unsettled']],
+                'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/branch/unsettled']],
             ],
-            'Statements' => [
-                'statements' => ['label' => 'A/C Statement Entry', 'paths' => ['/branch/statements']],
+            'Reconciliation' => [
+                'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/branch/statements']],
                 'imports' => ['label' => 'Statement History', 'paths' => ['/branch/statements/imports']],
             ],
             'History' => [
@@ -96,7 +96,7 @@ class SectionRollout
                 'settlement_dashboard' => ['label' => 'Settlement Dashboard', 'paths' => ['/branch/settlement-dashboard']],
                 'reports' => ['label' => 'Reports', 'paths' => ['/branch/reports']],
             ],
-            'Admin' => [
+            'System' => [
                 'users' => ['label' => 'Users', 'paths' => ['/branch/users']],
                 'audit' => ['label' => 'Audit Logs', 'paths' => ['/branch/audit-logs']],
             ],
@@ -108,11 +108,11 @@ class SectionRollout
                 'payouts' => ['label' => 'Pay-out', 'paths' => ['/partner/payouts']],
                 'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/partner/payout-returns']],
             ],
-            'Accounts' => [
+            'Network' => [
                 'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/partner/accounts']],
             ],
             'Finance' => [
-                'settlements' => ['label' => 'Settlements', 'paths' => ['/partner/settlements']],
+                'settlements' => ['label' => 'Settlement', 'paths' => ['/partner/settlements']],
                 'settlement_dashboard' => ['label' => 'Settlement Dashboard', 'paths' => ['/partner/settlement-dashboard']],
                 'balance' => ['label' => 'Balance', 'paths' => ['/partner/balance']],
                 'reports' => ['label' => 'Reports', 'paths' => ['/partner/reports']],
@@ -122,7 +122,7 @@ class SectionRollout
                 'api_docs' => ['label' => 'API documentation', 'paths' => ['/partner/api-docs']],
                 'api_logs' => ['label' => 'API Logs', 'paths' => ['/partner/api-logs']],
             ],
-            'Admin' => [
+            'System' => [
                 'users' => ['label' => 'Users', 'paths' => ['/partner/users']],
             ],
             'Account' => [
