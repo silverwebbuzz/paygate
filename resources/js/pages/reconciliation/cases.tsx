@@ -92,7 +92,7 @@ type Action =
     | { kind: 'close'; resolution: 'rejected' | 'refunded' };
 
 /**
- * Unsettled UTR (Admin and branch): the reconciliation
+ * Unsettled UTR (Admin) / Deposit Unsettled (branch): the reconciliation
  * case queue. Each open case is a bank line that didn't match cleanly;
  * the drawer offers the transactions it could belong to.
  */
@@ -268,9 +268,15 @@ export default function Cases(props: Props) {
 
     return (
         <>
-            <Head title="Unsettled UTR" />
+            <Head
+                title={
+                    portal === 'admin' ? 'Unsettled UTR' : 'Deposit Unsettled'
+                }
+            />
             <PageHeader
-                title="Unsettled UTR"
+                title={
+                    portal === 'admin' ? 'Unsettled UTR' : 'Deposit Unsettled'
+                }
                 description="Bank statement lines that didn’t match a transaction exactly (same UTR, amount and account). Link each to its transaction, or close it with the reason."
                 actions={
                     <Link

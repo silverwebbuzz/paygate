@@ -69,7 +69,7 @@ class SectionRolloutTest extends TestCase
         $this->actingAs($this->ops)->get(route('admin.dashboard'))->assertOk();
         $this->actingAs($this->ops)->get(route('profile.edit'))->assertOk();
 
-        // Branch: Statement History open while Manual A/C Statement (its parent path) is closed.
+        // Branch: Statement History open while A/C Statement Entry (its parent path) is closed.
         $owner = User::factory()->branch(SystemRoles::BRANCH_OWNER)->withTwoFactor()->create();
         $this->actingAs($owner)->get(route('branch.statement-imports.index'))->assertOk();
         $this->actingAs($owner)->get(route('branch.statements.index'))->assertRedirect(route('branch.dashboard'));

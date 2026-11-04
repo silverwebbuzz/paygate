@@ -458,7 +458,7 @@ class AlertDispatcher
             Alert::UnsettledLines,
             $this->alerts->recipients(Permission::ReconciliationResolve, UserType::Branch, $branchId, $actor),
             trans_choice(':count bank line needs attention|:count bank lines need attention', $count, ['count' => $count]),
-            __('They didn’t match a transaction exactly; see Unsettled UTR.'),
+            __('They didn’t match a transaction exactly; see Deposit Unsettled.'),
             Alerts::link('branch.cases.index'),
         );
     }

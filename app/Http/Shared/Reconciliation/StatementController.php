@@ -22,7 +22,7 @@ use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Manual A/C Statement (Admin and branch): the bank
+ * Manual A/C Statement (Admin) / A/C Statement Entry (branch): the bank
  * statement lines of branch accounts, typed in or imported, with what each
  * matched. A line linked to a waiting deposit can be approved from here
  * (the deposit queue's approve / hold routes, with the line's UTR).

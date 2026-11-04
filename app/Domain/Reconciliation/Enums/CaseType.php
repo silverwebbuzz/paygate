@@ -4,7 +4,7 @@ namespace App\Domain\Reconciliation\Enums;
 
 /**
  * Why a bank statement line didn't match cleanly (Requirements F8, §7.7).
- * Every case waits in the Unsettled UTR queue until a
+ * Every case waits in the Unsettled UTR / Deposit Unsettled queue until a
  * person resolves it.
  */
 enum CaseType: string

@@ -15,8 +15,8 @@ use App\Domain\Core\Identity\Models\User;
  * A closed item disappears from the menu and its pages are refused
  * (EnforceSectionRollout). Each item owns the URL paths under it; a path
  * belongs to the item with the longest matching path, so "Statement
- * History" (/branch/statements/imports) can be open while "Manual A/C
- * Statement" (/branch/statements) is closed. Dashboards and Profile & settings
+ * History" (/branch/statements/imports) can be open while "A/C Statement
+ * Entry" (/branch/statements) is closed. Dashboards and Profile & settings
  * are always open. The first path of each item is its menu link.
  *
  * Keep SECTIONS in step with resources/js/lib/portal-nav.ts when a menu
@@ -71,22 +71,24 @@ class SectionRollout
             ],
         ],
         'branch' => [
-            'Network' => [
+            'Accounts' => [
                 'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/branch/accounts']],
             ],
-            'Payments' => [
-                'payins' => ['label' => 'Pay-in History', 'paths' => ['/branch/payins']],
+            'Operations' => [
                 'deposits' => ['label' => 'Manual Deposit', 'paths' => ['/branch/deposits']],
                 'payouts' => ['label' => 'Manual Payout', 'paths' => ['/branch/payouts']],
-                'payout_history' => ['label' => 'Pay-out History', 'paths' => ['/branch/payout-history']],
-                'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/branch/chargebacks']],
-                'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/branch/payout-returns']],
+                'unsettled' => ['label' => 'Deposit Unsettled', 'paths' => ['/branch/unsettled']],
             ],
-            'Reconciliation' => [
-                'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/branch/statements']],
+            'Statements' => [
+                'statements' => ['label' => 'A/C Statement Entry', 'paths' => ['/branch/statements']],
                 'imports' => ['label' => 'Statement History', 'paths' => ['/branch/statements/imports']],
+            ],
+            'History' => [
+                'payins' => ['label' => 'Pay-in History', 'paths' => ['/branch/payins']],
+                'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/branch/chargebacks']],
+                'payout_history' => ['label' => 'Pay-out History', 'paths' => ['/branch/payout-history']],
+                'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/branch/payout-returns']],
                 'utr' => ['label' => 'UTR Reconciliation', 'paths' => ['/branch/utr-reconciliation']],
-                'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/branch/unsettled']],
             ],
             'Finance' => [
                 'balance' => ['label' => 'Branch Balance', 'paths' => ['/branch/balance']],
@@ -94,23 +96,23 @@ class SectionRollout
                 'settlement_dashboard' => ['label' => 'Settlement Dashboard', 'paths' => ['/branch/settlement-dashboard']],
                 'reports' => ['label' => 'Reports', 'paths' => ['/branch/reports']],
             ],
-            'System' => [
+            'Admin' => [
                 'users' => ['label' => 'Users', 'paths' => ['/branch/users']],
                 'audit' => ['label' => 'Audit Logs', 'paths' => ['/branch/audit-logs']],
             ],
         ],
         'partner' => [
-            'Network' => [
-                'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/partner/accounts']],
-            ],
             'Payments' => [
                 'payins' => ['label' => 'Pay-in', 'paths' => ['/partner/payins', '/partner/webhooks']],
                 'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/partner/chargebacks']],
                 'payouts' => ['label' => 'Pay-out', 'paths' => ['/partner/payouts']],
                 'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/partner/payout-returns']],
             ],
+            'Accounts' => [
+                'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/partner/accounts']],
+            ],
             'Finance' => [
-                'settlements' => ['label' => 'Settlement', 'paths' => ['/partner/settlements']],
+                'settlements' => ['label' => 'Settlements', 'paths' => ['/partner/settlements']],
                 'settlement_dashboard' => ['label' => 'Settlement Dashboard', 'paths' => ['/partner/settlement-dashboard']],
                 'balance' => ['label' => 'Balance', 'paths' => ['/partner/balance']],
                 'reports' => ['label' => 'Reports', 'paths' => ['/partner/reports']],
@@ -120,7 +122,7 @@ class SectionRollout
                 'api_docs' => ['label' => 'API documentation', 'paths' => ['/partner/api-docs']],
                 'api_logs' => ['label' => 'API Logs', 'paths' => ['/partner/api-logs']],
             ],
-            'System' => [
+            'Admin' => [
                 'users' => ['label' => 'Users', 'paths' => ['/partner/users']],
             ],
             'Account' => [
