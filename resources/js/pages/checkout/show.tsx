@@ -710,9 +710,9 @@ function ChangeDetails({ token }: { token: string }) {
                 <button
                     type="button"
                     onClick={() => setConfirming(true)}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#E4E7EC] text-[13px] font-medium text-[#475569] hover:border-ac"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-ac bg-acs text-[13px] font-semibold text-act transition-colors hover:bg-ac hover:text-white"
                 >
-                    <RefreshCw className="size-3.5" />
+                    <RefreshCw className="size-4" />
                     Having trouble paying? Get different details
                 </button>
             </>
