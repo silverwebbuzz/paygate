@@ -5,7 +5,6 @@ import {
     Copy,
     ImageUp,
     RefreshCw,
-    ShieldCheck,
     X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -114,28 +113,6 @@ export default function Checkout(props: Props) {
         >
             <Head title={`Pay ${partner.name}`} />
             <div className="flex w-full max-w-[420px] flex-col overflow-hidden bg-white text-[14px] text-[#0F172A] sm:rounded-[28px] sm:border sm:border-[#E4E7EC] sm:shadow-[0_30px_80px_rgba(15,23,42,.14)]">
-                <header className="flex items-center gap-2.5 border-b border-[#EEF0F3] px-5 py-3.5">
-                    <div className="grid size-9 place-items-center rounded-[10px] bg-ac text-[13px] font-bold text-white">
-                        {partner.initials}
-                    </div>
-                    <div className="flex-1">
-                        <div className="font-semibold">{partner.name}</div>
-                        <div className="flex items-center gap-1.5 text-xs text-[#64748B]">
-                            <ShieldCheck className="size-3.5 text-[#047857]" />{' '}
-                            Secure payment
-                        </div>
-                    </div>
-                </header>
-
-                {payin.customer_name && (
-                    <div className="border-b border-[#EEF0F3] bg-[#F8FAFC] px-5 py-2 text-xs text-[#475569]">
-                        Paying from{' '}
-                        <b className="font-semibold text-[#0F172A]">
-                            {payin.customer_name}
-                        </b>
-                    </div>
-                )}
-
                 {(open || waiting) && <AmountCard {...props} ticking={open} />}
 
                 <main className="flex flex-1 flex-col gap-3 px-5 py-4">
