@@ -572,6 +572,11 @@ function PayView({
                             Scan with any UPI app. The amount is filled in for
                             you.
                         </div>
+                        <img
+                            src="/images/checkout/upi-apps.png"
+                            alt="PhonePe, Google Pay, BHIM, Paytm"
+                            className="h-7 w-auto"
+                        />
                     </div>
                 </>
             )}
