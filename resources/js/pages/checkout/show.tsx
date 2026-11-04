@@ -131,6 +131,7 @@ export default function Checkout(props: Props) {
                     {open && choosing && (
                         <ChooseMethod
                             {...props}
+                            onChosen={() => setChoosing(false)}
                             onCancel={
                                 account ? () => setChoosing(false) : undefined
                             }
@@ -385,14 +386,21 @@ function ChooseMethod({
     token,
     methods,
     payin,
+    onChosen,
     onCancel,
-}: Props & { onCancel?: () => void }) {
+}: Props & { onChosen: () => void; onCancel?: () => void }) {
     const form = useForm({ method: '' as string });
     const error = (usePage().props.errors as Record<string, string>).method;
 
+    // Close the list on success even when the account stays the same (the
+    // method switches on the same account, or the same method is picked
+    // again), so the props don't change.
     const choose = (method: Method) => {
         form.transform(() => ({ method }));
-        form.post(checkout.method(token).url, { preserveScroll: true });
+        form.post(checkout.method(token).url, {
+            preserveScroll: true,
+            onSuccess: onChosen,
+        });
     };
 
     return (
