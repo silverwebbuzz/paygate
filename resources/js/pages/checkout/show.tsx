@@ -660,6 +660,7 @@ function PayView({
             >
                 ← Choose another method
             </button>
+            <PaymentRules />
         </>
     );
 }
@@ -807,6 +808,24 @@ function YonoWarning() {
                     भुगतान असफल हो सकता है।
                 </span>
             </div>
+        </div>
+    );
+}
+
+/** The bottom of the payment step: the two rules that cost payers money. */
+function PaymentRules() {
+    return (
+        <div className="flex flex-col gap-1 rounded-xl border border-[#F5E6A8] bg-[#FDFBED] px-3 py-2.5 text-[12.5px] leading-snug text-[#B45F2A]">
+            <span>
+                - Do not send a different amount than what is in the deposit
+                request.
+            </span>
+            <span>
+                - Do not save the details of our collection account, such as
+                the UPI ID or QR code for the next payment. We frequently update
+                our collection accounts and using old details may result in
+                money loss.
+            </span>
         </div>
     );
 }
