@@ -5,6 +5,7 @@ import {
     Copy,
     ImageUp,
     RefreshCw,
+    ShieldCheck,
     X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -113,6 +114,26 @@ export default function Checkout(props: Props) {
         >
             <Head title={`Pay ${partner.name}`} />
             <div className="flex w-full max-w-[420px] flex-col overflow-hidden bg-white text-[14px] text-[#0F172A] sm:rounded-[28px] sm:border sm:border-[#E4E7EC] sm:shadow-[0_30px_80px_rgba(15,23,42,.14)]">
+                <header className="flex items-center gap-3 border-b border-[#EEF0F3] px-5 py-3.5">
+                    <ShieldCheck className="size-7 flex-none text-[#047857]" />
+                    <div className="min-w-0 flex-1">
+                        <div className="text-[15px] font-semibold">
+                            Secure Checkout
+                        </div>
+                        <div className="text-xs text-[#64748B]">
+                            Complete payment within session time
+                        </div>
+                    </div>
+                    <div className="flex-none text-right">
+                        <div className="text-[10.5px] font-semibold tracking-wide text-[#64748B] uppercase">
+                            Amount to pay
+                        </div>
+                        <div className="text-[17px] font-bold">
+                            {formatPaise(payin.amount)}
+                        </div>
+                    </div>
+                </header>
+
                 {(open || waiting) && <AmountCard {...props} ticking={open} />}
 
                 <main className="flex flex-1 flex-col gap-3 px-5 py-4">
