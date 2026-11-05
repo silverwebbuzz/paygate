@@ -608,9 +608,10 @@ function PayView({
                 }}
             >
                 <label className="flex flex-col gap-1.5 text-[13px] font-medium">
-                    <span className="rounded-lg bg-brand px-3 py-2 text-white">
-                        UTR / reference number *{' '}
-                        <span className="font-normal text-white/80">
+                    <span>
+                        UTR / reference number{' '}
+                        <span className="text-[#B91C1C]">*</span>{' '}
+                        <span className="font-normal text-[#64748B]">
                             (from your bank or UPI app)
                         </span>
                     </span>
