@@ -739,10 +739,6 @@ function ApproveDialog({
         note: '',
     });
     const errors = form.errors as Record<string, string | undefined>;
-    const received = Math.round(
-        Number(form.data.received_amount.replace(/[,\s₹]/g, '')) * 100,
-    );
-    const differs = Number.isFinite(received) && received !== txn.amount;
     // The bank's UTR isn't the customer's: a note is required and Admin is told.
     const bankUtr = form.data.bank_utr
         .replace(/[^A-Za-z0-9]/g, '')
@@ -751,15 +747,15 @@ function ApproveDialog({
         txn.customer_utr !== null &&
         bankUtr !== '' &&
         bankUtr !== txn.customer_utr;
-    const noteRequired = differs || utrDiffers;
+    const noteRequired = utrDiffers;
 
     return (
         <FormDialog
             open
             onOpenChange={(open) => !open && onClose()}
-            title={`Approve ${formatPaise(differs && received > 0 ? received : txn.amount)}?`}
-            description={`${txn.reference} · ${txn.partner?.name ?? ''}. Enter the amount that actually reached your bank account. The partner is credited that amount immediately and this can’t be undone.`}
-            submitLabel={differs ? 'Approve amount received' : 'Approve'}
+            title={`Approve ${formatPaise(txn.amount)}?`}
+            description={`${txn.reference} · ${txn.partner?.name ?? ''}. The partner is credited this amount immediately and this can’t be undone.`}
+            submitLabel="Approve"
             processing={form.processing}
             onSubmit={() =>
                 form.post(url, { preserveScroll: true, onSuccess: onClose })
@@ -802,29 +798,16 @@ function ApproveDialog({
                 />
             </Field>
             <Field
-                label={`Amount received (₹) · order ${formatPaise(txn.amount)}`}
-                hint="Change it only if the customer paid a different amount."
+                label="Amount received (₹)"
                 error={errors.received_amount}
             >
                 <TextInput
-                    required
-                    inputMode="decimal"
-                    className="font-mono"
+                    readOnly
+                    tabIndex={-1}
+                    className="cursor-not-allowed bg-sf2 font-mono text-tx2"
                     value={form.data.received_amount}
-                    invalid={!!errors.received_amount}
-                    onChange={(event) =>
-                        form.setData('received_amount', event.target.value)
-                    }
                 />
             </Field>
-            {differs && received > 0 && (
-                <div className="rounded-lg bg-wnb px-3 py-2.5 text-[12.5px] text-wn">
-                    The customer paid {formatPaise(received)} instead of{' '}
-                    {formatPaise(txn.amount)}.{' '}
-                    {txn.partner?.name ?? 'The partner'} is credited{' '}
-                    {formatPaise(received)} and Admin is told.
-                </div>
-            )}
             {utrDiffers && (
                 <div className="rounded-lg bg-erb px-3 py-2.5 text-[12.5px] text-er">
                     This isn’t the customer’s UTR ({txn.customer_utr}). Approve
