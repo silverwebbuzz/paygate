@@ -169,16 +169,26 @@ class ReportingTest extends TestCase
 
     public function test_each_portal_gets_only_its_own_deposit_and_withdrawal_reports()
     {
+        // /reports opens the first report; old ?report= links still land on theirs.
         $this->actingAs($this->admin)->get(route('admin.reports.index', ['range' => 'today']))
+            ->assertRedirect(route('admin.reports.show', ['report' => 'branch_deposits', 'range' => 'today']));
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'partner_withdrawals']))
+            ->assertRedirect(route('admin.reports.show', ['report' => 'partner_withdrawals']));
+        foreach (['branch_deposits', 'partner_deposits', 'branch_withdrawals', 'partner_withdrawals'] as $key) {
+            $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => $key]))->assertOk();
+        }
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_deposits', 'range' => 'today']))
             ->assertInertia(fn ($page) => $page->component('reports/index')
                 ->where('report.key', 'branch_deposits')
-                ->where('catalog', fn ($catalog) => collect($catalog)->pluck('key')->all() === ['branch_deposits', 'partner_deposits', 'branch_withdrawals', 'partner_withdrawals'])
                 ->where('report.filters', ['branch' => 'Branch', 'search' => 'Search']));
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'payins']))->assertNotFound();
 
         $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
-        $this->actingAs($partnerUser)->get(route('partner.reports.index', ['range' => 'today']))
+        $this->actingAs($partnerUser)->get(route('partner.reports.index'))
+            ->assertRedirect(route('partner.reports.show', ['report' => 'partner_deposits']));
+        $this->actingAs($partnerUser)->get(route('partner.reports.show', ['report' => 'partner_withdrawals']))->assertOk();
+        $this->actingAs($partnerUser)->get(route('partner.reports.show', ['report' => 'partner_deposits', 'range' => 'today']))
             ->assertInertia(fn ($page) => $page
-                ->where('catalog', fn ($catalog) => collect($catalog)->pluck('key')->all() === ['partner_deposits', 'partner_withdrawals'])
                 ->where('report.key', 'partner_deposits')
                 ->where('report.filters', [])
                 ->where('rows', [[
@@ -189,25 +199,25 @@ class ReportingTest extends TestCase
                     'commission' => 75000,
                 ]]));
         // A partner never gets the branch reports (they show branch commission).
-        $this->actingAs($partnerUser)->get(route('partner.reports.index', ['report' => 'branch_deposits']))
-            ->assertInertia(fn ($page) => $page->where('report.key', 'partner_deposits'));
+        $this->actingAs($partnerUser)->get(route('partner.reports.show', ['report' => 'branch_deposits']))->assertNotFound();
         $this->actingAs($partnerUser)->post(route('partner.reports.export'), ['report' => 'branch_deposits', 'format' => 'csv'])
             ->assertSessionHasErrors('report');
 
         $owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create();
-        $this->actingAs($owner)->get(route('branch.reports.index', ['range' => 'today']))
+        $this->actingAs($owner)->get(route('branch.reports.index'))
+            ->assertRedirect(route('branch.reports.show', ['report' => 'branch_deposits']));
+        $this->actingAs($owner)->get(route('branch.reports.show', ['report' => 'branch_withdrawals']))->assertOk();
+        $this->actingAs($owner)->get(route('branch.reports.show', ['report' => 'branch_deposits', 'range' => 'today']))
             ->assertInertia(fn ($page) => $page
-                ->where('catalog', fn ($catalog) => collect($catalog)->pluck('key')->all() === ['branch_deposits', 'branch_withdrawals'])
                 ->where('rows.0.name', $this->branch->code.' '.$this->branch->name)
                 ->where('rows.0.commission', 50000)
                 ->has('rows', 1));
         // Nor a branch the partner ones (they show partner fees).
-        $this->actingAs($owner)->get(route('branch.reports.index', ['report' => 'partner_deposits']))
-            ->assertInertia(fn ($page) => $page->where('report.key', 'branch_deposits'));
+        $this->actingAs($owner)->get(route('branch.reports.show', ['report' => 'partner_deposits']))->assertNotFound();
 
         // Another branch's figures never reach this one.
         $other = User::factory()->branch(SystemRoles::BRANCH_OWNER, Branch::factory()->create())->withTwoFactor()->create();
-        $this->actingAs($other)->get(route('branch.reports.index', ['range' => 'today']))
+        $this->actingAs($other)->get(route('branch.reports.show', ['report' => 'branch_deposits', 'range' => 'today']))
             ->assertInertia(fn ($page) => $page->where('rows', []));
     }
 
@@ -252,7 +262,7 @@ class ReportingTest extends TestCase
 
     public function test_the_deposit_and_withdrawal_reports_list_each_branch_and_partner_with_its_rate()
     {
-        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_deposits']))
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_deposits']))
             ->assertInertia(fn ($page) => $page
                 ->where('period.range', 'today')
                 ->where('rows', [[
@@ -266,17 +276,17 @@ class ReportingTest extends TestCase
                 ->where('totals.amount', 1250000)
                 ->missing('totals.sr'));
 
-        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'partner_deposits']))
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'partner_deposits']))
             ->assertInertia(fn ($page) => $page->where('rows.0.rate', 6)->where('rows.0.commission', 75000));
 
         // Search by name, the branch filter, and no withdrawals in this period.
-        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_deposits', 'search' => 'no such branch']))
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_deposits', 'search' => 'no such branch']))
             ->assertInertia(fn ($page) => $page->where('rows', []));
-        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_deposits', 'branch' => Branch::factory()->create()->id]))
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_deposits', 'branch' => Branch::factory()->create()->id]))
             ->assertInertia(fn ($page) => $page->where('rows', []));
-        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'branch_withdrawals']))
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_withdrawals']))
             ->assertInertia(fn ($page) => $page->where('rows', []));
-        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'partner_deposits', 'range' => 'yesterday']))
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'partner_deposits', 'range' => 'yesterday']))
             ->assertInertia(fn ($page) => $page->where('rows', []));
     }
 }

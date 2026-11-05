@@ -1,6 +1,7 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import {
     Code,
+    FileText,
     GitCompareArrows,
     History,
     Landmark,
@@ -224,9 +225,30 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: admin.commissions.index(),
                     permission: 'commissions.view',
                 },
+            ],
+        },
+        {
+            label: 'Reports',
+            icon: FileText,
+            items: [
                 {
-                    label: 'Reports',
-                    href: admin.reports.index(),
+                    label: 'Branch Deposit Report',
+                    href: admin.reports.show({ report: 'branch_deposits' }),
+                    permission: 'reports.view',
+                },
+                {
+                    label: 'Partner Deposit Report',
+                    href: admin.reports.show({ report: 'partner_deposits' }),
+                    permission: 'reports.view',
+                },
+                {
+                    label: 'Branch Withdrawal Report',
+                    href: admin.reports.show({ report: 'branch_withdrawals' }),
+                    permission: 'reports.view',
+                },
+                {
+                    label: 'Partner Withdrawal Report',
+                    href: admin.reports.show({ report: 'partner_withdrawals' }),
                     permission: 'reports.view',
                 },
             ],
@@ -383,9 +405,20 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: branch.settlementDashboard(),
                     permission: 'settlements.view',
                 },
+            ],
+        },
+        {
+            label: 'Reports',
+            icon: FileText,
+            items: [
                 {
-                    label: 'Reports',
-                    href: branch.reports.index(),
+                    label: 'Branch Deposit Report',
+                    href: branch.reports.show({ report: 'branch_deposits' }),
+                    permission: 'reports.view',
+                },
+                {
+                    label: 'Branch Withdrawal Report',
+                    href: branch.reports.show({ report: 'branch_withdrawals' }),
                     permission: 'reports.view',
                 },
             ],
@@ -472,9 +505,22 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: partnerBalance(),
                     permission: 'balances.view',
                 },
+            ],
+        },
+        {
+            label: 'Reports',
+            icon: FileText,
+            items: [
                 {
-                    label: 'Reports',
-                    href: partner.reports.index(),
+                    label: 'Partner Deposit Report',
+                    href: partner.reports.show({ report: 'partner_deposits' }),
+                    permission: 'reports.view',
+                },
+                {
+                    label: 'Partner Withdrawal Report',
+                    href: partner.reports.show({
+                        report: 'partner_withdrawals',
+                    }),
                     permission: 'reports.view',
                 },
             ],

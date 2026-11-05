@@ -12,7 +12,6 @@ import { SimpleTable } from '@/components/pg/simple-table';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
-import { cn } from '@/lib/utils';
 import admin from '@/routes/admin';
 import branch from '@/routes/branch';
 import { show as fileUrl } from '@/routes/files';
@@ -25,7 +24,6 @@ type Row = Record<string, string | number | null>;
 
 type Props = {
     portal: UserType;
-    catalog: { key: string; title: string; description: string }[];
     report: {
         key: string;
         title: string;
@@ -52,25 +50,6 @@ type Props = {
         expires_at: string | null;
     }[];
     can: { export: boolean };
-};
-
-const STATUSES: Record<string, [string, string][]> = {
-    payins: [
-        ['success', 'Success'],
-        ['payment_submitted', 'Pending'],
-        ['under_review', 'Payment hold'],
-        ['awaiting_payment', 'Awaiting payment'],
-        ['rejected', 'Declined'],
-        ['expired', 'Expired'],
-        ['cancelled', 'Cancelled'],
-    ],
-    payouts: [
-        ['success', 'Paid'],
-        ['assigned', 'Assigned'],
-        ['processing', 'Processing'],
-        ['failed', 'Failed'],
-        ['cancelled', 'Cancelled'],
-    ],
 };
 
 const EXPORT_LABELS: Record<string, string> = {
@@ -119,13 +98,12 @@ function cell(type: string, value: Row[string]) {
 }
 
 /**
- * Reports: pick a report, a period and filters; preview the first rows with
- * totals; export the full report as CSV or Excel (prepared in the
- * background, kept 7 days).
+ * One report (picked from Reports in the menu): a period and filters, a
+ * preview of the first rows with totals, and the full report as CSV or
+ * Excel (prepared in the background, kept 7 days).
  */
 export default function Reports(props: Props) {
-    const { portal, catalog, report, period, filters, rows, totals, options } =
-        props;
+    const { portal, report, period, filters, rows, totals, options } = props;
     const routes = { admin, branch, partner }[portal].reports;
     const [search, setSearch] = useState(filters.search ?? '');
     const pending = props.exports.some((item) =>
@@ -135,7 +113,6 @@ export default function Reports(props: Props) {
     const query = (next: Record<string, string | null | undefined> = {}) =>
         Object.fromEntries(
             Object.entries({
-                report: report.key,
                 ...('range' in next ? {} : periodQuery(period)),
                 ...filters,
                 ...next,
@@ -144,7 +121,7 @@ export default function Reports(props: Props) {
 
     const visit = (next: Record<string, string | null | undefined>) =>
         router.get(
-            routes.index({ query: query(next) }).url,
+            routes.show({ report: report.key }, { query: query(next) }).url,
             {},
             { preserveState: true, preserveScroll: true },
         );
@@ -163,7 +140,7 @@ export default function Reports(props: Props) {
     const exportAs = (format: 'csv' | 'xlsx') =>
         router.post(
             routes.export().url,
-            { ...query(), format },
+            { ...query(), report: report.key, format },
             { preserveScroll: true, preserveState: true },
         );
 
@@ -184,261 +161,201 @@ export default function Reports(props: Props) {
 
     return (
         <>
-            <Head title="Reports" />
+            <Head title={report.title} />
             <PageHeader
-                title="Reports"
-                description="Choose a report and a period. The preview shows the first rows; export the full report as CSV or Excel."
+                title={report.title}
+                description={report.description}
+                actions={
+                    props.can.export && (
+                        <>
+                            <PgButton onClick={() => exportAs('csv')}>
+                                <Download className="size-3.5" /> CSV
+                            </PgButton>
+                            <PgButton onClick={() => exportAs('xlsx')}>
+                                <FileSpreadsheet className="size-3.5" /> Excel
+                            </PgButton>
+                        </>
+                    )
+                }
             />
 
-            <div className="grid gap-3 lg:grid-cols-[240px_1fr]">
-                <Panel className="flex h-fit flex-col p-1.5">
-                    {catalog.map((item) => (
-                        <button
-                            key={item.key}
-                            type="button"
-                            onClick={() =>
-                                router.get(
-                                    routes.index({
-                                        query: {
-                                            report: item.key,
-                                            range: period.range,
-                                        },
-                                    }).url,
-                                )
-                            }
-                            title={item.description}
-                            className={cn(
-                                'rounded-md px-3 py-2 text-left text-[13px]',
-                                item.key === report.key
-                                    ? 'bg-acs font-semibold text-act'
-                                    : 'text-tx2 hover:bg-sf2',
-                            )}
-                        >
-                            {item.title}
-                        </button>
-                    ))}
-                </Panel>
-
-                <div className="flex min-w-0 flex-col gap-3">
-                    <Panel className="flex flex-col gap-3 p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <div className="text-base font-semibold">
-                                    {report.title}
-                                </div>
-                                <p className="text-[13px] text-tx2">
-                                    {report.description}
-                                </p>
-                            </div>
-                            {props.can.export && (
-                                <div className="flex gap-2">
-                                    <PgButton onClick={() => exportAs('csv')}>
-                                        <Download className="size-3.5" /> CSV
-                                    </PgButton>
-                                    <PgButton onClick={() => exportAs('xlsx')}>
-                                        <FileSpreadsheet className="size-3.5" />{' '}
-                                        Excel
-                                    </PgButton>
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                            {report.uses_period ? (
-                                <PeriodFilter
-                                    period={period}
-                                    onChange={visit}
-                                    className="w-full"
-                                />
-                            ) : (
-                                <span className="text-xs text-tx3">
-                                    As of now
-                                </span>
-                            )}
-                            {Object.entries(report.filters).map(
-                                ([key, label]) =>
-                                    key === 'search' ? (
-                                        <form
-                                            key={key}
-                                            onSubmit={(event) => {
-                                                event.preventDefault();
+            <div className="flex min-w-0 flex-col gap-3">
+                <Panel className="flex flex-col gap-3 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {report.uses_period ? (
+                            <PeriodFilter
+                                period={period}
+                                onChange={visit}
+                                className="w-full"
+                            />
+                        ) : (
+                            <span className="text-xs text-tx3">
+                                As of now
+                            </span>
+                        )}
+                        {Object.entries(report.filters).map(
+                            ([key, label]) =>
+                                key === 'search' ? (
+                                    <form
+                                        key={key}
+                                        onSubmit={(event) => {
+                                            event.preventDefault();
+                                            visit({
+                                                search: search || null,
+                                            });
+                                        }}
+                                    >
+                                        <input
+                                            value={search}
+                                            onChange={(event) =>
+                                                setSearch(
+                                                    event.target.value,
+                                                )
+                                            }
+                                            onBlur={() =>
+                                                search !==
+                                                    (filters.search ??
+                                                        '') &&
                                                 visit({
                                                     search: search || null,
-                                                });
-                                            }}
-                                        >
-                                            <input
-                                                value={search}
-                                                onChange={(event) =>
-                                                    setSearch(
-                                                        event.target.value,
-                                                    )
-                                                }
-                                                onBlur={() =>
-                                                    search !==
-                                                        (filters.search ??
-                                                            '') &&
-                                                    visit({
-                                                        search: search || null,
-                                                    })
-                                                }
-                                                placeholder={`${label} by name or code`}
-                                                className="h-[30px] w-[220px] rounded-[7px] border border-ln bg-sf px-2.5 text-[12.5px]"
-                                            />
-                                        </form>
-                                    ) : (
-                                        <SelectInput
-                                            key={key}
-                                            className="h-[30px] w-[180px] text-[12.5px]"
-                                            value={filters[key] ?? ''}
-                                            onChange={(event) =>
-                                                visit({
-                                                    [key]:
-                                                        event.target.value ||
-                                                        null,
                                                 })
                                             }
-                                        >
-                                            <option value="">{`${label}: all`}</option>
-                                            {key === 'status' &&
-                                                (
-                                                    STATUSES[report.key] ?? []
-                                                ).map(([value, text]) => (
-                                                    <option
-                                                        key={value}
-                                                        value={value}
-                                                    >
-                                                        {text}
-                                                    </option>
-                                                ))}
-                                            {key === 'party_type' && (
-                                                <>
-                                                    <option value="partner">
-                                                        Partners
-                                                    </option>
-                                                    <option value="branch">
-                                                        Branches
-                                                    </option>
-                                                </>
-                                            )}
-                                            {(key === 'partner' ||
-                                                key === 'branch') &&
-                                                options[key].map((option) => (
-                                                    <option
-                                                        key={option.id}
-                                                        value={option.id}
-                                                    >
-                                                        {option.code} ·{' '}
-                                                        {option.name}
-                                                    </option>
-                                                ))}
-                                        </SelectInput>
-                                    ),
-                            )}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            <Total
-                                label="Rows"
-                                value={(totals._count ?? 0).toLocaleString(
-                                    'en-IN',
-                                )}
-                            />
-                            {summed.map((column) => (
-                                <Total
-                                    key={column.key}
-                                    label={column.label}
-                                    value={formatPaise(totals[column.key])}
-                                />
-                            ))}
-                        </div>
-                    </Panel>
-
-                    <Panel className="overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <DataTable
-                                columns={columns}
-                                rows={rows}
-                                rowKey={(row) =>
-                                    String(
-                                        row.reference ??
-                                            row.day ??
-                                            row.sr ??
-                                            `${row.partner ?? ''}-${row.branch ?? ''}-${rows.indexOf(row)}`,
-                                    )
-                                }
-                                empty={
-                                    <EmptyState
-                                        title="Nothing in this period"
-                                        description="Try a longer period or other filters."
-                                    />
-                                }
-                            />
-                        </div>
-                        {(totals._count ?? 0) > rows.length && (
-                            <div className="border-t border-ln2 px-3 py-2.5 text-xs text-tx3">
-                                Showing the first {rows.length} of{' '}
-                                {totals._count.toLocaleString('en-IN')} rows.
-                                Export the report for all of them.
-                            </div>
-                        )}
-                    </Panel>
-
-                    {props.exports.length > 0 && (
-                        <Panel className="flex flex-col gap-2 p-4">
-                            <div className="text-sm font-semibold">
-                                Your exports
-                            </div>
-                            <p className="text-xs text-tx3">
-                                Prepared in the background. Files are deleted
-                                after 7 days; export again if you need it later.
-                            </p>
-                            <SimpleTable
-                                headers={[
-                                    'Report',
-                                    'Asked',
-                                    'Rows',
-                                    'Status',
-                                    '',
-                                ]}
-                                rows={props.exports.map((item) => [
-                                    `${item.report} · ${item.format === 'csv' ? 'CSV' : 'Excel'}`,
-                                    formatDateTime(item.created_at),
-                                    item.rows === null
-                                        ? '—'
-                                        : item.rows.toLocaleString('en-IN'),
-                                    <span
-                                        key="s"
-                                        title={item.error ?? undefined}
-                                    >
-                                        <StatusBadge
-                                            status={
-                                                item.status === 'ready'
-                                                    ? 'success'
-                                                    : item.status === 'failed'
-                                                      ? 'failed'
-                                                      : item.status ===
-                                                          'expired'
-                                                        ? 'cancelled'
-                                                        : 'processing'
-                                            }
-                                            label={EXPORT_LABELS[item.status]}
+                                            placeholder={`${label} by name or code`}
+                                            className="h-[30px] w-[220px] rounded-[7px] border border-ln bg-sf px-2.5 text-[12.5px]"
                                         />
-                                    </span>,
-                                    item.file_id ? (
-                                        <a
-                                            key="d"
-                                            href={fileUrl(item.file_id).url}
-                                            className="text-xs font-medium text-ac"
-                                        >
-                                            Download
-                                        </a>
-                                    ) : (
-                                        ''
-                                    ),
-                                ])}
+                                    </form>
+                                ) : (
+                                    <SelectInput
+                                        key={key}
+                                        className="h-[30px] w-[180px] text-[12.5px]"
+                                        value={filters[key] ?? ''}
+                                        onChange={(event) =>
+                                            visit({
+                                                [key]:
+                                                    event.target.value ||
+                                                    null,
+                                            })
+                                        }
+                                    >
+                                        <option value="">{`${label}: all`}</option>
+                                        {(key === 'partner' ||
+                                            key === 'branch') &&
+                                            options[key].map((option) => (
+                                                <option
+                                                    key={option.id}
+                                                    value={option.id}
+                                                >
+                                                    {option.code} ·{' '}
+                                                    {option.name}
+                                                </option>
+                                            ))}
+                                    </SelectInput>
+                                ),
+                        )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <Total
+                            label="Rows"
+                            value={(totals._count ?? 0).toLocaleString(
+                                'en-IN',
+                            )}
+                        />
+                        {summed.map((column) => (
+                            <Total
+                                key={column.key}
+                                label={column.label}
+                                value={formatPaise(totals[column.key])}
                             />
-                        </Panel>
+                        ))}
+                    </div>
+                </Panel>
+
+                <Panel className="overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <DataTable
+                            columns={columns}
+                            rows={rows}
+                            rowKey={(row) =>
+                                String(
+                                    row.reference ??
+                                        row.day ??
+                                        row.sr ??
+                                        `${row.partner ?? ''}-${row.branch ?? ''}-${rows.indexOf(row)}`,
+                                )
+                            }
+                            empty={
+                                <EmptyState
+                                    title="Nothing in this period"
+                                    description="Try a longer period or other filters."
+                                />
+                            }
+                        />
+                    </div>
+                    {(totals._count ?? 0) > rows.length && (
+                        <div className="border-t border-ln2 px-3 py-2.5 text-xs text-tx3">
+                            Showing the first {rows.length} of{' '}
+                            {totals._count.toLocaleString('en-IN')} rows.
+                            Export the report for all of them.
+                        </div>
                     )}
-                </div>
+                </Panel>
+
+                {props.exports.length > 0 && (
+                    <Panel className="flex flex-col gap-2 p-4">
+                        <div className="text-sm font-semibold">
+                            Your exports
+                        </div>
+                        <p className="text-xs text-tx3">
+                            Prepared in the background. Files are deleted
+                            after 7 days; export again if you need it later.
+                        </p>
+                        <SimpleTable
+                            headers={[
+                                'Report',
+                                'Asked',
+                                'Rows',
+                                'Status',
+                                '',
+                            ]}
+                            rows={props.exports.map((item) => [
+                                `${item.report} · ${item.format === 'csv' ? 'CSV' : 'Excel'}`,
+                                formatDateTime(item.created_at),
+                                item.rows === null
+                                    ? '—'
+                                    : item.rows.toLocaleString('en-IN'),
+                                <span
+                                    key="s"
+                                    title={item.error ?? undefined}
+                                >
+                                    <StatusBadge
+                                        status={
+                                            item.status === 'ready'
+                                                ? 'success'
+                                                : item.status === 'failed'
+                                                  ? 'failed'
+                                                  : item.status ===
+                                                      'expired'
+                                                    ? 'cancelled'
+                                                    : 'processing'
+                                        }
+                                        label={EXPORT_LABELS[item.status]}
+                                    />
+                                </span>,
+                                item.file_id ? (
+                                    <a
+                                        key="d"
+                                        href={fileUrl(item.file_id).url}
+                                        className="text-xs font-medium text-ac"
+                                    >
+                                        Download
+                                    </a>
+                                ) : (
+                                    ''
+                                ),
+                            ])}
+                        />
+                    </Panel>
+                )}
             </div>
         </>
     );

@@ -22,22 +22,34 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Reports (all portals): the catalogue, a preview of the chosen report
- * (first 200 rows and the totals) and CSV / Excel exports prepared in the
- * background, listed with their status.
+ * Reports (all portals): each report is its own page (/reports/{report},
+ * listed under Reports in the menu) with a preview (first 200 rows and the
+ * totals) and CSV / Excel exports prepared in the background, listed with
+ * their status. /reports opens the first report the viewer has.
  */
 class ReportController extends Controller
 {
     private const PREVIEW_ROWS = 200;
 
-    public function index(Request $request, ReportCatalog $catalog): Response
+    public function index(Request $request, ReportCatalog $catalog): RedirectResponse
+    {
+        Gate::authorize('reports.view');
+
+        // Old links (?report=…) still land on that report.
+        $reports = $catalog->for($this->actor($request)->type);
+        $asked = $request->query('report');
+        $key = is_string($asked) && isset($reports[$asked]) ? $asked : (string) array_key_first($reports);
+
+        return to_route(str_replace('.index', '.show', (string) $request->route()?->getName()), [...$request->except('report'), 'report' => $key]);
+    }
+
+    public function show(Request $request, ReportCatalog $catalog, string $report): Response
     {
         Gate::authorize('reports.view');
 
         $actor = $this->actor($request);
         $reports = $catalog->for($actor->type);
-        $key = is_string($request->query('report')) && isset($reports[$request->query('report')]) ? (string) $request->query('report') : (string) array_key_first($reports);
-        $report = $reports[$key];
+        $report = $reports[$report] ?? abort(404);
         $scope = Scope::of($actor);
         $period = $this->period($request);
         $filters = $this->filters($request, $report, $scope);
@@ -56,7 +68,6 @@ class ReportController extends Controller
 
         return Inertia::render('reports/index', [
             'portal' => $actor->type->value,
-            'catalog' => array_values(array_map(fn (Report $item) => ['key' => $item->key(), 'title' => $item->title(), 'description' => $item->description()], $reports)),
             'report' => [
                 'key' => $report->key(),
                 'title' => $report->title(),

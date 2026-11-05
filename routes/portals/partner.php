@@ -22,6 +22,7 @@ Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
 
 // Reports: preview and CSV / Excel exports prepared in the background.
 Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+Route::get('reports/{report}', [ReportController::class, 'show'])->where('report', '[a-z_]+')->name('reports.show');
 Route::post('reports/export', [ReportController::class, 'export'])->middleware('throttle:20,1')->name('reports.export');
 
 Route::get('profile', [BusinessProfileController::class, 'show'])->name('profile');
