@@ -88,7 +88,7 @@ class CaseController extends Controller
                 'resolved_today' => $inTab('resolved')->where('resolved_at', '>=', now(config('app.business_timezone'))->startOfDay()->utc())->count(),
             ],
             'types' => collect(CaseType::cases())->mapWithKeys(fn (CaseType $type) => [$type->value => $type->label()]),
-            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
             'selected' => is_string($selected) ? $selected : null,
             // Transactions the open case's bank line could be linked to.
             'candidates' => Inertia::optional(function () use ($selected, $actor, $request) {

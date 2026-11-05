@@ -62,10 +62,7 @@ export default function IpManagement({
                             <div className="flex items-center justify-between gap-2">
                                 <div>
                                     <div className="font-semibold">
-                                        {partner.name}{' '}
-                                        <span className="font-mono text-xs text-tx3">
-                                            {partner.code}
-                                        </span>
+                                        {partner.name}
                                     </div>
                                     <div className="text-xs text-tx3">
                                         {partner.rules.length === 0

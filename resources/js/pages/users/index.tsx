@@ -194,12 +194,7 @@ export default function UsersIndex({
                       header: 'Partner / branch',
                       cell: (user: UserRow) =>
                           user.organisation ? (
-                              <span>
-                                  {user.organisation.name}{' '}
-                                  <span className="font-mono text-xs text-tx3">
-                                      {user.organisation.code}
-                                  </span>
-                              </span>
+                              <span>{user.organisation.name}</span>
                           ) : (
                               <span className="text-tx3">—</span>
                           ),
@@ -248,7 +243,7 @@ export default function UsersIndex({
             <PageHeader
                 title={
                     organisation
-                        ? `Users · ${organisation.name} (${organisation.code})`
+                        ? `Users · ${organisation.name}`
                         : 'Users'
                 }
                 description={
@@ -410,7 +405,7 @@ export default function UsersIndex({
                             {
                                 label: 'Partner / branch',
                                 value: open.organisation
-                                    ? `${open.organisation.name} (${open.organisation.code})`
+                                    ? `${open.organisation.name}`
                                     : null,
                             },
                             { label: 'Username', value: open.username },

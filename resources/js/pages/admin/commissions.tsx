@@ -57,12 +57,7 @@ export default function Commissions({ by, period, rows, totals }: Props) {
             key: 'party',
             header: by === 'partner' ? 'Partner' : 'Branch',
             cell: (row) => (
-                <span>
-                    {row.name}{' '}
-                    <span className="font-mono text-xs text-tx3">
-                        {row.code}
-                    </span>
-                </span>
+                <span>{row.name}</span>
             ),
         },
         {

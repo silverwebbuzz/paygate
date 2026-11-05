@@ -188,10 +188,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                 title={title}
                 description={
                     editing ? (
-                        <span className="inline-flex items-center gap-2">
-                            {str(branch.code)}{' '}
-                            <StatusBadge status={branch.status} />
-                        </span>
+                        <StatusBadge status={branch.status} />
                     ) : (
                         'A new branch starts as a draft. Its accounts receive customers once it is active and they are verified.'
                     )

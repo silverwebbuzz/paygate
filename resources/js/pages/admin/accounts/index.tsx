@@ -327,7 +327,7 @@ function ReviewDialog({
             width={560}
             onOpenChange={(open) => !open && onClose()}
             title={`Verify ${account.label}`}
-            description={`${account.branch?.code} · ${account.branch?.name}. Check these details against the branch's bank documents before approving.`}
+            description={`${account.branch?.name}. Check these details against the branch's bank documents before approving.`}
             submitLabel={rejecting ? 'Reject account' : 'Approve'}
             processing={processing || (rejecting && reason.trim() === '')}
             onSubmit={() =>

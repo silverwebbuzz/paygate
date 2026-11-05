@@ -326,7 +326,7 @@ export default function Statements(props: Props) {
                 <Pairs
                     rows={[
                         ['Txn branch', line.transaction?.branch ?? '—'],
-                        ['Bank entry', line.branch.code],
+                        ['Bank entry', line.branch.name],
                         [
                             'Entry by',
                             line.source === 'import'
@@ -735,7 +735,7 @@ function NewLine({
                             <option value="">All</option>
                             {branches.map((item) => (
                                 <option key={item.id} value={item.id}>
-                                    {item.code}
+                                    {item.name}
                                 </option>
                             ))}
                         </SelectInput>
@@ -956,7 +956,7 @@ function LineDrawer({
                                 ? `${line.linked ? 'From' : 'Points at'} ${txn.direction === 'payout' ? 'payout' : 'pay-in'} ${txn.reference}`
                                 : 'No linked transaction'
                         }
-                        lineBranch={line.branch.code}
+                        lineBranch={line.branch.name}
                         lineSub={`Entered by ${line.entered_by ?? '—'}`}
                         state={line.branch_match}
                     />
@@ -985,7 +985,7 @@ function LineDrawer({
                                     label: 'Account',
                                     value: accountLabel({
                                         ...line.account,
-                                        branch: line.branch.code,
+                                        branch: line.branch.name,
                                     }),
                                 },
                                 {

@@ -124,7 +124,7 @@ class ManageQaChecklist
         /** @var Transaction $payout */
         $payout = $created['payout']->load('branch');
 
-        return ['reference' => $payout->reference, 'branch' => $payout->branch?->code];
+        return ['reference' => $payout->reference, 'branch' => $payout->branch?->name];
     }
 
     /**

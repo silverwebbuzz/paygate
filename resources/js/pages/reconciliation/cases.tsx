@@ -200,7 +200,7 @@ export default function Cases(props: Props) {
                       header: 'Bank entry branch',
                       cell: (item: CaseRow) => (
                           <span className="rounded-md bg-sf2 px-2 py-0.5 text-xs">
-                              {item.branch.code}
+                              {item.branch.name}
                           </span>
                       ),
                   },
@@ -351,7 +351,7 @@ export default function Cases(props: Props) {
                             <option value="">All branches</option>
                             {branches.map((branch) => (
                                 <option key={branch.id} value={branch.id}>
-                                    {branch.code} · {branch.name}
+                                    {branch.name}
                                 </option>
                             ))}
                         </SelectInput>
@@ -467,7 +467,7 @@ function CaseDrawer({
             title={item.reference}
             monoTitle
             status={<StatusBadge status={item.status} />}
-            subtitle={`${item.type_label} · ${item.branch.code} · opened ${formatDateTime(item.created_at)}`}
+            subtitle={`${item.type_label} · ${item.branch.name} · opened ${formatDateTime(item.created_at)}`}
             summaries={[
                 {
                     label: 'Bank line',
@@ -495,7 +495,7 @@ function CaseDrawer({
                     transactionSub={
                         txn ? `Points at ${txn.reference}` : 'No transaction'
                     }
-                    lineBranch={line.branch.code}
+                    lineBranch={line.branch.name}
                     lineSub={line.account.label}
                     state={line.branch_match}
                 />

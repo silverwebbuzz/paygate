@@ -113,7 +113,7 @@ export default function Reconciliation(props: Props) {
                       cell: (t: TxnRow) =>
                           t.branch && (
                               <span className="rounded-md bg-sf2 px-2 py-0.5 text-xs">
-                                  {t.branch.code}
+                                  {t.branch.name}
                               </span>
                           ),
                   },
@@ -267,7 +267,7 @@ export default function Reconciliation(props: Props) {
                             <option value="">All branches</option>
                             {branches.map((branch) => (
                                 <option key={branch.id} value={branch.id}>
-                                    {branch.code} · {branch.name}
+                                    {branch.name}
                                 </option>
                             ))}
                         </SelectInput>

@@ -328,14 +328,15 @@ export default function Deposits(props: Props) {
                         >
                             <div className="flex items-start gap-2.5">
                                 <span className="grid size-9 flex-none place-items-center rounded-lg bg-acs text-xs font-semibold text-act">
-                                    {(txn.partner?.code ?? '').slice(0, 2)}
+                                    {(txn.partner?.name ?? '')
+                                        .split(/\s+/)
+                                        .slice(0, 2)
+                                        .map((word) => word[0]?.toUpperCase())
+                                        .join('')}
                                 </span>
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate font-medium">
-                                        {txn.partner?.name}{' '}
-                                        <span className="font-mono text-xs text-tx3">
-                                            {txn.partner?.code}
-                                        </span>
+                                        {txn.partner?.name}
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
@@ -362,16 +363,7 @@ export default function Deposits(props: Props) {
                             </div>
                             <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
                                 <Row label="Branch">
-                                    {txn.branch ? (
-                                        <>
-                                            {txn.branch.name}{' '}
-                                            <span className="font-mono text-tx3">
-                                                {txn.branch.code}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        '—'
-                                    )}
+                                    {txn.branch?.name ?? '—'}
                                 </Row>
                                 <Row label="Customer">
                                     {txn.customer?.name ??
@@ -477,13 +469,8 @@ export default function Deposits(props: Props) {
                                 key: 'partner',
                                 header: 'Partner',
                                 cell: (t: TxnRow) => (
-                                    <div>
-                                        <div className="font-medium">
-                                            {t.partner?.name}
-                                        </div>
-                                        <div className="font-mono text-xs text-tx3">
-                                            {t.partner?.code}
-                                        </div>
+                                    <div className="font-medium">
+                                        {t.partner?.name}
                                     </div>
                                 ),
                             },
@@ -492,13 +479,8 @@ export default function Deposits(props: Props) {
                                 header: 'Branch',
                                 cell: (t: TxnRow) =>
                                     t.branch ? (
-                                        <div>
-                                            <div className="font-medium">
-                                                {t.branch.name}
-                                            </div>
-                                            <div className="font-mono text-xs text-tx3">
-                                                {t.branch.code}
-                                            </div>
+                                        <div className="font-medium">
+                                            {t.branch.name}
                                         </div>
                                     ) : (
                                         '—'
@@ -903,7 +885,7 @@ function MoveDialog({
             open
             onOpenChange={(open) => !open && onClose()}
             title={`Move ${txn.reference} to another branch?`}
-            description={`Now with ${txn.branch?.code ?? '—'}${txn.account ? ` · ${txn.account.label}` : ''}. Pick the account the customer’s money actually reached. The deposit goes back to Pending there, today’s capacity moves with it, and that branch is alerted.`}
+            description={`Now with ${txn.branch?.name ?? '—'}${txn.account ? ` · ${txn.account.label}` : ''}. Pick the account the customer’s money actually reached. The deposit goes back to Pending there, today’s capacity moves with it, and that branch is alerted.`}
             submitLabel="Move deposit"
             processing={form.processing}
             onSubmit={() =>
@@ -932,7 +914,7 @@ function MoveDialog({
                     {branches.map(({ branch, accounts }) => (
                         <optgroup
                             key={branch.id}
-                            label={`${branch.code} · ${branch.name}`}
+                            label={branch.name}
                         >
                             {accounts.map((account) => (
                                 <option key={account.id} value={account.id}>

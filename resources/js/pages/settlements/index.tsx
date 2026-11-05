@@ -220,8 +220,7 @@ export default function Settlements(props: Props) {
                               <div className="text-xs text-tx3">
                                   {row.party_type === 'partner'
                                       ? 'Partner'
-                                      : 'Branch'}{' '}
-                                  · {row.party.code}
+                                      : 'Branch'}
                               </div>
                           </div>
                       ),
@@ -291,7 +290,7 @@ export default function Settlements(props: Props) {
                         {formatPaise(row.net_amount)}
                     </div>
                     <div className="text-tx3">
-                        {directionText(row.direction, portal, row.party.code)}
+                        {directionText(row.direction, portal, row.party.name)}
                     </div>
                     {row.settled_amount > 0 && (
                         <div className="text-ok">
@@ -448,7 +447,7 @@ export default function Settlements(props: Props) {
                                 <option value="">All</option>
                                 {parties[filters.party].map((party) => (
                                     <option key={party.id} value={party.id}>
-                                        {party.code} · {party.name}
+                                        {party.name}
                                     </option>
                                 ))}
                             </SelectInput>
@@ -543,7 +542,7 @@ function SettlementDrawer({
     const [tab, setTab] = useState('overview');
     const f = row.figures;
     const lineName = (id: string | null) =>
-        detail?.lines.find((line) => line.id === id)?.counterpart.code ?? '—';
+        detail?.lines.find((line) => line.id === id)?.counterpart.name ?? '—';
 
     return (
         <Drawer
@@ -559,7 +558,7 @@ function SettlementDrawer({
                     <StatusBadge status={row.status} />
                 )
             }
-            subtitle={`${row.party.name} (${row.party.code}) · ${formatDateTime(row.period_start)} – ${formatDateTime(row.period_end)} · ${row.run_type === 'daily' ? 'daily' : 'on demand'}, by ${row.calculated_by}`}
+            subtitle={`${row.party.name} · ${formatDateTime(row.period_start)} – ${formatDateTime(row.period_end)} · ${row.run_type === 'daily' ? 'daily' : 'on demand'}, by ${row.calculated_by}`}
             actions={
                 row.can_pay && (
                     <PgButton variant="primary" onClick={onPay}>
@@ -569,7 +568,7 @@ function SettlementDrawer({
             }
             summaries={[
                 {
-                    label: directionText(row.direction, portal, row.party.code),
+                    label: directionText(row.direction, portal, row.party.name),
                     value: formatPaise(row.net_amount),
                 },
                 { label: 'Paid', value: formatPaise(row.settled_amount) },
@@ -591,7 +590,7 @@ function SettlementDrawer({
             {row.carried_forward && (
                 <div className="rounded-lg bg-hdb px-3 py-2.5 text-[12.5px] text-hd">
                     What was left unpaid here is part of a newer settlement for{' '}
-                    {row.party.code}; payments are recorded there.
+                    {row.party.name}; payments are recorded there.
                 </div>
             )}
             {tab === 'overview' && (
@@ -688,10 +687,7 @@ function SettlementDrawer({
                         ]}
                         rows={detail.lines.map((line) => [
                             <span key="c">
-                                {line.counterpart.name}{' '}
-                                <span className="font-mono text-xs text-tx3">
-                                    {line.counterpart.code}
-                                </span>
+                                {line.counterpart.name}
                             </span>,
                             <Signed key="o" value={line.figures.opening} />,
                             <Signed key="e" value={line.figures.closing} />,
@@ -701,7 +697,7 @@ function SettlementDrawer({
                                     {directionText(
                                         line.direction,
                                         portal,
-                                        row.party.code,
+                                        row.party.name,
                                     )}
                                 </span>
                             </span>,
@@ -733,7 +729,7 @@ function SettlementDrawer({
                                     {directionText(
                                         payment.direction,
                                         portal,
-                                        row.party.code,
+                                        row.party.name,
                                     )}
                                 </span>
                             </span>,
@@ -784,7 +780,7 @@ function PaymentDialog({
             onOpenChange={(next) => !next && onClose()}
             width={560}
             title={`Record payment · ${row.reference}`}
-            description={`${row.party.name} (${row.party.code}). Enter what was actually paid outside PayGate for each pair; anything left carries forward. This books the payment and can’t be undone.`}
+            description={`${row.party.name}. Enter what was actually paid outside PayGate for each pair; anything left carries forward. This books the payment and can’t be undone.`}
             submitLabel={form.processing ? 'Recording…' : 'Record as settled'}
             processing={form.processing || total === 0}
             onSubmit={() =>
@@ -803,7 +799,7 @@ function PaymentDialog({
                 {open.map((line) => (
                     <Field
                         key={line.id}
-                        label={`${line.counterpart.name} (${line.counterpart.code}) · open ${formatPaise(line.remaining)} · ${directionText(line.direction, 'admin', row.party.code)}`}
+                        label={`${line.counterpart.name} · open ${formatPaise(line.remaining)} · ${directionText(line.direction, 'admin', row.party.name)}`}
                         error={errors[`amounts.${line.id}`]}
                     >
                         <TextInput
@@ -911,7 +907,7 @@ function CalculateDialog({
                     <option value="">Choose…</option>
                     {parties[form.data.party_type].map((party) => (
                         <option key={party.id} value={party.id}>
-                            {party.code} · {party.name}
+                            {party.name}
                         </option>
                     ))}
                 </SelectInput>

@@ -326,8 +326,8 @@ export function TransactionDrawer({
             title={txn.reference}
             status={<StatusBadge status={txn.status} />}
             subtitle={[
-                txn.partner && `${txn.partner.name} (${txn.partner.code})`,
-                txn.branch?.code,
+                txn.partner && `${txn.partner.name}`,
+                txn.branch?.name,
                 `order ${txn.order_id}`,
                 `created ${formatDateTime(txn.created_at)}`,
             ]
@@ -503,7 +503,7 @@ function Overview({
                             {
                                 label: 'Branch',
                                 value: txn.branch
-                                    ? `${txn.branch.name} (${txn.branch.code})`
+                                    ? `${txn.branch.name}`
                                     : null,
                             },
                             { label: 'Account', value: txn.account.label },

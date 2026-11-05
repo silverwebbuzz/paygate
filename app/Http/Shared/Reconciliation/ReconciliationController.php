@@ -71,7 +71,7 @@ class ReconciliationController extends Controller
             'summary' => collect(['all' => $base(), 'matched' => $inTab('matched'), 'missing' => $inTab('missing')])
                 ->map(fn (Builder $query) => ['count' => (clone $query)->count(), 'amount' => (int) $query->sum('amount')]),
             'open_cases' => ReconciliationScope::cases($actor)->where('status', '!=', 'resolved')->count(),
-            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
             'selected' => is_string($selected) ? $selected : null,
             'detail' => Inertia::optional(function () use ($selected, $actor) {
                 $txn = is_string($selected) ? Transaction::query()->find($selected) : null;

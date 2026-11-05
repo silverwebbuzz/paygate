@@ -201,7 +201,7 @@ class AccountLogTest extends TestCase
         $this->assertStringContainsString('Inactive,active,inactive', $lines[1]);
         $this->assertStringContainsString('XXXX 6640', $lines[1]);
         $this->assertStringContainsString('branch.owner', $lines[1]);
-        $this->assertStringContainsString('BR-LOG', $lines[1]);
+        $this->assertStringContainsString('Log Branch', $lines[1]);
         $this->assertStringContainsString('\'=HYPERLINK', $lines[1]);
         $this->assertStringNotContainsString('50100482716640', $csv);
     }

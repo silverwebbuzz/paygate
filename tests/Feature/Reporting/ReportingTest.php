@@ -193,7 +193,7 @@ class ReportingTest extends TestCase
                 ->where('report.filters', [])
                 ->where('rows', [[
                     'sr' => 1,
-                    'name' => $this->partner->code.' '.$this->partner->name,
+                    'name' => $this->partner->name,
                     'amount' => 1250000,
                     'rate' => 6,
                     'commission' => 75000,
@@ -209,7 +209,7 @@ class ReportingTest extends TestCase
         $this->actingAs($owner)->get(route('branch.reports.show', ['report' => 'branch_withdrawals']))->assertOk();
         $this->actingAs($owner)->get(route('branch.reports.show', ['report' => 'branch_deposits', 'range' => 'today']))
             ->assertInertia(fn ($page) => $page
-                ->where('rows.0.name', $this->branch->code.' '.$this->branch->name)
+                ->where('rows.0.name', $this->branch->name)
                 ->where('rows.0.commission', 50000)
                 ->has('rows', 1));
         // Nor a branch the partner ones (they show partner fees).
@@ -223,7 +223,7 @@ class ReportingTest extends TestCase
 
     public function test_exports_are_prepared_downloaded_by_their_owner_only_and_deleted_after_seven_days()
     {
-        $this->branch->forceFill(['code' => '=HYPERLINK("x")'])->save();
+        $this->branch->forceFill(['name' => '=HYPERLINK("x")'])->save();
 
         $this->actingAs($this->admin)->post(route('admin.reports.export'), ['report' => 'branch_deposits', 'format' => 'csv', 'range' => 'today'])->assertSessionHasNoErrors();
         $this->actingAs($this->admin)->post(route('admin.reports.export'), ['report' => 'partner_deposits', 'format' => 'xlsx', 'range' => 'today'])->assertSessionHasNoErrors();
@@ -267,7 +267,7 @@ class ReportingTest extends TestCase
                 ->where('period.range', 'today')
                 ->where('rows', [[
                     'sr' => 1,
-                    'name' => $this->branch->code.' '.$this->branch->name,
+                    'name' => $this->branch->name,
                     'amount' => 1250000,
                     'rate' => 4,
                     'commission' => 50000,
@@ -280,6 +280,9 @@ class ReportingTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('rows.0.rate', 6)->where('rows.0.commission', 75000));
 
         // Search by name, the branch filter, and no withdrawals in this period.
+        // Rows show names only, but the code still finds a branch.
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_deposits', 'search' => $this->branch->code]))
+            ->assertInertia(fn ($page) => $page->has('rows', 1));
         $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_deposits', 'search' => 'no such branch']))
             ->assertInertia(fn ($page) => $page->where('rows', []));
         $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'branch_deposits', 'branch' => Branch::factory()->create()->id]))

@@ -68,7 +68,7 @@ class AccountLogController extends Controller
             ],
             'account' => $account === null ? null : ['id' => $account->id, 'label' => $account->label],
             'events' => collect(self::EVENTS)->map(fn (string $label, string $value) => ['value' => $value, 'label' => $label])->values(),
-            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
         ]);
     }
 
@@ -90,7 +90,7 @@ class AccountLogController extends Controller
 
             $safe = fn (?string $value) => $value !== null && preg_match('/^[=+\-@\t\r]/', $value) === 1 ? "'".$value : $value;
 
-            fputcsv($out, ['When', 'Event', 'From status', 'To status', 'Changed fields', 'Bank account holder', 'Account label', 'Bank', 'Account number', 'UPI ID', 'UPI name', 'Branch code', 'Branch', 'By', 'Username', 'Role', 'Reason', 'IP']);
+            fputcsv($out, ['When', 'Event', 'From status', 'To status', 'Changed fields', 'Bank account holder', 'Account label', 'Bank', 'Account number', 'UPI ID', 'UPI name', 'Branch', 'By', 'Username', 'Role', 'Reason', 'IP']);
 
             foreach ($query->lazy(500) as $log) {
                 /** @var AuditLog $log */
@@ -108,7 +108,6 @@ class AccountLogController extends Controller
                     $row['account']['account_number'] ?? null,
                     $row['account']['upi_id'] ?? null,
                     $safe($row['account']['upi_name'] ?? null),
-                    $safe($row['branch']['code'] ?? null),
                     $safe($row['branch']['name'] ?? null),
                     $safe($row['who']['name']),
                     $safe($row['who']['username']),

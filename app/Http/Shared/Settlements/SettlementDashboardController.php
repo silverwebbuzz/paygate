@@ -68,13 +68,13 @@ class SettlementDashboardController extends Controller
             ],
             'options' => match ($actor->type) {
                 UserType::Admin => [
-                    'partners' => Partner::query()->orderBy('code')->get(['id', 'code', 'name']),
-                    'branches' => Branch::query()->orderBy('code')->get(['id', 'code', 'name']),
+                    'partners' => Partner::query()->orderBy('name')->get(['id', 'code', 'name']),
+                    'branches' => Branch::query()->orderBy('name')->get(['id', 'code', 'name']),
                 ],
                 UserType::Branch => [
                     'partners' => Partner::query()
                         ->whereIn('id', PartnerBranchMapping::query()->where('branch_id', $actor->branch_id)->select('partner_id'))
-                        ->orderBy('code')
+                        ->orderBy('name')
                         ->get(['id', 'code', 'name']),
                     'branches' => [],
                 ],

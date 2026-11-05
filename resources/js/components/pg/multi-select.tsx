@@ -55,7 +55,7 @@ export function MultiSelect({
                 {first ? (
                     <span className="flex min-w-0 flex-1 items-center gap-1.5">
                         <span className="truncate rounded-md bg-acs px-2 py-0.5 text-xs font-semibold text-act">
-                            {first.code} {first.name}
+                            {first.name}
                         </span>
                         {selected.length > 1 && (
                             <span className="text-xs text-tx3">
@@ -103,8 +103,7 @@ export function MultiSelect({
                         onCheckedChange={() => toggle(item.id)}
                         onSelect={(event) => event.preventDefault()}
                     >
-                        <span className="font-medium">{item.code}</span>
-                        <span className="truncate text-tx3">{item.name}</span>
+                        <span className="truncate">{item.name}</span>
                     </DropdownMenuCheckboxItem>
                 ))}
                 {visible.length === 0 && (
@@ -179,7 +178,7 @@ export function SearchSelect({
                     )}
                 >
                     {current
-                        ? `${current.code} · ${current.name}`
+                        ? `${current.name}`
                         : (allLabel ?? placeholder)}
                 </span>
                 <ChevronDown className="size-4 flex-none text-tx3" />
@@ -212,10 +211,7 @@ export function SearchSelect({
                     )}
                     {visible.map((item) => (
                         <DropdownMenuRadioItem key={item.id} value={item.id}>
-                            <span className="font-medium">{item.code}</span>
-                            <span className="truncate text-tx3">
-                                {item.name}
-                            </span>
+                            <span className="truncate">{item.name}</span>
                         </DropdownMenuRadioItem>
                     ))}
                 </DropdownMenuRadioGroup>

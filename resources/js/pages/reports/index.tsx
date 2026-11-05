@@ -245,7 +245,6 @@ export default function Reports(props: Props) {
                                                     key={option.id}
                                                     value={option.id}
                                                 >
-                                                    {option.code} ·{' '}
                                                     {option.name}
                                                 </option>
                                             ))}

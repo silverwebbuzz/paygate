@@ -39,7 +39,7 @@ class QaChecklistController extends Controller
             'logins' => Checklist::LOGINS,
             'results' => $this->results(),
             'runner' => ['problem' => $runner->available()],
-            'partners' => Partner::query()->where('status', 'active')->orderBy('code')->get(['id', 'code', 'name']),
+            'partners' => Partner::query()->where('status', 'active')->orderBy('name')->get(['id', 'code', 'name']),
             'created' => session('qa_created'),
         ]);
     }

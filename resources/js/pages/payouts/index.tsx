@@ -254,14 +254,11 @@ export default function Payouts(props: Props) {
                             <div className="flex items-start gap-2.5">
                                 <div className="min-w-0 flex-1">
                                     <div className="truncate font-medium">
-                                        {payout.partner?.name}{' '}
-                                        <span className="font-mono text-xs text-tx3">
-                                            {payout.partner?.code}
-                                        </span>
+                                        {payout.partner?.name}
                                     </div>
                                     <div className="truncate text-xs text-tx3">
                                         {portal === 'admin' &&
-                                            `${payout.branch?.code ?? '—'} · `}
+                                            `${payout.branch?.name ?? '—'} · `}
                                         <span className="font-mono">
                                             {payout.reference}
                                         </span>{' '}
@@ -723,7 +720,7 @@ function ReassignDialog({
             open
             onOpenChange={(open) => !open && onClose()}
             title={`Move ${payout.reference} to another branch?`}
-            description={`Now with ${payout.branch?.code}. The new branch must be mapped to ${payout.partner?.name} for withdrawals; the hold moves with it and the payout waits in its "To pay" list.`}
+            description={`Now with ${payout.branch?.name}. The new branch must be mapped to ${payout.partner?.name} for withdrawals; the hold moves with it and the payout waits in its "To pay" list.`}
             submitLabel="Move payout"
             processing={form.processing}
             onSubmit={() =>
@@ -743,7 +740,7 @@ function ReassignDialog({
                         .filter((branch) => branch.code !== payout.branch?.code)
                         .map((branch) => (
                             <option key={branch.id} value={branch.id}>
-                                {branch.code} · {branch.name}
+                                {branch.name}
                             </option>
                         ))}
                 </SelectInput>

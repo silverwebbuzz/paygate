@@ -118,10 +118,7 @@ export default function Activity({
             header: kind === 'partner' ? 'Partner' : 'Branch',
             cell: (row) =>
                 row.party ? (
-                    <div>
-                        <div className="font-medium">{row.party.name}</div>
-                        <div className="text-xs text-tx3">{row.party.code}</div>
-                    </div>
+                    <div className="font-medium">{row.party.name}</div>
                 ) : (
                     <span className="text-tx3">—</span>
                 ),
@@ -214,7 +211,7 @@ export default function Activity({
                         </option>
                         {parties.map((party) => (
                             <option key={party.id} value={party.id}>
-                                {party.code} · {party.name}
+                                {party.name}
                             </option>
                         ))}
                     </SelectInput>

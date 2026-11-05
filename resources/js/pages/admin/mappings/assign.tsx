@@ -124,16 +124,6 @@ export default function AssignMappings({
                                 <span className="min-w-0 flex-1">
                                     <span
                                         className={cn(
-                                            'block font-mono text-xs',
-                                            owner.id === selected
-                                                ? 'text-act'
-                                                : 'text-tx3',
-                                        )}
-                                    >
-                                        {owner.code}
-                                    </span>
-                                    <span
-                                        className={cn(
                                             'flex items-center gap-1.5 truncate text-[13px]',
                                             owner.id === selected &&
                                                 'font-semibold text-act',
@@ -215,9 +205,6 @@ function AssignmentForm({
                     Selected {ownerNoun}
                 </span>
                 <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-brand px-3 py-1.5 text-[13px] font-semibold text-white">
-                    <span className="font-mono text-xs opacity-85">
-                        {owner.code}
-                    </span>
                     <span className="truncate">{owner.name}</span>
                 </span>
                 <StatusBadge status={owner.status} />

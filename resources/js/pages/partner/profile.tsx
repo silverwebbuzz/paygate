@@ -58,10 +58,7 @@ export default function BusinessProfile({ partner, rates }: Props) {
 
             <Panel className="flex flex-col gap-5 p-5">
                 <div className="flex items-center gap-2 text-base font-semibold">
-                    {partner.name}{' '}
-                    <span className="font-mono text-xs text-tx3">
-                        {partner.code}
-                    </span>
+                    {partner.name}
                     <StatusBadge status={partner.status} />
                 </div>
                 <KeyValues

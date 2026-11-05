@@ -246,7 +246,7 @@ class StatementMatcher
         if ($elsewhere !== null) {
             $this->openCase($entry, CaseType::WrongBranch, $elsewhere, $elsewhere->branch_id === $entry->branch_id
                 ? __(':reference was paid to another account of this branch (:account).', ['reference' => $elsewhere->reference, 'account' => $elsewhere->paymentAccount->label ?? '—'])
-                : __(':reference belongs to branch :branch.', ['reference' => $elsewhere->reference, 'branch' => $elsewhere->branch->code ?? '—']));
+                : __(':reference belongs to branch :branch.', ['reference' => $elsewhere->reference, 'branch' => $elsewhere->branch->name ?? '—']));
 
             return;
         }
@@ -281,7 +281,7 @@ class StatementMatcher
 
         $part->branch_id === $entry->branch_id
             ? $this->linkPartOrExplain($entry, $part)
-            : $this->openCase($entry, CaseType::WrongBranch, $part->transaction, __(':reference was paid by branch :branch.', ['reference' => $part->transaction->reference, 'branch' => $part->transaction->branch->code ?? '—']));
+            : $this->openCase($entry, CaseType::WrongBranch, $part->transaction, __(':reference was paid by branch :branch.', ['reference' => $part->transaction->reference, 'branch' => $part->transaction->branch->name ?? '—']));
     }
 
     /**
@@ -436,7 +436,7 @@ class StatementMatcher
         $this->openCase($entry, CaseType::DuplicateUtr, null, $note, 'duplicate');
 
         app(AlertDispatcher::class)->utrConflict((string) $entry->utr_normalized, __('A bank line of :branch · :account (₹:amount) has a UTR already recorded. :note', [
-            'branch' => $entry->branch->code ?? '—',
+            'branch' => $entry->branch->name ?? '—',
             'account' => $entry->paymentAccount->label ?? '—',
             'amount' => number_format($entry->amount / 100, 2),
             'note' => $note,
@@ -450,7 +450,7 @@ class StatementMatcher
             : __('UTR :utr is already on a :direction line of :branch · :account (:date). One UTR is one bank transfer.', [
                 'utr' => $entry->utr_normalized,
                 'direction' => $twin->entry_direction,
-                'branch' => $twin->branch->code ?? '—',
+                'branch' => $twin->branch->name ?? '—',
                 'account' => $twin->paymentAccount->label ?? '—',
                 'date' => $twin->value_date->format('d M Y'),
             ]);

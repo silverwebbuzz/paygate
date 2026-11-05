@@ -222,7 +222,7 @@ export default function StatementImports(props: Props) {
                             <option value="">All branches</option>
                             {branches.map((branch) => (
                                 <option key={branch.id} value={branch.id}>
-                                    {branch.code} · {branch.name}
+                                    {branch.name}
                                 </option>
                             ))}
                         </SelectInput>

@@ -293,7 +293,7 @@ class ProcessPayout
             $new = $this->router->assign($partner, $locked->amount, onlyBranchId: $to->id, checkBalance: false);
 
             if ($new === null) {
-                throw ValidationException::withMessages(['branch_id' => __(':branch can’t take it: not mapped for withdrawals, no withdrawal rate, outside its amount range, or over today’s limits.', ['branch' => $to->code])]);
+                throw ValidationException::withMessages(['branch_id' => __(':branch can’t take it: not mapped for withdrawals, no withdrawal rate, outside its amount range, or over today’s limits.', ['branch' => $to->name])]);
             }
 
             $fromBranch = $locked->branch_id;

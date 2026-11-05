@@ -51,13 +51,13 @@ class DashboardController extends Controller
             'period' => $period->toArray(),
             'organisation' => match (true) {
                 $actor->partner_id !== null => Partner::query()->whereKey($actor->partner_id)->value('name'),
-                $actor->branch_id !== null => Branch::query()->whereKey($actor->branch_id)->get(['code', 'name'])->map(fn (Branch $branch) => "{$branch->code} · {$branch->name}")->first(),
+                $actor->branch_id !== null => Branch::query()->whereKey($actor->branch_id)->value('name'),
                 default => null,
             },
             'filters' => ['direction' => $direction, 'partners' => $partnerIds, 'branches' => $branchIds],
             'options' => $isAdmin ? [
-                'partners' => Partner::query()->orderBy('code')->get(['id', 'code', 'name']),
-                'branches' => Branch::query()->orderBy('code')->get(['id', 'code', 'name']),
+                'partners' => Partner::query()->orderBy('name')->get(['id', 'code', 'name']),
+                'branches' => Branch::query()->orderBy('name')->get(['id', 'code', 'name']),
             ] : null,
             'overview' => fn () => $overview->for(Scope::of($actor), $period, $direction, $partnerIds, $branchIds),
             'metrics' => function () use ($metrics, $actor, $period) {

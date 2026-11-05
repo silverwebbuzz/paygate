@@ -94,12 +94,14 @@ class PartyReport extends Report
                 $party = $parties->get((string) $row->party_id);
 
                 return [
-                    'name' => $party === null ? '—' : $party->code.' '.$party->name,
+                    // Names only on screen; the code still matches a search.
+                    'name' => $party === null ? '—' : $party->name,
+                    'code' => $party === null ? '' : $party->code,
                     'amount' => (int) $row->amount,
                     'commission' => (int) $row->commission,
                 ];
             })
-            ->filter(fn (array $row) => $search === '' || str_contains(mb_strtolower($row['name']), $search))
+            ->filter(fn (array $row) => $search === '' || str_contains(mb_strtolower($row['name'].' '.$row['code']), $search))
             ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
 

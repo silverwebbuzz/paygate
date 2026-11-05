@@ -69,7 +69,7 @@ class OrganisationActivityController extends Controller
             ->through(fn (AuditLog $log) => $this->row($log, $kind));
 
         $parties = ($kind === 'partner' ? Partner::query() : Branch::query())
-            ->orderBy('code')
+            ->orderBy('name')
             ->get(['id', 'code', 'name']);
 
         return Inertia::render('admin/activity/index', [

@@ -103,9 +103,6 @@ export function OrgPicker({
                             checked={selected.includes(item.id)}
                             onChange={() => toggle(item.id)}
                         />
-                        <span className="font-mono text-xs text-tx3">
-                            {item.code}
-                        </span>
                         <span className="flex-1 text-[13px]">{item.name}</span>
                         <span className="text-xs text-tx3">
                             {item.rates.deposit ?? '—'}% /{' '}

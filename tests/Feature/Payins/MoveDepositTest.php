@@ -180,7 +180,7 @@ class MoveDepositTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.cases.index'))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('cases.data.0.move.reference', $payin->reference)
-                ->where('cases.data.0.move.branch', $this->branch->code));
+                ->where('cases.data.0.move.branch', $this->branch->name));
         $this->actingAs($this->paidOperator)->get(route('branch.cases.index'))
             ->assertInertia(fn (Assert $page) => $page->where('cases.data.0.move', null));
         $this->actingAs($this->paidOperator)->post(route('admin.cases.move', $case), ['note' => 'x'])->assertForbidden();

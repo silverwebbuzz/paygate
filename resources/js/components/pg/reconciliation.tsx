@@ -167,7 +167,7 @@ export function LineSummary({ line }: { line: StatementLine }) {
             <div className="font-mono text-xs">{line.utr ?? 'no UTR'}</div>
             <div className="truncate text-tx3">{line.description ?? '—'}</div>
             <div className="text-xs text-tx3">
-                {formatDate(line.value_date)} · {line.branch.code} ·{' '}
+                {formatDate(line.value_date)} · {line.branch.name} ·{' '}
                 {line.account.label}
                 {line.account.number ? ` · ${line.account.number}` : ''}
             </div>

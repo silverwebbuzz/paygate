@@ -263,12 +263,7 @@ export default function PartnersIndex({
                         {initials(p.name)}
                     </span>
                     <div className="min-w-0">
-                        <div className="font-medium">
-                            {p.name}{' '}
-                            <span className="font-mono text-xs text-tx3">
-                                {p.code}
-                            </span>
-                        </div>
+                        <div className="font-medium">{p.name}</div>
                         <div className="text-xs text-tx3">{p.email}</div>
                     </div>
                 </div>
@@ -547,9 +542,9 @@ export default function PartnersIndex({
                     open
                     onOpenChange={(next) => !next && setOpenId(null)}
                     kind="Partner"
-                    title={open.code}
+                    title={open.name}
                     status={<StatusBadge status={open.status} />}
-                    subtitle={`${open.name} · ${open.email}`}
+                    subtitle={open.email}
                     actions={
                         <div className="flex gap-2">
                             {can.users && (
@@ -861,12 +856,7 @@ export default function PartnersIndex({
                                         'Mapping',
                                     ]}
                                     rows={loaded.branches.map((b) => [
-                                        <span key="b">
-                                            <span className="font-mono text-xs text-tx3">
-                                                {b.code}
-                                            </span>{' '}
-                                            {b.name}
-                                        </span>,
+                                        <span key="b">{b.name}</span>,
                                         <Enabled key="d" on={b.deposit} />,
                                         <Enabled key="w" on={b.withdrawal} />,
                                         <StatusBadge

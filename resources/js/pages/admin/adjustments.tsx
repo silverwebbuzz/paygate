@@ -112,11 +112,11 @@ export default function Adjustments(props: Props) {
                 <div className="text-xs">
                     <div className="font-medium">
                         {row.side === 'partner'
-                            ? `${row.partner.name} (${row.partner.code})`
-                            : `${row.branch.name} (${row.branch.code})`}
+                            ? `${row.partner.name}`
+                            : `${row.branch.name}`}
                     </div>
                     <div className="text-tx3">
-                        pair {row.partner.code} ↔ {row.branch.code}
+                        pair {row.partner.name} ↔ {row.branch.name}
                     </div>
                 </div>
             ),
@@ -320,7 +320,7 @@ export default function Adjustments(props: Props) {
                     title={`${deciding.approve ? 'Approve' : 'Reject'} ${deciding.row.reference}?`}
                     description={
                         deciding.approve
-                            ? `${deciding.row.amount < 0 ? '−' : '+'}${formatPaise(Math.abs(deciding.row.amount))} on the ${deciding.row.side} position of ${deciding.row.partner.code} ↔ ${deciding.row.branch.code} is booked now. This can’t be undone; a mistake needs a new adjustment.`
+                            ? `${deciding.row.amount < 0 ? '−' : '+'}${formatPaise(Math.abs(deciding.row.amount))} on the ${deciding.row.side} position of ${deciding.row.partner.name} ↔ ${deciding.row.branch.name} is booked now. This can’t be undone; a mistake needs a new adjustment.`
                             : 'Nothing is booked. The person who requested it sees your note.'
                     }
                     confirmLabel={deciding.approve ? 'Approve' : 'Reject'}
@@ -428,7 +428,7 @@ function NewAdjustment({
                         <option value="">Choose…</option>
                         {partners.map((partner) => (
                             <option key={partner.id} value={partner.id}>
-                                {partner.code} · {partner.name}
+                                {partner.name}
                             </option>
                         ))}
                     </SelectInput>
@@ -448,7 +448,7 @@ function NewAdjustment({
                         <option value="">Choose…</option>
                         {mappedBranches.map((branch) => (
                             <option key={branch.id} value={branch.id}>
-                                {branch.code} · {branch.name}
+                                {branch.name}
                             </option>
                         ))}
                     </SelectInput>

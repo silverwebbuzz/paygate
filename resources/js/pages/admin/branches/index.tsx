@@ -316,10 +316,7 @@ export default function BranchesIndex({
                                     <tr key={b.id} className="hover:bg-sf2">
                                         <Td className="min-w-[210px]">
                                             <div className="font-medium whitespace-nowrap">
-                                                {b.name}{' '}
-                                                <span className="font-mono text-xs text-tx3">
-                                                    {b.code}
-                                                </span>
+                                                {b.name}
                                             </div>
                                             <div className="text-xs text-tx3">
                                                 {b.deposit_limit_type ===
@@ -462,9 +459,8 @@ export default function BranchesIndex({
                     open
                     onOpenChange={(next) => !next && setOpenId(null)}
                     kind="Branch"
-                    title={open.code}
+                    title={open.name}
                     status={<StatusBadge status={open.status} />}
-                    subtitle={open.name}
                     actions={
                         <div className="flex gap-2">
                             {can.users && (
@@ -705,12 +701,7 @@ export default function BranchesIndex({
                                         'Mapping',
                                     ]}
                                     rows={loaded.partners.map((p) => [
-                                        <span key="p">
-                                            <span className="font-mono text-xs text-tx3">
-                                                {p.code}
-                                            </span>{' '}
-                                            {p.name}
-                                        </span>,
+                                        <span key="p">{p.name}</span>,
                                         p.deposit ? 'On' : 'Off',
                                         p.withdrawal ? 'On' : 'Off',
                                         <StatusBadge
@@ -899,7 +890,7 @@ function TopupDialog({
         <FormDialog
             open
             onOpenChange={(open) => !open && onClose()}
-            title={`Deposit allowance of ${branch.code}`}
+            title={`Deposit allowance of ${branch.name}`}
             description={`Currently ${formatPaise(branch.deposit_topup_balance)}. Each successful deposit uses it up; the branch stops receiving customers at zero.`}
             submitLabel={form.data.kind === 'topup' ? 'Top up' : 'Reduce'}
             processing={form.processing}

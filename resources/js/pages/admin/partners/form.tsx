@@ -360,10 +360,7 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                 title={title}
                 description={
                     editing ? (
-                        <span className="inline-flex items-center gap-2">
-                            {text(partner.code)}{' '}
-                            <StatusBadge status={partner.status} />
-                        </span>
+                        <StatusBadge status={partner.status} />
                     ) : (
                         'A new partner starts as a draft and gets an API key. It can take payments once activated.'
                     )
@@ -955,9 +952,6 @@ function MarginTable({
                     {branches.map((branch) => (
                         <tr key={branch.id} className="border-t border-ln2">
                             <td className="px-3 py-1.5">
-                                <span className="font-mono text-xs text-tx3">
-                                    {branch.code}
-                                </span>{' '}
                                 {branch.name}
                             </td>
                             <td className="px-3 py-1.5">

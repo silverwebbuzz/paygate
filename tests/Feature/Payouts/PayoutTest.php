@@ -147,7 +147,7 @@ class PayoutTest extends TestCase
         $this->api('POST', '/v1/payouts', $this->body())->assertCreated();
 
         $this->assertCount(1, $sent(Alert::PayoutShortBranch));
-        $this->assertStringContainsString($empty->code, $sent(Alert::PayoutShortBranch)->first()->body);
+        $this->assertStringContainsString($empty->name, $sent(Alert::PayoutShortBranch)->first()->body);
 
         $this->branch->update(['withdrawal_max_amount' => 5000]);
         $empty->update(['withdrawal_max_amount' => 5000]);

@@ -325,7 +325,7 @@ class DashboardMetrics
                 $decided = (int) $row->success + (int) $row->failed;
 
                 return [
-                    'name' => $branch === null ? '—' : "{$branch->code} · {$branch->name}",
+                    'name' => $branch === null ? '—' : $branch->name,
                     'sub' => ($branch->mappings_count ?? 0).' partners',
                     'a' => (int) $row->deposits,
                     'b' => (int) $row->withdrawals,

@@ -88,9 +88,9 @@ class StatementController extends Controller
                 'unsettled' => $sum(self::TABS['unsettled']),
             ],
             'accounts' => ReconciliationScope::accounts($actor)->with('branch')->orderBy('label')->get()
-                ->map(fn ($account) => [...$this->presenter->account($account), 'branch_id' => $account->branch_id, 'branch' => $account->branch->code])
+                ->map(fn ($account) => [...$this->presenter->account($account), 'branch_id' => $account->branch_id, 'branch' => $account->branch->name])
                 ->values(),
-            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
             'reasons' => ReasonCode::options('payin_reject'),
             'can' => [
                 'create' => $actor->can('statements.create'),
@@ -168,7 +168,7 @@ class StatementController extends Controller
                 /** @var StatementEntry $entry */
                 fputcsv($out, [
                     $entry->value_date->toDateString(),
-                    $entry->branch->code,
+                    $safe($entry->branch->name),
                     $safe($entry->paymentAccount->label),
                     $entry->isCredit() ? Money::toRupees($entry->amount) : '',
                     $entry->isCredit() ? '' : Money::toRupees($entry->amount),

@@ -41,7 +41,7 @@ class ManageAdjustment
             $amount === 0 => __('Enter an amount.'),
             $type === 'topup' && ($side !== 'partner' || $amount < 0) => __('A top-up adds to the partner’s balance at a branch.'),
             $type === 'goodwill' && $amount < 0 => __('Goodwill can only be in the party’s favour.'),
-            ! PartnerBranchMapping::query()->where(['partner_id' => $partner->id, 'branch_id' => $branch->id])->exists() => __(':partner and :branch aren’t mapped to each other.', ['partner' => $partner->code, 'branch' => $branch->code]),
+            ! PartnerBranchMapping::query()->where(['partner_id' => $partner->id, 'branch_id' => $branch->id])->exists() => __(':partner and :branch aren’t mapped to each other.', ['partner' => $partner->name, 'branch' => $branch->name]),
             $case !== null && (! $case->isOpen() || $case->branch_id !== $branch->id) => __('The case must be open and belong to this branch.'),
             default => null,
         };

@@ -298,14 +298,7 @@ export default function Transactions({
                       key: 'partner',
                       header: 'Partner',
                       cell: (t: TxnRow) =>
-                          t.partner && (
-                              <span>
-                                  {t.partner.name}{' '}
-                                  <span className="font-mono text-xs text-tx3">
-                                      {t.partner.code}
-                                  </span>
-                              </span>
-                          ),
+                          t.partner && <span>{t.partner.name}</span>,
                   },
               ]
             : []),
@@ -317,12 +310,7 @@ export default function Transactions({
                       header: 'Branch',
                       cell: (t: TxnRow) =>
                           t.branch ? (
-                              <div>
-                                  <div>{t.branch.name}</div>
-                                  <div className="font-mono text-xs text-tx3">
-                                      {t.branch.code}
-                                  </div>
-                              </div>
+                              <div>{t.branch.name}</div>
                           ) : (
                               '—'
                           ),

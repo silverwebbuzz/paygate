@@ -204,7 +204,7 @@ class PartnerController extends Controller
             return;
         }
 
-        $branches = collect($negativeMargins)->flatten(1)->pluck('code')->unique()->implode(', ');
+        $branches = collect($negativeMargins)->flatten(1)->pluck('name')->unique()->implode(', ');
 
         Inertia::flash('toast', ['type' => 'warning', 'message' => $message.' '.__('Warning: branches :branches earn more than this partner pays, so the platform loses the difference (recorded in the audit log).', ['branches' => $branches])]);
     }
@@ -212,7 +212,7 @@ class PartnerController extends Controller
     private function form(Request $request, ?Partner $partner): Response
     {
         $actor = $this->actor($request);
-        $branches = Branch::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name', 'status']);
+        $branches = Branch::query()->where('status', '!=', 'offboarded')->orderBy('name')->get(['id', 'code', 'name', 'status']);
         $branchRates = $this->rates->currentForMany('branch', $branches->pluck('id')->all(), 'branch');
 
         return Inertia::render('admin/partners/form', [

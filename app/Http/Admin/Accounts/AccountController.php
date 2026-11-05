@@ -74,7 +74,7 @@ class AccountController extends Controller
                 ...PaymentAccount::query()->notDeleted()->toBase()->selectRaw('verification, count(*) as total')->groupBy('verification')->pluck('total', 'verification')->all(),
                 ...PaymentAccount::query()->toBase()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status')->all(),
             ],
-            'branches' => Branch::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name']),
+            'branches' => Branch::query()->where('status', '!=', 'offboarded')->orderBy('name')->get(['id', 'code', 'name']),
             // Full numbers for verification, loaded on request and audited.
             'reveal' => Inertia::optional(fn () => is_string($revealId) ? $this->reveal($actor, $revealId) : null),
             'can' => [

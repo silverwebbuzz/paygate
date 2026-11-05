@@ -188,12 +188,12 @@ class DepositQueueController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => $approved !== null
             ? __(':reference moved to :branch · :account and approved automatically: its bank line is already there.', [
                 'reference' => $transaction->reference,
-                'branch' => $account->branch->code,
+                'branch' => $account->branch->name,
                 'account' => $account->label,
             ])
             : __(':reference moved to :branch · :account; the branch is alerted.', [
                 'reference' => $transaction->reference,
-                'branch' => $account->branch->code,
+                'branch' => $account->branch->name,
                 'account' => $account->label,
             ])]);
 
@@ -214,7 +214,7 @@ class DepositQueueController extends Controller
             ->whereKeyNot((string) $payin->payment_account_id)
             ->with('branch')
             ->get()
-            ->sortBy(fn (PaymentAccount $account) => $account->branch->code.' '.$account->label)
+            ->sortBy(fn (PaymentAccount $account) => $account->branch->name.' '.$account->label)
             ->map(fn (PaymentAccount $account) => [
                 'id' => $account->id,
                 'label' => $account->label,

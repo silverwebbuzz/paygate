@@ -83,11 +83,11 @@ class ReportController extends Controller
             'totals' => array_intersect_key($report->totals($scope, $period, $filters), $visible + ['_count' => true]),
             'options' => [
                 'partner' => match ($actor->type) {
-                    UserType::Admin => Partner::query()->orderBy('code')->get(['id', 'code', 'name']),
-                    UserType::Branch => Partner::query()->whereIn('id', PartnerBranchMapping::query()->where('branch_id', $actor->branch_id)->select('partner_id'))->orderBy('code')->get(['id', 'code', 'name']),
+                    UserType::Admin => Partner::query()->orderBy('name')->get(['id', 'code', 'name']),
+                    UserType::Branch => Partner::query()->whereIn('id', PartnerBranchMapping::query()->where('branch_id', $actor->branch_id)->select('partner_id'))->orderBy('name')->get(['id', 'code', 'name']),
                     UserType::Partner => [],
                 },
-                'branch' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+                'branch' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
             ],
             'exports' => ReportExport::query()->where('user_id', $actor->id)->latest('created_at')->limit(10)->get()->map(fn (ReportExport $export) => [
                 'id' => $export->id,

@@ -172,11 +172,11 @@ class TransactionController extends Controller
     {
         return [
             'partners' => match ($actor->type) {
-                UserType::Admin => Partner::query()->orderBy('code')->get(['id', 'code', 'name']),
-                UserType::Branch => Partner::query()->whereIn('id', self::scoped($actor)->select('partner_id'))->orderBy('code')->get(['id', 'code', 'name']),
+                UserType::Admin => Partner::query()->orderBy('name')->get(['id', 'code', 'name']),
+                UserType::Branch => Partner::query()->whereIn('id', self::scoped($actor)->select('partner_id'))->orderBy('name')->get(['id', 'code', 'name']),
                 UserType::Partner => [],
             },
-            'branch_options' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+            'branch_options' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
         ];
     }
 

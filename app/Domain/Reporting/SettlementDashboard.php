@@ -80,7 +80,7 @@ final class SettlementDashboard
 
         // Grouped by the dashboard's own side (branch view: by branch).
         $order = $side === 'branch' ? ['branch', 'partner'] : ['partner', 'branch'];
-        usort($pairs, fn (array $a, array $b) => [$a[$order[0]]['code'], $a[$order[1]]['code']] <=> [$b[$order[0]]['code'], $b[$order[1]]['code']]);
+        usort($pairs, fn (array $a, array $b) => [$a[$order[0]]['name'], $a[$order[1]]['name']] <=> [$b[$order[0]]['name'], $b[$order[1]]['name']]);
 
         return ['total' => $total, 'pairs' => $pairs];
     }

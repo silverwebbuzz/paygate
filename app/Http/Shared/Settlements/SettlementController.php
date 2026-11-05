@@ -84,8 +84,8 @@ class SettlementController extends Controller
             ],
             'cutoff' => $settings->settlementCutoff(),
             'parties' => $isAdmin ? [
-                'partner' => Partner::query()->orderBy('code')->get(['id', 'code', 'name']),
-                'branch' => Branch::query()->orderBy('code')->get(['id', 'code', 'name']),
+                'partner' => Partner::query()->orderBy('name')->get(['id', 'code', 'name']),
+                'branch' => Branch::query()->orderBy('name')->get(['id', 'code', 'name']),
             ] : null,
             'can' => [
                 'calculate' => $isAdmin && $actor->can('settlements.create'),

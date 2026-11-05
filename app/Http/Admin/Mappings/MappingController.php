@@ -54,8 +54,8 @@ class MappingController extends Controller
         return Inertia::render('admin/mappings/index', [
             'mappings' => $mappings->through(fn (PartnerBranchMapping $mapping) => $this->row($mapping)),
             'filters' => ['partner' => $partnerId, 'branch' => $branchId, 'status' => $status],
-            'partners' => Partner::query()->orderBy('code')->get(['id', 'code', 'name']),
-            'branches' => Branch::query()->orderBy('code')->get(['id', 'code', 'name']),
+            'partners' => Partner::query()->orderBy('name')->get(['id', 'code', 'name']),
+            'branches' => Branch::query()->orderBy('name')->get(['id', 'code', 'name']),
             'can' => [
                 'update' => $actor->can('mappings.update'),
                 'rates' => $actor->can('commissions.update'),
@@ -76,7 +76,7 @@ class MappingController extends Controller
         $actor = $request->user();
         $mapping = $mappings->map($actor, Partner::query()->findOrFail((string) $data['partner_id']), Branch::query()->findOrFail((string) $data['branch_id']));
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':partner is mapped to :branch.', ['partner' => $mapping->partner->code, 'branch' => $mapping->branch->code])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':partner is mapped to :branch.', ['partner' => $mapping->partner->name, 'branch' => $mapping->branch->name])]);
 
         return back();
     }
@@ -113,7 +113,7 @@ class MappingController extends Controller
         $partner = Partner::query()->findOrFail((string) $data['partner_id']);
         $mappings->forPartner($actor, $partner, $data['branch_ids']);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':partner is assigned to :count branches.', ['partner' => $partner->code, 'count' => count($data['branch_ids'])])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':partner is assigned to :count branches.', ['partner' => $partner->name, 'count' => count($data['branch_ids'])])]);
 
         return to_route('admin.mappings.by-partner', ['partner' => $partner->id]);
     }
@@ -139,7 +139,7 @@ class MappingController extends Controller
         $branch = Branch::query()->findOrFail((string) $data['branch_id']);
         $mappings->forBranch($actor, $branch, $data['partner_ids']);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':branch is assigned to :count partners.', ['branch' => $branch->code, 'count' => count($data['partner_ids'])])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':branch is assigned to :count partners.', ['branch' => $branch->name, 'count' => count($data['partner_ids'])])]);
 
         return to_route('admin.mappings.by-branch', ['branch' => $branch->id]);
     }
@@ -151,8 +151,8 @@ class MappingController extends Controller
         /** @var User $actor */
         $actor = $request->user();
         $forPartner = $side === 'partner';
-        $partners = Partner::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name', 'status']);
-        $branches = Branch::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name', 'status']);
+        $partners = Partner::query()->where('status', '!=', 'offboarded')->orderBy('name')->get(['id', 'code', 'name', 'status']);
+        $branches = Branch::query()->where('status', '!=', 'offboarded')->orderBy('name')->get(['id', 'code', 'name', 'status']);
         $owners = $forPartner ? $partners : $branches;
         $items = $forPartner ? $branches : $partners;
         $asked = $request->query($side);

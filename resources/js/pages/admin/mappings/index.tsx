@@ -103,24 +103,14 @@ export default function Mappings({
             key: 'partner',
             header: 'Partner',
             cell: (m) => (
-                <span>
-                    <span className="font-mono text-xs text-tx3">
-                        {m.partner.code}
-                    </span>{' '}
-                    {m.partner.name}
-                </span>
+                <span>{m.partner.name}</span>
             ),
         },
         {
             key: 'branch',
             header: 'Branch',
             cell: (m) => (
-                <span>
-                    <span className="font-mono text-xs text-tx3">
-                        {m.branch.code}
-                    </span>{' '}
-                    {m.branch.name}
-                </span>
+                <span>{m.branch.name}</span>
             ),
         },
         {
@@ -286,7 +276,7 @@ function OrgSelect({
             <option value="">{label}</option>
             {items.map((item) => (
                 <option key={item.id} value={item.id}>
-                    {item.code} · {item.name}
+                    {item.name}
                 </option>
             ))}
         </SelectInput>
@@ -337,7 +327,7 @@ function AddDialog({
                         {(kind === 'partner' ? partners : branches).map(
                             (item) => (
                                 <option key={item.id} value={item.id}>
-                                    {item.code} · {item.name}
+                                    {item.name}
                                 </option>
                             ),
                         )}
@@ -428,7 +418,7 @@ function EditDialog({
             open
             width={600}
             onOpenChange={(open) => !open && onClose()}
-            title={`${mapping.partner.code} ↔ ${mapping.branch.code}`}
+            title={`${mapping.partner.name} ↔ ${mapping.branch.name}`}
             description={`${mapping.partner.name} served by ${mapping.branch.name}.`}
             submitLabel="Save"
             processing={form.processing}

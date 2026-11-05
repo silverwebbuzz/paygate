@@ -85,8 +85,7 @@ const branchColumn: Column<Row> = {
     cell: (row) =>
         row.branch ? (
             <div className="whitespace-nowrap">
-                <div className="font-mono text-xs">{row.branch.code}</div>
-                <div className="text-xs text-tx3">{row.branch.name}</div>
+                <div>{row.branch.name}</div>
             </div>
         ) : (
             '—'

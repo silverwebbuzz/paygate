@@ -58,7 +58,7 @@ class ActivityFeed
                 }
 
                 if ($subject instanceof PartnerBranchMapping && $subject->relationLoaded('partner') && $subject->relationLoaded('branch')) {
-                    $summary .= ' · '.$subject->partner->code.' ↔ '.$subject->branch->code;
+                    $summary .= ' · '.$subject->partner->name.' ↔ '.$subject->branch->name;
                 }
 
                 return [

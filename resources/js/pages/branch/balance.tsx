@@ -72,12 +72,7 @@ export default function BranchBalance({ positions, total, latest }: Props) {
                     empty="Nothing booked yet."
                     headers={['Partner', 'Position']}
                     rows={positions.map((row) => [
-                        <span key="p">
-                            {row.partner.name}{' '}
-                            <span className="font-mono text-xs text-tx3">
-                                {row.partner.code}
-                            </span>
-                        </span>,
+                        <span key="p">{row.partner.name}</span>,
                         <span
                             key="b"
                             className={row.balance < 0 ? 'text-er' : 'text-ok'}

@@ -58,7 +58,7 @@ class BranchController extends Controller
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->whereLike('name', "%{$search}%")
                 ->orWhereLike('code', "%{$search}%")))
-            ->orderBy('code')
+            ->orderBy('name')
             ->paginate(25)
             ->withQueryString();
 
@@ -159,7 +159,7 @@ class BranchController extends Controller
         $record = $topUp->handle($request->actor(), $branch, $request->amountInPaise(), $request->string('reason')->value());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Deposit allowance of :branch is now ₹:balance.', [
-            'branch' => $branch->code,
+            'branch' => $branch->name,
             'balance' => number_format($record->balance_after / 100, 2),
         ])]);
 
@@ -192,7 +192,7 @@ class BranchController extends Controller
             return;
         }
 
-        $partners = collect($negativeMargins)->flatten(1)->pluck('code')->unique()->implode(', ');
+        $partners = collect($negativeMargins)->flatten(1)->pluck('name')->unique()->implode(', ');
 
         Inertia::flash('toast', ['type' => 'warning', 'message' => $message.' '.__('Warning: this branch earns more than partners :partners pay, so the platform loses the difference (recorded in the audit log).', ['partners' => $partners])]);
     }
@@ -200,7 +200,7 @@ class BranchController extends Controller
     private function form(Request $request, ?Branch $branch): Response
     {
         $actor = $this->actor($request);
-        $partners = Partner::query()->where('status', '!=', 'offboarded')->orderBy('code')->get(['id', 'code', 'name', 'status']);
+        $partners = Partner::query()->where('status', '!=', 'offboarded')->orderBy('name')->get(['id', 'code', 'name', 'status']);
         $partnerRates = $this->rates->currentForMany('partner', $partners->pluck('id')->all(), 'partner');
 
         return Inertia::render('admin/branches/form', [

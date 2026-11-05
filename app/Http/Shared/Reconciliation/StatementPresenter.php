@@ -131,7 +131,7 @@ class StatementPresenter
             return null;
         }
 
-        return ['reference' => $txn->reference, 'amount' => $txn->amount, 'status' => $txn->status, 'branch' => $txn->branch?->code];
+        return ['reference' => $txn->reference, 'amount' => $txn->amount, 'status' => $txn->status, 'branch' => $txn->branch?->name];
     }
 
     /**
@@ -234,8 +234,8 @@ class StatementPresenter
             'direction' => $txn->direction,
             'amount' => $txn->amount,
             'status' => $txn->status,
-            'partner' => $txn->partner->code,
-            'branch' => $txn->branch?->code,
+            'partner' => $txn->partner->name,
+            'branch' => $txn->branch?->name,
             'customer_utr' => $txn->customer_utr_normalized,
             'bank_utr' => $txn->bank_utr_normalized,
             'decided_by' => $txn->decider?->name,

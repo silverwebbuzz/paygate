@@ -100,7 +100,7 @@ class PayoutQueueController extends Controller
                 return $txn !== null && $actor->can('view', $txn) ? $this->presenter->detail($txn, $actor) : null;
             }),
             'branches' => $actor->isType(UserType::Admin)
-                ? Branch::query()->where('status', 'active')->where('is_withdrawal_enabled', true)->orderBy('code')->get(['id', 'code', 'name'])
+                ? Branch::query()->where('status', 'active')->where('is_withdrawal_enabled', true)->orderBy('name')->get(['id', 'code', 'name'])
                 : [],
         ]);
     }
@@ -171,7 +171,7 @@ class PayoutQueueController extends Controller
         $branch = Branch::query()->findOrFail((string) $data['branch_id']);
         $process->reassign($actor, $transaction, $branch, $data['reason']);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference moved to :branch.', ['reference' => $transaction->reference, 'branch' => $branch->code])]);
+        Inertia::flash('toast', ['type' => 'success', 'message' => __(':reference moved to :branch.', ['reference' => $transaction->reference, 'branch' => $branch->name])]);
 
         return back();
     }

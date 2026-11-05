@@ -54,7 +54,7 @@ class StatementImportController extends Controller
                 'account' => $import->paymentAccount->label,
                 'bank' => $import->paymentAccount->bank_name,
                 'number' => $import->paymentAccount->maskedAccountNumber(),
-                'branch' => $import->branch->code,
+                'branch' => $import->branch->name,
                 'file' => $import->file?->original_name,
                 'file_id' => $import->file_id,
                 'period_from' => $import->period_from?->toDateString(),
@@ -76,9 +76,9 @@ class StatementImportController extends Controller
             'imports' => [...$imports->toArray(), 'data' => $rows],
             'filters' => ['branch' => is_string($branch) ? $branch : null, 'account' => is_string($account) ? $account : null],
             'accounts' => ReconciliationScope::accounts($actor)->with('branch')->orderBy('label')->get()
-                ->map(fn ($account) => ['id' => $account->id, 'label' => $account->label, 'bank' => $account->bank_name, 'number' => $account->maskedAccountNumber(), 'branch_id' => $account->branch_id, 'branch' => $account->branch->code])
+                ->map(fn ($account) => ['id' => $account->id, 'label' => $account->label, 'bank' => $account->bank_name, 'number' => $account->maskedAccountNumber(), 'branch_id' => $account->branch_id, 'branch' => $account->branch->name])
                 ->values(),
-            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('code')->get(['id', 'code', 'name']) : [],
+            'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
             'can' => ['create' => $actor->can('statements.create')],
         ]);
     }

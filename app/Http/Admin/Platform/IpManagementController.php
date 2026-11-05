@@ -43,7 +43,7 @@ class IpManagementController extends Controller
 
         $partners = [];
 
-        foreach (Partner::query()->orderBy('code')->get(['id', 'code', 'name', 'status']) as $partner) {
+        foreach (Partner::query()->orderBy('name')->get(['id', 'code', 'name', 'status']) as $partner) {
             $partners[] = [
                 'id' => $partner->id,
                 'code' => $partner->code,

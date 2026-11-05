@@ -65,7 +65,7 @@ class AlertDispatcher
             return;
         }
 
-        $branch = Branch::query()->whereKey($payout->branch_id)->value('code');
+        $branch = Branch::query()->whereKey($payout->branch_id)->value('name');
         $partner = Partner::query()->whereKey($payout->partner_id)->value('name');
         $held = max(0, $figures['balance'] - ($figures['reserved'] - $reservation['needed']));
 
@@ -122,7 +122,7 @@ class AlertDispatcher
 
     public function payinAmountDiffers(Transaction $payin, User $approver): void
     {
-        $branch = Branch::query()->whereKey($payin->branch_id)->value('code');
+        $branch = Branch::query()->whereKey($payin->branch_id)->value('name');
 
         $this->alerts->send(
             Alert::PayinAmountDiffers,
@@ -174,7 +174,7 @@ class AlertDispatcher
             __('Deposit :reference approved with another UTR', ['reference' => $payin->reference]),
             __(':name (branch :branch) approved it with bank UTR :bank; the customer gave :customer. Note: :note', [
                 'name' => $approver->username ?? $approver->name,
-                'branch' => Branch::query()->whereKey($payin->branch_id)->value('code') ?? '—',
+                'branch' => Branch::query()->whereKey($payin->branch_id)->value('name') ?? '—',
                 'bank' => $payin->bank_utr_normalized,
                 'customer' => $payin->customer_utr_normalized,
                 'note' => $payin->status_note ?? '—',
@@ -215,7 +215,7 @@ class AlertDispatcher
             $this->alerts->recipients(Permission::PayinsApprove, UserType::Admin),
             trans_choice(':count approved deposit not in any bank statement after :hours h|:count approved deposits not in any bank statement after :hours h', $unseen->count(), ['count' => $unseen->count(), 'hours' => $hours]),
             __('Ask the branch for the bank entry, or check its statement: :list.', [
-                'list' => $unseen->take(10)->map(fn (Transaction $txn) => $txn->reference.' ('.($txn->branch->code ?? '—').', ₹'.$this->money($txn->amount).')')->join(', '),
+                'list' => $unseen->take(10)->map(fn (Transaction $txn) => $txn->reference.' ('.($txn->branch->name ?? '—').', ₹'.$this->money($txn->amount).')')->join(', '),
             ]),
             Alerts::link('admin.transactions.index'),
         );
@@ -233,8 +233,8 @@ class AlertDispatcher
      */
     public function depositAutoMoved(Transaction $payin, string $fromBranchId): void
     {
-        $from = Branch::query()->whereKey($fromBranchId)->value('code');
-        $to = Branch::query()->whereKey($payin->branch_id)->value('code');
+        $from = Branch::query()->whereKey($fromBranchId)->value('name');
+        $to = Branch::query()->whereKey($payin->branch_id)->value('name');
         $title = __('Deposit :reference moved :from → :to automatically', ['reference' => $payin->reference, 'from' => $from ?? '—', 'to' => $to ?? '—']);
         $body = __('Branch :to’s bank shows UTR :utr for ₹:amount, so the deposit was moved there and approved.', [
             'to' => $to ?? '—',
@@ -266,7 +266,7 @@ class AlertDispatcher
      */
     public function depositNotInBank(Transaction $payin, User $reporter): void
     {
-        $branch = Branch::query()->whereKey($payin->branch_id)->value('code');
+        $branch = Branch::query()->whereKey($payin->branch_id)->value('name');
 
         $this->alerts->send(
             Alert::DepositNotInBank,
@@ -349,7 +349,7 @@ class AlertDispatcher
                 Alert::AccountVerification,
                 $this->alerts->recipients(Permission::AccountsVerify, UserType::Admin),
                 __('Bank account to verify: :label', ['label' => $account->label]),
-                __('Branch :branch added or changed an account; it can’t receive customers until verified.', ['branch' => Branch::query()->whereKey($account->branch_id)->value('code')]),
+                __('Branch :branch added or changed an account; it can’t receive customers until verified.', ['branch' => Branch::query()->whereKey($account->branch_id)->value('name')]),
                 Alerts::link('admin.accounts.index'),
             );
         }

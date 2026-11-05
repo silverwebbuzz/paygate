@@ -37,7 +37,7 @@ export function TxnFilters({
                     <option value="">All partners</option>
                     {partners.map((partner) => (
                         <option key={partner.id} value={partner.id}>
-                            {partner.code} · {partner.name}
+                            {partner.name}
                         </option>
                     ))}
                 </SelectInput>

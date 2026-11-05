@@ -335,11 +335,11 @@ class TransactionPresenter
                 'description' => $line->description,
                 'status' => $line->status,
                 'account' => $line->paymentAccount->label,
-                'branch' => $line->branch->code,
+                'branch' => $line->branch->name,
                 'source' => $line->import_id === null ? __('Typed in by :name', ['name' => $line->creator->name ?? '—']) : __('Imported from :file', ['file' => $line->import->file->original_name ?? '—']),
                 'matched_at' => $line->matched_at?->toIso8601String(),
             ],
-            'transaction_branch' => $txn->branch?->code,
+            'transaction_branch' => $txn->branch?->name,
             'cases' => ReconciliationCase::query()
                 ->where('transaction_id', $txn->id)
                 ->with('entry.branch')
@@ -351,7 +351,7 @@ class TransactionPresenter
                     'status' => $case->status,
                     'resolution' => $case->resolution?->label(),
                     'notes' => $case->notes,
-                    'line_branch' => $case->entry?->branch->code,
+                    'line_branch' => $case->entry?->branch->name,
                     'at' => $case->created_at?->toIso8601String(),
                 ])->values()->all(),
         ];

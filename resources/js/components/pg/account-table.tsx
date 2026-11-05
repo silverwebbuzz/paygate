@@ -108,7 +108,7 @@ function compactColumns(
                       header: 'Branch',
                       cell: (a: AccountRow) => (
                           <span className="rounded-md bg-sf2 px-2 py-0.5 text-xs">
-                              {a.branch?.code}
+                              {a.branch?.name}
                           </span>
                       ),
                   },
@@ -194,13 +194,8 @@ function detailedColumns(
                       header: 'Branch',
                       className: 'whitespace-nowrap',
                       cell: (a: AccountRow) => (
-                          <div>
-                              <div className="font-medium">
-                                  {a.branch?.code}
-                              </div>
-                              <div className="text-xs text-tx3">
-                                  {a.branch?.name}
-                              </div>
+                          <div className="font-medium">
+                              {a.branch?.name}
                           </div>
                       ),
                   },

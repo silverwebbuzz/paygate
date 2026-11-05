@@ -153,6 +153,6 @@ class UtrUniquenessTest extends TestCase
 
         $case = ReconciliationCase::query()->where('type', 'duplicate_utr')->sole();
         $this->assertSame($this->other->id, $case->branch_id);
-        $this->assertStringContainsString('already on a credit line of '.$this->branch->code, (string) $case->notes);
+        $this->assertStringContainsString('already on a credit line of '.$this->branch->name, (string) $case->notes);
     }
 }

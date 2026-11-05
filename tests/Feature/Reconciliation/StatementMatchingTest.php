@@ -456,7 +456,7 @@ class StatementMatchingTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('transactions.data.0.bank_line.utr', '626812820491'));
         $this->partial($this->admin, route('admin.transactions.index', ['txn' => $payin->id]), 'transactions/index', 'detail')
             ->assertJsonPath('props.detail.reconciliation.line.utr', '626812820491')
-            ->assertJsonPath('props.detail.reconciliation.transaction_branch', $this->branch->code);
+            ->assertJsonPath('props.detail.reconciliation.transaction_branch', $this->branch->name);
 
         $this->actingAs($partnerUser)->get(route('partner.payins.index'))
             ->assertInertia(fn ($page) => $page->where('transactions.data.0.bank_line', null));
