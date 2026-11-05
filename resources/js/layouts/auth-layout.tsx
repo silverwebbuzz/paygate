@@ -1,6 +1,6 @@
 /**
- * Sign-in screens: one centred card on the page background. The left half is
- * an inset brand panel (logo + illustration), the right half is the form.
+ * Sign-in screens: one pink card on the brand gradient. The left half holds the
+ * logo + illustration, the right half the form.
  * One login for all portals; the account decides which portal opens.
  */
 export default function AuthLayout({
@@ -15,11 +15,11 @@ export default function AuthLayout({
     return (
         <div
             data-portal="auth"
-            className="flex min-h-svh items-center justify-center bg-bg px-4 py-10 font-display text-tx sm:px-8"
+            className="flex min-h-svh items-center justify-center bg-linear-135 from-[#e0287d] via-[#8e2479] to-[#3e1264] px-4 py-10 font-display text-tx sm:px-8"
         >
-            <div className="flex w-full max-w-[1000px] rounded-2xl border border-border bg-sf p-3 shadow-2xl shadow-[#3e1264]/10 sm:p-5">
+            <div className="flex w-full max-w-[1000px] rounded-2xl bg-sf bg-linear-135 from-[#e0287d]/[.07] to-[#3e1264]/[.09] p-3 shadow-2xl shadow-black/25 sm:p-5">
                 {/* Brand panel */}
-                <div className="hidden w-1/2 shrink-0 flex-col items-center justify-center gap-10 rounded-xl bg-linear-135 from-[#e0287d]/[.07] to-[#3e1264]/[.09] px-8 py-12 lg:flex">
+                <div className="hidden w-1/2 shrink-0 flex-col items-center justify-center gap-10 px-8 py-12 lg:flex">
                     <Logo size="lg" />
                     <img
                         src="/images/auth/login.webp"
@@ -32,7 +32,7 @@ export default function AuthLayout({
 
                 {/* Form */}
                 <div className="flex min-w-0 flex-1 items-center justify-center px-4 py-8 sm:px-10">
-                    <div className="flex w-full max-w-[420px] flex-col gap-6">
+                    <div className="flex w-full max-w-[420px] flex-col gap-6 [&_input]:bg-sf">
                         <div className="lg:hidden">
                             <Logo size="sm" />
                         </div>
