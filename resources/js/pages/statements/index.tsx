@@ -121,7 +121,10 @@ const TABS: [string, string][] = [
     ['ignored', 'Closed'],
 ];
 
-type Decision = null | { kind: 'approve' | 'hold'; line: StatementLine };
+type Decision = null | {
+    kind: 'approve' | 'hold' | 'decline';
+    line: StatementLine;
+};
 
 /**
  * Manual A/C Statement (Admin and branch), as designed:
@@ -222,6 +225,13 @@ export default function Statements(props: Props) {
                 </PgButton>
             </div>
         );
+
+    // The line's UTR matches a deposit but its amount doesn't: decline it so
+    // the branch can enter it again with the correct amount.
+    const canDecline = (line: StatementLine) =>
+        can.resolve &&
+        line.case?.status === 'open' &&
+        line.case.type === 'amount_mismatch';
 
     const columns: Column<StatementLine>[] = [
         {
@@ -332,6 +342,17 @@ export default function Statements(props: Props) {
                         status={line.display}
                         label={DISPLAY_LABELS[line.display]}
                     />
+                    {line.case?.status === 'open' && (
+                        <span
+                            className="max-w-[240px] text-[11.5px] leading-snug text-er"
+                            title={line.case.notes ?? undefined}
+                        >
+                            <b className="font-semibold">
+                                {line.case.type_label}
+                            </b>
+                            {line.case.notes && ` · ${line.case.notes}`}
+                        </span>
+                    )}
                     {decisionButtons(line)}
                 </div>
             ),
@@ -415,6 +436,16 @@ export default function Statements(props: Props) {
                             onClick={() => openLine(line.id)}
                         >
                             Details
+                        </PgButton>
+                    )}
+                    {canDecline(line) && (
+                        <PgButton
+                            className="h-7 px-2 text-xs text-er"
+                            onClick={() =>
+                                setDecision({ kind: 'decline', line })
+                            }
+                        >
+                            Decline
                         </PgButton>
                     )}
                 </div>
@@ -639,6 +670,19 @@ export default function Statements(props: Props) {
                                     Match to transaction
                                 </Link>
                             )}
+                            {canDecline(open) && (
+                                <PgButton
+                                    className="h-8 px-3 text-[13px] text-er"
+                                    onClick={() =>
+                                        setDecision({
+                                            kind: 'decline',
+                                            line: open,
+                                        })
+                                    }
+                                >
+                                    Decline
+                                </PgButton>
+                            )}
                             {decisionButtons(open)}
                         </>
                     }
@@ -658,6 +702,34 @@ export default function Statements(props: Props) {
                     line={decision.line}
                     url={deposits.approve(decision.line.transaction.id).url}
                     onClose={() => setDecision(null)}
+                />
+            )}
+            {decision?.kind === 'decline' && decision.line.case && (
+                <ConfirmDialog
+                    open
+                    onOpenChange={(next) => !next && setDecision(null)}
+                    title={`Decline this bank line of ${formatPaise(decision.line.amount)}?`}
+                    description={
+                        <>
+                            {decision.line.case.notes} The line is closed and
+                            its UTR is freed, so it can be entered again with
+                            the correct amount; the deposit keeps waiting and
+                            links to the corrected line.
+                        </>
+                    }
+                    confirmLabel="Decline"
+                    tone="danger"
+                    input={{ label: 'Reason (optional, kept in the history)' }}
+                    onConfirm={(reason) =>
+                        router.post(
+                            cases.decline(decision.line.case!.id).url,
+                            { reason },
+                            {
+                                preserveScroll: true,
+                                onFinish: () => setDecision(null),
+                            },
+                        )
+                    }
                 />
             )}
             {decision?.kind === 'hold' && decision.line.transaction && (
