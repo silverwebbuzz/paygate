@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-import PasskeyVerify from '@/components/passkey-verify';
 
 type Props = {
     status?: string;
@@ -20,8 +19,6 @@ export default function Login({ status, canResetPassword }: Props) {
     return (
         <>
             <Head title="Log in" />
-
-            <PasskeyVerify />
 
             <Form
                 {...store.form()}
@@ -122,7 +119,6 @@ export default function Login({ status, canResetPassword }: Props) {
 }
 
 Login.layout = {
-    title: 'Welcome back',
-    description:
-        'Log in to your PayGate console with your username and password',
+    title: 'Sign in your account',
+    description: 'Welcome back! Login with your Username & Password',
 };
