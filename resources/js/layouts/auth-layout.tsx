@@ -66,12 +66,12 @@ function Logo({ size }: { size: 'sm' | 'lg' }) {
             <div
                 className={`grid place-items-center bg-linear-135 from-[#e0287d] to-[#3e1264] font-bold text-white shadow-lg shadow-[#e0287d]/25 ${lg ? 'size-11 rounded-[11px] text-[19px]' : 'size-9 rounded-[10px] text-[15px]'}`}
             >
-                P
+                A
             </div>
             <span
                 className={`bg-linear-to-r from-[#e0287d] to-[#3e1264] bg-clip-text font-semibold tracking-tight text-transparent dark:from-[#f0509b] dark:to-[#b07ae0] ${lg ? 'text-[24px]' : 'text-base'}`}
             >
-                PayGate
+                A27Pay
             </span>
         </div>
     );

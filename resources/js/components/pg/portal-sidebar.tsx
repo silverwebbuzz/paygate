@@ -55,12 +55,12 @@ export function PortalSidebar({
         >
             <div className="flex h-14 flex-none items-center gap-2.5 border-b border-white/[.08] px-[17px]">
                 <div className="grid size-[30px] flex-none place-items-center rounded-lg bg-linear-135 from-ac to-ac2 text-sm font-bold text-white">
-                    P
+                    A
                 </div>
                 {!collapsed && (
                     <div className="flex min-w-0 flex-col leading-tight">
                         <span className="text-[15px] font-semibold tracking-tight text-white">
-                            PayGate
+                            A27Pay
                         </span>
                         <span className="text-[11.5px] whitespace-nowrap text-white/55">
                             {portalLabel} console
