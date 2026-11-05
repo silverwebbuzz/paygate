@@ -13,7 +13,7 @@ import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { MultiSelect } from '@/components/pg/multi-select';
-import { PageHeader } from '@/components/pg/page-header';
+import { LiveIndicator, PageHeader } from '@/components/pg/page-header';
 import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
 import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import {
@@ -175,6 +175,23 @@ export default function Statements(props: Props) {
             router.reload({ only: ['detail'] });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Live: lines get matched and approved in the background (auto-approve,
+    // the branch deciding), so pick up their new status every 15 s. Skipped
+    // while the tab is hidden; the open line's details refresh too.
+    useEffect(() => {
+        const timer = setInterval(() => {
+            if (document.hidden) return;
+            router.reload({
+                only: openId
+                    ? ['items', 'counts', 'kpis', 'detail']
+                    : ['items', 'counts', 'kpis'],
+                ...(openId ? { data: { line: openId } } : {}),
+            });
+        }, 15000);
+
+        return () => clearInterval(timer);
+    }, [openId]);
 
     const openLine = (id: string) => {
         setOpenId(id);
@@ -411,6 +428,9 @@ export default function Statements(props: Props) {
             <PageHeader
                 title="Manual A/C Statement Entry"
                 description="Record bank statement lines and reconcile them against pay-in transactions and branches."
+                eyebrow={
+                    <LiveIndicator>Live · refreshes every 15 s</LiveIndicator>
+                }
                 actions={
                     <>
                         <Link
