@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Download, History, Search, Upload } from 'lucide-react';
+import { Download, History, Info, Search, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { PgButton } from '@/components/pg/button';
@@ -31,6 +31,11 @@ import {
     StatementImportDialog,
 } from '@/components/pg/statement-import-dialog';
 import { StatusBadge } from '@/components/pg/status-badge';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { formatDate, formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import adminCases from '@/routes/admin/cases';
@@ -350,15 +355,24 @@ export default function Statements(props: Props) {
                         label={DISPLAY_LABELS[line.display]}
                     />
                     {line.case?.status === 'open' && (
-                        <span
-                            className="max-w-[240px] text-[11.5px] leading-snug text-er"
-                            title={line.case.notes ?? undefined}
-                        >
-                            <b className="font-semibold">
-                                {line.case.type_label}
-                            </b>
-                            {line.case.notes && ` · ${line.case.notes}`}
-                        </span>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="inline-flex cursor-help items-center gap-1 text-[11.5px] font-semibold whitespace-nowrap text-er">
+                                    {line.case.type_label}
+                                    {line.case.notes && (
+                                        <Info className="size-3.5" />
+                                    )}
+                                </span>
+                            </TooltipTrigger>
+                            {line.case.notes && (
+                                <TooltipContent
+                                    side="bottom"
+                                    className="max-w-[300px] leading-snug"
+                                >
+                                    {line.case.notes}
+                                </TooltipContent>
+                            )}
+                        </Tooltip>
                     )}
                     {decisionButtons(line)}
                 </div>
