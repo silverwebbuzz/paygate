@@ -17,6 +17,7 @@ use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Platform\Settings;
 use App\Domain\Transaction\Models\Transaction;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 
 /**
@@ -39,6 +40,7 @@ trait BuildsPayinNetwork
 
     protected function buildNetwork(): void
     {
+        Storage::fake('local'); // payment screenshots
         $this->networkAdmin = User::factory()->admin()->create();
         $this->partner = Partner::factory()->create([
             'website_url' => 'https://atoz.example',
@@ -180,9 +182,15 @@ trait BuildsPayinNetwork
     {
         [$reference, $token] = $this->createPayin($overrides);
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi'])->assertSessionHasNoErrors();
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => $utr])->assertSessionHasNoErrors();
+        $this->postProof($token, $utr)->assertSessionHasNoErrors();
 
         return Transaction::where('reference', $reference)->firstOrFail();
+    }
+
+    /** "I've made the payment" on the payer page: a UTR and a screenshot. */
+    protected function postProof(string $token, string $utr): TestResponse
+    {
+        return $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => $utr, 'photo' => UploadedFile::fake()->image('paid.png')]);
     }
 
     /**

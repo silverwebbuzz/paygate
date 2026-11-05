@@ -109,7 +109,7 @@ class TransactionScreensTest extends TestCase
         Storage::fake('local');
         [$reference, $token] = $this->createPayin();
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['photo' => UploadedFile::fake()->image('paid.png')]);
+        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => '626812820491', 'photo' => UploadedFile::fake()->image('paid.png')]);
         $file = StoredFile::firstOrFail();
 
         $this->actingAs(User::factory()->admin()->withTwoFactor()->create())->get(route('files.show', $file))
@@ -133,7 +133,7 @@ class TransactionScreensTest extends TestCase
         [$reference, $token] = $this->createPayin();
         $this->get("http://pay.paygate.local/p/{$token}");
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['photo' => UploadedFile::fake()->image('paid.png')]);
+        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => '626812820491', 'photo' => UploadedFile::fake()->image('paid.png')]);
         $payin = Transaction::where('reference', $reference)->firstOrFail();
 
         $admin = User::factory()->admin()->withTwoFactor()->create(['name' => 'Asha Admin']);

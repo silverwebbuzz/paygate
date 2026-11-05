@@ -222,7 +222,7 @@ class StatementMatchingTest extends TestCase
         $case = ReconciliationCase::sole();
         $this->assertSame('utr_not_found', $case->type->value);
 
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => '6268 1282 0491'])->assertSessionHasNoErrors();
+        $this->postProof($token, '6268 1282 0491')->assertSessionHasNoErrors();
 
         $payin = Transaction::where('reference', $reference)->firstOrFail();
         $this->assertSame('matched', $this->line()->status);

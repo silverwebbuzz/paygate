@@ -151,9 +151,10 @@ class CheckoutController extends Controller
         $session = $this->session($token);
 
         $request->validate([
-            'utr' => ['nullable', 'string', 'max:50'],
+            'utr' => ['required', 'string', 'max:50'],
             'photo' => ['required', 'file', 'mimes:'.implode(',', (array) config('paygate.payin.proof_mimes')), 'max:'.config('paygate.payin.proof_max_kb')],
         ], [
+            'utr.required' => __('Enter the UTR / reference number from your bank or UPI app.'),
             'photo.required' => __('Upload a screenshot of the payment.'),
         ]);
 

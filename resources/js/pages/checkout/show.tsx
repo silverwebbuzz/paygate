@@ -80,7 +80,7 @@ const UPI_LOGOS: [string, string][] = [
 
 /**
  * The customer's payment page (design: checkout). States: choose a method →
- * pay (UPI / bank / QR) and submit a screenshot (and UTR) → verifying →
+ * pay (UPI / bank / QR) and submit the UTR and a screenshot → verifying →
  * success; or failed / expired / unavailable.
  */
 export default function Checkout(props: Props) {
@@ -608,13 +608,14 @@ function PayView({
                 }}
             >
                 <label className="flex flex-col gap-1.5 text-[13px] font-medium">
-                    <span>
-                        UTR / reference number{' '}
-                        <span className="font-normal text-[#64748B]">
+                    <span className="rounded-lg bg-brand px-3 py-2 text-white">
+                        UTR / reference number *{' '}
+                        <span className="font-normal text-white/80">
                             (from your bank or UPI app)
                         </span>
                     </span>
                     <input
+                        required
                         inputMode="text"
                         autoComplete="off"
                         placeholder="e.g. 626812820491"
@@ -668,7 +669,11 @@ function PayView({
                 )}
                 <button
                     type="submit"
-                    disabled={form.processing || form.data.photo === null}
+                    disabled={
+                        form.processing ||
+                        form.data.utr.trim() === '' ||
+                        form.data.photo === null
+                    }
                     className="h-12 rounded-xl bg-brand text-[15px] font-semibold text-white disabled:opacity-50"
                 >
                     I’ve made the payment
@@ -712,7 +717,7 @@ function ChangeDetails({ token }: { token: string }) {
                 <button
                     type="button"
                     onClick={() => setConfirming(true)}
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-ac bg-acs text-[13px] font-semibold text-act transition-colors hover:bg-ac hover:text-white"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-ac bg-brand text-[13px] font-semibold text-white transition-colors hover:bg-acs hover:bg-none hover:text-act hover:shadow-none"
                 >
                     <RefreshCw className="size-4" />
                     Having trouble paying? Get different details

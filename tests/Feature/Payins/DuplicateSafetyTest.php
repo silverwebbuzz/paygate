@@ -113,7 +113,7 @@ class DuplicateSafetyTest extends TestCase
         // Once the first is paid, the customer may deposit the same amount again.
         $token = basename((string) parse_url($first['payment_url'], PHP_URL_PATH));
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => self::UTR])->assertSessionHasNoErrors();
+        $this->postProof($token, self::UTR)->assertSessionHasNoErrors();
         $this->api('POST', '/v1/payins', $body('ORD-4'))->assertCreated();
 
         // And after the window, an unpaid one doesn't block either.
@@ -135,7 +135,7 @@ class DuplicateSafetyTest extends TestCase
             $other->update(['status' => 'active']);
 
             // Pending elsewhere: refused, the customer is told it is pending; it stays unpaid.
-            $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => self::UTR])->assertSessionHasErrors('utr');
+            $this->postProof($token, self::UTR)->assertSessionHasErrors('utr');
             $this->assertSame('awaiting_payment', Transaction::where('reference', $reference)->sole()->status);
         }
 

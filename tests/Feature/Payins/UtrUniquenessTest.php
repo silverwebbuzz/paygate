@@ -104,7 +104,7 @@ class UtrUniquenessTest extends TestCase
         $this->approve($payin)->assertSessionHasErrors('bank_utr');
         [, $token] = $this->createPayin();
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => self::UTR])->assertSessionHasErrors('utr');
+        $this->postProof($token, self::UTR)->assertSessionHasErrors('utr');
 
         // And a deposit's UTR can't mark a payout paid.
         $this->approve($payin, '444444444444')->assertSessionHasNoErrors();

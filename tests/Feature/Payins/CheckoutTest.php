@@ -381,15 +381,16 @@ class CheckoutTest extends TestCase
         $this->assertSame(0, $this->reserved('account', $bank->id));
     }
 
-    public function test_the_customer_submits_a_screenshot_with_or_without_a_utr()
+    public function test_the_customer_submits_a_screenshot_and_a_utr()
     {
         $this->activeAccount();
 
         [$reference, $token] = $this->createPayin();
         $this->submitProof($token, ['utr' => '6268 1282 0491'])->assertSessionHasErrors('utr'); // no method yet
         $this->choose($token, 'upi');
-        $this->post($this->page($token).'/proof', [])->assertSessionHasErrors('photo');
+        $this->post($this->page($token).'/proof', [])->assertSessionHasErrors(['utr', 'photo']);
         $this->post($this->page($token).'/proof', ['utr' => '6268 1282 0491'])->assertSessionHasErrors('photo');
+        $this->submitProof($token)->assertSessionHasErrors('utr'); // screenshot alone
         $this->submitProof($token, ['utr' => '12'])->assertSessionHasErrors('utr');
         $this->submitProof($token, ['utr' => '6268 1282 0491'])->assertSessionHasNoErrors();
 
@@ -397,11 +398,6 @@ class CheckoutTest extends TestCase
         $this->assertSame('payment_submitted', $payin->status);
         $this->assertSame('626812820491', $payin->customer_utr_normalized);
         $this->assertNotNull($payin->submitted_at);
-
-        // Screenshot only.
-        [$reference, $token] = $this->createPayin();
-        $this->choose($token, 'bank_transfer');
-        $this->post($this->page($token).'/proof', ['photo' => UploadedFile::fake()->image('paid.png')])->assertSessionHasNoErrors();
 
         $file = StoredFile::where('attachable_id', $this->payin($reference)->id)->firstOrFail();
         $this->assertSame('payment_proof', $file->purpose);

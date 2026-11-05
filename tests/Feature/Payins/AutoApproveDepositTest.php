@@ -169,7 +169,7 @@ class AutoApproveDepositTest extends TestCase
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
         $this->paidAccount->update(['status' => 'active']);
         $this->assertSame($this->account->id, Transaction::where('reference', $reference)->sole()->payment_account_id);
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => self::UTR])->assertSessionHasNoErrors();
+        $this->postProof($token, self::UTR)->assertSessionHasNoErrors();
 
         $payin = Transaction::where('reference', $reference)->sole();
         $this->assertSame('success', $payin->status);
@@ -236,7 +236,7 @@ class AutoApproveDepositTest extends TestCase
         $this->account->update(['status' => 'inactive']);
         [, $token] = $this->createPayin(['amount' => 500000]);
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => self::UTR])->assertSessionHasErrors('utr');
+        $this->postProof($token, self::UTR)->assertSessionHasErrors('utr');
         $this->account->update(['status' => 'active']);
         $this->assertSame(1, $this->alerted($this->admin, Alert::UtrConflict));
 
@@ -281,6 +281,6 @@ class AutoApproveDepositTest extends TestCase
 
         [, $token] = $this->createPayin(['amount' => 500000]);
         $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
-        $this->post("http://pay.paygate.local/p/{$token}/proof", ['utr' => self::UTR])->assertSessionHasErrors('utr');
+        $this->postProof($token, self::UTR)->assertSessionHasErrors('utr');
     }
 }
