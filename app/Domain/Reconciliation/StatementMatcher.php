@@ -98,6 +98,21 @@ class StatementMatcher
             $this->unlink($linked);
             $this->openCase($linked, CaseType::LatePayment, $payin, __('The deposit was declined, but the bank statement shows the credit.'));
         }
+
+        // Declined for the wrong amount (decided 2026-11-05): the bank line
+        // stays unsettled, waiting for the customer to submit its UTR on a
+        // deposit of the amount the bank shows; that deposit then links
+        // (and is auto-approved) through transactionSubmitted.
+        ReconciliationCase::query()
+            ->where(['transaction_id' => $payin->id, 'type' => CaseType::AmountMismatch->value, 'status' => 'open'])
+            ->with('entry')
+            ->get()
+            ->each(fn (ReconciliationCase $case) => $case->forceFill(['notes' => __(':reference (₹:txn) was declined: the bank shows ₹:bank. Waiting for the customer to submit UTR :utr on a deposit of ₹:bank.', [
+                'reference' => $payin->reference,
+                'txn' => number_format($payin->amount / 100, 2),
+                'bank' => number_format((int) $case->entry?->amount / 100, 2),
+                'utr' => $case->entry?->utr_normalized,
+            ])])->save());
     }
 
     /**

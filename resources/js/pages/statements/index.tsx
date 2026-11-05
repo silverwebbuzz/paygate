@@ -106,12 +106,16 @@ type Props = {
     accounts: Account[];
     branches: { id: string; code: string; name: string }[];
     can: { create: boolean; resolve: boolean };
+    reasons: Record<string, string>;
     selected: string | null;
     detail?: Detail | null;
 };
 
 /** Debit entry is hidden for now (client request); flip to bring it back. */
 const SHOW_DEBIT = false;
+
+/** Deposit statuses that can still be declined. */
+const WAITING = ['payment_submitted', 'payment_detected', 'under_review'];
 
 const TABS: [string, string][] = [
     ['all', 'All'],
@@ -226,12 +230,15 @@ export default function Statements(props: Props) {
             </div>
         );
 
-    // The line's UTR matches a deposit but its amount doesn't: decline it so
-    // the branch can enter it again with the correct amount.
+    // The line's UTR matches a waiting deposit but the amount doesn't:
+    // decline the deposit. The line stays unsettled until the customer
+    // submits the UTR on a deposit of the amount the bank shows.
     const canDecline = (line: StatementLine) =>
-        can.resolve &&
+        !line.linked &&
         line.case?.status === 'open' &&
-        line.case.type === 'amount_mismatch';
+        line.case.type === 'amount_mismatch' &&
+        !!line.transaction?.can_decide &&
+        WAITING.includes(line.transaction.status);
 
     const columns: Column<StatementLine>[] = [
         {
@@ -704,26 +711,38 @@ export default function Statements(props: Props) {
                     onClose={() => setDecision(null)}
                 />
             )}
-            {decision?.kind === 'decline' && decision.line.case && (
+            {decision?.kind === 'decline' && decision.line.transaction && (
                 <ConfirmDialog
                     open
                     onOpenChange={(next) => !next && setDecision(null)}
-                    title={`Decline this bank line of ${formatPaise(decision.line.amount)}?`}
+                    title={`Decline ${decision.line.transaction.reference}?`}
                     description={
                         <>
-                            {decision.line.case.notes} The line is closed and
-                            its UTR is freed, so it can be entered again with
-                            the correct amount; the deposit keeps waiting and
-                            links to the corrected line.
+                            {decision.line.case?.notes} The deposit is declined
+                            and the partner told. This bank line stays
+                            unsettled: when the customer submits UTR{' '}
+                            <b className="font-mono">{decision.line.utr}</b> on
+                            a deposit of {formatPaise(decision.line.amount)}, it
+                            is matched and approved.
                         </>
                     }
-                    confirmLabel="Decline"
+                    confirmLabel="Decline deposit"
                     tone="danger"
-                    input={{ label: 'Reason (optional, kept in the history)' }}
-                    onConfirm={(reason) =>
+                    input={{ label: 'Details (optional, kept in the history)' }}
+                    onConfirm={(details) =>
                         router.post(
-                            cases.decline(decision.line.case!.id).url,
-                            { reason },
+                            deposits.decline(decision.line.transaction!.id).url,
+                            {
+                                reason_code:
+                                    'wrong_amount' in props.reasons
+                                        ? 'wrong_amount'
+                                        : 'other',
+                                note:
+                                    [decision.line.case?.notes, details]
+                                        .filter(Boolean)
+                                        .join(' ')
+                                        .slice(0, 500) || null,
+                            },
                             {
                                 preserveScroll: true,
                                 onFinish: () => setDecision(null),

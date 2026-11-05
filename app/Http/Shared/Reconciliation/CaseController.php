@@ -191,22 +191,6 @@ class CaseController extends Controller
         return back();
     }
 
-    /**
-     * Manual A/C Statement: a line whose UTR matches a deposit but whose
-     * amount doesn't is declined, and the branch enters it again.
-     */
-    public function decline(Request $request, ReconciliationCase $case, ResolveCase $resolve): RedirectResponse
-    {
-        $actor = $this->authorizeResolve($request, $case);
-        $data = $request->validate(['reason' => ['nullable', 'string', 'max:400']]);
-
-        $resolve->decline($actor, $case, $data['reason'] ?? null);
-
-        Inertia::flash('toast', ['type' => 'success', 'message' => __('Bank line declined. Enter it again with the correct amount.')]);
-
-        return back();
-    }
-
     private function authorizeResolve(Request $request, ReconciliationCase $case): User
     {
         $actor = $this->actor($request);

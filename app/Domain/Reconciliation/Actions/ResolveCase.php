@@ -35,9 +35,6 @@ use Illuminate\Validation\ValidationException;
  *   account of the branch (e.g. HDFC 1 instead of HDFC 2) moves to the
  *   right one and is matched again. Typed lines only: an imported line's
  *   account is the statement file's.
- * - decline (2026-11-05): a line whose UTR matches a deposit but whose
- *   amount doesn't is closed, so the branch can enter it again with the
- *   correct amount.
  * - close as "not a customer payment" (bank charges, interest, own
  *   transfers, a line typed by mistake) or "returned to customer" (the
  *   branch sent a credit back outside PayGate). A line closed as not a
@@ -203,24 +200,6 @@ class ResolveCase
                 }
             }
         });
-    }
-
-    /**
-     * The bank line was entered with the wrong amount (its UTR matches a
-     * deposit, the amount doesn't): decline it so the branch can enter it
-     * again with the right amount. The line is closed and gives up its UTR,
-     * like a line closed as not a customer payment; the deposit keeps
-     * waiting and links to the corrected line.
-     */
-    public function decline(User $actor, ReconciliationCase $case, ?string $reason): void
-    {
-        if ($case->type !== CaseType::AmountMismatch || ! $case->isOpen()) {
-            throw ValidationException::withMessages(['case' => __('Only an open “amount mismatch” line can be declined.')]);
-        }
-
-        $reason = trim((string) $reason);
-
-        $this->close($actor, $case, Resolution::Rejected, trim(__('Declined: the amount doesn’t match. Enter the line again with the correct amount.').' '.$reason));
     }
 
     private function lockOpen(ReconciliationCase $case): StatementEntry
