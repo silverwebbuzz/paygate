@@ -9,7 +9,6 @@ use App\Domain\Reporting\Actions\ManageReportExports;
 use App\Domain\Reporting\Jobs\GenerateReportExport;
 use App\Domain\Reporting\Models\ReportExport;
 use App\Domain\Reporting\Period;
-use App\Domain\Transaction\Models\Transaction;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -168,47 +167,56 @@ class ReportingTest extends TestCase
         Period::resolve('custom', '2026-09-30', '2026-09-01');
     }
 
-    public function test_reports_show_each_portal_its_own_columns_and_rows()
+    public function test_each_portal_gets_only_its_own_deposit_and_withdrawal_reports()
     {
-        $this->actingAs($this->admin)->get(route('admin.reports.index', ['report' => 'payins', 'range' => 'today']))
+        $this->actingAs($this->admin)->get(route('admin.reports.index', ['range' => 'today']))
             ->assertInertia(fn ($page) => $page->component('reports/index')
-                ->has('catalog', 12)
-                ->has('rows', 4)
-                ->where('totals._count', 4)
-                ->where('totals.amount', 1670000)
-                ->where('totals.platform_margin', 25000));
+                ->where('report.key', 'branch_deposits')
+                ->where('catalog', fn ($catalog) => collect($catalog)->pluck('key')->all() === ['branch_deposits', 'partner_deposits', 'branch_withdrawals', 'partner_withdrawals'])
+                ->where('report.filters', ['branch' => 'Branch', 'search' => 'Search']));
 
         $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
-        $this->actingAs($partnerUser)->get(route('partner.reports.index', ['report' => 'payins', 'range' => 'today']))
-            ->assertInertia(function ($page) {
-                $columns = array_column($page->toArray()['props']['report']['columns'], 'key');
-                $this->assertNotContains('branch', $columns);
-                $this->assertNotContains('branch_commission', $columns);
-                $this->assertNotContains('platform_margin', $columns);
-                $this->assertContains('partner_commission', $columns);
-                $this->assertSame(['payins', 'payouts', 'commission', 'balances', 'settlements'], array_column($page->toArray()['props']['catalog'], 'key'));
-            });
+        $this->actingAs($partnerUser)->get(route('partner.reports.index', ['range' => 'today']))
+            ->assertInertia(fn ($page) => $page
+                ->where('catalog', fn ($catalog) => collect($catalog)->pluck('key')->all() === ['partner_deposits', 'partner_withdrawals'])
+                ->where('report.key', 'partner_deposits')
+                ->where('report.filters', [])
+                ->where('rows', [[
+                    'sr' => 1,
+                    'name' => $this->partner->code.' '.$this->partner->name,
+                    'amount' => 1250000,
+                    'rate' => 6,
+                    'commission' => 75000,
+                ]]));
+        // A partner never gets the branch reports (they show branch commission).
+        $this->actingAs($partnerUser)->get(route('partner.reports.index', ['report' => 'branch_deposits']))
+            ->assertInertia(fn ($page) => $page->where('report.key', 'partner_deposits'));
+        $this->actingAs($partnerUser)->post(route('partner.reports.export'), ['report' => 'branch_deposits', 'format' => 'csv'])
+            ->assertSessionHasErrors('report');
 
         $owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create();
-        $this->actingAs($owner)->get(route('branch.reports.index', ['report' => 'pairs', 'range' => 'today']))
-            ->assertInertia(fn ($page) => $page->has('rows', 1)
-                ->where('rows.0.partner', $this->partner->code)
-                ->where('rows.0.branch_commission', 50000)
-                ->where('rows.0.branch_position', -1200000)
-                // The partner's side never reaches a branch.
-                ->missing('rows.0.partner_position')
-                ->missing('rows.0.partner_commission')
-                ->missing('totals.partner_commission'));
-        // Reports a branch doesn't have fall back to its first one.
-        $this->actingAs($owner)->get(route('branch.reports.index', ['report' => 'partners']))->assertInertia(fn ($page) => $page->where('report.key', 'payins'));
+        $this->actingAs($owner)->get(route('branch.reports.index', ['range' => 'today']))
+            ->assertInertia(fn ($page) => $page
+                ->where('catalog', fn ($catalog) => collect($catalog)->pluck('key')->all() === ['branch_deposits', 'branch_withdrawals'])
+                ->where('rows.0.name', $this->branch->code.' '.$this->branch->name)
+                ->where('rows.0.commission', 50000)
+                ->has('rows', 1));
+        // Nor a branch the partner ones (they show partner fees).
+        $this->actingAs($owner)->get(route('branch.reports.index', ['report' => 'partner_deposits']))
+            ->assertInertia(fn ($page) => $page->where('report.key', 'branch_deposits'));
+
+        // Another branch's figures never reach this one.
+        $other = User::factory()->branch(SystemRoles::BRANCH_OWNER, Branch::factory()->create())->withTwoFactor()->create();
+        $this->actingAs($other)->get(route('branch.reports.index', ['range' => 'today']))
+            ->assertInertia(fn ($page) => $page->where('rows', []));
     }
 
     public function test_exports_are_prepared_downloaded_by_their_owner_only_and_deleted_after_seven_days()
     {
-        Transaction::query()->where('customer_utr_normalized', '626812820491')->update(['partner_transaction_id' => '=HYPERLINK("x")']);
+        $this->branch->forceFill(['code' => '=HYPERLINK("x")'])->save();
 
-        $this->actingAs($this->admin)->post(route('admin.reports.export'), ['report' => 'payins', 'format' => 'csv', 'range' => 'today'])->assertSessionHasNoErrors();
-        $this->actingAs($this->admin)->post(route('admin.reports.export'), ['report' => 'partners', 'format' => 'xlsx', 'range' => 'today'])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->post(route('admin.reports.export'), ['report' => 'branch_deposits', 'format' => 'csv', 'range' => 'today'])->assertSessionHasNoErrors();
+        $this->actingAs($this->admin)->post(route('admin.reports.export'), ['report' => 'partner_deposits', 'format' => 'xlsx', 'range' => 'today'])->assertSessionHasNoErrors();
 
         // Queued on `reports`; run them as the worker would.
         Queue::assertPushedOn('reports', GenerateReportExport::class);
@@ -218,11 +226,11 @@ class ReportingTest extends TestCase
 
         $csv = ReportExport::where('format', 'csv')->sole();
         $this->assertSame('ready', $csv->status, (string) $csv->error);
-        $this->assertSame(4, $csv->rows);
+        $this->assertSame(1, $csv->rows);
         $content = Storage::disk('local')->get($csv->file->path);
-        $this->assertStringContainsString('Transaction,"Order id",Created', $content);
+        $this->assertStringContainsString('Sr,"Branch Name","Total Amount",Commission,"Total Commission"', $content);
         $this->assertStringContainsString("'=HYPERLINK", $content); // never a formula
-        $this->assertStringContainsString('10000.00', $content);
+        $this->assertStringContainsString('12500.00', $content);
         $this->assertSame('ready', ReportExport::where('format', 'xlsx')->sole()->status);
         $this->assertDatabaseHas('audit_logs', ['action' => 'report.exported', 'actor_id' => $this->admin->id]);
 
@@ -232,7 +240,7 @@ class ReportingTest extends TestCase
 
         // Viewers may look but not export.
         $viewer = User::factory()->partner(SystemRoles::PARTNER_VIEWER, $this->partner)->withTwoFactor()->create();
-        $this->actingAs($viewer)->post(route('partner.reports.export'), ['report' => 'payins', 'format' => 'csv'])->assertForbidden();
+        $this->actingAs($viewer)->post(route('partner.reports.export'), ['report' => 'partner_deposits', 'format' => 'csv'])->assertForbidden();
 
         $path = $csv->file->path;
         $this->travel(8)->days();

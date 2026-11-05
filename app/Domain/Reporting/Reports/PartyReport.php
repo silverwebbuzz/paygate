@@ -11,7 +11,8 @@ use App\Domain\Transaction\Models\Transaction;
 
 /**
  * Branch / Partner Deposit and Withdrawal reports, as in the client's old
- * system: one row per branch (or partner) with the successful deposits (or
+ * system: one row per branch (or partner; a branch or partner sees only its
+ * own row) with the successful deposits (or
  * withdrawals) in the period, the commission rate and the commission. The
  * rate is the effective one (commission ÷ amount), so it is exact even when
  * a branch has different rates with different partners.
@@ -45,12 +46,17 @@ class PartyReport extends Report
 
     public function portals(): array
     {
-        return [UserType::Admin];
+        // A partner never sees branch commission, and a branch never sees
+        // partner fees, so each gets only the reports about itself.
+        return [UserType::Admin, $this->by === 'branch' ? UserType::Branch : UserType::Partner];
     }
 
     public function filters(Scope $scope): array
     {
-        return [$this->by => ucfirst($this->by), 'search' => 'Search'];
+        // Outside Admin the rows are already the viewer's own.
+        return $scope->isAdmin()
+            ? [$this->by => ucfirst($this->by), 'search' => 'Search']
+            : [];
     }
 
     public function columns(Scope $scope): array
