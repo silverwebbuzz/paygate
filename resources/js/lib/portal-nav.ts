@@ -132,10 +132,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Payments',
             icon: Wallet,
             items: [
-                // Manual Deposit, Manual A/C Statement, Unsettled UTR, UTR
-                // Reconciliation and Transactions, as tabs of one page.
+                // All deposits (Transactions, opens first), Manual Deposit,
+                // Manual A/C Statement, Unsettled UTR and UTR Reconciliation,
+                // as tabs of one page.
                 { label: 'Deposit', hub: 'deposit' },
-                // Manual Payout, UTR Reconciliation and payout Transactions.
+                // All withdrawals (opens first), Manual Payout, UTR Reconciliation.
                 { label: 'Withdrawal', hub: 'withdrawal' },
                 {
                     label: 'Refunds',
@@ -289,10 +290,12 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Payments',
             icon: Wallet,
             items: [
-                // Manual Deposit, Manual A/C Statement, Unsettled UTR, UTR
-                // Reconciliation and Pay-in History, as tabs of one page.
+                // All deposits (Pay-in History, opens first), Manual Deposit,
+                // Manual A/C Statement, Unsettled UTR and UTR Reconciliation,
+                // as tabs of one page.
                 { label: 'Deposit', hub: 'deposit' },
-                // Manual Payout, UTR Reconciliation and Pay-out History.
+                // All withdrawals (Pay-out History, opens first), Manual
+                // Payout, UTR Reconciliation.
                 { label: 'Withdrawal', hub: 'withdrawal' },
             ],
         },

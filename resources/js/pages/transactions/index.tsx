@@ -552,11 +552,14 @@ export default function Transactions({
                     }
                 />
                 {period && (
-                    <PeriodFilter
-                        period={period}
-                        onChange={visit}
-                        className="border-b border-ln2 px-3 py-2.5"
-                    />
+                    <div className="border-b border-ln2 px-3 py-2.5">
+                        <PeriodFilter period={period} onChange={visit} />
+                        <p className="mt-1.5 text-[11.5px] text-tx3">
+                            {direction === 'payin'
+                                ? 'The period applies by creation date. Pending, On hold and Not paid yet always show every open deposit, whatever the date.'
+                                : 'The period applies by creation date. Waiting for branch and Being paid always show every open payout, whatever the date.'}
+                        </p>
+                    </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
                     <label className="flex h-[30px] w-[320px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">

@@ -16,11 +16,11 @@ It doesn't matter which happens first. Whichever comes second completes the matc
 
 ### Where to enter the UTR and amount
 
-| Who            | Click                                                      | Link                                    |
-| -------------- | ---------------------------------------------------------- | --------------------------------------- |
-| Branch / Admin | Left menu **Payments → Deposit** (the bar is on every tab) | `/branch/deposits` or `/admin/deposits` |
+| Who            | Click                                                                             | Link                                      |
+| -------------- | --------------------------------------------------------------------------------- | ----------------------------------------- |
+| Branch / Admin | Left menu **Payments → Deposit** (opens on All deposits; the bar is on every tab) | `/branch/payins` or `/admin/transactions` |
 
-You can stay on the **Manual Deposit** tab: when the line matches, the deposit moves to Approved on the same screen. The bar is shown to roles that may enter statement lines.
+You can stay on the tab you are on (All deposits or Manual Deposit): when the line matches, the deposit turns Success / Approved on the same screen. The bar is shown to roles that may enter statement lines.
 
 In the **"New statement line · Credit received in the bank"** bar at the top, fill in:
 

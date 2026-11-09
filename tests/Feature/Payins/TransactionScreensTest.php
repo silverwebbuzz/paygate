@@ -172,10 +172,13 @@ class TransactionScreensTest extends TestCase
             $this->assertSame(1, $count($route, ['range' => 'custom', 'from' => $today, 'to' => $today], $key));
         }
 
-        // The list shows today by default; Manual Deposit's open tabs ignore the period.
-        $this->assertSame(0, $count('admin.transactions.index', ['range' => 'custom', 'from' => $tomorrow, 'to' => $tomorrow], 'transactions'));
-        $this->assertSame(0, $count('admin.transactions.index', ['range' => 'yesterday'], 'transactions'));
+        // The list shows today by default, but a deposit still waiting shows
+        // whatever the period, as on Manual Deposit's open tabs.
+        $this->assertSame(1, $count('admin.transactions.index', ['range' => 'custom', 'from' => $tomorrow, 'to' => $tomorrow], 'transactions'));
+        $this->assertSame(1, $count('admin.transactions.index', ['range' => 'yesterday'], 'transactions'));
         $this->assertSame(1, $count('admin.deposits.index', ['range' => 'yesterday'], 'items'));
+        $this->actingAs($admin)->get(route('admin.transactions.index', ['range' => 'yesterday']))
+            ->assertInertia(fn (Assert $page) => $page->where('summary.pending.count', 1));
         $this->actingAs($admin)->get(route('admin.transactions.index'))
             ->assertInertia(fn (Assert $page) => $page->where('period.range', 'today'));
 
@@ -187,5 +190,8 @@ class TransactionScreensTest extends TestCase
         $this->travel(2)->days();
         $this->assertSame(0, $count('admin.deposits.index', ['tab' => 'approved'], 'items'));
         $this->assertSame(1, $count('admin.deposits.index', ['tab' => 'approved', 'range' => '7d'], 'items'));
+        // Once decided it follows the period again (by creation date).
+        $this->assertSame(0, $count('admin.transactions.index', [], 'transactions'));
+        $this->assertSame(1, $count('admin.transactions.index', ['range' => '7d'], 'transactions'));
     }
 }

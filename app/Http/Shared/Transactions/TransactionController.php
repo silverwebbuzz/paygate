@@ -51,6 +51,16 @@ class TransactionController extends Controller
     ];
 
     /**
+     * Still waiting for someone: listed whatever the period, as on Manual
+     * Deposit / Manual Payout, so All deposits / withdrawals never hide an
+     * open one (client request 2026-11-09).
+     */
+    public const WAITING = [
+        'payin' => ['created', 'awaiting_payment', 'payment_submitted', 'payment_detected', 'under_review'],
+        'payout' => ['assigned', 'processing'],
+    ];
+
+    /**
      * The Section rollout item that owns each extra tab (under the portal).
      */
     public const SECTION_PATHS = ['chargeback' => 'chargebacks', 'return' => 'payout-returns'];
@@ -78,12 +88,15 @@ class TransactionController extends Controller
         $selected = $request->query('txn');
 
         $filters = self::filters($request, $actor);
-        // Created in the period (Today by default). The Chargebacks and
-        // Payout returns pages are work queues: every open case, any date.
+        // Created in the period (Today by default), plus every one still
+        // waiting, any date (WAITING). The Chargebacks and Payout returns
+        // pages are work queues: every open case, any date.
         $period = $page === null ? Period::fromRequest($request) : null;
 
         $base = fn () => self::filtered(self::scoped($actor)->where('direction', $direction), $filters)
-            ->when($period !== null, fn (Builder $query) => $period->apply($query, 'created_at'));
+            ->when($period !== null, fn (Builder $query) => $query->where(fn (Builder $query) => $query
+                ->whereIn('status', self::WAITING[$direction])
+                ->orWhere(fn (Builder $query) => $period->apply($query, 'created_at'))));
 
         $transactions = $base()
             ->with(self::ROW_RELATIONS)

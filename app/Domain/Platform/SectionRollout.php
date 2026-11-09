@@ -45,9 +45,9 @@ class SectionRollout
                 'utr' => ['label' => 'UTR Reconciliation (Deposit and Withdrawal)', 'paths' => ['/admin/utr-reconciliation']],
             ],
             'Payments › Withdrawal' => [
-                'payouts' => ['label' => 'Manual Payout', 'paths' => ['/admin/payouts']],
                 // Longer than /admin/transactions, so it is this item's (added 2026-11-09).
                 'payout_transactions' => ['label' => 'All withdrawals (Transactions › Payouts)', 'paths' => ['/admin/transactions/payouts']],
+                'payouts' => ['label' => 'Manual Payout', 'paths' => ['/admin/payouts']],
             ],
             'Payments' => [
                 'refunds' => ['label' => 'Refunds', 'paths' => ['/admin/refunds', '/admin/reversals']],
@@ -87,15 +87,15 @@ class SectionRollout
                 'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/branch/accounts']],
             ],
             'Payments › Deposit' => [
+                'payins' => ['label' => 'All deposits (Pay-in History)', 'paths' => ['/branch/payins']],
                 'deposits' => ['label' => 'Manual Deposit', 'paths' => ['/branch/deposits']],
                 'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/branch/statements']],
                 'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/branch/unsettled']],
                 'utr' => ['label' => 'UTR Reconciliation (Deposit and Withdrawal)', 'paths' => ['/branch/utr-reconciliation']],
-                'payins' => ['label' => 'All deposits (Pay-in History)', 'paths' => ['/branch/payins']],
             ],
             'Payments › Withdrawal' => [
-                'payouts' => ['label' => 'Manual Payout', 'paths' => ['/branch/payouts']],
                 'payout_history' => ['label' => 'All withdrawals (Pay-out History)', 'paths' => ['/branch/payout-history']],
+                'payouts' => ['label' => 'Manual Payout', 'paths' => ['/branch/payouts']],
             ],
             'Account' => [
                 'imports' => ['label' => 'Statement History', 'paths' => ['/branch/statements/imports']],

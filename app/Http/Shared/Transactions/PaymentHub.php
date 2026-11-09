@@ -13,9 +13,9 @@ use App\Http\Shared\Reconciliation\StatementPresenter;
  * one menu item each, the existing pages shown as tabs of it so a person
  * works a deposit or a withdrawal from one place.
  *
- * Deposit: Manual Deposit · A/C Statement · Unsettled UTR · UTR
- * Reconciliation · All deposits. Withdrawal: Manual Payout · UTR
- * Reconciliation · All withdrawals. Partners have the list only.
+ * Deposit: All deposits (the default) · Manual Deposit · A/C Statement ·
+ * Unsettled UTR · UTR Reconciliation. Withdrawal: All withdrawals (the
+ * default) · Manual Payout · UTR Reconciliation. Partners have the list only.
  *
  * Each tab keeps its own controller, URL, permission and rules; this only
  * adds the `hub` prop they share: which page it is (the menu item to mark),

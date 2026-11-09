@@ -59,7 +59,11 @@ export const HUB_TITLES: Record<HubKind, string> = {
     withdrawal: 'Withdrawal',
 };
 
-/** Every tab of the page, in order, before permissions and rollout. */
+/**
+ * Every tab of the page, in order, before permissions and rollout. The
+ * first one the person may open is where the menu item goes: All deposits /
+ * All withdrawals (client request 2026-11-09).
+ */
 export function hubViews(portal: UserType, kind: HubKind): HubViewLink[] {
     if (portal === 'partner') {
         return kind === 'deposit'
@@ -87,6 +91,14 @@ export function hubViews(portal: UserType, kind: HubKind): HubViewLink[] {
     if (kind === 'deposit') {
         return [
             {
+                key: 'all',
+                label: 'All deposits',
+                href: isAdmin
+                    ? adminTransactions.index()
+                    : branchPayins.index(),
+                permission: 'payins.view',
+            },
+            {
                 key: 'queue',
                 label: 'Manual Deposit',
                 href: (isAdmin ? adminDeposits : branchDeposits).index(),
@@ -110,18 +122,18 @@ export function hubViews(portal: UserType, kind: HubKind): HubViewLink[] {
                 href: reconciliation.index({ query: { direction: 'payin' } }),
                 permission: 'reconciliation.view',
             },
-            {
-                key: 'all',
-                label: 'All deposits',
-                href: isAdmin
-                    ? adminTransactions.index()
-                    : branchPayins.index(),
-                permission: 'payins.view',
-            },
         ];
     }
 
     return [
+        {
+            key: 'all',
+            label: 'All withdrawals',
+            href: isAdmin
+                ? adminTransactions.payouts()
+                : branchPayouts.history(),
+            permission: 'payouts.view',
+        },
         {
             key: 'queue',
             label: 'Manual Payout',
@@ -133,14 +145,6 @@ export function hubViews(portal: UserType, kind: HubKind): HubViewLink[] {
             label: 'UTR Reconciliation',
             href: reconciliation.index({ query: { direction: 'payout' } }),
             permission: 'reconciliation.view',
-        },
-        {
-            key: 'all',
-            label: 'All withdrawals',
-            href: isAdmin
-                ? adminTransactions.payouts()
-                : branchPayouts.history(),
-            permission: 'payouts.view',
         },
     ];
 }
