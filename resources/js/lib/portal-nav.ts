@@ -14,27 +14,15 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import admin from '@/routes/admin';
 import adminAccounts from '@/routes/admin/accounts';
-import adminCases from '@/routes/admin/cases';
-import adminDeposits from '@/routes/admin/deposits';
-import adminTransactions from '@/routes/admin/transactions';
 import adminBranches from '@/routes/admin/branches';
 import adminMappings from '@/routes/admin/mappings';
 import adminPartners from '@/routes/admin/partners';
-import adminPayouts from '@/routes/admin/payouts';
-import adminReconciliation from '@/routes/admin/reconciliation';
 import adminRoles from '@/routes/admin/roles';
 import adminSettlements from '@/routes/admin/settlements';
-import adminStatements from '@/routes/admin/statements';
 import adminUsers from '@/routes/admin/users';
 import branch from '@/routes/branch';
 import branchAccounts from '@/routes/branch/accounts';
-import branchCases from '@/routes/branch/cases';
-import branchDeposits from '@/routes/branch/deposits';
-import branchPayins from '@/routes/branch/payins';
-import branchPayouts from '@/routes/branch/payouts';
-import branchReconciliation from '@/routes/branch/reconciliation';
 import branchImports from '@/routes/branch/statement-imports';
-import branchStatements from '@/routes/branch/statements';
 import branchUsers from '@/routes/branch/users';
 import partner, {
     balance as partnerBalance,
@@ -44,12 +32,11 @@ import partner, {
 } from '@/routes/partner';
 import partnerAccounts from '@/routes/partner/accounts';
 import partnerDevelopers from '@/routes/partner/developers';
-import partnerPayins from '@/routes/partner/payins';
 import partnerPayoutReturns from '@/routes/partner/payout-returns';
-import partnerPayouts from '@/routes/partner/payouts';
 import partnerSettlements from '@/routes/partner/settlements';
 import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
+import type { HubKind } from '@/lib/payment-hub';
 import type { UserType } from '@/types';
 
 /**
@@ -65,6 +52,11 @@ export type NavLink = {
     /** Planned phase, or 'later' while it waits for a client decision. */
     soon?: number | 'later';
     permission?: string;
+    /**
+     * Payments › Deposit / Withdrawal: a page of tabs (lib/payment-hub).
+     * Shown while any tab is open to the person, linking to the first.
+     */
+    hub?: HubKind;
 };
 
 /**
@@ -140,21 +132,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Payments',
             icon: Wallet,
             items: [
-                {
-                    label: 'Transactions',
-                    href: adminTransactions.index(),
-                    permission: 'payins.view',
-                },
-                {
-                    label: 'Manual Deposit',
-                    href: adminDeposits.index(),
-                    permission: 'payins.view',
-                },
-                {
-                    label: 'Manual Payout',
-                    href: adminPayouts.index(),
-                    permission: 'payouts.view',
-                },
+                // Manual Deposit, Manual A/C Statement, Unsettled UTR, UTR
+                // Reconciliation and Transactions, as tabs of one page.
+                { label: 'Deposit', hub: 'deposit' },
+                // Manual Payout, UTR Reconciliation and payout Transactions.
+                { label: 'Withdrawal', hub: 'withdrawal' },
                 {
                     label: 'Refunds',
                     href: admin.refunds.index(),
@@ -177,23 +159,10 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Account',
             icon: GitCompareArrows,
             items: [
-                {
-                    label: 'Manual A/C Statement',
-                    href: adminStatements.index(),
-                    permission: 'statements.view',
-                },
+                // Manual A/C Statement, UTR Reconciliation and Unsettled UTR
+                // are tabs of Payments › Deposit.
                 // Source not decided yet (bank API, email, SMS…; G-27).
                 { label: 'Auto A/C Statement', soon: 'later' },
-                {
-                    label: 'UTR Reconciliation',
-                    href: adminReconciliation.index(),
-                    permission: 'reconciliation.view',
-                },
-                {
-                    label: 'Unsettled UTR',
-                    href: adminCases.index(),
-                    permission: 'reconciliation.view',
-                },
             ],
         },
         {
@@ -320,21 +289,11 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Payments',
             icon: Wallet,
             items: [
-                {
-                    label: 'Manual Deposit',
-                    href: branchDeposits.index(),
-                    permission: 'payins.view',
-                },
-                {
-                    label: 'Manual Payout',
-                    href: branchPayouts.index(),
-                    permission: 'payouts.view',
-                },
-                {
-                    label: 'Unsettled UTR',
-                    href: branchCases.index(),
-                    permission: 'reconciliation.view',
-                },
+                // Manual Deposit, Manual A/C Statement, Unsettled UTR, UTR
+                // Reconciliation and Pay-in History, as tabs of one page.
+                { label: 'Deposit', hub: 'deposit' },
+                // Manual Payout, UTR Reconciliation and Pay-out History.
+                { label: 'Withdrawal', hub: 'withdrawal' },
             ],
         },
         {
@@ -342,11 +301,6 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Account',
             icon: GitCompareArrows,
             items: [
-                {
-                    label: 'Manual A/C Statement',
-                    href: branchStatements.index(),
-                    permission: 'statements.view',
-                },
                 { label: 'Auto A/C Statement', soon: 'later' },
                 {
                     label: 'Statement History',
@@ -360,29 +314,14 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             icon: History,
             items: [
                 {
-                    label: 'Pay-in History',
-                    href: branchPayins.index(),
-                    permission: 'payins.view',
-                },
-                {
                     label: 'Chargebacks',
                     href: branch.chargebacks.index(),
                     permission: 'reversals.view',
                 },
                 {
-                    label: 'Pay-out History',
-                    href: branchPayouts.history(),
-                    permission: 'payouts.view',
-                },
-                {
                     label: 'Payout returns',
                     href: branch.payoutReturns.index(),
                     permission: 'payouts.view',
-                },
-                {
-                    label: 'UTR Reconciliation',
-                    href: branchReconciliation.index(),
-                    permission: 'reconciliation.view',
                 },
             ],
         },
@@ -453,21 +392,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             items: [
                 // Manual payment links are out of v1 (OOS-13).
                 { label: 'Create Payment', soon: 'later' },
-                {
-                    label: 'Pay-in',
-                    href: partnerPayins.index(),
-                    permission: 'payins.view',
-                },
+                { label: 'Deposit', hub: 'deposit' },
                 {
                     label: 'Chargebacks',
                     href: partner.chargebacks.index(),
                     permission: 'payins.view',
                 },
-                {
-                    label: 'Pay-out',
-                    href: partnerPayouts.index(),
-                    permission: 'payouts.view',
-                },
+                { label: 'Withdrawal', hub: 'withdrawal' },
                 {
                     label: 'Payout returns',
                     href: partnerPayoutReturns.index(),

@@ -243,7 +243,7 @@ export default function Developers({
             >
                 <EmptyState
                     title="Webhook deliveries are shown per pay-in"
-                    description="Open a pay-in under Payments › Pay-in and choose its Webhooks tab to see every attempt and resend it."
+                    description="Open a pay-in under Payments › Deposit and choose its Webhooks tab to see every attempt and resend it."
                 />
             </Card>
 

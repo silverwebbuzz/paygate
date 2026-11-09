@@ -356,7 +356,7 @@ export default function Chargebacks({ tab, search, items, totals }: Props) {
                                         ? 'Nothing waiting for approval'
                                         : 'No chargebacks'
                                 }
-                                description="Branches raise chargebacks from Pay-in History."
+                                description="Branches raise chargebacks from Deposit › All deposits."
                             />
                         }
                     />

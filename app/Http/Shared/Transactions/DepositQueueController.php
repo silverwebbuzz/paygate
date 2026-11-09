@@ -73,6 +73,7 @@ class DepositQueueController extends Controller
 
         return Inertia::render('deposits/index', [
             'portal' => $actor->type->value,
+            'hub' => fn () => PaymentHub::props($actor, PaymentHub::DEPOSIT),
             'tab' => $tab,
             'tabs' => collect(array_keys(self::TABS))->mapWithKeys(fn (string $key) => [$key => [
                 'count' => $inTab($base(), $key)->count(),

@@ -12,6 +12,7 @@ use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
+use App\Http\Shared\Transactions\PaymentHub;
 use App\Http\Shared\Transactions\TransactionController;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -72,6 +73,7 @@ class CaseController extends Controller
 
         return Inertia::render('reconciliation/cases', [
             'portal' => $actor->type->value,
+            'hub' => fn () => PaymentHub::props($actor, PaymentHub::DEPOSIT),
             'tab' => $tab,
             'cases' => [...$cases->toArray(), 'data' => $rows],
             'filters' => ['type' => $type?->value, 'branch' => is_string($branch) ? $branch : null, 'search' => $search],

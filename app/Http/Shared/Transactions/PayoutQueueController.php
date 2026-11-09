@@ -85,6 +85,7 @@ class PayoutQueueController extends Controller
 
         return Inertia::render('payouts/index', [
             'portal' => $actor->type->value,
+            'hub' => fn () => PaymentHub::props($actor, PaymentHub::WITHDRAWAL),
             'tab' => $tab,
             'tabs' => collect(array_keys(self::TABS))->mapWithKeys(fn (string $key) => [$key => [
                 'count' => $inTab($key)->count(),

@@ -8,6 +8,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
+use App\Http\Shared\Transactions\PaymentHub;
 use App\Http\Shared\Transactions\TransactionController;
 use App\Http\Shared\Transactions\TransactionPresenter;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,6 +65,7 @@ class ReconciliationController extends Controller
         return Inertia::render('reconciliation/index', [
             'portal' => $actor->type->value,
             'direction' => $direction,
+            'hub' => fn () => PaymentHub::props($actor, $direction === 'payout' ? PaymentHub::WITHDRAWAL : PaymentHub::DEPOSIT),
             'tab' => $tab,
             'items' => [...$items->toArray(), 'data' => $rows],
             'filters' => ['branch' => is_string($branch) ? $branch : null, 'search' => $search],

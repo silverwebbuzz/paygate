@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Check, Copy, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PgButton } from '@/components/pg/button';
@@ -6,13 +6,15 @@ import { Panel, ViewDetails } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { FormDialog } from '@/components/pg/form-dialog';
-import { LiveIndicator, PageHeader } from '@/components/pg/page-header';
+import { LiveIndicator } from '@/components/pg/page-header';
+import { PaymentHubHeader } from '@/components/pg/payment-hub';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { TransactionDrawer } from '@/components/pg/transaction-drawer';
 import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
 import { useClipboard } from '@/hooks/use-clipboard';
 import { formatDateTime, formatRelative } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
+import type { HubProps } from '@/lib/payment-hub';
 import { TONE_CLASSES } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import adminPayouts from '@/routes/admin/payouts';
@@ -34,6 +36,7 @@ type Row = TxnRow & { pay_to: PayTo | null };
 
 type Props = {
     portal: UserType;
+    hub: HubProps;
     tab: Tab;
     tabs: Record<Tab, { count: number; amount: number }>;
     items: {
@@ -98,7 +101,7 @@ export default function Payouts(props: Props) {
     useEffect(() => {
         if (tab !== 'to_pay' && tab !== 'paying') return;
         const timer = setInterval(
-            () => router.reload({ only: ['items', 'tabs'] }),
+            () => router.reload({ only: ['items', 'tabs', 'hub'] }),
             20000,
         );
 
@@ -163,9 +166,10 @@ export default function Payouts(props: Props) {
 
     return (
         <>
-            <Head title="Manual Payout" />
-            <PageHeader
-                title="Manual Payout"
+            <PaymentHubHeader
+                hub={props.hub}
+                view="queue"
+                live={tab === 'to_pay' || tab === 'paying'}
                 description="Pay each customer from your bank, then record the transfer: UTR, date and proof. You may pay in parts (record each transfer); it completes when they add up. If you can’t pay, mark it so the partner can retry."
                 eyebrow={
                     (tab === 'to_pay' || tab === 'paying') && (

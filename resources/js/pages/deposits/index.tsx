@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -8,7 +8,8 @@ import { DataTable, Panel, ViewDetails } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { FormDialog } from '@/components/pg/form-dialog';
-import { LiveIndicator, PageHeader } from '@/components/pg/page-header';
+import { LiveIndicator } from '@/components/pg/page-header';
+import { PaymentHubHeader } from '@/components/pg/payment-hub';
 import { Segmented } from '@/components/pg/segmented';
 import { StatusBadge } from '@/components/pg/status-badge';
 import {
@@ -22,6 +23,7 @@ import { TxnFilters } from '@/components/pg/txn-filters';
 import type { TxnFilterValues } from '@/components/pg/txn-filters';
 import { formatDateTime, formatRelative } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
+import type { HubProps } from '@/lib/payment-hub';
 import { TONE_CLASSES } from '@/lib/status';
 import { cn } from '@/lib/utils';
 import adminDeposits from '@/routes/admin/deposits';
@@ -33,6 +35,7 @@ type Tab = 'pending' | 'hold' | 'awaiting' | 'approved' | 'declined';
 
 type Props = {
     portal: UserType;
+    hub: HubProps;
     tab: Tab;
     tabs: Record<Tab, { count: number; amount: number }>;
     items: {
@@ -133,7 +136,7 @@ export default function Deposits(props: Props) {
     useEffect(() => {
         if (tab !== 'pending' && tab !== 'hold') return;
         const timer = setInterval(
-            () => router.reload({ only: ['items', 'tabs'] }),
+            () => router.reload({ only: ['items', 'tabs', 'hub'] }),
             20000,
         );
 
@@ -211,9 +214,10 @@ export default function Deposits(props: Props) {
 
     return (
         <>
-            <Head title="Manual Deposit" />
-            <PageHeader
-                title="Manual Deposit"
+            <PaymentHubHeader
+                hub={props.hub}
+                view="queue"
+                live={tab === 'pending' || tab === 'hold'}
                 description="Check each payment in your bank, then approve it with the bank UTR, hold it, or decline it. Approving credits the partner at once."
                 eyebrow={
                     (tab === 'pending' || tab === 'hold') && (
@@ -797,10 +801,7 @@ function ApproveDialog({
                     }
                 />
             </Field>
-            <Field
-                label="Amount received (₹)"
-                error={errors.received_amount}
-            >
+            <Field label="Amount received (₹)" error={errors.received_amount}>
                 <TextInput
                     readOnly
                     tabIndex={-1}
@@ -895,10 +896,7 @@ function MoveDialog({
                               : 'Choose…'}
                     </option>
                     {branches.map(({ branch, accounts }) => (
-                        <optgroup
-                            key={branch.id}
-                            label={branch.name}
-                        >
+                        <optgroup key={branch.id} label={branch.name}>
                             {accounts.map((account) => (
                                 <option key={account.id} value={account.id}>
                                     {account.label}

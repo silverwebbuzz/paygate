@@ -112,6 +112,8 @@ class TransactionController extends Controller
                 'amount' => (int) $counts->whereIn('status', $statuses)->sum('amount'),
             ])->when($extra !== null, fn ($summary) => $summary->put((string) $extra, $chargebacks ? self::chargebackSummary(self::withChargeback($base(), $actor)) : self::returnSummary($base()->whereNotNull('return_status')))),
             'page' => $page,
+            // All deposits / All withdrawals tab (Chargebacks and Payout returns stay pages of their own).
+            'hub' => $page === null ? fn () => PaymentHub::props($actor, $direction === 'payout' ? PaymentHub::WITHDRAWAL : PaymentHub::DEPOSIT) : null,
             'selected' => is_string($selected) ? $selected : null,
             'detail' => Inertia::optional(function () use ($selected, $actor) {
                 $txn = is_string($selected) ? Transaction::query()->find($selected) : null;

@@ -12,6 +12,7 @@ use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
+use App\Http\Shared\Transactions\PaymentHub;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -71,6 +72,7 @@ class StatementController extends Controller
 
         return Inertia::render('statements/index', [
             'portal' => $actor->type->value,
+            'hub' => fn () => PaymentHub::props($actor, PaymentHub::DEPOSIT),
             'items' => [...$items->toArray(), 'data' => $rows],
             'filters' => $filters,
             'period' => Period::fromRequest($request)->toArray(),

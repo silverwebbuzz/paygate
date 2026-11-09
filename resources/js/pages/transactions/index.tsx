@@ -13,7 +13,8 @@ import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
-import { PageHeader } from '@/components/pg/page-header';
+import { LiveIndicator, PageHeader } from '@/components/pg/page-header';
+import { PaymentHubHeader } from '@/components/pg/payment-hub';
 import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
 import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import { Segmented } from '@/components/pg/segmented';
@@ -27,6 +28,7 @@ import { TxnFilters } from '@/components/pg/txn-filters';
 import type { TxnFilterValues } from '@/components/pg/txn-filters';
 import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
+import type { HubProps } from '@/lib/payment-hub';
 import admin from '@/routes/admin';
 import branch from '@/routes/branch';
 import { show as fileUrl } from '@/routes/files';
@@ -66,6 +68,8 @@ type Props = {
     detail?: TxnDetail | null;
     /** The Chargebacks / Payout returns page: this list fixed on that tab. */
     page?: 'chargeback' | 'return' | null;
+    /** All deposits / All withdrawals: a tab of Payments › Deposit / Withdrawal. */
+    hub?: HubProps | null;
 };
 
 const LIST_ROUTE = {
@@ -209,6 +213,7 @@ export default function Transactions({
     selected,
     detail,
     page = null,
+    hub = null,
 }: Props) {
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(selected);
@@ -255,6 +260,19 @@ export default function Transactions({
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
+
+    // All deposits / All withdrawals, first page: new transactions appear
+    // without reloading (skipped while the browser tab is hidden).
+    const live = hub !== null && !transactions.prev_page_url;
+    useEffect(() => {
+        if (!live) return;
+        const timer = setInterval(() => {
+            if (document.hidden) return;
+            router.reload({ only: ['transactions', 'summary', 'hub'] });
+        }, 20000);
+
+        return () => clearInterval(timer);
+    }, [live]);
 
     useEffect(() => {
         if (selected && !detail) router.reload({ only: ['detail'] });
@@ -309,11 +327,7 @@ export default function Transactions({
                       key: 'branch',
                       header: 'Branch',
                       cell: (t: TxnRow) =>
-                          t.branch ? (
-                              <div>{t.branch.name}</div>
-                          ) : (
-                              '—'
-                          ),
+                          t.branch ? <div>{t.branch.name}</div> : '—',
                   },
               ]
             : []),
@@ -445,30 +459,61 @@ export default function Transactions({
 
     return (
         <>
-            <Head title={title} />
-            <PageHeader
-                title={title}
-                description={description}
-                actions={
-                    <>
-                        {portal === 'admin' && (
-                            <Segmented
-                                options={[
-                                    { value: 'payin', label: 'Pay-ins' },
-                                    { value: 'payout', label: 'Payouts' },
-                                ]}
-                                value={direction}
-                                onChange={(value) =>
-                                    router.get(LIST_ROUTE[value].admin().url)
-                                }
-                            />
-                        )}
+            {hub ? (
+                <PaymentHubHeader
+                    hub={hub}
+                    view="all"
+                    live={live}
+                    description={description}
+                    eyebrow={
+                        live && (
+                            <LiveIndicator>
+                                Live · refreshes every 20 s
+                            </LiveIndicator>
+                        )
+                    }
+                    actions={
                         <PgButton onClick={() => router.reload()}>
                             <RefreshCw className="size-3.5" /> Refresh
                         </PgButton>
-                    </>
-                }
-            />
+                    }
+                />
+            ) : (
+                <>
+                    <Head title={title} />
+                    <PageHeader
+                        title={title}
+                        description={description}
+                        actions={
+                            <>
+                                {portal === 'admin' && (
+                                    <Segmented
+                                        options={[
+                                            {
+                                                value: 'payin',
+                                                label: 'Pay-ins',
+                                            },
+                                            {
+                                                value: 'payout',
+                                                label: 'Payouts',
+                                            },
+                                        ]}
+                                        value={direction}
+                                        onChange={(value) =>
+                                            router.get(
+                                                LIST_ROUTE[value].admin().url,
+                                            )
+                                        }
+                                    />
+                                )}
+                                <PgButton onClick={() => router.reload()}>
+                                    <RefreshCw className="size-3.5" /> Refresh
+                                </PgButton>
+                            </>
+                        }
+                    />
+                </>
+            )}
 
             <KpiGrid>
                 {KPIS[direction]

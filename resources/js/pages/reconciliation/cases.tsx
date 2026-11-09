@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PgButton } from '@/components/pg/button';
@@ -11,7 +11,7 @@ import { Field, SelectInput, TextInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
-import { PageHeader } from '@/components/pg/page-header';
+import { PaymentHubHeader } from '@/components/pg/payment-hub';
 import {
     CompareBlock,
     LineAmount,
@@ -26,11 +26,10 @@ import type {
 import { StatusBadge } from '@/components/pg/status-badge';
 import { formatDate, formatDateTime, formatRelative } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
+import type { HubProps } from '@/lib/payment-hub';
 import adminAdjustments from '@/routes/admin/adjustments';
 import adminCases from '@/routes/admin/cases';
-import adminStatements from '@/routes/admin/statements';
 import branchCases from '@/routes/branch/cases';
-import branchStatements from '@/routes/branch/statements';
 import type { UserType } from '@/types';
 
 type CaseRow = CaseSummary & {
@@ -61,6 +60,7 @@ type Candidate = LineTxn & { late: boolean; same_amount: boolean };
 
 type Props = {
     portal: UserType;
+    hub: HubProps;
     tab: 'open' | 'resolved';
     cases: {
         data: CaseRow[];
@@ -100,7 +100,6 @@ export default function Cases(props: Props) {
     const { portal, tab, cases, filters, counts, kpis, types, branches } =
         props;
     const routes = portal === 'admin' ? adminCases : branchCases;
-    const statements = portal === 'admin' ? adminStatements : branchStatements;
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(props.selected);
     const open = cases.data.find((item) => item.id === openId) ?? null;
@@ -268,18 +267,10 @@ export default function Cases(props: Props) {
 
     return (
         <>
-            <Head title="Unsettled UTR" />
-            <PageHeader
-                title="Unsettled UTR"
+            <PaymentHubHeader
+                hub={props.hub}
+                view="unsettled"
                 description="Bank statement lines that didn’t match a transaction exactly (same UTR, amount and account). Link each to its transaction, or close it with the reason."
-                actions={
-                    <Link
-                        href={statements.index().url}
-                        className="inline-flex h-8 items-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
-                    >
-                        Statement lines
-                    </Link>
-                }
             />
 
             <KpiGrid>

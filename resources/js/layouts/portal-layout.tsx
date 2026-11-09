@@ -6,8 +6,10 @@ import { PortalTopbar } from '@/components/pg/portal-topbar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useDensity } from '@/hooks/use-density';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { visibleHubViews } from '@/lib/payment-hub';
+import type { HubProps } from '@/lib/payment-hub';
 import { navGroupId, PORTAL_LABELS, PORTAL_NAV } from '@/lib/portal-nav';
-import type { NavGroup } from '@/lib/portal-nav';
+import type { NavGroup, NavLink } from '@/lib/portal-nav';
 import admin from '@/routes/admin';
 import { toUrl } from '@/lib/utils';
 
@@ -27,7 +29,8 @@ export default function PortalLayout({
         qaChecklist,
         rolloutHidden,
         rolloutLimited,
-    } = usePage().props;
+        hub: pageHub,
+    } = usePage<{ hub?: HubProps | null }>().props;
     const { isCurrentUrl } = useCurrentUrl();
     const [collapsed, setCollapsed] = useState(!sidebarOpen);
     const [density, toggleDensity] = useDensity();
@@ -40,8 +43,8 @@ export default function PortalLayout({
 
     const portal = auth.user.type;
     // Super-admin tools at the end of the Admin menu.
-    const extras: NavGroup[] = [
-        ...(portal === 'admin' && superAdmin
+    const extras: NavGroup[] =
+        portal === 'admin' && superAdmin
             ? [
                   {
                       label: 'Testing',
@@ -62,8 +65,7 @@ export default function PortalLayout({
                       ],
                   },
               ]
-            : []),
-    ];
+            : [];
     // Super admins also get the UI kit under Developer.
     const nav = PORTAL_NAV[portal].map((group) =>
         portal === 'admin' && superAdmin && group.label === 'Developer'
@@ -76,10 +78,23 @@ export default function PortalLayout({
               }
             : group,
     );
+    // Payments › Deposit / Withdrawal: one item for a page of tabs. It shows
+    // while any tab is open to this person and links to the first one.
+    const resolveHub = (item: NavLink): NavLink[] => {
+        if (!item.hub) return [item];
+        const views = visibleHubViews(
+            portal,
+            item.hub,
+            auth.permissions,
+            rolloutHidden,
+        );
+
+        return views.length > 0 ? [{ ...item, href: views[0].href }] : [];
+    };
     const groups = [...nav, ...extras]
         .map((group) => ({
             ...group,
-            items: group.items.filter(
+            items: group.items.flatMap(resolveHub).filter(
                 (item) =>
                     (!item.permission ||
                         auth.permissions.includes(item.permission)) &&
@@ -112,6 +127,11 @@ export default function PortalLayout({
             })),
     );
     const current =
+        // A Deposit / Withdrawal tab marks its menu item (the UTR
+        // Reconciliation page is a tab of both, by direction).
+        (pageHub
+            ? links.find(({ item }) => item.hub === pageHub.kind)
+            : undefined) ??
         links.find(({ item }) => isCurrentUrl(item.href!)) ??
         links
             .filter(({ url }) =>

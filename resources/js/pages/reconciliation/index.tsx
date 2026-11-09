@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DataTable, Panel } from '@/components/pg/data-table';
@@ -7,14 +7,14 @@ import { EmptyState } from '@/components/pg/empty-state';
 import { SelectInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
-import { PageHeader } from '@/components/pg/page-header';
+import { PaymentHubHeader } from '@/components/pg/payment-hub';
 import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
 import type { PeriodValue } from '@/components/pg/period-filter';
-import { Segmented } from '@/components/pg/segmented';
 import { TransactionDrawer } from '@/components/pg/transaction-drawer';
 import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
 import { formatDate, formatDateTime, formatRelative } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
+import type { HubProps } from '@/lib/payment-hub';
 import adminCases from '@/routes/admin/cases';
 import adminReconciliation from '@/routes/admin/reconciliation';
 import branchCases from '@/routes/branch/cases';
@@ -25,6 +25,7 @@ type Figure = { count: number; amount: number };
 
 type Props = {
     portal: UserType;
+    hub: HubProps;
     direction: 'payin' | 'payout';
     tab: 'missing' | 'matched';
     items: {
@@ -178,31 +179,21 @@ export default function Reconciliation(props: Props) {
 
     return (
         <>
-            <Head title="UTR Reconciliation" />
-            <PageHeader
-                title="UTR Reconciliation"
+            <PaymentHubHeader
+                hub={props.hub}
+                view="utr"
                 description={
                     direction === 'payin'
                         ? 'Approved deposits and the bank statement line that confirms each one. A deposit with no line either isn’t in an entered statement yet, or its approval needs a second look.'
                         : 'Paid payouts and the debit on the branch’s bank statement that confirms each one.'
                 }
                 actions={
-                    <>
-                        <Segmented
-                            options={[
-                                { value: 'payin', label: 'Deposits' },
-                                { value: 'payout', label: 'Payouts' },
-                            ]}
-                            value={direction}
-                            onChange={(value) => visit({ direction: value })}
-                        />
-                        <Link
-                            href={cases.index().url}
-                            className="inline-flex h-8 items-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
-                        >
-                            Unsettled UTR · {props.open_cases}
-                        </Link>
-                    </>
+                    <Link
+                        href={cases.index().url}
+                        className="inline-flex h-8 items-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
+                    >
+                        Unsettled UTR · {props.open_cases}
+                    </Link>
                 }
             />
 

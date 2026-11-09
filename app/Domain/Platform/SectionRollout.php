@@ -35,18 +35,24 @@ class SectionRollout
      */
     public const SECTIONS = [
         'admin' => [
-            'Payments' => [
-                'transactions' => ['label' => 'Transactions', 'paths' => ['/admin/transactions', '/admin/webhooks']],
+            // Payments › Deposit and › Withdrawal are pages of tabs (PaymentHub);
+            // each tab stays its own item here, so it opens on its own.
+            'Payments › Deposit' => [
+                'transactions' => ['label' => 'All deposits (Transactions)', 'paths' => ['/admin/transactions', '/admin/webhooks']],
                 'deposits' => ['label' => 'Manual Deposit', 'paths' => ['/admin/deposits']],
+                'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/admin/statements']],
+                'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/admin/unsettled']],
+                'utr' => ['label' => 'UTR Reconciliation (Deposit and Withdrawal)', 'paths' => ['/admin/utr-reconciliation']],
+            ],
+            'Payments › Withdrawal' => [
                 'payouts' => ['label' => 'Manual Payout', 'paths' => ['/admin/payouts']],
+                // Longer than /admin/transactions, so it is this item's (added 2026-11-09).
+                'payout_transactions' => ['label' => 'All withdrawals (Transactions › Payouts)', 'paths' => ['/admin/transactions/payouts']],
+            ],
+            'Payments' => [
                 'refunds' => ['label' => 'Refunds', 'paths' => ['/admin/refunds', '/admin/reversals']],
                 'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/admin/chargebacks']],
                 'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/admin/payout-returns']],
-            ],
-            'Account' => [
-                'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/admin/statements']],
-                'utr' => ['label' => 'UTR Reconciliation', 'paths' => ['/admin/utr-reconciliation']],
-                'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/admin/unsettled']],
             ],
             'Network' => [
                 'partners' => ['label' => 'Partners', 'paths' => ['/admin/partners']],
@@ -80,21 +86,23 @@ class SectionRollout
             'Network' => [
                 'accounts' => ['label' => 'Bank & UPI Accounts', 'paths' => ['/branch/accounts']],
             ],
-            'Payments' => [
+            'Payments › Deposit' => [
                 'deposits' => ['label' => 'Manual Deposit', 'paths' => ['/branch/deposits']],
-                'payouts' => ['label' => 'Manual Payout', 'paths' => ['/branch/payouts']],
+                'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/branch/statements']],
                 'unsettled' => ['label' => 'Unsettled UTR', 'paths' => ['/branch/unsettled']],
+                'utr' => ['label' => 'UTR Reconciliation (Deposit and Withdrawal)', 'paths' => ['/branch/utr-reconciliation']],
+                'payins' => ['label' => 'All deposits (Pay-in History)', 'paths' => ['/branch/payins']],
+            ],
+            'Payments › Withdrawal' => [
+                'payouts' => ['label' => 'Manual Payout', 'paths' => ['/branch/payouts']],
+                'payout_history' => ['label' => 'All withdrawals (Pay-out History)', 'paths' => ['/branch/payout-history']],
             ],
             'Account' => [
-                'statements' => ['label' => 'Manual A/C Statement', 'paths' => ['/branch/statements']],
                 'imports' => ['label' => 'Statement History', 'paths' => ['/branch/statements/imports']],
             ],
             'History' => [
-                'payins' => ['label' => 'Pay-in History', 'paths' => ['/branch/payins']],
                 'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/branch/chargebacks']],
-                'payout_history' => ['label' => 'Pay-out History', 'paths' => ['/branch/payout-history']],
                 'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/branch/payout-returns']],
-                'utr' => ['label' => 'UTR Reconciliation', 'paths' => ['/branch/utr-reconciliation']],
             ],
             'Finance' => [
                 'balance' => ['label' => 'Branch Balance', 'paths' => ['/branch/balance']],
@@ -109,9 +117,9 @@ class SectionRollout
         ],
         'partner' => [
             'Payments' => [
-                'payins' => ['label' => 'Pay-in', 'paths' => ['/partner/payins', '/partner/webhooks']],
+                'payins' => ['label' => 'Deposit', 'paths' => ['/partner/payins', '/partner/webhooks']],
                 'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/partner/chargebacks']],
-                'payouts' => ['label' => 'Pay-out', 'paths' => ['/partner/payouts']],
+                'payouts' => ['label' => 'Withdrawal', 'paths' => ['/partner/payouts']],
                 'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/partner/payout-returns']],
             ],
             'Network' => [
@@ -137,6 +145,15 @@ class SectionRollout
         ],
     ];
 
+    /**
+     * Items split off an existing one: open wherever the old item was open,
+     * until a super admin saves the rollout again (the saved value then has
+     * `version` 2 and lists them itself).
+     */
+    private const SPLIT_FROM = [
+        'admin' => ['payout_transactions' => 'transactions'],
+    ];
+
     public function __construct(private Settings $settings) {}
 
     /**
@@ -148,7 +165,17 @@ class SectionRollout
         $open = [];
 
         foreach (array_keys(self::SECTIONS) as $portal) {
-            $open[$portal] = array_values(array_intersect(array_keys($this->items($portal)), (array) ($value['open'][$portal] ?? [])));
+            $saved = (array) ($value['open'][$portal] ?? []);
+
+            if (($value['version'] ?? 1) < 2) {
+                foreach (self::SPLIT_FROM[$portal] ?? [] as $key => $from) {
+                    if (in_array($from, $saved, true)) {
+                        $saved[] = $key;
+                    }
+                }
+            }
+
+            $open[$portal] = array_values(array_intersect(array_keys($this->items($portal)), $saved));
         }
 
         return ['active' => (bool) ($value['active'] ?? false), 'open' => $open];
@@ -165,7 +192,7 @@ class SectionRollout
             $clean[$portal] = array_values(array_intersect(array_keys($this->items($portal)), $open[$portal] ?? []));
         }
 
-        $this->settings->set(self::SETTING, ['active' => $active, 'open' => $clean], $actor);
+        $this->settings->set(self::SETTING, ['active' => $active, 'open' => $clean, 'version' => 2], $actor);
     }
 
     /**
