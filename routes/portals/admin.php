@@ -96,6 +96,8 @@ Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->g
     Route::post('{case}/move-line', 'moveLine')->name('move-line');
     Route::post('{case}/approve-late', 'approveLate')->name('approve-late');
     Route::post('{case}/move', 'move')->name('move');
+    // Admin only: correct a line's UTR / amount (client request 2026-11-14).
+    Route::post('{case}/edit-line', 'editLine')->name('edit-line');
 });
 Route::get('utr-reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
 

@@ -14,6 +14,7 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Http\Shared\Transactions\PaymentHub;
 use App\Http\Shared\Transactions\TransactionController;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -174,6 +175,31 @@ class CaseController extends Controller
         Inertia::flash('toast', ['type' => 'success', 'message' => $settled
             ? __('Line moved to :account and matched: :case is settled.', ['account' => $account->label, 'case' => $case->reference])
             : __('Line moved to :account. It still needs a look: :reason', ['account' => $account->label, 'reason' => $entry->openCase()->first()?->type->label() ?? ''])]);
+
+        return back();
+    }
+
+    /**
+     * Admin only (client request 2026-11-14; the route is in the admin
+     * portal only): correct the UTR / amount of an unsettled line.
+     */
+    public function editLine(Request $request, ReconciliationCase $case, ResolveCase $resolve): RedirectResponse
+    {
+        $actor = $this->authorizeResolve($request, $case);
+        abort_unless($actor->isType(UserType::Admin), 403);
+
+        $data = $request->validate([
+            'utr' => ['nullable', 'string', 'max:50'],
+            'amount' => ['required', 'string', Money::RUPEES_RULE],
+            'note' => ['required', 'string', 'max:500'],
+        ]);
+
+        $entry = $resolve->editLine($actor, $case, $data['utr'] ?? null, Money::toPaise($data['amount']), $data['note']);
+        $open = $entry->openCase()->first();
+
+        Inertia::flash('toast', ['type' => 'success', 'message' => $open === null
+            ? __('Line corrected and matched: :case is settled.', ['case' => $case->reference])
+            : __('Line corrected. It still needs a look: :reason', ['reason' => $open->type->label()])]);
 
         return back();
     }

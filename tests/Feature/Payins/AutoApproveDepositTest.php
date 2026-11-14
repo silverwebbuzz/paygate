@@ -248,17 +248,19 @@ class AutoApproveDepositTest extends TestCase
         $this->assertSame('wrong_branch', ReconciliationCase::sole()->type->value);
     }
 
-    public function test_the_same_utr_on_a_second_bank_line_alerts_admin_and_approves_nothing()
+    public function test_another_branchs_utr_typed_on_a_bank_line_is_refused_and_admin_alerted()
     {
         $this->addLine($this->operator, $this->account)->assertSessionHasNoErrors();
-        $this->addLine($this->paidOperator, $this->paidAccount)->assertSessionHasNoErrors();
+        // Client request 2026-11-14: refused when typed; the other branch's line is not described.
+        $this->addLine($this->paidOperator, $this->paidAccount)
+            ->assertSessionHasErrors(['utr' => __('UTR :utr is already on a bank line. One UTR is one bank transfer: check the number, or ask Admin.', ['utr' => self::UTR])]);
 
-        $this->assertSame('duplicate_utr', ReconciliationCase::where('type', 'duplicate_utr')->sole()->type->value);
+        $this->assertSame(0, ReconciliationCase::where('type', 'duplicate_utr')->count());
         $this->assertSame(1, $this->alerted($this->admin, Alert::UtrConflict));
 
-        // The customer's UTR now matches two bank lines: nothing is approved by itself.
+        // The first branch's line still approves its deposit.
         $payin = $this->depositAtFirstBranch();
-        $this->assertNotSame('success', $payin->refresh()->status);
+        $this->assertSame('success', $payin->refresh()->status);
     }
 
     public function test_a_fake_utr_declined_earlier_does_not_block_the_real_customer_later()

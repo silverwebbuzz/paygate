@@ -42,6 +42,7 @@ export default function PartnerAccounts({ accounts }: Props) {
                     accounts={accounts}
                     showBranch={false}
                     showVerification={false}
+                    showLimits={false}
                     detailed
                     empty="Active bank accounts and UPI IDs appear here once PayGate assigns them to you."
                 />

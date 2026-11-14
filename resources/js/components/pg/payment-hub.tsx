@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * The top of every Payments › Deposit / Withdrawal tab: the title, the tabs
- * (each an existing page, with its waiting count) and, on Deposit, the bank
- * entry bar. The page below it is unchanged.
+ * (each an existing page, with its waiting count) and, on Deposit › Manual
+ * Entry only, the bank entry bar. The page below it is unchanged.
  *
  * `live`: the page already reloads `hub` with its own refresh; otherwise the
  * tab counts refresh here every 20 s, so new deposits show on every tab.

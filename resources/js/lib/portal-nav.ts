@@ -3,7 +3,6 @@ import {
     Code,
     FileText,
     GitCompareArrows,
-    History,
     Landmark,
     LayoutDashboard,
     Network,
@@ -25,7 +24,6 @@ import branchAccounts from '@/routes/branch/accounts';
 import branchImports from '@/routes/branch/statement-imports';
 import branchUsers from '@/routes/branch/users';
 import partner, {
-    balance as partnerBalance,
     apiDocs as partnerApiDocs,
     apiLogs as partnerApiLogs,
     profile as partnerProfile,
@@ -33,7 +31,6 @@ import partner, {
 import partnerAccounts from '@/routes/partner/accounts';
 import partnerDevelopers from '@/routes/partner/developers';
 import partnerPayoutReturns from '@/routes/partner/payout-returns';
-import partnerSettlements from '@/routes/partner/settlements';
 import partnerUsers from '@/routes/partner/users';
 import { edit as profile } from '@/routes/profile';
 import type { HubKind } from '@/lib/payment-hub';
@@ -45,6 +42,12 @@ import type { UserType } from '@/types';
  * phase in `soon` and render disabled, so the menu is complete from day one.
  * Items with `permission` are hidden from users whose role lacks it (the
  * server checks again on every request).
+ *
+ * The three portals use the same names in the same order (client request
+ * 2026-11-14): Dashboard · Bank & UPI Accounts · Payments (Deposit,
+ * Withdrawal, Chargebacks, Payout returns; admin also Refunds) · Finance
+ * (“<Party> Settlement Dashboard”) · … Branch and partner have no Reports,
+ * Balance or Settlement list (SectionRollout::RETIRED closes those pages).
  */
 export type NavLink = {
     label: string;
@@ -93,6 +96,18 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             items: [{ label: 'Dashboard', href: admin.dashboard() }],
         },
         {
+            id: 'accounts',
+            label: 'Bank & UPI Accounts',
+            icon: Network,
+            items: [
+                {
+                    label: 'Bank & UPI Accounts',
+                    href: adminAccounts.index(),
+                    permission: 'accounts.view',
+                },
+            ],
+        },
+        {
             label: 'Network',
             icon: Network,
             items: [
@@ -121,11 +136,6 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     href: adminMappings.index(),
                     permission: 'mappings.view',
                 },
-                {
-                    label: 'Bank & UPI Accounts',
-                    href: adminAccounts.index(),
-                    permission: 'accounts.view',
-                },
             ],
         },
         {
@@ -133,7 +143,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             icon: Wallet,
             items: [
                 // All deposits (Transactions, opens first), Manual Deposit,
-                // Manual A/C Statement, Unsettled UTR and UTR Reconciliation,
+                // Manual Entry, Unsettled UTR and UTR Reconciliation,
                 // as tabs of one page.
                 { label: 'Deposit', hub: 'deposit' },
                 // All withdrawals (opens first), Manual Payout, UTR Reconciliation.
@@ -160,7 +170,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             label: 'Account',
             icon: GitCompareArrows,
             items: [
-                // Manual A/C Statement, UTR Reconciliation and Unsettled UTR
+                // Manual Entry, UTR Reconciliation and Unsettled UTR
                 // are tabs of Payments › Deposit.
                 // Source not decided yet (bank API, email, SMS…; G-27).
                 { label: 'Auto A/C Statement', soon: 'later' },
@@ -276,7 +286,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             items: [{ label: 'Dashboard', href: branch.dashboard() }],
         },
         {
-            label: 'Network',
+            id: 'accounts',
+            label: 'Bank & UPI Accounts',
             icon: Network,
             items: [
                 {
@@ -291,12 +302,22 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             icon: Wallet,
             items: [
                 // All deposits (Pay-in History, opens first), Manual Deposit,
-                // Manual A/C Statement, Unsettled UTR and UTR Reconciliation,
+                // Manual Entry, Unsettled UTR and UTR Reconciliation,
                 // as tabs of one page.
                 { label: 'Deposit', hub: 'deposit' },
                 // All withdrawals (Pay-out History, opens first), Manual
                 // Payout, UTR Reconciliation.
                 { label: 'Withdrawal', hub: 'withdrawal' },
+                {
+                    label: 'Chargebacks',
+                    href: branch.chargebacks.index(),
+                    permission: 'reversals.view',
+                },
+                {
+                    label: 'Payout returns',
+                    href: branch.payoutReturns.index(),
+                    permission: 'payouts.view',
+                },
             ],
         },
         {
@@ -313,55 +334,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'History',
-            icon: History,
-            items: [
-                {
-                    label: 'Chargebacks',
-                    href: branch.chargebacks.index(),
-                    permission: 'reversals.view',
-                },
-                {
-                    label: 'Payout returns',
-                    href: branch.payoutReturns.index(),
-                    permission: 'payouts.view',
-                },
-            ],
-        },
-        {
             label: 'Finance',
             icon: Landmark,
             items: [
                 {
-                    label: 'Branch Balance',
-                    href: branch.balance(),
-                    permission: 'balances.view',
-                },
-                {
-                    label: 'Settlement',
-                    href: branch.settlements.index(),
-                    permission: 'settlements.view',
-                },
-                {
-                    label: 'Settlement Dashboard',
+                    label: 'Branch Settlement Dashboard',
                     href: branch.settlementDashboard(),
                     permission: 'settlements.view',
-                },
-            ],
-        },
-        {
-            label: 'Reports',
-            icon: FileText,
-            items: [
-                {
-                    label: 'Branch Deposit Report',
-                    href: branch.reports.show({ report: 'branch_deposits' }),
-                    permission: 'reports.view',
-                },
-                {
-                    label: 'Branch Withdrawal Report',
-                    href: branch.reports.show({ report: 'branch_withdrawals' }),
-                    permission: 'reports.view',
                 },
             ],
         },
@@ -390,27 +369,8 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             items: [{ label: 'Dashboard', href: partner.dashboard() }],
         },
         {
-            label: 'Payments',
-            icon: Wallet,
-            items: [
-                // Manual payment links are out of v1 (OOS-13).
-                { label: 'Create Payment', soon: 'later' },
-                { label: 'Deposit', hub: 'deposit' },
-                {
-                    label: 'Chargebacks',
-                    href: partner.chargebacks.index(),
-                    permission: 'payins.view',
-                },
-                { label: 'Withdrawal', hub: 'withdrawal' },
-                {
-                    label: 'Payout returns',
-                    href: partnerPayoutReturns.index(),
-                    permission: 'payouts.view',
-                },
-            ],
-        },
-        {
-            label: 'Network',
+            id: 'accounts',
+            label: 'Bank & UPI Accounts',
             icon: Network,
             items: [
                 {
@@ -421,41 +381,31 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             ],
         },
         {
-            label: 'Finance',
-            icon: Landmark,
+            label: 'Payments',
+            icon: Wallet,
             items: [
+                { label: 'Deposit', hub: 'deposit' },
+                { label: 'Withdrawal', hub: 'withdrawal' },
                 {
-                    label: 'Settlement',
-                    href: partnerSettlements.index(),
-                    permission: 'settlements.view',
+                    label: 'Chargebacks',
+                    href: partner.chargebacks.index(),
+                    permission: 'payins.view',
                 },
                 {
-                    label: 'Settlement Dashboard',
-                    href: partner.settlementDashboard(),
-                    permission: 'settlements.view',
-                },
-                {
-                    label: 'Balance',
-                    href: partnerBalance(),
-                    permission: 'balances.view',
+                    label: 'Payout returns',
+                    href: partnerPayoutReturns.index(),
+                    permission: 'payouts.view',
                 },
             ],
         },
         {
-            label: 'Reports',
-            icon: FileText,
+            label: 'Finance',
+            icon: Landmark,
             items: [
                 {
-                    label: 'Partner Deposit Report',
-                    href: partner.reports.show({ report: 'partner_deposits' }),
-                    permission: 'reports.view',
-                },
-                {
-                    label: 'Partner Withdrawal Report',
-                    href: partner.reports.show({
-                        report: 'partner_withdrawals',
-                    }),
-                    permission: 'reports.view',
+                    label: 'Partner Settlement Dashboard',
+                    href: partner.settlementDashboard(),
+                    permission: 'settlements.view',
                 },
             ],
         },

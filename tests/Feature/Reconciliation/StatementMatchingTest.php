@@ -8,8 +8,8 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Ledger\Ledger;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
-use App\Domain\Platform\Settings;
 use App\Domain\Payout\Models\PayoutPayment;
+use App\Domain\Platform\Settings;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\StatementMatcher;
@@ -18,6 +18,7 @@ use App\Domain\Webhook\Models\WebhookEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Tests\Concerns\BuildsPayinNetwork;
 use Tests\TestCase;
@@ -299,7 +300,7 @@ class StatementMatchingTest extends TestCase
         $this->assertTrue($payin->events()->where('event', 'approved_late')->exists());
     }
 
-    public function test_the_same_line_twice_is_refused_and_the_same_utr_on_another_line_is_a_duplicate_case()
+    public function test_the_same_line_twice_and_the_same_utr_on_another_line_are_refused()
     {
         $this->submittedPayin(['amount' => 500000]);
         $this->addLine();
@@ -307,12 +308,17 @@ class StatementMatchingTest extends TestCase
         $this->addLine()->assertSessionHasErrors('utr');
         $this->assertSame(1, StatementEntry::count());
 
+        // Client request 2026-11-14: the same UTR is refused when typed, whatever the date or amount.
         $yesterday = now(config('app.business_timezone'))->subDay()->toDateString();
-        $this->addLine(['value_date' => $yesterday])->assertSessionHasNoErrors();
-
-        $second = StatementEntry::whereDate('value_date', $yesterday)->sole();
-        $this->assertSame('duplicate', $second->status);
-        $this->assertSame('duplicate_utr', ReconciliationCase::sole()->type->value);
+        $this->addLine(['value_date' => $yesterday, 'credit' => '700'])
+            ->assertSessionHasErrors(['utr' => __('UTR :utr is already on a credit line of ₹5,000.00 (:account, :date, added :when). One UTR is one bank transfer: check the number; Admin can correct a wrong line.', [
+                'utr' => '626812820491',
+                'account' => $this->account->label,
+                'date' => now(config('app.business_timezone'))->format('d M Y'),
+                'when' => StatementEntry::sole()->created_at->timezone(config('app.business_timezone'))->format('d M Y, H:i'),
+            ])]);
+        $this->assertSame(1, StatementEntry::count());
+        $this->assertSame(0, ReconciliationCase::count());
     }
 
     /**
@@ -367,22 +373,52 @@ class StatementMatchingTest extends TestCase
     {
         [$second, $payin, $wrong] = $this->lineTypedUnderTheWrongAccount();
 
-        // Typed again under the right account: a duplicate of the wrong line for now.
-        $this->addLine(['payment_account_id' => $second->id])->assertSessionHasNoErrors();
-        $right = StatementEntry::where('payment_account_id', $second->id)->sole();
-        $this->assertSame('duplicate', $right->status);
-
-        // Moving the wrong line onto the right account is refused: that line is already there.
-        $this->actingAs($this->owner)->post(route('branch.cases.move-line', $wrong), ['payment_account_id' => $second->id, 'note' => 'x'])
-            ->assertSessionHasErrors('payment_account_id');
+        // Typed again under the right account: refused while the wrong line holds the UTR.
+        $this->addLine(['payment_account_id' => $second->id])->assertSessionHasErrors('utr');
 
         $this->actingAs($this->owner)->post(route('branch.cases.close', $wrong), ['resolution' => 'rejected', 'note' => 'Typed under the wrong account by mistake'])
             ->assertSessionHasNoErrors();
 
-        $right->refresh();
+        // Closed as not a customer payment, the wrong line no longer holds it.
+        $this->addLine(['payment_account_id' => $second->id])->assertSessionHasNoErrors();
+        $right = StatementEntry::where('payment_account_id', $second->id)->sole();
         $this->assertSame('matched', $right->status);
         $this->assertSame($payin->id, $right->transaction_id);
         $this->assertSame(0, ReconciliationCase::query()->where('status', '!=', 'resolved')->count());
+    }
+
+    public function test_only_admin_corrects_a_lines_utr_and_amount_and_it_is_matched_again()
+    {
+        $payin = $this->submittedPayin(['amount' => 500000]);
+        // The branch typed a wrong UTR and amount.
+        $this->addLine(['utr' => '626812820999', 'description' => 'UPI typo', 'credit' => '50'])->assertSessionHasNoErrors();
+        $this->addLine(['utr' => '111122223333', 'description' => 'Other', 'credit' => '100'])->assertSessionHasNoErrors();
+        $wrong = $this->line('626812820999');
+        $case = $wrong->openCase()->sole();
+        $url = route('admin.cases.edit-line', $case);
+        $fix = ['utr' => '626812820491', 'amount' => '5000', 'note' => 'Branch mistyped the UTR'];
+
+        // Client request 2026-11-14: branch users can't (no branch route, the admin portal refuses them).
+        $this->assertFalse(Route::has('branch.cases.edit-line'));
+        $this->actingAs($this->owner)->post($url, $fix)->assertForbidden();
+        $viewer = User::factory()->admin(SystemRoles::ADMIN_VIEWER)->withTwoFactor()->create();
+        $this->actingAs($viewer)->post($url, $fix)->assertForbidden();
+
+        // A UTR already on another line is refused; a reason is required.
+        $this->actingAs($this->admin)->post($url, [...$fix, 'utr' => '111122223333'])->assertSessionHasErrors('utr');
+        $this->actingAs($this->admin)->post($url, [...$fix, 'note' => ''])->assertSessionHasErrors('note');
+
+        $this->actingAs($this->admin)->post($url, $fix)->assertSessionHasNoErrors();
+
+        $wrong->refresh();
+        $this->assertSame(['626812820491', 500000], [$wrong->utr_normalized, $wrong->amount]);
+        $this->assertSame($payin->id, $wrong->transaction_id);
+        $this->assertSame('linked', $case->refresh()->resolution->value);
+        $this->assertStringContainsString('Branch mistyped the UTR', (string) $case->notes);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'statement.entry_edited', 'subject_id' => $wrong->id, 'actor_id' => $this->admin->id]);
+
+        // Settled: nothing more to correct.
+        $this->actingAs($this->admin)->post($url, [...$fix, 'amount' => '4000'])->assertSessionHasErrors('case');
     }
 
     public function test_a_line_without_utr_is_linked_by_hand_only_to_the_same_amount()

@@ -3,7 +3,9 @@
 namespace App\Domain\Reconciliation\Actions;
 
 use App\Domain\Core\Audit\Models\AuditLog;
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\Notification\AlertDispatcher;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\StatementMatcher;
@@ -16,10 +18,12 @@ use Illuminate\Validation\ValidationException;
 /**
  * Manual A/C statement entry (Req 18, design "New statement line"): a branch
  * operator or Admin types one line of a branch account's bank statement.
- * It is matched straight away (StatementMatcher). Lines are never edited or
- * deleted; a wrong one is closed from its case ("not a customer payment"),
- * or, when typed under the wrong account of the branch, moved to the right
- * one from its case (ResolveCase::moveLine, 2026-10-27).
+ * It is matched straight away (StatementMatcher). A UTR already on another
+ * bank line is refused here (client request 2026-11-14); imported files
+ * still flag such a line as Duplicate UTR. Lines are never deleted; a wrong
+ * one is closed from its case ("not a customer payment"), moved to the right
+ * account of the branch (ResolveCase::moveLine, 2026-10-27), or, by Admin
+ * only, given the right UTR / amount (EditStatementLine, 2026-11-14).
  */
 class RecordStatementEntry
 {
@@ -41,6 +45,21 @@ class RecordStatementEntry
 
         if ($normalised === null && trim((string) $description) === '') {
             throw ValidationException::withMessages(['utr' => __('Enter the UTR, or a description of the line.')]);
+        }
+
+        if ($normalised !== null && ($twin = $this->matcher->lineWithUtr($normalised)) !== null) {
+            // Another branch's UTR typed here may be a mistake or fraud: Admin hears of it.
+            if ($twin->branch_id !== $account->branch_id) {
+                app(AlertDispatcher::class)->utrConflict($normalised, __(':name tried to add a bank line with UTR :utr to :branch · :account; it is already on a line of :other. Refused.', [
+                    'name' => $actor->name,
+                    'utr' => $normalised,
+                    'branch' => $account->branch->name ?? '—',
+                    'account' => $account->label,
+                    'other' => $twin->branch->name ?? '—',
+                ]));
+            }
+
+            throw ValidationException::withMessages(['utr' => self::utrTaken($actor, $twin)]);
         }
 
         $hash = StatementEntry::rowHash($account->id, $valueDate->toDateString(), $direction, $amount, $normalised, $description);
@@ -78,5 +97,27 @@ class RecordStatementEntry
 
             return $entry;
         });
+    }
+
+    /**
+     * Why a UTR is refused. Another branch's line is not described to a
+     * branch user (it isn't theirs to see).
+     */
+    public static function utrTaken(User $actor, StatementEntry $twin): string
+    {
+        $tz = config('app.business_timezone');
+
+        if (! $actor->isType(UserType::Admin) && $twin->branch_id !== $actor->branch_id) {
+            return __('UTR :utr is already on a bank line. One UTR is one bank transfer: check the number, or ask Admin.', ['utr' => $twin->utr_normalized]);
+        }
+
+        return __('UTR :utr is already on a :direction line of ₹:amount (:account, :date, added :when). One UTR is one bank transfer: check the number; Admin can correct a wrong line.', [
+            'utr' => $twin->utr_normalized,
+            'direction' => $twin->entry_direction,
+            'amount' => number_format($twin->amount / 100, 2),
+            'account' => $twin->paymentAccount->label ?? '—',
+            'date' => $twin->value_date->format('d M Y'),
+            'when' => $twin->created_at->timezone($tz)->format('d M Y, H:i'),
+        ]);
     }
 }

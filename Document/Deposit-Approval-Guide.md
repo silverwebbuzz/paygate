@@ -95,7 +95,8 @@ The automatic move happens only because this same customer **was shown Branch B'
 | 13  | A second deposit (same or another branch) gets the **same UTR** while the first is pending | **Refused:** "already submitted for a payment that is pending". Admin alerted. The second stays unpaid and expires | Nobody (Admin checks if needed) |
 | 14  | Same UTR entered after the first deposit is **successful**                                 | **Refused:** "already used for a successful payment". Admin alerted                                                | Nobody                          |
 | 15  | A branch enters the exact same bank line twice                                             | The second is refused: "already in the statement"                                                                  | Nobody                          |
-| 16  | **Two branches** enter the same UTR in their bank entries                                  | Nothing approved. "Duplicate UTR" case. Admin alerted at once                                                      | Admin investigates              |
+| 16  | The same UTR typed on a second bank line (same or **another branch**)                     | **Refused when typed** (2026-11-14): "already on a bank line". Another branch's typing alerts Admin. (An imported file still makes a "Duplicate UTR" case.) | Admin corrects the wrong line if needed |
+| 16b | A bank line was typed with a wrong UTR or amount                                          | Only **Admin** can correct it (Edit on the line, reason required); it is matched again at once. Branch users can't edit lines | Admin                           |
 
 ### Fraud attempts
 

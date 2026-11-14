@@ -430,9 +430,19 @@ class StatementMatcher
      */
     private function twin(StatementEntry $entry): ?StatementEntry
     {
+        return $this->lineWithUtr((string) $entry->utr_normalized, $entry->id);
+    }
+
+    /**
+     * The earliest bank line already carrying this (normalised) UTR, as
+     * twin() counts them. Typing a line, or Admin correcting one, refuses a
+     * UTR that is already on a line (client request 2026-11-14).
+     */
+    public function lineWithUtr(string $utr, ?string $exceptId = null): ?StatementEntry
+    {
         return StatementEntry::query()
-            ->where('utr_normalized', $entry->utr_normalized)
-            ->whereKeyNot($entry->id)
+            ->where('utr_normalized', $utr)
+            ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))
             ->where(fn ($query) => $query
                 ->where('status', '!=', 'ignored')
                 ->orWhereDoesntHave('cases', fn ($cases) => $cases->where('resolution', Resolution::Rejected->value)))

@@ -13,14 +13,15 @@ use App\Http\Shared\Reconciliation\StatementPresenter;
  * one menu item each, the existing pages shown as tabs of it so a person
  * works a deposit or a withdrawal from one place.
  *
- * Deposit: All deposits (the default) · Manual Deposit · A/C Statement ·
+ * Deposit: All deposits (the default) · Manual Deposit · Manual Entry ·
  * Unsettled UTR · UTR Reconciliation. Withdrawal: All withdrawals (the
  * default) · Manual Payout · UTR Reconciliation. Partners have the list only.
  *
  * Each tab keeps its own controller, URL, permission and rules; this only
  * adds the `hub` prop they share: which page it is (the menu item to mark),
- * the counts on the tabs, and the bank entry bar's accounts. The tabs
- * themselves are listed in resources/js/lib/payment-hub.ts.
+ * the counts on the tabs, and (on the Manual Entry tab only) the bank entry
+ * bar's accounts. The tabs themselves are listed in
+ * resources/js/lib/payment-hub.ts.
  */
 final class PaymentHub
 {
@@ -29,9 +30,12 @@ final class PaymentHub
     public const WITHDRAWAL = 'withdrawal';
 
     /**
+     * `$withEntry`: only the Manual Entry tab (the A/C statement page) shows
+     * the bank entry bar (client request 2026-11-14).
+     *
      * @return array<string, mixed>
      */
-    public static function props(User $actor, string $kind): array
+    public static function props(User $actor, string $kind, bool $withEntry = false): array
     {
         $kind = $kind === self::WITHDRAWAL ? self::WITHDRAWAL : self::DEPOSIT;
 
@@ -40,7 +44,7 @@ final class PaymentHub
         }
 
         return $kind === self::DEPOSIT
-            ? ['kind' => $kind, 'counts' => self::depositCounts($actor), 'entry' => self::entry($actor)]
+            ? ['kind' => $kind, 'counts' => self::depositCounts($actor), 'entry' => $withEntry ? self::entry($actor) : null]
             : ['kind' => $kind, 'counts' => self::withdrawalCounts($actor), 'entry' => null];
     }
 
@@ -86,7 +90,7 @@ final class PaymentHub
     }
 
     /**
-     * The bank entry bar on every Deposit tab (the Manual A/C Statement's
+     * The bank entry bar on the Manual Entry tab (the A/C statement's
      * "New statement line" and import): a line whose UTR and amount match a
      * waiting deposit approves it (AutoApproveDeposit), in place.
      *

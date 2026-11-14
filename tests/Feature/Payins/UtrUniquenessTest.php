@@ -138,7 +138,7 @@ class UtrUniquenessTest extends TestCase
         DB::table('transactions')->where('id', $payout->id)->update(['status' => 'success', 'bank_utr_normalized' => self::UTR]);
     }
 
-    public function test_a_statement_utr_already_on_another_accounts_line_opens_a_duplicate_case()
+    public function test_a_statement_utr_already_on_another_accounts_line_is_refused()
     {
         $accounts = PaymentAccount::query()->orderBy('created_at')->get();
         $line = fn ($account) => $this->actingAs($this->admin)->post(route('admin.statements.store'), [
@@ -149,10 +149,10 @@ class UtrUniquenessTest extends TestCase
         ]);
 
         $line($accounts[0])->assertSessionHasNoErrors();
-        $line($accounts[1])->assertSessionHasNoErrors();
+        // Client request 2026-11-14: refused when typed (Admin sees where it is).
+        $line($accounts[1])->assertSessionHasErrors('utr');
+        $this->assertStringContainsString('is already on a credit line of ₹700.00 ('.$accounts[0]->label, (string) session('errors')->first('utr'));
 
-        $case = ReconciliationCase::query()->where('type', 'duplicate_utr')->sole();
-        $this->assertSame($this->other->id, $case->branch_id);
-        $this->assertStringContainsString('already on a credit line of '.$this->branch->name, (string) $case->notes);
+        $this->assertSame(0, ReconciliationCase::query()->where('type', 'duplicate_utr')->count());
     }
 }

@@ -38,7 +38,7 @@ export type HubEntryAccount = StatementAccount & {
 export type HubProps = {
     kind: HubKind;
     counts: Partial<Record<HubView, number>>;
-    /** The bank entry bar (statements.create), on every Deposit tab. */
+    /** The bank entry bar (statements.create), on the Manual Entry tab only. */
     entry: {
         accounts: HubEntryAccount[];
         branches: { id: string; code: string; name: string }[];
@@ -106,7 +106,7 @@ export function hubViews(portal: UserType, kind: HubKind): HubViewLink[] {
             },
             {
                 key: 'statement',
-                label: 'Manual A/C Statement',
+                label: 'Manual Entry',
                 href: (isAdmin ? adminStatements : branchStatements).index(),
                 permission: 'statements.view',
             },

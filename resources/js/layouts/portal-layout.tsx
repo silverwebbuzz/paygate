@@ -201,7 +201,13 @@ export default function PortalLayout({
             <main className="flex min-w-0 flex-1 flex-col">
                 <PortalTopbar
                     portalLabel={PORTAL_LABELS[portal]}
-                    crumbs={current ? [current.group, current.item.label] : []}
+                    crumbs={
+                        current
+                            ? current.group === current.item.label
+                                ? [current.item.label]
+                                : [current.group, current.item.label]
+                            : []
+                    }
                     onToggleSidebar={toggleSidebar}
                     density={density}
                     onToggleDensity={toggleDensity}

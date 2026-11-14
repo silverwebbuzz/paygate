@@ -12,6 +12,7 @@ use App\Domain\Settlement\Actions\CalculateSettlement;
 use App\Domain\Settlement\Models\Adjustment;
 use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Transaction\Models\Transaction;
+use App\Http\Middleware\EnforceSectionRollout;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -263,6 +264,8 @@ class SettlementTest extends TestCase
         $this->calculate('partner', $this->partner->id);
         $branchSettlement = $this->calculate('branch', $this->branch->id);
 
+        // Retired from the branch / partner portals (SectionRollout::RETIRED); the page code is kept, so it stays tested.
+        $this->withoutMiddleware(EnforceSectionRollout::class);
         $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
         $this->actingAs($partnerUser)->get(route('partner.settlements.index'))
             ->assertInertia(fn ($page) => $page->has('items.data', 1)

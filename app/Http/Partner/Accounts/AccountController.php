@@ -2,8 +2,6 @@
 
 namespace App\Http\Partner\Accounts;
 
-use App\Domain\Allocation\UsageCounters;
-use App\Domain\Commission\Enums\Direction;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
@@ -16,7 +14,7 @@ use Inertia\Response;
 
 class AccountController extends Controller
 {
-    public function index(Request $request, UsageCounters $usage): Response
+    public function index(Request $request): Response
     {
         Gate::authorize('accounts.view');
 
@@ -31,8 +29,6 @@ class AccountController extends Controller
             ->orderBy('account_holder_name')
             ->orderBy('id')
             ->get();
-
-        $used = $usage->today('account', $accounts->pluck('id')->all(), Direction::Deposit);
 
         return Inertia::render('partner/accounts', [
             'accounts' => $accounts->map(fn (PaymentAccount $account) => [
@@ -52,12 +48,13 @@ class AccountController extends Controller
                 'upi_display_name' => $account->upi_display_name,
                 'upi_code' => $account->upi_code,
                 'is_qr_enabled' => $account->is_qr_enabled,
-                'min_amount' => $account->min_amount,
-                'max_amount' => $account->max_amount,
-                'daily_amount_limit' => $account->daily_amount_limit,
-                'daily_count_limit' => $account->daily_count_limit,
-                'max_open_sessions' => $account->max_open_sessions,
-                'used_today' => $used[$account->id] ?? ['amount' => 0, 'count' => 0],
+                // Partners don't see deposit limits or usage (client request 2026-11-14).
+                'min_amount' => null,
+                'max_amount' => null,
+                'daily_amount_limit' => null,
+                'daily_count_limit' => null,
+                'max_open_sessions' => 0,
+                'used_today' => ['amount' => 0, 'count' => 0],
                 'verification' => $account->verification->value,
                 'status' => $account->status->value,
                 'rejected_reason' => $account->rejected_reason,

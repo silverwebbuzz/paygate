@@ -14,6 +14,7 @@ export function AccountTable({
     accounts,
     showBranch,
     showVerification = true,
+    showLimits = true,
     detailed = false,
     onVerification,
     onActive,
@@ -23,6 +24,8 @@ export function AccountTable({
     accounts: AccountRow[];
     showBranch: boolean;
     showVerification?: boolean;
+    /** Partners don't see deposit limits (client request 2026-11-14). */
+    showLimits?: boolean;
     detailed?: boolean;
     onVerification?: (
         account: AccountRow,
@@ -39,7 +42,7 @@ export function AccountTable({
               onVerification,
               onActive,
               actions,
-          )
+          ).filter((column) => showLimits || column.key !== 'limits')
         : compactColumns(showBranch, actions ?? (() => null));
 
     return (

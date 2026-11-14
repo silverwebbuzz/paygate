@@ -1,6 +1,6 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { History, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccountActions } from '@/components/pg/account-actions';
 import { AccountFormDialog } from '@/components/pg/account-form-dialog';
 import type { AccountRow } from '@/components/pg/account-form-dialog';
@@ -27,6 +27,19 @@ type Props = {
 
 export default function BranchAccounts({ branch, accounts, can }: Props) {
     const [editing, setEditing] = useState<AccountRow | 'new' | null>(null);
+
+    // Live page: verification, status and today's usage update without a
+    // reload. Paused while the add/edit form is open or the tab is hidden.
+    useEffect(() => {
+        if (editing) return;
+        const timer = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                router.reload({ only: ['accounts'] });
+            }
+        }, 20000);
+
+        return () => clearInterval(timer);
+    }, [editing]);
     const count = (status: string) =>
         accounts.filter((account) => account.status === status).length;
     const countVerification = (verification: string) =>

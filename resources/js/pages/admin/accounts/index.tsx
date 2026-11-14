@@ -55,6 +55,19 @@ export default function AdminAccounts({
     const [reviewing, setReviewing] = useState<AccountRow | null>(null);
     const deleted = filters.status === 'deleted';
 
+    // Live page: new branch accounts and their usage show up without a
+    // reload. Paused while a form or review is open or the tab is hidden.
+    useEffect(() => {
+        if (editing || reviewing) return;
+        const timer = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                router.reload({ only: ['accounts', 'counts'] });
+            }
+        }, 20000);
+
+        return () => clearInterval(timer);
+    }, [editing, reviewing]);
+
     const visit = (next: Partial<Props['filters']>) => {
         const query = Object.fromEntries(
             Object.entries({ ...filters, search, ...next }).filter(

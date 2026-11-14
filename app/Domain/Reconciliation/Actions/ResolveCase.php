@@ -14,7 +14,9 @@ use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Actions\MovePayin;
+use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Models\Transaction;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -35,6 +37,9 @@ use Illuminate\Validation\ValidationException;
  *   account of the branch (e.g. HDFC 1 instead of HDFC 2) moves to the
  *   right one and is matched again. Typed lines only: an imported line's
  *   account is the statement file's.
+ * - editLine (Admin only, client request 2026-11-14): the line was typed
+ *   with a wrong UTR or amount; Admin corrects them and it is matched
+ *   again. A UTR already on another line is refused. Branch users can't.
  * - close as "not a customer payment" (bank charges, interest, own
  *   transfers, a line typed by mistake) or "returned to customer" (the
  *   branch sent a credit back outside PayGate). A line closed as not a
@@ -167,6 +172,80 @@ class ResolveCase
         });
     }
 
+    /**
+     * Admin corrects the UTR and / or amount of an unsettled line, then it
+     * is matched again (it may approve its waiting deposit, like a typed
+     * line). Lines that waited as duplicates of its old UTR match again too.
+     */
+    public function editLine(User $actor, ReconciliationCase $case, ?string $utr, int $amount, string $note): StatementEntry
+    {
+        if (! $actor->isType(UserType::Admin)) {
+            throw new AuthorizationException(__('Only Admin can change a bank line.'));
+        }
+
+        return DB::transaction(function () use ($actor, $case, $utr, $amount, $note) {
+            $entry = $this->lockOpen($case);
+            $normalised = $utr === null || trim($utr) === '' ? null : Transaction::normaliseUtr($utr);
+
+            if ($normalised !== null && preg_match(SubmitPayinProof::UTR_PATTERN, $normalised) !== 1) {
+                throw ValidationException::withMessages(['utr' => __('Enter the UTR / reference number only (6–22 letters or digits).')]);
+            }
+
+            if ($normalised === null && trim((string) $entry->description) === '') {
+                throw ValidationException::withMessages(['utr' => __('This line has no description: enter its UTR.')]);
+            }
+
+            if ($amount <= 0) {
+                throw ValidationException::withMessages(['amount' => __('Enter the amount on the bank statement.')]);
+            }
+
+            if ($normalised === $entry->utr_normalized && $amount === $entry->amount) {
+                throw ValidationException::withMessages(['utr' => __('Nothing changed: correct the UTR or the amount.')]);
+            }
+
+            if ($normalised !== null && $normalised !== $entry->utr_normalized && ($twin = $this->matcher->lineWithUtr($normalised, $entry->id)) !== null) {
+                throw ValidationException::withMessages(['utr' => RecordStatementEntry::utrTaken($actor, $twin)]);
+            }
+
+            $hash = StatementEntry::rowHash($entry->payment_account_id, $entry->value_date->toDateString(), $entry->entry_direction, $amount, $normalised, $entry->description);
+
+            if (StatementEntry::query()->where(['payment_account_id' => $entry->payment_account_id, 'row_hash' => $hash])->whereKeyNot($entry->id)->exists()) {
+                throw ValidationException::withMessages(['utr' => __('This account already has a line with this date, UTR and amount.')]);
+            }
+
+            $old = ['utr' => $entry->utr_normalized, 'amount' => $entry->amount];
+            $entry->forceFill([
+                'utr' => $normalised === null ? null : mb_substr(trim((string) $utr), 0, 50),
+                'utr_normalized' => $normalised,
+                'amount' => $amount,
+                'row_hash' => $hash,
+            ])->save();
+
+            AuditLog::record('statement.entry_edited', $entry, $old, ['utr' => $normalised, 'amount' => $amount, 'note' => $note], $actor);
+
+            $this->matcher->match($entry);
+            $this->autoApprove->forLine($entry);
+
+            // Keep the correction in the case notes (matching may have rewritten them).
+            $current = $entry->openCase()->first() ?? $case->refresh();
+            $current->forceFill(['notes' => trim(($current->notes ?? '')."\n".__('Corrected by :name (UTR :old_utr → :utr, ₹:old_amount → ₹:amount): :note', [
+                'name' => $actor->name,
+                'old_utr' => $old['utr'] ?? '—',
+                'utr' => $normalised ?? '—',
+                'old_amount' => number_format($old['amount'] / 100, 2),
+                'amount' => number_format($amount / 100, 2),
+                'note' => $note,
+            ]))])->save();
+
+            // Its old UTR is free again: a line waiting as its duplicate can match.
+            if ($old['utr'] !== null && $old['utr'] !== $normalised) {
+                $this->rematchDuplicates($old['utr'], $entry->id);
+            }
+
+            return $entry->refresh();
+        });
+    }
+
     public function close(User $actor, ReconciliationCase $case, Resolution $resolution, string $note): void
     {
         if (! in_array($resolution, [Resolution::Rejected, Resolution::Refunded], true)) {
@@ -186,20 +265,29 @@ class ResolveCase
             // Not a customer payment (e.g. typed under the wrong account): its
             // UTR is free again, so a line waiting as its duplicate can match.
             if ($resolution === Resolution::Rejected && $entry->utr_normalized !== null) {
-                $waiting = StatementEntry::query()
-                    ->where(['utr_normalized' => $entry->utr_normalized, 'status' => 'duplicate'])
-                    ->whereKeyNot($entry->id)
-                    ->whereHas('openCase')
-                    ->orderBy('created_at')
-                    ->lockForUpdate()
-                    ->get();
-
-                foreach ($waiting as $other) {
-                    $this->matcher->match($other);
-                    $this->autoApprove->forLine($other);
-                }
+                $this->rematchDuplicates($entry->utr_normalized, $entry->id);
             }
         });
+    }
+
+    /**
+     * Lines waiting as duplicates of a UTR that was just given up: match
+     * them again.
+     */
+    private function rematchDuplicates(string $utr, string $exceptId): void
+    {
+        $waiting = StatementEntry::query()
+            ->where(['utr_normalized' => $utr, 'status' => 'duplicate'])
+            ->whereKeyNot($exceptId)
+            ->whereHas('openCase')
+            ->orderBy('created_at')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($waiting as $other) {
+            $this->matcher->match($other);
+            $this->autoApprove->forLine($other);
+        }
     }
 
     private function lockOpen(ReconciliationCase $case): StatementEntry

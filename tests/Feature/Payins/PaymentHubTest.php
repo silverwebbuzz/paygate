@@ -41,7 +41,7 @@ class PaymentHubTest extends TestCase
         $this->operator = User::factory()->branch(SystemRoles::BRANCH_OPERATOR, $this->branch)->withTwoFactor()->create();
     }
 
-    public function test_every_deposit_tab_shares_the_hub_with_its_counts_and_the_bank_entry()
+    public function test_every_deposit_tab_shares_the_hub_and_only_manual_entry_has_the_bank_entry()
     {
         $waiting = $this->submittedPayin();
         // A bank line with no deposit behind it: an open unsettled case.
@@ -67,20 +67,22 @@ class PaymentHubTest extends TestCase
                     ->where('hub.kind', 'deposit')
                     ->where('hub.counts.queue', 1)
                     ->where('hub.counts.unsettled', 1)
-                    ->where('hub.entry.accounts.0.branch_id', $this->branch->id)
-                    ->has('hub.entry.accounts', 1));
+                    ->where('hub.entry', $component === 'statements/index'
+                        ? fn ($entry) => count($entry['accounts']) === 1
+                            && $entry['accounts'][0]['branch_id'] === $this->branch->id
+                        : null));
         }
 
-        // The bar on the Manual Deposit tab approves the waiting deposit in place.
+        // The bar on the Manual Entry tab approves the waiting deposit.
         $this->actingAs($this->operator)
-            ->from(route('branch.deposits.index'))
+            ->from(route('branch.statements.index'))
             ->post(route('branch.statements.store'), [
                 'payment_account_id' => $waiting->payment_account_id,
                 'value_date' => now(config('app.business_timezone'))->toDateString(),
                 'utr' => '626812820491',
                 'credit' => number_format($waiting->amount / 100, 2, '.', ''),
             ])
-            ->assertRedirect(route('branch.deposits.index'));
+            ->assertRedirect(route('branch.statements.index'));
 
         $this->assertSame('success', $waiting->refresh()->status);
         $this->actingAs($this->operator)->get(route('branch.deposits.index'))
@@ -89,6 +91,8 @@ class PaymentHubTest extends TestCase
         // Admin's lists are tabs too; Chargebacks / Payout returns stay pages of their own.
         $admin = User::factory()->admin()->withTwoFactor()->create();
         $this->actingAs($admin)->get(route('admin.transactions.index'))
+            ->assertInertia(fn (Assert $page) => $page->where('hub.kind', 'deposit')->where('hub.entry', null));
+        $this->actingAs($admin)->get(route('admin.statements.index'))
             ->assertInertia(fn (Assert $page) => $page->where('hub.kind', 'deposit')->has('hub.entry.branches', 1));
         $this->actingAs($admin)->get(route('admin.payout-returns.index'))
             ->assertInertia(fn (Assert $page) => $page->where('hub', null));

@@ -62,7 +62,9 @@ class PartnerAccountsTest extends TestCase
                 ->where('accounts.0.account_number', $active->account_number_encrypted)
                 ->where('accounts.0.upi_id', $active->upi_id_encrypted)
                 ->where('accounts.0.upi_display_name', 'Shop UPI')
-                ->where('accounts.0.daily_amount_limit', 20000000)
+                // No deposit limits for partners (client request 2026-11-14).
+                ->where('accounts.0.daily_amount_limit', null)
+                ->where('accounts.0.min_amount', null)
                 ->where('accounts.0.status', 'active')
                 ->where('accounts.0.can.update', false)
                 ->where('accounts.0.can.switch_to', [])

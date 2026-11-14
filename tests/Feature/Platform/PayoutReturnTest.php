@@ -12,6 +12,7 @@ use App\Domain\Settlement\Models\Settlement;
 use App\Domain\Transaction\Models\PayoutReturn;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Webhook\Models\WebhookEvent;
+use App\Http\Middleware\EnforceSectionRollout;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -310,6 +311,8 @@ class PayoutReturnTest extends TestCase
         $this->assertSame(0, (int) Settlement::query()->whereKeyNot([$partner->id, $branch->id])->sum('returns_total'));
 
         $owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create();
+        // Retired from the branch / partner portals (SectionRollout::RETIRED); the page code is kept, so it stays tested.
+        $this->withoutMiddleware(EnforceSectionRollout::class);
         $this->actingAs($owner)->get(route('branch.settlements.index'))
             ->assertInertia(fn ($page) => $page->where('items.data.0.figures.returns', -250000));
 

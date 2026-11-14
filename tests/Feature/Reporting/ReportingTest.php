@@ -9,6 +9,7 @@ use App\Domain\Reporting\Actions\ManageReportExports;
 use App\Domain\Reporting\Jobs\GenerateReportExport;
 use App\Domain\Reporting\Models\ReportExport;
 use App\Domain\Reporting\Period;
+use App\Http\Middleware\EnforceSectionRollout;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -183,6 +184,8 @@ class ReportingTest extends TestCase
                 ->where('report.filters', ['branch' => 'Branch', 'search' => 'Search']));
         $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'payins']))->assertNotFound();
 
+        // Retired from the branch / partner portals (SectionRollout::RETIRED); the page code is kept, so it stays tested.
+        $this->withoutMiddleware(EnforceSectionRollout::class);
         $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
         $this->actingAs($partnerUser)->get(route('partner.reports.index'))
             ->assertRedirect(route('partner.reports.show', ['report' => 'partner_deposits']));

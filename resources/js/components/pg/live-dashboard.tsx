@@ -407,13 +407,11 @@ export function LiveDashboard({
                         <span className="text-sm font-semibold">
                             {metrics.table.title}
                         </span>
-                        {permissions.includes('reports.view') && (
+                        {/* Reports are admin-only since 2026-11-14. */}
+                        {portal === 'admin' &&
+                            permissions.includes('reports.view') && (
                             <Link
-                                href={
-                                    { admin, branch, partner }[
-                                        portal
-                                    ].reports.index().url
-                                }
+                                href={admin.reports.index().url}
                                 className="text-xs font-medium text-ac"
                             >
                                 View reports →

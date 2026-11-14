@@ -41,7 +41,7 @@ class SectionRolloutTest extends TestCase
     {
         $this->actingAs($this->super)->get(route('admin.section-rollout.index'))
             ->assertInertia(fn ($page) => $page->component('admin/section-rollout')
-                ->where('portals.admin.0.items.0.key', 'transactions')
+                ->where('portals.admin.0.items.0.key', 'accounts')
                 ->where('state.active', false)
                 ->where('superAdmin', true));
 
@@ -123,6 +123,25 @@ class SectionRolloutTest extends TestCase
         }
     }
 
+    public function test_branch_and_partner_reports_balance_and_settlement_list_are_retired()
+    {
+        // Client request 2026-11-14: their Finance is the settlement dashboard only, no Reports.
+        // Closed whatever rollout says (here: off).
+        $branchUser = User::factory()->branch(SystemRoles::BRANCH_OWNER)->withTwoFactor()->create();
+        $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER)->withTwoFactor()->create();
+
+        foreach (['/branch/balance', '/branch/settlements', '/branch/reports/branch_deposits'] as $path) {
+            $this->actingAs($branchUser)->get($path)->assertRedirect(route('branch.dashboard'));
+        }
+        $this->actingAs($branchUser)->post('/branch/reports/export', ['report' => 'branch_deposits', 'format' => 'csv'])->assertForbidden();
+        $this->actingAs($branchUser)->get('/branch/settlement-dashboard')->assertOk();
+
+        foreach (['/partner/balance', '/partner/settlements', '/partner/reports/partner_deposits'] as $path) {
+            $this->actingAs($partnerUser)->get($path)->assertRedirect(route('partner.dashboard'));
+        }
+        $this->actingAs($partnerUser)->get('/partner/settlement-dashboard')->assertOk();
+    }
+
     public function test_every_portal_page_belongs_to_a_section_or_is_always_open()
     {
         // Dashboards (exact) and the super-admin tools are never closed.
@@ -135,6 +154,11 @@ class SectionRolloutTest extends TestCase
                     $paths[$portal] = [...$paths[$portal] ?? [], ...$item['paths']];
                 }
             }
+        }
+
+        // Retired pages are owned too: closed to everyone.
+        foreach (SectionRollout::RETIRED as $portal => $retired) {
+            $paths[$portal] = [...$paths[$portal] ?? [], ...$retired];
         }
 
         foreach (Route::getRoutes()->getRoutes() as $route) {

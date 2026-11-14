@@ -111,7 +111,7 @@ type Props = {
     };
     accounts: Account[];
     branches: { id: string; code: string; name: string }[];
-    can: { create: boolean; resolve: boolean };
+    can: { create: boolean; resolve: boolean; edit_line: boolean };
     reasons: Record<string, string>;
     selected: string | null;
     detail?: Detail | null;
@@ -129,7 +129,7 @@ const TABS: [string, string][] = [
 ];
 
 type Decision = null | {
-    kind: 'approve' | 'hold' | 'decline';
+    kind: 'approve' | 'hold' | 'decline' | 'edit';
     line: StatementLine;
 };
 
@@ -148,6 +148,9 @@ export default function Statements(props: Props) {
     const [openId, setOpenId] = useState<string | null>(props.selected);
     const [decision, setDecision] = useState<Decision>(null);
     const open = items.data.find((line) => line.id === openId) ?? null;
+    // Admin only: an unsettled line's UTR / amount can be corrected.
+    const canEdit = (line: StatementLine) =>
+        props.can.edit_line && line.case?.status === 'open';
 
     // from / to are the business dates the period covers; the URL keeps the period.
     const query = (next: Partial<Filters & PeriodQuery> = {}) =>
@@ -455,6 +458,14 @@ export default function Statements(props: Props) {
                             Details
                         </PgButton>
                     )}
+                    {canEdit(line) && (
+                        <PgButton
+                            className="h-7 px-2 text-xs"
+                            onClick={() => setDecision({ kind: 'edit', line })}
+                        >
+                            Edit
+                        </PgButton>
+                    )}
                     {canDecline(line) && (
                         <PgButton
                             className="h-7 px-2 text-xs text-er"
@@ -675,6 +686,16 @@ export default function Statements(props: Props) {
                                     Match to transaction
                                 </Link>
                             )}
+                            {canEdit(open) && (
+                                <PgButton
+                                    className="h-8 px-3 text-[13px]"
+                                    onClick={() =>
+                                        setDecision({ kind: 'edit', line: open })
+                                    }
+                                >
+                                    Edit UTR / amount
+                                </PgButton>
+                            )}
                             {canDecline(open) && (
                                 <PgButton
                                     className="h-8 px-3 text-[13px] text-er"
@@ -695,6 +716,13 @@ export default function Statements(props: Props) {
                 />
             )}
 
+            {decision?.kind === 'edit' && decision.line.case && (
+                <EditLine
+                    line={decision.line}
+                    url={adminCases.editLine(decision.line.case.id).url}
+                    onClose={() => setDecision(null)}
+                />
+            )}
             {decision?.kind === 'approve' && decision.line.transaction && (
                 <ApproveFromLine
                     line={decision.line}
@@ -767,6 +795,69 @@ export default function Statements(props: Props) {
                 />
             )}
         </>
+    );
+}
+
+/**
+ * Admin only (client request 2026-11-14): correct the UTR / amount of an
+ * unsettled line; it is matched again straight away.
+ */
+function EditLine({
+    line,
+    url,
+    onClose,
+}: {
+    line: StatementLine;
+    url: string;
+    onClose: () => void;
+}) {
+    const form = useForm({
+        utr: line.utr ?? '',
+        amount: (line.amount / 100).toFixed(2),
+        note: '',
+    });
+    const errors = form.errors as Record<string, string | undefined>;
+
+    return (
+        <FormDialog
+            open
+            onOpenChange={(next) => !next && onClose()}
+            title="Correct this bank line"
+            description={`${line.account.bank ?? line.account.label} · ${formatDate(line.value_date)}. Change the UTR or the amount to what the bank statement shows. The line is matched again at once: if a waiting deposit has this UTR and amount, it is approved. A UTR already on another line is refused.`}
+            submitLabel="Save and match"
+            processing={form.processing}
+            onSubmit={() =>
+                form.post(url, { preserveScroll: true, onSuccess: onClose })
+            }
+        >
+            <Field label="UTR / reference" error={errors.utr ?? errors.case}>
+                <TextInput
+                    className="font-mono"
+                    value={form.data.utr}
+                    onChange={(event) => form.setData('utr', event.target.value)}
+                />
+            </Field>
+            <Field
+                label={`${line.direction === 'credit' ? 'Credit' : 'Debit'} ₹`}
+                error={errors.amount}
+            >
+                <TextInput
+                    required
+                    inputMode="decimal"
+                    value={form.data.amount}
+                    onChange={(event) =>
+                        form.setData('amount', event.target.value)
+                    }
+                />
+            </Field>
+            <Field label="Why (kept in the history)" error={errors.note}>
+                <TextInput
+                    required
+                    value={form.data.note}
+                    onChange={(event) => form.setData('note', event.target.value)}
+                />
+            </Field>
+        </FormDialog>
     );
 }
 
