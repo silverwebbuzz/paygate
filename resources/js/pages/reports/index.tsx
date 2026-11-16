@@ -52,6 +52,26 @@ type Props = {
     can: { export: boolean };
 };
 
+/** Status filter choices of the Pay-ins / Payouts reports. */
+const STATUSES: Record<string, [string, string][]> = {
+    payins: [
+        ['success', 'Success'],
+        ['payment_submitted', 'Pending'],
+        ['under_review', 'Payment hold'],
+        ['awaiting_payment', 'Awaiting payment'],
+        ['rejected', 'Declined'],
+        ['expired', 'Expired'],
+        ['cancelled', 'Cancelled'],
+    ],
+    payouts: [
+        ['success', 'Paid'],
+        ['assigned', 'Assigned'],
+        ['processing', 'Processing'],
+        ['failed', 'Failed'],
+        ['cancelled', 'Cancelled'],
+    ],
+};
+
 const EXPORT_LABELS: Record<string, string> = {
     queued: 'Waiting',
     running: 'Preparing',
@@ -189,75 +209,84 @@ export default function Reports(props: Props) {
                                 className="w-full"
                             />
                         ) : (
-                            <span className="text-xs text-tx3">
-                                As of now
-                            </span>
+                            <span className="text-xs text-tx3">As of now</span>
                         )}
-                        {Object.entries(report.filters).map(
-                            ([key, label]) =>
-                                key === 'search' ? (
-                                    <form
-                                        key={key}
-                                        onSubmit={(event) => {
-                                            event.preventDefault();
+                        {Object.entries(report.filters).map(([key, label]) =>
+                            key === 'search' ? (
+                                <form
+                                    key={key}
+                                    onSubmit={(event) => {
+                                        event.preventDefault();
+                                        visit({
+                                            search: search || null,
+                                        });
+                                    }}
+                                >
+                                    <input
+                                        value={search}
+                                        onChange={(event) =>
+                                            setSearch(event.target.value)
+                                        }
+                                        onBlur={() =>
+                                            search !== (filters.search ?? '') &&
                                             visit({
                                                 search: search || null,
-                                            });
-                                        }}
-                                    >
-                                        <input
-                                            value={search}
-                                            onChange={(event) =>
-                                                setSearch(
-                                                    event.target.value,
-                                                )
-                                            }
-                                            onBlur={() =>
-                                                search !==
-                                                    (filters.search ??
-                                                        '') &&
-                                                visit({
-                                                    search: search || null,
-                                                })
-                                            }
-                                            placeholder={`${label} by name or code`}
-                                            className="h-[30px] w-[220px] rounded-[7px] border border-ln bg-sf px-2.5 text-[12.5px]"
-                                        />
-                                    </form>
-                                ) : (
-                                    <SelectInput
-                                        key={key}
-                                        className="h-[30px] w-[180px] text-[12.5px]"
-                                        value={filters[key] ?? ''}
-                                        onChange={(event) =>
-                                            visit({
-                                                [key]:
-                                                    event.target.value ||
-                                                    null,
                                             })
                                         }
-                                    >
-                                        <option value="">{`${label}: all`}</option>
-                                        {(key === 'partner' ||
-                                            key === 'branch') &&
-                                            options[key].map((option) => (
+                                        placeholder={`${label} by name or code`}
+                                        className="h-[30px] w-[220px] rounded-[7px] border border-ln bg-sf px-2.5 text-[12.5px]"
+                                    />
+                                </form>
+                            ) : (
+                                <SelectInput
+                                    key={key}
+                                    className="h-[30px] w-[180px] text-[12.5px]"
+                                    value={filters[key] ?? ''}
+                                    onChange={(event) =>
+                                        visit({
+                                            [key]: event.target.value || null,
+                                        })
+                                    }
+                                >
+                                    <option value="">{`${label}: all`}</option>
+                                    {key === 'status' &&
+                                        (STATUSES[report.key] ?? []).map(
+                                            ([value, text]) => (
                                                 <option
-                                                    key={option.id}
-                                                    value={option.id}
+                                                    key={value}
+                                                    value={value}
                                                 >
-                                                    {option.name}
+                                                    {text}
                                                 </option>
-                                            ))}
-                                    </SelectInput>
-                                ),
+                                            ),
+                                        )}
+                                    {key === 'party_type' && (
+                                        <>
+                                            <option value="partner">
+                                                Partners
+                                            </option>
+                                            <option value="branch">
+                                                Branches
+                                            </option>
+                                        </>
+                                    )}
+                                    {(key === 'partner' || key === 'branch') &&
+                                        options[key].map((option) => (
+                                            <option
+                                                key={option.id}
+                                                value={option.id}
+                                            >
+                                                {option.name}
+                                            </option>
+                                        ))}
+                                </SelectInput>
+                            ),
                         )}
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <Total
                             label="Rows"
-                            value={(totals._count ?? 0).toLocaleString(
-                                'en-IN',
-                            )}
+                            value={(totals._count ?? 0).toLocaleString('en-IN')}
                         />
                         {summed.map((column) => (
                             <Total
@@ -293,8 +322,8 @@ export default function Reports(props: Props) {
                     {(totals._count ?? 0) > rows.length && (
                         <div className="border-t border-ln2 px-3 py-2.5 text-xs text-tx3">
                             Showing the first {rows.length} of{' '}
-                            {totals._count.toLocaleString('en-IN')} rows.
-                            Export the report for all of them.
+                            {totals._count.toLocaleString('en-IN')} rows. Export
+                            the report for all of them.
                         </div>
                     )}
                 </Panel>
@@ -305,35 +334,25 @@ export default function Reports(props: Props) {
                             Your exports
                         </div>
                         <p className="text-xs text-tx3">
-                            Prepared in the background. Files are deleted
-                            after 7 days; export again if you need it later.
+                            Prepared in the background. Files are deleted after
+                            7 days; export again if you need it later.
                         </p>
                         <SimpleTable
-                            headers={[
-                                'Report',
-                                'Asked',
-                                'Rows',
-                                'Status',
-                                '',
-                            ]}
+                            headers={['Report', 'Asked', 'Rows', 'Status', '']}
                             rows={props.exports.map((item) => [
                                 `${item.report} · ${item.format === 'csv' ? 'CSV' : 'Excel'}`,
                                 formatDateTime(item.created_at),
                                 item.rows === null
                                     ? '—'
                                     : item.rows.toLocaleString('en-IN'),
-                                <span
-                                    key="s"
-                                    title={item.error ?? undefined}
-                                >
+                                <span key="s" title={item.error ?? undefined}>
                                     <StatusBadge
                                         status={
                                             item.status === 'ready'
                                                 ? 'success'
                                                 : item.status === 'failed'
                                                   ? 'failed'
-                                                  : item.status ===
-                                                      'expired'
+                                                  : item.status === 'expired'
                                                     ? 'cancelled'
                                                     : 'processing'
                                         }

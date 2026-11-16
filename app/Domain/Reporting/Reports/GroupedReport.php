@@ -47,8 +47,8 @@ class GroupedReport extends Report
 
     public function portals(): array
     {
-        // A branch's per-partner view is the pair report limited to itself.
-        return $this->by === 'pairs' ? [UserType::Admin, UserType::Branch] : [UserType::Admin];
+        // Admin only since it was brought back (2026-11-16).
+        return [UserType::Admin];
     }
 
     public function columns(Scope $scope): array
@@ -88,8 +88,8 @@ class GroupedReport extends Report
             ->selectRaw(implode(', ', $group).", COUNT(*) FILTER (WHERE direction = 'payin') AS payin_count, COALESCE(SUM(amount) FILTER (WHERE direction = 'payin'), 0) AS payin_amount, COUNT(*) FILTER (WHERE direction = 'payout') AS payout_count, COALESCE(SUM(amount) FILTER (WHERE direction = 'payout'), 0) AS payout_amount, COALESCE(SUM(partner_commission), 0) AS partner_commission, COALESCE(SUM(branch_commission), 0) AS branch_commission, COALESCE(SUM(platform_margin), 0) AS platform_margin")
             ->get();
 
-        $partners = Partner::query()->pluck('code', 'id');
-        $branches = Branch::query()->pluck('code', 'id');
+        $partners = Partner::query()->pluck('name', 'id');
+        $branches = Branch::query()->pluck('name', 'id');
         $pairs = $this->ledger->pairPositions();
         $position = function (string $kind, ?string $partnerId, ?string $branchId) use ($pairs): int {
             $total = 0;

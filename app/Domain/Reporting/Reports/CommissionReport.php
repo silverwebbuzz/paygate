@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reporting\Reports;
 
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Reporting\Period;
 use App\Domain\Reporting\Scope;
 use App\Domain\Transaction\Models\Transaction;
@@ -12,6 +13,13 @@ use App\Domain\Transaction\Models\Transaction;
  */
 class CommissionReport extends Report
 {
+    public function portals(): array
+    {
+        // Brought back for Admin only (2026-11-16): branches and partners
+        // keep just their own Deposit / Withdrawal reports.
+        return [UserType::Admin];
+    }
+
     public function key(): string
     {
         return 'commission';

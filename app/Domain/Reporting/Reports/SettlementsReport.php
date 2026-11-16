@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reporting\Reports;
 
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Reporting\Period;
 use App\Domain\Reporting\Scope;
 use App\Domain\Settlement\Models\Settlement;
@@ -12,6 +13,13 @@ use App\Domain\Settlement\Models\Settlement;
  */
 class SettlementsReport extends Report
 {
+    public function portals(): array
+    {
+        // Brought back for Admin only (2026-11-16): branches and partners
+        // keep just their own Deposit / Withdrawal reports.
+        return [UserType::Admin];
+    }
+
     public function key(): string
     {
         return 'settlements';
@@ -73,7 +81,7 @@ class SettlementsReport extends Report
             /** @var Settlement $settlement */
             yield [
                 'reference' => $settlement->reference,
-                'party' => $settlement->party_type === 'partner' ? 'Partner '.($settlement->partner->code ?? '—') : 'Branch '.($settlement->branch->code ?? '—'),
+                'party' => $settlement->party_type === 'partner' ? 'Partner '.($settlement->partner->name ?? '—') : 'Branch '.($settlement->branch->name ?? '—'),
                 'period_start' => $settlement->period_start->toIso8601String(),
                 'period_end' => $settlement->period_end->toIso8601String(),
                 'opening' => $settlement->opening_balance,

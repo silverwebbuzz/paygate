@@ -2,6 +2,7 @@
 
 namespace App\Domain\Reporting\Reports;
 
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Reporting\Period;
 use App\Domain\Reporting\Scope;
 use App\Domain\Transaction\Models\Transaction;
@@ -14,6 +15,13 @@ use Illuminate\Database\Query\Builder;
 class TransactionsReport extends Report
 {
     public function __construct(private string $direction) {}
+
+    public function portals(): array
+    {
+        // Brought back for Admin only (2026-11-16): branches and partners
+        // keep just their own Deposit / Withdrawal reports.
+        return [UserType::Admin];
+    }
 
     public function key(): string
     {
@@ -68,14 +76,14 @@ class TransactionsReport extends Report
         foreach ($this->query($scope, $period, $filters)->select([
             't.reference', 't.partner_transaction_id', 't.created_at', 't.method', 't.amount', 't.order_amount', 't.customer_utr_normalized',
             't.bank_utr_normalized', 't.status', 't.decided_at', 't.partner_commission', 't.branch_commission', 't.platform_margin',
-            'p.code as partner_code', 'b.code as branch_code', 'c.external_id as customer_id', 'pb.account_holder_name as beneficiary',
+            'p.name as partner_name', 'b.name as branch_name', 'c.external_id as customer_id', 'pb.account_holder_name as beneficiary',
         ])->orderBy('t.created_at')->orderBy('t.id')->lazy(1000) as $row) {
             yield [
                 'reference' => $row->reference,
                 'order_id' => $row->partner_transaction_id,
                 'created_at' => $row->created_at,
-                'partner' => $row->partner_code,
-                'branch' => $row->branch_code,
+                'partner' => $row->partner_name,
+                'branch' => $row->branch_name,
                 'customer' => $row->customer_id,
                 'method' => match ($row->method) {
                     'upi' => 'UPI',

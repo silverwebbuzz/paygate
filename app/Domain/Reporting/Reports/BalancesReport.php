@@ -3,6 +3,7 @@
 namespace App\Domain\Reporting\Reports;
 
 use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Payout\PartnerBalance;
@@ -17,6 +18,13 @@ use App\Domain\Reporting\Scope;
 class BalancesReport extends Report
 {
     public function __construct(private Ledger $ledger, private PartnerBalance $balances) {}
+
+    public function portals(): array
+    {
+        // Brought back for Admin only (2026-11-16): branches and partners
+        // keep just their own Deposit / Withdrawal reports.
+        return [UserType::Admin];
+    }
 
     public function key(): string
     {
@@ -68,8 +76,8 @@ class BalancesReport extends Report
             return;
         }
 
-        $partners = Partner::query()->pluck('code', 'id');
-        $branches = Branch::query()->pluck('code', 'id');
+        $partners = Partner::query()->pluck('name', 'id');
+        $branches = Branch::query()->pluck('name', 'id');
         $pairs = array_filter($this->ledger->pairPositions(), fn (array $pair) => $scope->isAdmin() || $pair['branch_id'] === $scope->branchId);
 
         usort($pairs, fn (array $a, array $b) => [$partners[$a['partner_id']] ?? '', $branches[$a['branch_id']] ?? ''] <=> [$partners[$b['partner_id']] ?? '', $branches[$b['branch_id']] ?? '']);

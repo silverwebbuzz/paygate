@@ -182,7 +182,8 @@ class ReportingTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('reports/index')
                 ->where('report.key', 'branch_deposits')
                 ->where('report.filters', ['branch' => 'Branch', 'search' => 'Search']));
-        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'payins']))->assertNotFound();
+        // A report that doesn't exist.
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'nope']))->assertNotFound();
 
         // Retired from the branch / partner portals (SectionRollout::RETIRED); the page code is kept, so it stays tested.
         $this->withoutMiddleware(EnforceSectionRollout::class);
@@ -222,6 +223,32 @@ class ReportingTest extends TestCase
         $other = User::factory()->branch(SystemRoles::BRANCH_OWNER, Branch::factory()->create())->withTwoFactor()->create();
         $this->actingAs($other)->get(route('branch.reports.show', ['report' => 'branch_deposits', 'range' => 'today']))
             ->assertInertia(fn ($page) => $page->where('rows', []));
+    }
+
+    public function test_the_earlier_reports_are_back_for_admin_only_with_names_not_codes()
+    {
+        foreach (['payins', 'payouts', 'partners', 'branches', 'pairs', 'commission', 'balances', 'settlements'] as $key) {
+            $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => $key, 'range' => 'today']))
+                ->assertInertia(fn ($page) => $page->component('reports/index')->where('report.key', $key));
+        }
+
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'payins', 'range' => 'today']))
+            ->assertInertia(fn ($page) => $page->has('rows', 4)
+                ->where('totals._count', 4)
+                ->where('totals.amount', 1670000)
+                ->where('totals.platform_margin', 25000)
+                ->where('rows.0.partner', $this->partner->name)
+                ->where('rows.0.branch', $this->branch->name));
+        $this->actingAs($this->admin)->get(route('admin.reports.show', ['report' => 'pairs', 'range' => 'today']))
+            ->assertInertia(fn ($page) => $page->where('rows.0.partner', $this->partner->name)->where('rows.0.branch', $this->branch->name));
+        $this->actingAs($this->admin)->post(route('admin.reports.export'), ['report' => 'payins', 'format' => 'csv', 'range' => 'today'])->assertSessionHasNoErrors();
+
+        // Branches and partners keep only their own Deposit / Withdrawal reports.
+        $this->withoutMiddleware(EnforceSectionRollout::class);
+        $partnerUser = User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->withTwoFactor()->create();
+        $this->actingAs($partnerUser)->get(route('partner.reports.show', ['report' => 'payins']))->assertNotFound();
+        $owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create();
+        $this->actingAs($owner)->get(route('branch.reports.show', ['report' => 'pairs']))->assertNotFound();
     }
 
     public function test_exports_are_prepared_downloaded_by_their_owner_only_and_deleted_after_seven_days()
