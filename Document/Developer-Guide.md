@@ -73,6 +73,7 @@ Open **http://paygate.local** and log in with `admin@paygate.local` / `password`
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | http://paygate.local                       | Portals: login, `/admin`, `/partner`, `/branch`                                                                                                  |
 | http://paygate.local/horizon               | Queue dashboard (open locally; super admins only on servers)                                                                                     |
+| http://paygate.local/admin/guide           | Guide (every admin): the whole system in simple English; content in `resources/js/lib/guide-content.tsx` |
 | http://paygate.local/admin/partners        | Partners: list, create wizard, drawer (keys, rates, branches, activity)                                                                          |
 | http://paygate.local/admin/branches        | Branches: list, form, drawer (accounts, partners, users, top-ups, rates)                                                                         |
 | http://paygate.local/admin/mappings        | Partner ↔ branch pairs: switches, pair limits, pair rates                                                                                        |

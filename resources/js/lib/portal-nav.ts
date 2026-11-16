@@ -1,5 +1,6 @@
 import type { InertiaLinkProps } from '@inertiajs/react';
 import {
+    BookOpen,
     Code,
     FileText,
     GitCompareArrows,
@@ -316,6 +317,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'partners.view',
                 },
             ],
+        },
+        {
+            // Admin only (2026-11-16): the whole system in simple English,
+            // to answer branches' and partners' questions.
+            label: 'Guide',
+            icon: BookOpen,
+            items: [{ label: 'Guide', href: admin.guide() }],
         },
         account,
     ],

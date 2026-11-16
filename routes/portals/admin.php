@@ -5,6 +5,7 @@ use App\Http\Admin\Activity\OrganisationActivityController;
 use App\Http\Admin\Branches\BranchController;
 use App\Http\Admin\Commissions\CommissionController;
 use App\Http\Admin\Developer\PartnerApiDocsController;
+use App\Http\Admin\Guide\GuideController;
 use App\Http\Admin\Mappings\MappingController;
 use App\Http\Admin\Partners\PartnerController;
 use App\Http\Admin\Partners\PartnerIntegrationFileController;
@@ -159,6 +160,9 @@ Route::controller(PartnerController::class)->prefix('partners')->name('partners.
     Route::put('{partner}/direction', 'direction')->name('direction');
     Route::put('{partner}/limits', 'limits')->name('limits');
 });
+// Guide: the whole system explained in simple English (every admin).
+Route::get('guide', [GuideController::class, 'show'])->name('guide');
+
 // Developer › Partner API Docs: the standard integration guide (page, preview, PDF).
 Route::controller(PartnerApiDocsController::class)->prefix('partner-api-docs')->name('partner-api-docs.')->group(function () {
     Route::get('/', 'show')->name('show');
