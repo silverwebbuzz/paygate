@@ -80,6 +80,8 @@ type Props = {
     types: Record<string, string>;
     branches: { id: string; code: string; name: string }[];
     selected: string | null;
+    /** The linked case when it isn't on this page of the list. */
+    selected_case: CaseRow | null;
     candidates?: Candidate[];
 };
 
@@ -102,7 +104,9 @@ export default function Cases(props: Props) {
     const routes = portal === 'admin' ? adminCases : branchCases;
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(props.selected);
-    const open = cases.data.find((item) => item.id === openId) ?? null;
+    const open =
+        cases.data.find((item) => item.id === openId) ??
+        (props.selected_case?.id === openId ? props.selected_case : null);
 
     const visit = (next: Record<string, string | null>) =>
         router.get(
@@ -607,10 +611,12 @@ function CaseDrawer({
                                             Link
                                         </PgButton>
                                     ) : (
-                                        <span className="max-w-[180px] text-right text-xs text-tx3">
-                                            {candidate.status === 'success'
-                                                ? 'Different amount: only exact amounts can be linked'
-                                                : 'Approve it in Manual Deposit for the amount received; this line then links itself'}
+                                        <span className="max-w-[200px] text-right text-xs text-tx3">
+                                            {line.direction === 'debit'
+                                                ? 'No transfer of this amount without a bank line: only exact amounts can be linked'
+                                                : candidate.status === 'success'
+                                                  ? 'Different amount: only exact amounts can be linked'
+                                                  : 'Approve it in Manual Deposit for the amount received (this line then links itself), or decline it from the statement line and this line waits for a deposit of the amount the bank shows'}
                                         </span>
                                     )}
                                 </div>

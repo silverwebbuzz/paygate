@@ -343,7 +343,7 @@ class ResolveCase
             $txn->isPayin() && $txn->payment_account_id !== $entry->payment_account_id => __(':reference was paid to another account.', ['reference' => $txn->reference]),
             ! $txn->isPayin() && $txn->branch_id !== $entry->branch_id => __(':reference was paid by another branch.', ['reference' => $txn->reference]),
             $exactAmount && $txn->isPayin() && $txn->amount !== $entry->amount => __(in_array($txn->status, ['payment_submitted', 'payment_detected', 'under_review'], true)
-                ? 'The amounts differ (bank ₹:bank, :reference ₹:txn). Approve :reference in Deposits for the amount received; this line then links itself.'
+                ? 'The amounts differ (bank ₹:bank, :reference ₹:txn). Approve :reference in Deposits for the amount received (this line then links itself), or decline it from the statement line and this line waits for a deposit of the amount the bank shows.'
                 : 'The amounts differ (bank ₹:bank, :reference ₹:txn). Only exact amounts can be linked.', [
                     'bank' => number_format($entry->amount / 100, 2),
                     'reference' => $txn->reference,

@@ -51,9 +51,10 @@ class CaseController extends Controller
                 ->orWhereHas('transaction', fn (Builder $query) => $query->where('reference', strtoupper($search)))));
         $inTab = fn (string $key) => $key === 'open' ? $base()->where('status', '!=', 'resolved') : $base()->where('status', 'resolved');
 
+        $with = ['branch', 'resolver', 'transaction.branch', ...array_map(fn (string $relation) => 'entry.'.$relation, StatementPresenter::WITH)];
         $cases = $inTab($tab)
             ->when($type !== null, fn (Builder $query) => $query->where('type', $type->value))
-            ->with(['branch', 'resolver', 'transaction.branch', ...array_map(fn (string $relation) => 'entry.'.$relation, StatementPresenter::WITH)])
+            ->with($with)
             ->orderByDesc($tab === 'open' ? 'created_at' : 'resolved_at')
             ->paginate(30)
             ->withQueryString();
@@ -93,6 +94,18 @@ class CaseController extends Controller
             'types' => collect(CaseType::cases())->mapWithKeys(fn (CaseType $type) => [$type->value => $type->label()]),
             'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
             'selected' => is_string($selected) ? $selected : null,
+            // The case opened by link (Statements → Match) may not be on this
+            // page of the list (30 newest, current tab and filters): send it
+            // on its own so its drawer still opens.
+            'selected_case' => function () use ($selected, $actor, $with, $rows) {
+                if (! is_string($selected) || in_array($selected, array_column($rows, 'id'), true)) {
+                    return null;
+                }
+
+                $case = ReconciliationScope::cases($actor)->with($with)->find($selected);
+
+                return $case === null ? null : $this->presenter->caseRow($case, $actor);
+            },
             // Transactions the open case's bank line could be linked to.
             'candidates' => Inertia::optional(function () use ($selected, $actor, $request) {
                 $case = is_string($selected) ? ReconciliationScope::cases($actor)->with('entry')->find($selected) : null;

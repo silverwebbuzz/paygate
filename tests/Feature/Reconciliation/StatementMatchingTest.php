@@ -494,6 +494,68 @@ class StatementMatchingTest extends TestCase
         $this->assertSame('resolved', ReconciliationCase::sole()->status);
     }
 
+    public function test_a_later_transfer_of_a_payout_paid_in_parts_is_offered_and_linked_by_hand()
+    {
+        $payout = Transaction::create([
+            'reference' => Transaction::newPayoutReference(),
+            'direction' => 'payout',
+            'partner_id' => $this->partner->id,
+            'partner_transaction_id' => 'WD-2',
+            'branch_id' => $this->branch->id,
+            'amount' => 500000,
+            'status' => 'processing',
+        ]);
+        $first = PayoutPayment::create([
+            'transaction_id' => $payout->id, 'branch_id' => $this->branch->id, 'amount' => 250000,
+            'utr' => 'IMPS601234567891', 'utr_normalized' => 'IMPS601234567891', 'paid_at' => now(), 'created_at' => now(),
+        ]);
+        $second = PayoutPayment::create([
+            'transaction_id' => $payout->id, 'branch_id' => $this->branch->id, 'amount' => 250000,
+            'utr' => 'IMPS601234567892', 'utr_normalized' => 'IMPS601234567892', 'paid_at' => now(), 'created_at' => now(),
+        ]);
+
+        // The first transfer's line links itself; the second's shows another UTR.
+        $this->addLine(['utr' => 'IMPS601234567891', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
+        $this->assertSame($first->id, $this->line('IMPS601234567891')->payout_payment_id);
+        $this->addLine(['utr' => 'IMPS609999999999', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
+        $case = ReconciliationCase::where('status', 'open')->sole();
+
+        // The payout already has a line, but its second transfer doesn't.
+        $candidates = $this->partial($this->owner, route('branch.cases.index', ['case' => $case->id]), 'reconciliation/cases', 'candidates')->json('props.candidates');
+        $this->assertSame([[$payout->reference, true]], array_map(fn (array $candidate) => [$candidate['reference'], $candidate['same_amount']], $candidates));
+
+        $this->actingAs($this->owner)->post(route('branch.cases.link', $case), ['transaction_id' => $payout->id])->assertSessionHasNoErrors();
+        $this->assertSame($second->id, $this->line('IMPS609999999999')->payout_payment_id);
+
+        // Both transfers have a line now: nothing left to offer.
+        $this->addLine(['utr' => 'IMPS608888888888', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
+        $next = ReconciliationCase::where('status', 'open')->sole();
+        $this->assertSame([], $this->partial($this->owner, route('branch.cases.index', ['case' => $next->id]), 'reconciliation/cases', 'candidates')->json('props.candidates'));
+    }
+
+    public function test_a_case_opened_by_link_is_sent_even_when_it_is_not_on_the_first_page()
+    {
+        $this->addLine(['utr' => '', 'description' => 'OLDEST', 'credit' => '100'])->assertSessionHasNoErrors();
+        $oldest = ReconciliationCase::sole();
+        $oldest->forceFill(['created_at' => now()->subDay()])->save();
+
+        foreach (range(1, 30) as $i) {
+            $this->addLine(['utr' => '', 'description' => "LINE {$i}", 'credit' => (string) (100 + $i)])->assertSessionHasNoErrors();
+        }
+
+        $this->actingAs($this->owner)->get(route('branch.cases.index', ['case' => $oldest->id]))
+            ->assertInertia(fn ($page) => $page
+                ->component('reconciliation/cases')
+                ->count('cases.data', 30)
+                ->where('selected_case.id', $oldest->id)
+                ->where('selected_case.reference', $oldest->reference));
+
+        // A case on the page needs no extra row.
+        $newest = ReconciliationCase::orderByDesc('created_at')->first();
+        $this->actingAs($this->owner)->get(route('branch.cases.index', ['case' => $newest->id]))
+            ->assertInertia(fn ($page) => $page->where('selected_case', null));
+    }
+
     public function test_branches_see_only_their_own_lines_and_cases()
     {
         $other = Branch::factory()->create();
