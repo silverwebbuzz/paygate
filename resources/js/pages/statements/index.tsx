@@ -1,52 +1,53 @@
-import { Link, router, useForm } from '@inertiajs/react';
-import { Download, History, Info, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
-import { PgButton } from '@/components/pg/button';
-import { ConfirmDialog } from '@/components/pg/confirm-dialog';
-import { DataTable, Panel } from '@/components/pg/data-table';
-import type { Column } from '@/components/pg/data-table';
-import { Drawer, KeyValues } from '@/components/pg/drawer';
-import { EmptyState } from '@/components/pg/empty-state';
-import { Field, SelectInput, TextInput } from '@/components/pg/field';
-import { ViewTabs } from '@/components/pg/filter-bar';
-import { FormDialog } from '@/components/pg/form-dialog';
-import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
-import { MultiSelect } from '@/components/pg/multi-select';
-import { LiveIndicator } from '@/components/pg/page-header';
-import { PaymentHubHeader } from '@/components/pg/payment-hub';
-import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
-import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
+import { Link, router, useForm } from "@inertiajs/react";
+import { Download, History, Info, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { PgButton } from "@/components/pg/button";
+import { ConfirmDialog } from "@/components/pg/confirm-dialog";
+import { DataTable, Panel } from "@/components/pg/data-table";
+import type { Column } from "@/components/pg/data-table";
+import { Drawer, KeyValues } from "@/components/pg/drawer";
+import { EmptyState } from "@/components/pg/empty-state";
+import { Field, SelectInput, TextInput } from "@/components/pg/field";
+import { ViewTabs } from "@/components/pg/filter-bar";
+import { FormDialog } from "@/components/pg/form-dialog";
+import { KpiGrid, StatTile } from "@/components/pg/kpi-card";
+import { MultiSelect } from "@/components/pg/multi-select";
+import { LiveIndicator } from "@/components/pg/page-header";
+import { PaymentHubHeader } from "@/components/pg/payment-hub";
+import { PeriodFilter, periodQuery } from "@/components/pg/period-filter";
+import type { PeriodQuery, PeriodValue } from "@/components/pg/period-filter";
 import {
     CompareBlock,
     DISPLAY_LABELS,
     LineAmount,
     MATCH_LABELS,
-} from '@/components/pg/reconciliation';
+    MoveLineDialog,
+} from "@/components/pg/reconciliation";
 import type {
     CaseSummary,
     StatementLine,
-} from '@/components/pg/reconciliation';
-import { SHOW_DEBIT } from '@/components/pg/statement-entry';
-import { accountLabel } from '@/components/pg/statement-import-dialog';
-import { StatusBadge } from '@/components/pg/status-badge';
+} from "@/components/pg/reconciliation";
+import { SHOW_DEBIT } from "@/components/pg/statement-entry";
+import { accountLabel } from "@/components/pg/statement-import-dialog";
+import { StatusBadge } from "@/components/pg/status-badge";
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { formatDate, formatDateTime } from '@/lib/dates';
-import { formatPaise } from '@/lib/money';
-import type { HubProps } from '@/lib/payment-hub';
-import adminCases from '@/routes/admin/cases';
-import adminDeposits from '@/routes/admin/deposits';
-import adminImports from '@/routes/admin/statement-imports';
-import adminStatements from '@/routes/admin/statements';
-import branchCases from '@/routes/branch/cases';
-import branchDeposits from '@/routes/branch/deposits';
-import branchImports from '@/routes/branch/statement-imports';
-import branchStatements from '@/routes/branch/statements';
-import type { UserType } from '@/types';
+} from "@/components/ui/tooltip";
+import { formatDate, formatDateTime } from "@/lib/dates";
+import { formatPaise } from "@/lib/money";
+import type { HubProps } from "@/lib/payment-hub";
+import adminCases from "@/routes/admin/cases";
+import adminDeposits from "@/routes/admin/deposits";
+import adminImports from "@/routes/admin/statement-imports";
+import adminStatements from "@/routes/admin/statements";
+import branchCases from "@/routes/branch/cases";
+import branchDeposits from "@/routes/branch/deposits";
+import branchImports from "@/routes/branch/statement-imports";
+import branchStatements from "@/routes/branch/statements";
+import type { UserType } from "@/types";
 
 type Filters = {
     from: string;
@@ -97,7 +98,7 @@ type Props = {
     filters: Filters;
     period: PeriodValue;
     counts: Record<
-        'all' | 'pending' | 'approved' | 'unsettled' | 'ignored',
+        "all" | "pending" | "approved" | "unsettled" | "ignored",
         number
     >;
     kpis: {
@@ -118,18 +119,18 @@ type Props = {
 };
 
 /** Deposit statuses that can still be declined. */
-const WAITING = ['payment_submitted', 'payment_detected', 'under_review'];
+const WAITING = ["payment_submitted", "payment_detected", "under_review"];
 
 const TABS: [string, string][] = [
-    ['all', 'All'],
-    ['pending', 'Pending'],
-    ['approved', 'Approved'],
-    ['unsettled', 'Unsettled'],
-    ['ignored', 'Closed'],
+    ["all", "All"],
+    ["pending", "Pending"],
+    ["approved", "Approved"],
+    ["unsettled", "Unsettled"],
+    ["ignored", "Closed"],
 ];
 
 type Decision = null | {
-    kind: 'approve' | 'hold' | 'decline' | 'edit';
+    kind: "approve" | "hold" | "decline" | "edit" | "move";
     line: StatementLine;
 };
 
@@ -140,17 +141,17 @@ type Decision = null | {
  */
 export default function Statements(props: Props) {
     const { portal, items, filters, counts, kpis, accounts, branches } = props;
-    const routes = portal === 'admin' ? adminStatements : branchStatements;
-    const deposits = portal === 'admin' ? adminDeposits : branchDeposits;
-    const cases = portal === 'admin' ? adminCases : branchCases;
-    const imports = portal === 'admin' ? adminImports : branchImports;
+    const routes = portal === "admin" ? adminStatements : branchStatements;
+    const deposits = portal === "admin" ? adminDeposits : branchDeposits;
+    const cases = portal === "admin" ? adminCases : branchCases;
+    const imports = portal === "admin" ? adminImports : branchImports;
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(props.selected);
     const [decision, setDecision] = useState<Decision>(null);
     const open = items.data.find((line) => line.id === openId) ?? null;
     // Admin only: an unsettled line's UTR / amount can be corrected.
     const canEdit = (line: StatementLine) =>
-        props.can.edit_line && line.case?.status === 'open';
+        props.can.edit_line && line.case?.status === "open";
 
     // from / to are the business dates the period covers; the URL keeps the period.
     const query = (next: Partial<Filters & PeriodQuery> = {}) =>
@@ -159,7 +160,7 @@ export default function Statements(props: Props) {
                 ...filters,
                 from: null,
                 to: null,
-                ...('range' in next ? {} : periodQuery(props.period)),
+                ...("range" in next ? {} : periodQuery(props.period)),
                 search,
                 ...next,
             }).filter(([, value]) =>
@@ -183,7 +184,7 @@ export default function Statements(props: Props) {
 
     useEffect(() => {
         if (props.selected && !props.detail)
-            router.reload({ only: ['detail'] });
+            router.reload({ only: ["detail"] });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -195,8 +196,8 @@ export default function Statements(props: Props) {
             if (document.hidden) return;
             router.reload({
                 only: openId
-                    ? ['items', 'counts', 'kpis', 'hub', 'detail']
-                    : ['items', 'counts', 'kpis', 'hub'],
+                    ? ["items", "counts", "kpis", "hub", "detail"]
+                    : ["items", "counts", "kpis", "hub"],
                 ...(openId ? { data: { line: openId } } : {}),
             });
         }, 15000);
@@ -206,20 +207,20 @@ export default function Statements(props: Props) {
 
     const openLine = (id: string) => {
         setOpenId(id);
-        router.reload({ only: ['detail', 'selected'], data: { line: id } });
+        router.reload({ only: ["detail", "selected"], data: { line: id } });
     };
 
     const decisionButtons = (line: StatementLine) =>
         line.transaction?.can_decide &&
-        (line.display === 'pending' || line.display === 'hold') && (
+        (line.display === "pending" || line.display === "hold") && (
             <div
                 className="flex gap-1.5"
                 onClick={(event) => event.stopPropagation()}
             >
-                {line.display !== 'hold' && (
+                {line.display !== "hold" && (
                     <PgButton
                         className="h-7 px-2 text-xs text-hd"
-                        onClick={() => setDecision({ kind: 'hold', line })}
+                        onClick={() => setDecision({ kind: "hold", line })}
                     >
                         Hold
                     </PgButton>
@@ -227,7 +228,7 @@ export default function Statements(props: Props) {
                 <PgButton
                     variant="primary"
                     className="h-7 px-2 text-xs"
-                    onClick={() => setDecision({ kind: 'approve', line })}
+                    onClick={() => setDecision({ kind: "approve", line })}
                 >
                     Approve
                 </PgButton>
@@ -239,15 +240,93 @@ export default function Statements(props: Props) {
     // submits the UTR on a deposit of the amount the bank shows.
     const canDecline = (line: StatementLine) =>
         !line.linked &&
-        line.case?.status === 'open' &&
-        line.case.type === 'amount_mismatch' &&
+        line.case?.status === "open" &&
+        line.case.type === "amount_mismatch" &&
         !!line.transaction?.can_decide &&
         WAITING.includes(line.transaction.status);
 
+    // Branch only (client request 2026-11-17): the branch's other accounts a
+    // typed line can be moved to, when the deposit it points at is on one of
+    // them, i.e. the bank doesn't match. "Match" then only changes the account.
+    const moveTargets = (line: StatementLine) => {
+        const own = accounts.find((account) => account.id === line.account.id);
+        const target = line.transaction?.account_id;
+
+        if (
+            portal !== "branch" ||
+            !props.can.resolve ||
+            line.case?.status !== "open" ||
+            line.case.type === "amount_mismatch" ||
+            line.source !== "manual" ||
+            line.linked ||
+            !own ||
+            !target ||
+            target === line.account.id ||
+            !accounts.some(
+                (account) =>
+                    account.id === target &&
+                    account.branch_id === own.branch_id,
+            )
+        ) {
+            return [];
+        }
+
+        return accounts
+            .filter(
+                (account) =>
+                    account.branch_id === own.branch_id &&
+                    account.id !== line.account.id,
+            )
+            .map((account) => ({
+                id: account.id,
+                name: accountLabel(account),
+            }));
+    };
+
+    // Branch: the only actions on an open line are Approve / Decline (amount
+    // mismatch) or Match (bank account mismatch); anything else is Details.
+    const branchActions = (line: StatementLine, size: "row" | "drawer") => {
+        const cls =
+            size === "row" ? "h-7 px-2 text-xs" : "h-8 px-3 text-[13px]";
+
+        if (canDecline(line)) {
+            return (
+                <>
+                    <PgButton
+                        variant="primary"
+                        className={cls}
+                        onClick={() => setDecision({ kind: "approve", line })}
+                    >
+                        Approve
+                    </PgButton>
+                    <PgButton
+                        className={`${cls} text-er`}
+                        onClick={() => setDecision({ kind: "decline", line })}
+                    >
+                        Decline
+                    </PgButton>
+                </>
+            );
+        }
+
+        if (moveTargets(line).length > 0) {
+            return (
+                <PgButton
+                    className={`${cls} text-ac`}
+                    onClick={() => setDecision({ kind: "move", line })}
+                >
+                    Match
+                </PgButton>
+            );
+        }
+
+        return null;
+    };
+
     const columns: Column<StatementLine>[] = [
         {
-            key: 'sr',
-            header: 'Sr',
+            key: "sr",
+            header: "Sr",
             cell: (line) => (
                 <span className="text-xs text-tx3">
                     {(items.from ?? 1) + items.data.indexOf(line)}
@@ -255,15 +334,15 @@ export default function Statements(props: Props) {
             ),
         },
         {
-            key: 'doc',
-            header: 'Doc date · Description',
+            key: "doc",
+            header: "Doc date · Description",
             cell: (line) => (
                 <div className="max-w-[220px]">
                     <div className="text-xs whitespace-nowrap">
                         {formatDate(line.value_date)}
                     </div>
                     <div className="font-mono text-xs font-medium">
-                        {line.utr ?? '—'}
+                        {line.utr ?? "—"}
                     </div>
                     <div className="truncate text-xs text-tx3">
                         {line.description}
@@ -274,11 +353,11 @@ export default function Statements(props: Props) {
         ...(SHOW_DEBIT
             ? [
                   {
-                      key: 'debit',
-                      header: 'Debit',
-                      align: 'right' as const,
+                      key: "debit",
+                      header: "Debit",
+                      align: "right" as const,
                       cell: (line: StatementLine) =>
-                          line.direction === 'debit' ? (
+                          line.direction === "debit" ? (
                               <LineAmount line={line} />
                           ) : (
                               <span className="text-tx3">—</span>
@@ -287,31 +366,31 @@ export default function Statements(props: Props) {
               ]
             : []),
         {
-            key: 'credit',
-            header: 'Credit',
-            align: 'right',
+            key: "credit",
+            header: "Credit",
+            align: "right",
             cell: (line) =>
-                line.direction === 'credit' ? (
+                line.direction === "credit" ? (
                     <LineAmount line={line} />
                 ) : (
                     <span className="text-tx3">—</span>
                 ),
         },
         {
-            key: 'txn',
-            header: 'Transaction details',
+            key: "txn",
+            header: "Transaction details",
             cell: (line) => (
                 <Pairs
                     rows={[
-                        ['Bank', line.account.bank ?? line.account.label],
+                        ["Bank", line.account.bank ?? line.account.label],
                         [
-                            'Txn ID',
+                            "Txn ID",
                             line.transaction ? (
                                 <span className="font-mono">
                                     {line.transaction.reference}
                                     {!line.linked && (
                                         <span className="font-sans text-tx3">
-                                            {' '}
+                                            {" "}
                                             (suggested)
                                         </span>
                                     )}
@@ -321,20 +400,20 @@ export default function Statements(props: Props) {
                             ),
                         ],
                         [
-                            'Bank UTR',
+                            "Bank UTR",
                             <span key="u" className="font-mono">
-                                {line.transaction?.bank_utr ?? '—'}
+                                {line.transaction?.bank_utr ?? "—"}
                             </span>,
                         ],
-                        ['Action by', line.transaction?.decided_by ?? '—'],
+                        ["Action by", line.transaction?.decided_by ?? "—"],
                     ]}
                 />
             ),
         },
         {
-            key: 'amount',
-            header: 'Txn amount',
-            align: 'right',
+            key: "amount",
+            header: "Txn amount",
+            align: "right",
             cell: (line) =>
                 line.transaction ? (
                     <span className="whitespace-nowrap">
@@ -345,15 +424,15 @@ export default function Statements(props: Props) {
                 ),
         },
         {
-            key: 'status',
-            header: 'Status',
+            key: "status",
+            header: "Status",
             cell: (line) => (
                 <div className="flex flex-col items-start gap-1.5">
                     <StatusBadge
                         status={line.display}
                         label={DISPLAY_LABELS[line.display]}
                     />
-                    {line.case?.status === 'open' && (
+                    {line.case?.status === "open" && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <span className="inline-flex cursor-help items-center gap-1 text-[11.5px] font-semibold whitespace-nowrap text-er">
@@ -378,31 +457,31 @@ export default function Statements(props: Props) {
             ),
         },
         {
-            key: 'branches',
-            header: 'Branch details',
+            key: "branches",
+            header: "Branch details",
             cell: (line) => (
                 <Pairs
                     rows={[
-                        ['Txn branch', line.transaction?.branch ?? '—'],
-                        ['Bank entry', line.branch.name],
+                        ["Txn branch", line.transaction?.branch ?? "—"],
+                        ["Bank entry", line.branch.name],
                         [
-                            'Entry by',
-                            line.source === 'import'
-                                ? `${line.entered_by ?? '—'} (import)`
-                                : (line.entered_by ?? '—'),
+                            "Entry by",
+                            line.source === "import"
+                                ? `${line.entered_by ?? "—"} (import)`
+                                : (line.entered_by ?? "—"),
                         ],
                     ]}
                 />
             ),
         },
         {
-            key: 'match',
-            header: 'Branch match',
+            key: "match",
+            header: "Branch match",
             cell: (line) => (
                 <StatusBadge
                     status={
-                        line.branch_match === 'none'
-                            ? 'none'
+                        line.branch_match === "none"
+                            ? "none"
                             : line.branch_match
                     }
                     label={MATCH_LABELS[line.branch_match]}
@@ -410,37 +489,46 @@ export default function Statements(props: Props) {
             ),
         },
         {
-            key: 'dates',
-            header: 'Request dates',
+            key: "dates",
+            header: "Request dates",
             cell: (line) => (
                 <Pairs
                     rows={[
                         [
-                            'Created',
+                            "Created",
                             formatDateTime(line.transaction?.created_at),
                         ],
                         [
-                            'Submitted',
+                            "Submitted",
                             formatDateTime(line.transaction?.submitted_at),
                         ],
                         [
-                            'Decided',
+                            "Decided",
                             formatDateTime(line.transaction?.decided_at),
                         ],
-                        ['Entered', formatDateTime(line.created_at)],
+                        ["Entered", formatDateTime(line.created_at)],
                     ]}
                 />
             ),
         },
         {
-            key: 'actions',
-            header: 'Actions',
+            key: "actions",
+            header: "Actions",
             cell: (line) => (
                 <div
                     className="flex gap-1.5"
                     onClick={(event) => event.stopPropagation()}
                 >
-                    {line.case?.status === 'open' ? (
+                    {portal === "branch" && line.case?.status === "open" ? (
+                        (branchActions(line, "row") ?? (
+                            <PgButton
+                                className="h-7 px-2 text-xs"
+                                onClick={() => openLine(line.id)}
+                            >
+                                Details
+                            </PgButton>
+                        ))
+                    ) : line.case?.status === "open" ? (
                         <Link
                             href={
                                 cases.index({ query: { case: line.case.id } })
@@ -461,16 +549,16 @@ export default function Statements(props: Props) {
                     {canEdit(line) && (
                         <PgButton
                             className="h-7 px-2 text-xs"
-                            onClick={() => setDecision({ kind: 'edit', line })}
+                            onClick={() => setDecision({ kind: "edit", line })}
                         >
                             Edit
                         </PgButton>
                     )}
-                    {canDecline(line) && (
+                    {portal !== "branch" && canDecline(line) && (
                         <PgButton
                             className="h-7 px-2 text-xs text-er"
                             onClick={() =>
-                                setDecision({ kind: 'decline', line })
+                                setDecision({ kind: "decline", line })
                             }
                         >
                             Decline
@@ -555,7 +643,7 @@ export default function Statements(props: Props) {
                     className="border-b border-ln2 px-3 py-2.5"
                 />
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
-                    {portal === 'admin' && (
+                    {portal === "admin" && (
                         <MultiSelect
                             noun="branches"
                             items={branches}
@@ -568,7 +656,7 @@ export default function Statements(props: Props) {
                     )}
                     <SelectInput
                         className="h-[30px] w-[230px] text-[12.5px]"
-                        value={filters.account ?? ''}
+                        value={filters.account ?? ""}
                         onChange={(event) =>
                             visit({ account: event.target.value || null })
                         }
@@ -590,7 +678,7 @@ export default function Statements(props: Props) {
                     </SelectInput>
                     <SelectInput
                         className="h-[30px] w-[170px] text-[12.5px]"
-                        value={filters.match ?? ''}
+                        value={filters.match ?? ""}
                         onChange={(event) =>
                             visit({ match: event.target.value || null })
                         }
@@ -614,11 +702,11 @@ export default function Statements(props: Props) {
                     views={TABS.map(([key, label]) => ({
                         key,
                         label,
-                        count: counts[key as keyof Props['counts']],
+                        count: counts[key as keyof Props["counts"]],
                     }))}
-                    active={filters.status ?? 'all'}
+                    active={filters.status ?? "all"}
                     onChange={(key) =>
-                        visit({ status: key === 'all' ? null : key })
+                        visit({ status: key === "all" ? null : key })
                     }
                 />
                 <div className="overflow-x-auto">
@@ -640,7 +728,7 @@ export default function Statements(props: Props) {
                 <div className="flex items-center justify-between px-3 py-2.5 text-xs text-tx3">
                     <span>
                         {items.total === 0
-                            ? 'No lines'
+                            ? "No lines"
                             : `Showing ${items.from}–${items.to} of ${items.total} statement lines`}
                     </span>
                     <span className="flex gap-2">
@@ -674,34 +762,41 @@ export default function Statements(props: Props) {
                     }
                     actions={
                         <>
-                            {open.case?.status === 'open' && (
-                                <Link
-                                    href={
-                                        cases.index({
-                                            query: { case: open.case.id },
-                                        }).url
-                                    }
-                                    className="inline-flex h-8 items-center rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
-                                >
-                                    Match to transaction
-                                </Link>
-                            )}
+                            {portal === "branch" &&
+                                open.case?.status === "open" &&
+                                branchActions(open, "drawer")}
+                            {portal !== "branch" &&
+                                open.case?.status === "open" && (
+                                    <Link
+                                        href={
+                                            cases.index({
+                                                query: { case: open.case.id },
+                                            }).url
+                                        }
+                                        className="inline-flex h-8 items-center rounded-[7px] bg-brand px-3 text-[13px] font-medium text-white"
+                                    >
+                                        Match to transaction
+                                    </Link>
+                                )}
                             {canEdit(open) && (
                                 <PgButton
                                     className="h-8 px-3 text-[13px]"
                                     onClick={() =>
-                                        setDecision({ kind: 'edit', line: open })
+                                        setDecision({
+                                            kind: "edit",
+                                            line: open,
+                                        })
                                     }
                                 >
                                     Edit UTR / amount
                                 </PgButton>
                             )}
-                            {canDecline(open) && (
+                            {portal !== "branch" && canDecline(open) && (
                                 <PgButton
                                     className="h-8 px-3 text-[13px] text-er"
                                     onClick={() =>
                                         setDecision({
-                                            kind: 'decline',
+                                            kind: "decline",
                                             line: open,
                                         })
                                     }
@@ -716,21 +811,21 @@ export default function Statements(props: Props) {
                 />
             )}
 
-            {decision?.kind === 'edit' && decision.line.case && (
+            {decision?.kind === "edit" && decision.line.case && (
                 <EditLine
                     line={decision.line}
                     url={adminCases.editLine(decision.line.case.id).url}
                     onClose={() => setDecision(null)}
                 />
             )}
-            {decision?.kind === 'approve' && decision.line.transaction && (
+            {decision?.kind === "approve" && decision.line.transaction && (
                 <ApproveFromLine
                     line={decision.line}
                     url={deposits.approve(decision.line.transaction.id).url}
                     onClose={() => setDecision(null)}
                 />
             )}
-            {decision?.kind === 'decline' && decision.line.transaction && (
+            {decision?.kind === "decline" && decision.line.transaction && (
                 <ConfirmDialog
                     open
                     onOpenChange={(next) => !next && setDecision(null)}
@@ -739,7 +834,7 @@ export default function Statements(props: Props) {
                         <>
                             {decision.line.case?.notes} The deposit is declined
                             and the partner told. This bank line stays
-                            unsettled: when the customer submits UTR{' '}
+                            unsettled: when the customer submits UTR{" "}
                             <b className="font-mono">{decision.line.utr}</b> on
                             a deposit of {formatPaise(decision.line.amount)}, it
                             is matched and approved.
@@ -747,19 +842,19 @@ export default function Statements(props: Props) {
                     }
                     confirmLabel="Decline deposit"
                     tone="danger"
-                    input={{ label: 'Details (optional, kept in the history)' }}
+                    input={{ label: "Details (optional, kept in the history)" }}
                     onConfirm={(details) =>
                         router.post(
                             deposits.decline(decision.line.transaction!.id).url,
                             {
                                 reason_code:
-                                    'wrong_amount' in props.reasons
-                                        ? 'wrong_amount'
-                                        : 'other',
+                                    "wrong_amount" in props.reasons
+                                        ? "wrong_amount"
+                                        : "other",
                                 note:
                                     [decision.line.case?.notes, details]
                                         .filter(Boolean)
-                                        .join(' ')
+                                        .join(" ")
                                         .slice(0, 500) || null,
                             },
                             {
@@ -770,7 +865,20 @@ export default function Statements(props: Props) {
                     }
                 />
             )}
-            {decision?.kind === 'hold' && decision.line.transaction && (
+            {decision?.kind === "move" && decision.line.case && (
+                <MoveLineDialog
+                    url={cases.moveLine(decision.line.case.id).url}
+                    from={accountLabel({
+                        ...decision.line.account,
+                        branch: decision.line.branch.name,
+                    })}
+                    accounts={moveTargets(decision.line)}
+                    preselect={decision.line.transaction?.account_id}
+                    onClose={() => setDecision(null)}
+                    onDone={() => setOpenId(null)}
+                />
+            )}
+            {decision?.kind === "hold" && decision.line.transaction && (
                 <ConfirmDialog
                     open
                     onOpenChange={(next) => !next && setDecision(null)}
@@ -779,7 +887,7 @@ export default function Statements(props: Props) {
                     confirmLabel="Hold"
                     tone="warning"
                     input={{
-                        label: 'Reason (kept in the history)',
+                        label: "Reason (kept in the history)",
                         required: true,
                     }}
                     onConfirm={(reason) =>
@@ -812,9 +920,9 @@ function EditLine({
     onClose: () => void;
 }) {
     const form = useForm({
-        utr: line.utr ?? '',
+        utr: line.utr ?? "",
         amount: (line.amount / 100).toFixed(2),
-        note: '',
+        note: "",
     });
     const errors = form.errors as Record<string, string | undefined>;
 
@@ -834,11 +942,13 @@ function EditLine({
                 <TextInput
                     className="font-mono"
                     value={form.data.utr}
-                    onChange={(event) => form.setData('utr', event.target.value)}
+                    onChange={(event) =>
+                        form.setData("utr", event.target.value)
+                    }
                 />
             </Field>
             <Field
-                label={`${line.direction === 'credit' ? 'Credit' : 'Debit'} ₹`}
+                label={`${line.direction === "credit" ? "Credit" : "Debit"} ₹`}
                 error={errors.amount}
             >
                 <TextInput
@@ -846,7 +956,7 @@ function EditLine({
                     inputMode="decimal"
                     value={form.data.amount}
                     onChange={(event) =>
-                        form.setData('amount', event.target.value)
+                        form.setData("amount", event.target.value)
                     }
                 />
             </Field>
@@ -854,7 +964,9 @@ function EditLine({
                 <TextInput
                     required
                     value={form.data.note}
-                    onChange={(event) => form.setData('note', event.target.value)}
+                    onChange={(event) =>
+                        form.setData("note", event.target.value)
+                    }
                 />
             </Field>
         </FormDialog>
@@ -872,15 +984,26 @@ function ApproveFromLine({
     onClose: () => void;
 }) {
     const txn = line.transaction!;
-    const form = useForm({ bank_utr: line.utr ?? '', note: '' });
+    // Amount mismatch: approve for what reached the bank; the line then
+    // links itself and its case settles.
+    const differs = line.amount !== txn.amount;
+    const form = useForm({
+        bank_utr: line.utr ?? "",
+        received_amount: differs ? (line.amount / 100).toFixed(2) : "",
+        note: "",
+    });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
         <FormDialog
             open
             onOpenChange={(next) => !next && onClose()}
-            title={`Approve ${formatPaise(txn.amount)}?`}
-            description={`${txn.reference} · ${txn.partner}. The bank statement shows this credit on ${formatDate(line.value_date)}. The partner is credited immediately and this can’t be undone.`}
+            title={`Approve ${formatPaise(differs ? line.amount : txn.amount)}?`}
+            description={
+                differs
+                    ? `${txn.reference} · ${txn.partner}. The order was for ${formatPaise(txn.amount)}, but the bank statement shows ${formatPaise(line.amount)} on ${formatDate(line.value_date)}. The deposit is approved for ${formatPaise(line.amount)}, the amount received, and the partner is credited that now. This can’t be undone.`
+                    : `${txn.reference} · ${txn.partner}. The bank statement shows this credit on ${formatDate(line.value_date)}. The partner is credited immediately and this can’t be undone.`
+            }
             submitLabel="Approve"
             processing={form.processing}
             onSubmit={() =>
@@ -896,15 +1019,31 @@ function ApproveFromLine({
                     className="font-mono"
                     value={form.data.bank_utr}
                     onChange={(event) =>
-                        form.setData('bank_utr', event.target.value)
+                        form.setData("bank_utr", event.target.value)
                     }
                 />
             </Field>
-            <Field label="Note (optional)">
+            {differs && (
+                <Field label="Amount received ₹" error={errors.received_amount}>
+                    <TextInput readOnly value={form.data.received_amount} />
+                </Field>
+            )}
+            <Field
+                label={
+                    differs
+                        ? "Why the amount differs (required)"
+                        : "Note (optional)"
+                }
+                error={errors.note}
+            >
                 <TextInput
+                    required={differs}
+                    placeholder={
+                        differs ? "e.g. Customer paid ₹500 less" : undefined
+                    }
                     value={form.data.note}
                     onChange={(event) =>
-                        form.setData('note', event.target.value)
+                        form.setData("note", event.target.value)
                     }
                 />
             </Field>
@@ -923,7 +1062,7 @@ function LineDrawer({
     actions: ReactNode;
     onClose: () => void;
 }) {
-    const [tab, setTab] = useState('overview');
+    const [tab, setTab] = useState("overview");
     const txn = line.transaction;
 
     return (
@@ -931,7 +1070,7 @@ function LineDrawer({
             open
             onOpenChange={(next) => !next && onClose()}
             kind="A/C statement line"
-            title={line.utr ?? line.description ?? 'Statement line'}
+            title={line.utr ?? line.description ?? "Statement line"}
             monoTitle={line.utr !== null}
             status={
                 <StatusBadge
@@ -939,54 +1078,54 @@ function LineDrawer({
                     label={DISPLAY_LABELS[line.display]}
                 />
             }
-            subtitle={`Document date ${formatDate(line.value_date)} · ${line.account.bank ?? line.account.label} · ${line.source === 'import' ? 'imported' : 'entered'} ${formatDateTime(line.created_at)} by ${line.entered_by ?? '—'}`}
+            subtitle={`Document date ${formatDate(line.value_date)} · ${line.account.bank ?? line.account.label} · ${line.source === "import" ? "imported" : "entered"} ${formatDateTime(line.created_at)} by ${line.entered_by ?? "—"}`}
             actions={actions}
             summaries={[
                 {
-                    label: 'Credit',
+                    label: "Credit",
                     value:
-                        line.direction === 'credit' ? (
+                        line.direction === "credit" ? (
                             <LineAmount line={line} />
                         ) : (
-                            '—'
+                            "—"
                         ),
                 },
                 {
-                    label: 'Debit',
+                    label: "Debit",
                     value:
-                        line.direction === 'debit' ? (
+                        line.direction === "debit" ? (
                             <LineAmount line={line} />
                         ) : (
-                            '—'
+                            "—"
                         ),
                 },
                 {
-                    label: 'Transaction amount',
-                    value: txn ? formatPaise(txn.amount) : 'Unlinked',
+                    label: "Transaction amount",
+                    value: txn ? formatPaise(txn.amount) : "Unlinked",
                 },
             ]}
             tabs={[
-                { key: 'overview', label: 'Overview' },
-                { key: 'cases', label: 'Cases' },
-                { key: 'audit', label: 'Audit' },
+                { key: "overview", label: "Overview" },
+                { key: "cases", label: "Cases" },
+                { key: "audit", label: "Audit" },
             ]}
             activeTab={tab}
             onTabChange={setTab}
         >
-            {tab === 'overview' && (
+            {tab === "overview" && (
                 <>
                     <CompareBlock
                         transactionBranch={txn?.branch ?? null}
                         transactionSub={
                             txn
-                                ? `${line.linked ? 'From' : 'Points at'} ${txn.direction === 'payout' ? 'payout' : 'pay-in'} ${txn.reference}`
-                                : 'No linked transaction'
+                                ? `${line.linked ? "From" : "Points at"} ${txn.direction === "payout" ? "payout" : "pay-in"} ${txn.reference}`
+                                : "No linked transaction"
                         }
                         lineBranch={line.branch.name}
-                        lineSub={`Entered by ${line.entered_by ?? '—'}`}
+                        lineSub={`Entered by ${line.entered_by ?? "—"}`}
                         state={line.branch_match}
                     />
-                    {line.case?.status === 'open' && (
+                    {line.case?.status === "open" && (
                         <div className="rounded-lg bg-hdb px-3 py-2.5 text-[12.5px] text-hd">
                             <b>{line.case.type_label}</b> · {line.case.notes}
                         </div>
@@ -995,31 +1134,31 @@ function LineDrawer({
                         <KeyValues
                             items={[
                                 {
-                                    label: 'UTR / reference',
+                                    label: "UTR / reference",
                                     value: line.utr,
                                     mono: true,
                                 },
                                 {
-                                    label: 'Description',
+                                    label: "Description",
                                     value: line.description,
                                 },
                                 {
-                                    label: 'Document date',
+                                    label: "Document date",
                                     value: formatDate(line.value_date),
                                 },
                                 {
-                                    label: 'Account',
+                                    label: "Account",
                                     value: accountLabel({
                                         ...line.account,
                                         branch: line.branch.name,
                                     }),
                                 },
                                 {
-                                    label: 'Source',
+                                    label: "Source",
                                     value:
-                                        line.source === 'import'
-                                            ? `Import · ${line.file ?? '—'}`
-                                            : 'Typed in',
+                                        line.source === "import"
+                                            ? `Import · ${line.file ?? "—"}`
+                                            : "Typed in",
                                 },
                             ]}
                         />
@@ -1028,32 +1167,32 @@ function LineDrawer({
                         <KeyValues
                             items={[
                                 {
-                                    label: 'Transaction',
+                                    label: "Transaction",
                                     value: txn?.reference,
                                     mono: true,
                                 },
                                 {
-                                    label: 'Status',
+                                    label: "Status",
                                     value: txn && (
                                         <StatusBadge status={txn.status} />
                                     ),
                                 },
                                 {
-                                    label: 'Customer UTR',
+                                    label: "Customer UTR",
                                     value: txn?.customer_utr,
                                     mono: true,
                                 },
                                 {
-                                    label: 'Bank UTR (verified)',
+                                    label: "Bank UTR (verified)",
                                     value: txn?.bank_utr,
                                     mono: true,
                                 },
                                 {
-                                    label: 'Action by',
+                                    label: "Action by",
                                     value: txn?.decided_by,
                                 },
                                 {
-                                    label: 'Matched',
+                                    label: "Matched",
                                     value: formatDateTime(line.matched_at),
                                 },
                             ]}
@@ -1061,7 +1200,7 @@ function LineDrawer({
                     </Section>
                 </>
             )}
-            {tab === 'cases' &&
+            {tab === "cases" &&
                 (!detail ? (
                     <Loading />
                 ) : detail.cases.length === 0 ? (
@@ -1078,7 +1217,7 @@ function LineDrawer({
                                 <span>
                                     <span className="font-mono text-xs">
                                         {item.reference}
-                                    </span>{' '}
+                                    </span>{" "}
                                     · <b>{item.type_label}</b>
                                 </span>
                                 <StatusBadge status={item.status} />
@@ -1094,7 +1233,7 @@ function LineDrawer({
                         </div>
                     ))
                 ))}
-            {tab === 'audit' &&
+            {tab === "audit" &&
                 (!detail ? (
                     <Loading />
                 ) : (
@@ -1105,7 +1244,7 @@ function LineDrawer({
                         >
                             <div className="flex justify-between">
                                 <span>
-                                    <b>{entry.actor}</b> —{' '}
+                                    <b>{entry.actor}</b> —{" "}
                                     <span className="font-mono">
                                         {entry.action}
                                     </span>

@@ -255,6 +255,9 @@ class StatementPresenter
             'status' => $txn->status,
             'partner' => $txn->partner->name,
             'branch' => $txn->branch?->name,
+            // The account the money was meant for: a line typed under another
+            // account of the branch can be moved there (branch "Match").
+            'account_id' => $txn->payment_account_id,
             'customer_utr' => $txn->customer_utr_normalized,
             'bank_utr' => $txn->bank_utr_normalized,
             'decided_by' => $txn->decider?->name,
