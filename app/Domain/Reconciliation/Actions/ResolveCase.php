@@ -108,7 +108,8 @@ class ResolveCase
             $entry = $this->lockOpen($case);
             $payin = $this->lockTransaction($payin);
 
-            $this->ensureSameMoney($entry, $payin, exactAmount: false);
+            // Only the order amount is approved (client request 2026-11-17).
+            $this->ensureSameMoney($entry, $payin);
 
             $utr = trim((string) $bankUtr) !== '' ? (string) $bankUtr : $entry->utr_normalized;
 
@@ -116,7 +117,7 @@ class ResolveCase
                 throw ValidationException::withMessages(['bank_utr' => __('Enter the bank UTR of this credit.')]);
             }
 
-            $approved = $this->decide->approveLate($actor, $payin, $utr, $note ?? __('Late payment, approved from case :case.', ['case' => $case->reference]), $entry->amount);
+            $approved = $this->decide->approveLate($actor, $payin, $utr, $note ?? __('Late payment, approved from case :case.', ['case' => $case->reference]));
 
             // Approval links a line with the same UTR itself; otherwise link this one.
             if ($entry->refresh()->transaction_id === null) {
@@ -343,8 +344,8 @@ class ResolveCase
             $txn->isPayin() && $txn->payment_account_id !== $entry->payment_account_id => __(':reference was paid to another account.', ['reference' => $txn->reference]),
             ! $txn->isPayin() && $txn->branch_id !== $entry->branch_id => __(':reference was paid by another branch.', ['reference' => $txn->reference]),
             $exactAmount && $txn->isPayin() && $txn->amount !== $entry->amount => __(in_array($txn->status, ['payment_submitted', 'payment_detected', 'under_review'], true)
-                ? 'The amounts differ (bank ₹:bank, :reference ₹:txn). Approve :reference in Deposits for the amount received (this line then links itself), or decline it from the statement line and this line waits for a deposit of the amount the bank shows.'
-                : 'The amounts differ (bank ₹:bank, :reference ₹:txn). Only exact amounts can be linked.', [
+                ? 'The amounts differ (bank ₹:bank, :reference ₹:txn). A different amount can’t be approved: decline :reference from the statement line (this line then waits for a deposit of the amount the bank shows). If the bank line was typed wrong, Admin corrects it.'
+                : 'The amounts differ (bank ₹:bank, :reference ₹:txn). A different amount can’t be approved. If the bank line was typed wrong, Admin corrects it.', [
                     'bank' => number_format($entry->amount / 100, 2),
                     'reference' => $txn->reference,
                     'txn' => number_format($txn->amount / 100, 2),

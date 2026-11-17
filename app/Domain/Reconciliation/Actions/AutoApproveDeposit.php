@@ -33,8 +33,8 @@ use Illuminate\Validation\ValidationException;
  * A different amount (client request 2026-11-17): the customer paid ₹500
  * into this account on one request, then typed the UTR on a new ₹1,000
  * request given to another branch. The deposit is still moved here (same
- * checks), but not approved: it waits as "Amount mismatch" for this branch
- * to approve for the amount received, or decline.
+ * checks), but never approved: it waits as "Amount mismatch" for this branch
+ * to decline (only the order amount is ever approved).
  *
  * Approval only when everything is clean: exact UTR and exact amount, the deposit is
  * waiting (or on hold only because its branch said "not in our bank"), one
@@ -142,9 +142,9 @@ class AutoApproveDeposit
 
         $fromBranch = (string) $payin->branch_id;
 
-        // Different amount: move only; the branch approves or declines it.
+        // Different amount: move only; the branch declines it.
         if ($line->amount !== $payin->amount) {
-            $moved = $this->move->handle($actor, $payin, $account, __('Automatic: the bank line of :account shows UTR :utr for ₹:bank; the deposit is for ₹:amount. Moved here to approve for the amount received, or decline.', [
+            $moved = $this->move->handle($actor, $payin, $account, __('Automatic: the bank line of :account shows UTR :utr for ₹:bank; the deposit is for ₹:amount. Moved here: a different amount can’t be approved, so decline it.', [
                 'account' => $account->label,
                 'utr' => $line->utr_normalized,
                 'bank' => number_format($line->amount / 100, 2),

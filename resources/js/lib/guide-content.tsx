@@ -482,7 +482,7 @@ export const GUIDE: GuideSection[] = [
                 marks: [
                     'The UTR the customer typed. Check it in the bank.',
                     'The customer’s screenshot. Click to see it.',
-                    '**Approve**: the money is in the bank. Enter the bank UTR. If a different amount arrived, enter the amount received and a reason.',
+                    '**Approve**: the money is in the bank. Enter the bank UTR. The amount is the order amount and can’t be changed.',
                     '**Hold**: needs a closer look. Decide later.',
                     '**Decline**: not paid, wrong amount or fake. Pick a reason. The partner is told.',
                 ],
@@ -492,7 +492,7 @@ export const GUIDE: GuideSection[] = [
                 title: 'Rules when approving',
                 items: [
                     'If the bank UTR is **different** from the customer’s UTR, a reason is required and Admin is alerted.',
-                    'If a different amount arrived, approve for the **amount received** (reason required). The partner gets that amount. Admin is alerted.',
+                    'If a different amount arrived, it can’t be approved: **Decline** it. The partner’s site has the order amount, and we can’t change it there. If the branch typed the bank line wrong (₹100 for ₹1,000), **Admin** corrects the line (**Edit**) and it matches.',
                     'If a deposit was approved by hand but no bank line shows it after some hours (setting), Admin is alerted.',
                     'Every decision is saved in the deposit’s timeline and in Audit Logs, with who did it.',
                 ],
@@ -568,7 +568,7 @@ export const GUIDE: GuideSection[] = [
                     'Type one bank line: bank account, date, UTR and credit amount → **Add line**. For many lines use **Import statement** (bank file).',
                     '**Unsettled** = the line did not match cleanly. Move the mouse over it to see why.',
                     'Admin: **Match** opens the line’s case, where you link it to the right deposit (next section).',
-                    'Branch login: **Amount mismatch** → only **Approve** (for the amount the bank shows) or **Decline**. **Wrong bank account** → **Match** only changes the line’s bank account. **Wrong branch** → only Admin can move the deposit (the line shows “Admin will move it”). Any other unsettled line shows **Details**.',
+                    'Branch login: **Amount mismatch** → only **Decline** (Admin: **Decline** or **Edit** the line if it was typed wrong). After a decline the line shows **Deposit declined** under Amount mismatch. **Wrong bank account** → **Match** only changes the line’s bank account. **Wrong branch** → only Admin can move the deposit (the line shows “Admin will move it”). Any other unsettled line shows **Details**.',
                 ],
             },
             {
@@ -622,7 +622,7 @@ export const GUIDE: GuideSection[] = [
                     'Why it did not match, in one line.',
                     'Search any deposit by Transaction ID, Order ID or UTR.',
                     '**Link**: shown only when the amount is exactly the same. The line is linked to that deposit.',
-                    'Different amount: it cannot be linked. Approve the deposit for the amount received (the line then links itself), or decline it.',
+                    'Different amount: it cannot be linked or approved. Decline the deposit; if the bank line was typed wrong, Admin corrects it.',
                     'Close the line when it is not a customer payment (bank charges, own transfer) or the money was returned to the customer. A reason is required.',
                 ],
             },
@@ -639,7 +639,7 @@ export const GUIDE: GuideSection[] = [
                     [
                         'Amount mismatch',
                         'UTR matches but the amount is different',
-                        'Approve the deposit for the amount received, **or** Decline it (the line waits for a deposit of the right amount).',
+                        'Only **Decline** (the line waits for a deposit of the right amount). Typed wrong? Admin **Edit**s the line.',
                     ],
                     [
                         'Wrong bank account',
@@ -1450,7 +1450,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         '“Customer paid a different amount.”',
-                        'The line becomes **Amount mismatch**. Approve for the amount received, or decline so the customer pays the right amount on a new deposit.',
+                        'The line becomes **Amount mismatch**. It can’t be approved: decline it so the customer pays the right amount on a new deposit.',
                     ],
                     [
                         '“The UTR is refused.”',
@@ -1462,7 +1462,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         '“The customer paid ₹500 at Branch 1 but entered the UTR on a new ₹1,000 request at Branch 2.”',
-                        'When Branch 1 enters the bank line (UTR and ₹500), the request moves to Branch 1 by itself if this customer was shown Branch 1’s account in the last day. It is **not** approved by itself: Branch 1 sees **Amount mismatch** and clicks **Approve** (for ₹500) or **Decline**. Otherwise it stays a **Wrong branch** case for Admin.',
+                        'When Branch 1 enters the bank line (UTR and ₹500), the request moves to Branch 1 by itself if this customer was shown Branch 1’s account in the last day. It is **not** approved by itself: Branch 1 sees **Amount mismatch** and can only **Decline** it (a different amount is never approved). Otherwise it stays a **Wrong branch** case for Admin.',
                     ],
                     [
                         '“Why was the deposit not approved automatically?”',

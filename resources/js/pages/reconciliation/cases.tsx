@@ -192,6 +192,10 @@ export default function Cases(props: Props) {
                             {formatPaise(item.entry.transaction.amount)} ·{' '}
                             {item.entry.transaction.branch}
                         </div>
+                        <StatusBadge
+                            className="mt-1"
+                            status={item.entry.transaction.status}
+                        />
                     </div>
                 ) : (
                     <span className="text-xs text-tx3">none found</span>
@@ -579,7 +583,13 @@ function CaseDrawer({
                                         </div>
                                     </div>
                                     {candidate.late ? (
-                                        item.can.approve_late ? (
+                                        !candidate.same_amount ? (
+                                            <span className="max-w-[200px] text-right text-xs text-tx3">
+                                                Different amount: it can’t be
+                                                approved. If the bank line was
+                                                typed wrong, Admin corrects it.
+                                            </span>
+                                        ) : item.can.approve_late ? (
                                             <PgButton
                                                 variant="primary"
                                                 className="h-7 px-2 text-xs"
@@ -617,7 +627,7 @@ function CaseDrawer({
                                                 ? 'No transfer of this amount without a bank line: only exact amounts can be linked'
                                                 : candidate.status === 'success'
                                                   ? 'Different amount: only exact amounts can be linked'
-                                                  : 'Approve it in Manual Deposit for the amount received (this line then links itself), or decline it from the statement line and this line waits for a deposit of the amount the bank shows'}
+                                                  : 'A different amount can’t be approved: decline it from the statement line (Manual Entry), and this line waits for a deposit of the amount the bank shows. If the line was typed wrong, Admin corrects it.'}
                                         </span>
                                     )}
                                 </div>
@@ -855,7 +865,7 @@ function ApproveLate({
             open
             onOpenChange={(next) => !next && onClose()}
             title={`Approve ${txn.reference} late?`}
-            description={`The deposit is ${txn.status}, but the bank shows ${formatPaise(line.amount)} on ${formatDate(line.value_date)}. Approving credits the partner ${formatPaise(line.amount)}${txn.same_amount ? '' : ` (the order was for ${formatPaise(txn.amount)})`} now and sends payin.success with “late”. This can’t be undone.`}
+            description={`The deposit is ${txn.status}, but the bank shows ${formatPaise(line.amount)} on ${formatDate(line.value_date)}. Approving credits the partner ${formatPaise(txn.amount)} now and sends payin.success with “late”. This can’t be undone.`}
             submitLabel="Approve late"
             processing={form.processing}
             onSubmit={() =>

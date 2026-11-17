@@ -12,6 +12,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Notification\AlertDispatcher;
+use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
@@ -46,7 +47,6 @@ class DecidePayin
 
     /** status_reason_code of a deposit the branch says isn't in its bank. */
     public const NOT_IN_BANK = 'not_in_our_bank';
-
 
     public function __construct(
         private CommissionCalculator $commissions,
@@ -101,6 +101,31 @@ class DecidePayin
                 Utr::ensureFree($utr, $locked->id);
                 $order = $locked->orderAmount();
                 $received ??= $order;
+
+                // Client request 2026-11-17: only the order amount is ever
+                // approved. The partner's site has the order amount and we
+                // can't change it there, so a different amount is declined
+                // (or, if the bank line was typed wrong, Admin corrects it).
+                if ($received !== $order) {
+                    throw ValidationException::withMessages(['received_amount' => __('Only the order amount (₹:order) can be approved. If the customer paid a different amount, decline the deposit.', [
+                        'order' => number_format($order / 100, 2),
+                    ])]);
+                }
+
+                // The bank statement already shows this UTR for another amount.
+                $line = StatementEntry::query()
+                    ->where(['utr_normalized' => $utr, 'entry_direction' => 'credit'])
+                    ->where('status', '!=', 'ignored')
+                    ->where('amount', '!=', $order)
+                    ->first();
+
+                if ($line !== null) {
+                    throw ValidationException::withMessages(['bank_utr' => __('The bank statement shows ₹:bank for UTR :utr, not the order amount ₹:order. A different amount can’t be approved: decline the deposit. If the bank line was typed wrong, Admin corrects it.', [
+                        'bank' => number_format($line->amount / 100, 2),
+                        'utr' => $utr,
+                        'order' => number_format($order / 100, 2),
+                    ])]);
+                }
                 $differs = $received !== $order;
 
                 if ($differs && trim((string) $note) === '') {

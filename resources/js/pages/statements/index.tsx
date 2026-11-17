@@ -118,6 +118,13 @@ type Props = {
     detail?: Detail | null;
 };
 
+/** What became of the deposit an unsettled line points at. */
+const DEPOSIT_OUTCOME: Record<string, string> = {
+    rejected: 'Deposit declined',
+    expired: 'Deposit expired',
+    cancelled: 'Deposit cancelled',
+};
+
 /** Deposit statuses that can still be declined. */
 const WAITING = ['payment_submitted', 'payment_detected', 'under_review'];
 
@@ -283,29 +290,21 @@ export default function Statements(props: Props) {
             }));
     };
 
-    // Branch: the only actions on an open line are Approve / Decline (amount
-    // mismatch) or Match (bank account mismatch); anything else is Details.
+    // Branch: the only actions on an open line are Decline (amount mismatch:
+    // only the order amount is ever approved, client request 2026-11-17) or
+    // Match (bank account mismatch); anything else is Details.
     const branchActions = (line: StatementLine, size: 'row' | 'drawer') => {
         const cls =
             size === 'row' ? 'h-7 px-2 text-xs' : 'h-8 px-3 text-[13px]';
 
         if (canDecline(line)) {
             return (
-                <>
-                    <PgButton
-                        variant="primary"
-                        className={cls}
-                        onClick={() => setDecision({ kind: 'approve', line })}
-                    >
-                        Approve
-                    </PgButton>
-                    <PgButton
-                        className={`${cls} text-er`}
-                        onClick={() => setDecision({ kind: 'decline', line })}
-                    >
-                        Decline
-                    </PgButton>
-                </>
+                <PgButton
+                    className={`${cls} text-er`}
+                    onClick={() => setDecision({ kind: 'decline', line })}
+                >
+                    Decline
+                </PgButton>
             );
         }
 
@@ -464,6 +463,14 @@ export default function Statements(props: Props) {
                             )}
                         </Tooltip>
                     )}
+                    {!line.linked &&
+                        line.transaction &&
+                        DEPOSIT_OUTCOME[line.transaction.status] && (
+                            <StatusBadge
+                                status={line.transaction.status}
+                                label={DEPOSIT_OUTCOME[line.transaction.status]}
+                            />
+                        )}
                     {decisionButtons(line)}
                 </div>
             ),
@@ -532,19 +539,29 @@ export default function Statements(props: Props) {
                     onClick={(event) => event.stopPropagation()}
                 >
                     {portal === 'branch' && line.case?.status === 'open' ? (
-                        <>
-                            {branchActions(line, 'row')}
-                            {line.case.type !== 'amount_mismatch' &&
-                                line.case.type !== 'wrong_account' && (
-                                    <PgButton
-                                        className="h-7 px-2 text-xs"
-                                        onClick={() => openLine(line.id)}
-                                    >
-                                        Details
-                                    </PgButton>
-                                )}
-                        </>
-                    ) : line.case?.status === 'open' ? (
+                        (() => {
+                            const actions = branchActions(line, 'row');
+                            const details = (
+                                <PgButton
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => openLine(line.id)}
+                                >
+                                    Details
+                                </PgButton>
+                            );
+
+                            // "Admin will move it" is a note, not an action.
+                            return line.case.type === 'wrong_branch' ? (
+                                <>
+                                    {actions}
+                                    {details}
+                                </>
+                            ) : (
+                                (actions ?? details)
+                            );
+                        })()
+                    ) : line.case?.status === 'open' &&
+                      line.case.type !== 'amount_mismatch' ? (
                         <Link
                             href={
                                 cases.index({ query: { case: line.case.id } })
@@ -782,7 +799,8 @@ export default function Statements(props: Props) {
                                 open.case?.status === 'open' &&
                                 branchActions(open, 'drawer')}
                             {portal !== 'branch' &&
-                                open.case?.status === 'open' && (
+                                open.case?.status === 'open' &&
+                                open.case.type !== 'amount_mismatch' && (
                                     <Link
                                         href={
                                             cases.index({
@@ -1000,26 +1018,16 @@ function ApproveFromLine({
     onClose: () => void;
 }) {
     const txn = line.transaction!;
-    // Amount mismatch: approve for what reached the bank; the line then
-    // links itself and its case settles.
-    const differs = line.amount !== txn.amount;
-    const form = useForm({
-        bank_utr: line.utr ?? '',
-        received_amount: differs ? (line.amount / 100).toFixed(2) : '',
-        note: '',
-    });
+    // Only the order amount is ever approved (client request 2026-11-17).
+    const form = useForm({ bank_utr: line.utr ?? '', note: '' });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
         <FormDialog
             open
             onOpenChange={(next) => !next && onClose()}
-            title={`Approve ${formatPaise(differs ? line.amount : txn.amount)}?`}
-            description={
-                differs
-                    ? `${txn.reference} · ${txn.partner}. The order was for ${formatPaise(txn.amount)}, but the bank statement shows ${formatPaise(line.amount)} on ${formatDate(line.value_date)}. The deposit is approved for ${formatPaise(line.amount)}, the amount received, and the partner is credited that now. This can’t be undone.`
-                    : `${txn.reference} · ${txn.partner}. The bank statement shows this credit on ${formatDate(line.value_date)}. The partner is credited immediately and this can’t be undone.`
-            }
+            title={`Approve ${formatPaise(txn.amount)}?`}
+            description={`${txn.reference} · ${txn.partner}. The bank statement shows this credit on ${formatDate(line.value_date)}. The partner is credited immediately and this can’t be undone.`}
             submitLabel="Approve"
             processing={form.processing}
             onSubmit={() =>
@@ -1039,24 +1047,16 @@ function ApproveFromLine({
                     }
                 />
             </Field>
-            {differs && (
-                <Field label="Amount received ₹" error={errors.received_amount}>
-                    <TextInput readOnly value={form.data.received_amount} />
-                </Field>
-            )}
-            <Field
-                label={
-                    differs
-                        ? 'Why the amount differs (required)'
-                        : 'Note (optional)'
-                }
-                error={errors.note}
-            >
+            <Field label="Amount (₹)" error={errors.received_amount}>
                 <TextInput
-                    required={differs}
-                    placeholder={
-                        differs ? 'e.g. Customer paid ₹500 less' : undefined
-                    }
+                    readOnly
+                    tabIndex={-1}
+                    className="cursor-not-allowed bg-sf2 font-mono text-tx2"
+                    value={(txn.amount / 100).toFixed(2)}
+                />
+            </Field>
+            <Field label="Note (optional)" error={errors.note}>
+                <TextInput
                     value={form.data.note}
                     onChange={(event) =>
                         form.setData('note', event.target.value)

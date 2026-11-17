@@ -182,45 +182,49 @@ class StatementMatchingTest extends TestCase
         $this->assertSame(1, StatementEntry::count());
     }
 
-    public function test_approving_a_short_payment_for_the_amount_received_closes_its_amount_mismatch_case()
+    /**
+     * Client request 2026-11-17: an amount mismatch is only declined. A typo
+     * in the bank line is corrected by Admin, and the deposit then matches.
+     */
+    public function test_an_amount_mismatch_is_never_approved_only_declined_or_corrected_by_admin()
     {
         $payin = $this->submittedPayin(['amount' => 500000]);
         $this->addLine(['credit' => '500'])->assertSessionHasNoErrors();
         $case = ReconciliationCase::sole();
         $this->assertSame('amount_mismatch', $case->type->value);
 
-        $candidates = $this->partial($this->owner, route('branch.cases.index', ['case' => $case->id]), 'reconciliation/cases', 'candidates')->json('props.candidates');
-        $this->assertSame([[$payin->reference, false]], array_map(fn (array $candidate) => [$candidate['reference'], $candidate['same_amount']], $candidates));
-        $this->actingAs($this->owner)->post(route('branch.cases.link', $case), ['transaction_id' => $payin->id])
-            ->assertSessionHasErrors('transaction');
-
+        // Not for what the bank shows, and not for the order amount either.
         $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491', 'received_amount' => '500', 'note' => 'Paid 500 only'])
-            ->assertSessionHasNoErrors();
+            ->assertSessionHasErrors('received_amount');
+        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491'])
+            ->assertSessionHasErrors('bank_utr');
+        $this->assertSame('payment_submitted', $payin->fresh()?->status);
 
-        $this->assertSame('reconciled', $this->line()->status);
+        // The branch typed ₹500 for ₹5,000: Admin corrects the line and it matches.
+        $this->actingAs($this->admin)->post(route('admin.cases.edit-line', $case), ['utr' => '626812820491', 'amount' => '5000', 'note' => 'Typo: the bank shows 5,000'])
+            ->assertSessionHasNoErrors();
         $this->assertSame($payin->id, $this->line()->transaction_id);
         $this->assertSame('resolved', $case->refresh()->status);
     }
 
-    public function test_money_for_a_declined_deposit_with_another_amount_is_approved_late_for_what_arrived()
+    public function test_a_declined_amount_mismatch_keeps_its_case_and_is_never_approved_late()
     {
         $payin = $this->submittedPayin(['amount' => 500000]);
-        $this->actingAs($this->operator)->post(route('branch.deposits.decline', $payin), ['reason_code' => 'wrong_amount'])->assertSessionHasNoErrors();
-
         $this->addLine(['credit' => '500'])->assertSessionHasNoErrors();
         $case = ReconciliationCase::sole();
-        $this->assertSame('late_payment', $case->type->value);
-        $this->assertStringContainsString('500.00', (string) $case->notes);
 
-        $this->actingAs($this->admin)->post(route('admin.cases.approve-late', $case), ['transaction_id' => $payin->id])->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.deposits.decline', $payin), ['reason_code' => 'wrong_amount'])->assertSessionHasNoErrors();
+        $this->assertSame('rejected', $payin->refresh()->status);
+        $this->assertSame('open', $case->refresh()->status);
+        $this->assertSame('amount_mismatch', $case->type->value);
 
-        $payin->refresh();
-        $this->assertSame('success', $payin->status);
-        $this->assertSame(50000, $payin->amount);
-        $this->assertSame(500000, $payin->order_amount);
-        $this->assertSame(50000 - 3000, app(Ledger::class)->balance(Ledger::PARTNER_POSITION, $this->partner->id, $this->branch->id));
-        $this->assertSame('reconciled', $this->line()->status);
-        $this->assertSame('resolved', $case->refresh()->status);
+        // A late approval is for the exact amount only.
+        $late = $this->submittedPayin(['amount' => 500000], '626812820492');
+        $this->actingAs($this->operator)->post(route('branch.deposits.decline', $late), ['reason_code' => 'wrong_amount'])->assertSessionHasNoErrors();
+        $this->addLine(['credit' => '500', 'utr' => '626812820492'])->assertSessionHasNoErrors();
+        $lateCase = ReconciliationCase::where('type', 'late_payment')->sole();
+        $this->actingAs($this->admin)->post(route('admin.cases.approve-late', $lateCase), ['transaction_id' => $late->id])->assertSessionHasErrors('transaction');
+        $this->assertSame('rejected', $late->refresh()->status);
     }
 
     public function test_a_utr_of_another_branchs_deposit_is_a_wrong_branch_case()

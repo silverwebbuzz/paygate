@@ -382,8 +382,7 @@ export function CaseMock() {
                         </div>
                     </div>
                     <span className="relative max-w-[150px] text-right text-[10px] text-tx3">
-                        Different amount: approve for the amount received, or
-                        decline
+                        Different amount: can’t be approved, decline it
                         <Mark n={5} className="absolute -top-2 -right-2" />
                     </span>
                 </div>

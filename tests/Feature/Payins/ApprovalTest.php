@@ -10,15 +10,12 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Ledger\Ledger;
 use App\Domain\Network\Models\PartnerBranchMapping;
-use App\Domain\Notification\Enums\Alert;
-use App\Domain\Notification\Notifications\PortalAlert;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\PayinData;
 use App\Domain\Webhook\Jobs\DeliverWebhook;
 use App\Domain\Webhook\Models\WebhookEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Tests\Concerns\BuildsPayinNetwork;
 use Tests\TestCase;
@@ -256,68 +253,33 @@ class ApprovalTest extends TestCase
         $this->post("http://pay.paygate.local/p/{$over}/method", ['method' => 'upi'])->assertSessionHasErrors('method');
     }
 
-    public function test_a_short_payment_is_approved_for_the_amount_received()
-    {
-        Notification::fake();
-        $admin = User::factory()->admin(SystemRoles::ADMIN_SUPER)->withTwoFactor()->create();
-        $payin = $this->submittedPayin(['amount' => 500000]);
-
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491', 'received_amount' => '500'])
-            ->assertSessionHasErrors('note');
-        $this->assertSame('payment_submitted', $payin->fresh()?->status);
-
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491', 'received_amount' => '500', 'note' => 'Customer paid only 500'])
-            ->assertSessionHasNoErrors();
-        $payin->refresh();
-
-        $this->assertSame('success', $payin->status);
-        $this->assertSame(50000, $payin->amount);
-        $this->assertSame(500000, $payin->order_amount);
-        $this->assertSame(50000, $payin->received_amount);
-        $this->assertSame(3000, $payin->partner_commission);
-        $this->assertSame(2000, $payin->branch_commission);
-
-        $ledger = app(Ledger::class);
-        $this->assertSame(50000 - 3000, $ledger->balance(Ledger::PARTNER_POSITION, $this->partner->id, $this->branch->id));
-        $this->assertSame(-(50000 - 2000), $ledger->balance(Ledger::BRANCH_POSITION, $this->partner->id, $this->branch->id));
-
-        $this->assertSame(0, $this->counter('account', $payin->payment_account_id, 'reserved_amount'));
-        $this->assertSame(50000, $this->counter('account', $payin->payment_account_id, 'confirmed_amount'));
-        $this->assertSame(50000, $this->counter('partner', $this->partner->id, 'confirmed_amount'));
-
-        $webhook = WebhookEvent::where(['transaction_id' => $payin->id, 'event_type' => 'payin.success'])->sole();
-        $this->assertSame(500000, $webhook->payload['data']['amount']);
-        $this->assertSame(50000, $webhook->payload['data']['received_amount']);
-
-        $alerts = Notification::sent($admin, PortalAlert::class, fn (PortalAlert $alert) => $alert->alert === Alert::PayinAmountDiffers);
-        $this->assertCount(1, $alerts);
-        $this->assertStringContainsString('500.00 of ₹5,000.00', $alerts->first()->title);
-    }
-
-    public function test_an_over_payment_is_approved_for_the_amount_received_and_an_exact_one_unchanged()
-    {
-        $over = $this->submittedPayin(['amount' => 500000]);
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $over), ['bank_utr' => '626812820491', 'received_amount' => '6000', 'note' => 'Paid 6000'])
-            ->assertSessionHasNoErrors();
-        $this->assertSame([600000, 500000], [$over->fresh()?->amount, $over->fresh()?->order_amount]);
-
-        $exact = $this->submittedPayin(['amount' => 500000], '626812820492');
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $exact), ['bank_utr' => '626812820492', 'received_amount' => '5000.00'])
-            ->assertSessionHasNoErrors();
-        $this->assertSame([500000, null, 500000], [$exact->fresh()?->amount, $exact->fresh()?->order_amount, $exact->fresh()?->received_amount]);
-
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $this->submittedPayin([], '626812820493')), ['bank_utr' => '626812820493', 'received_amount' => '0', 'note' => 'x'])
-            ->assertSessionHasErrors('received_amount');
-    }
-
-    public function test_partners_see_the_order_amount_and_what_was_received()
+    /**
+     * Client request 2026-11-17: only the order amount is ever approved (the
+     * partner's site has it and can't be changed); a different amount is declined.
+     */
+    public function test_only_the_order_amount_is_approved()
     {
         $payin = $this->submittedPayin(['amount' => 500000]);
-        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491', 'received_amount' => '500', 'note' => 'Short']);
+
+        foreach (['500', '6000', '0'] as $received) {
+            $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491', 'received_amount' => $received, 'note' => 'Paid another amount'])
+                ->assertSessionHasErrors('received_amount');
+            $this->assertSame('payment_submitted', $payin->fresh()?->status);
+        }
+
+        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491', 'received_amount' => '5000.00'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame([500000, null, 500000], [$payin->fresh()?->amount, $payin->fresh()?->order_amount, $payin->fresh()?->received_amount]);
+    }
+
+    public function test_partners_see_received_amount_equal_to_the_order_amount()
+    {
+        $payin = $this->submittedPayin(['amount' => 500000]);
+        $this->actingAs($this->operator)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
 
         $data = PayinData::forPartner($payin->fresh() ?? $payin);
         $this->assertSame(500000, $data['amount']);
-        $this->assertSame(50000, $data['received_amount']);
+        $this->assertSame(500000, $data['received_amount']);
     }
 
     public function test_partners_get_webhooks_for_submitted_and_decided_pay_ins_only_with_a_url()

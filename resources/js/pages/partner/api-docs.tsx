@@ -27,7 +27,7 @@ const STATUSES: [string, string][] = [
     ['under_review', 'Being checked manually.'],
     [
         'success',
-        'Money received and confirmed. Credit your customer received_amount now: if the customer paid less or more than ordered, received_amount differs from amount and that is what your balance is credited.',
+        'Money received and confirmed. Credit your customer now: only the order amount is ever approved, so received_amount always equals amount (a payment of another amount is declined).',
     ],
     ['rejected', 'The payment could not be confirmed.'],
     ['expired', 'Not paid in time. The payment link no longer works.'],

@@ -202,17 +202,16 @@ class AutoApproveDepositTest extends TestCase
         $this->assertSame(1, $this->alerted($this->admin, Alert::DepositAutoMoved));
         $this->assertSame(1, $this->alerted($this->operator, Alert::DepositAutoMoved));
 
-        // The paid branch approves for the ₹500 received: the line links and the case settles.
+        // A different amount is never approved: the paid branch declines it.
         $this->actingAs($this->paidOperator)->post(route('branch.deposits.approve', $payin), [
             'bank_utr' => self::UTR,
             'received_amount' => '5000',
             'note' => 'Customer paid ₹5,000 of ₹10,000',
-        ])->assertSessionHasNoErrors();
+        ])->assertSessionHasErrors('received_amount');
+        $this->actingAs($this->paidOperator)->post(route('branch.deposits.decline', $payin), ['reason_code' => 'wrong_amount'])->assertSessionHasNoErrors();
 
-        $this->assertSame('success', $payin->refresh()->status);
-        $this->assertSame(500000, $payin->amount);
-        $this->assertSame('reconciled', $this->line()->status);
-        $this->assertSame('resolved', $case->refresh()->status);
+        $this->assertSame('rejected', $payin->refresh()->status);
+        $this->assertSame('open', $case->refresh()->status);
     }
 
     public function test_the_customers_utr_after_a_line_of_another_amount_also_moves_the_deposit()

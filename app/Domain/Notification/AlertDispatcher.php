@@ -242,7 +242,7 @@ class AlertDispatcher
                 'utr' => $payin->bank_utr_normalized ?? $payin->customer_utr_normalized ?? '—',
                 'amount' => $this->money($payin->amount),
             ])
-            : __('Branch :to’s bank shows UTR :utr for ₹:bank, but the deposit is for ₹:amount. It was moved there for the branch to approve for the amount received, or decline.', [
+            : __('Branch :to’s bank shows UTR :utr for ₹:bank, but the deposit is for ₹:amount. It was moved there for the branch to decline (a different amount can’t be approved).', [
                 'to' => $to ?? '—',
                 'utr' => $payin->customer_utr_normalized ?? '—',
                 'bank' => $this->money((int) $bankAmount),
