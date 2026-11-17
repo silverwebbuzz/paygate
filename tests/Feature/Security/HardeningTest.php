@@ -49,6 +49,13 @@ class HardeningTest extends TestCase
         $this->get('http://api.paygate.local/v1/missing')->assertNotFound()->assertHeader('X-Frame-Options', 'SAMEORIGIN');
     }
 
+    public function test_the_api_allows_no_cross_origin_browser_calls()
+    {
+        $this->get('http://api.paygate.local/v1/ping', ['Origin' => 'https://evil.example'])
+            ->assertOk()
+            ->assertHeaderMissing('Access-Control-Allow-Origin');
+    }
+
     public function test_repeated_failed_api_authentication_locks_the_ip_out()
     {
         for ($i = 0; $i < AuthenticatePartner::MAX_FAILURES_PER_MINUTE; $i++) {

@@ -55,3 +55,7 @@ yarn-error.log
 
 # Cashier test sites uploaded to other domains. Not part of PayGate.
 /partner-sites/
+
+# Security scan reports (sensitive; share deliberately, never commit)
+/storage/security-reports/
+security-report-*.md

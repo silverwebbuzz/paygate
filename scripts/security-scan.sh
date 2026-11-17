@@ -171,6 +171,7 @@ code=$(status -X POST -H 'Content-Type: application/json' -H 'Accept: applicatio
 
 # ── 9. Performance (light load) ────────────────────────────────────────────
 PERF=""
+SERVER=""
 if command -v ab >/dev/null; then
     for target in "$API/v1/ping" "$PORTAL/login" "$PAY/legal/terms"; do
         OUT=$(ab -q -n "$LOAD_REQUESTS" -c "$LOAD_CONCURRENCY" -H "User-Agent: $UA" "$target" 2>&1)
@@ -181,6 +182,10 @@ if command -v ab >/dev/null; then
         p95=$(echo "$OUT" | awk '$1=="95%" {print $2}')
         p99=$(echo "$OUT" | awk '$1=="99%" {print $2}')
         PERF+="| ${target#https://} | $LOAD_REQUESTS | $LOAD_CONCURRENCY | ${rps:-?} | ${p50:-?} | ${p95:-?} | ${p99:-?} | ${failed:-?} | ${non2xx:-0} |"$'\n'
+        # Server time = first byte minus the TLS handshake (one network round trip remains in it).
+        srv=$(for i in 1 2 3 4 5; do curl -s -o /dev/null -A "$UA" -w '%{time_appconnect} %{time_starttransfer} %{time_connect}\n' "$target"; done \
+            | awk '{s+=($2-$1)*1000; r+=$3*1000} END {printf "%.0f %.0f", s/NR, r/NR}')
+        SERVER+="| ${target#https://} | ${srv% *} | ${srv#* } |"$'\n'
         if [[ -n "$p95" && "$p95" -le 1000 ]]; then row PASS "Performance" "p95 under 1 s: ${target#https://}" "${p95} ms"
         else row WARN "Performance" "p95 under 1 s: ${target#https://}" "${p95:-?} ms"; fi
     done
@@ -211,6 +216,12 @@ fi
         echo "| URL | Requests | Concurrency | Req/s | p50 | p95 | p99 | Failed | Non-2xx |"
         echo "|---|---|---|---|---|---|---|---|---|"
         printf '%s' "$PERF"
+        echo
+        echo "Each Apache Bench request opens a new HTTPS connection (TCP + TLS = about 3 network round trips), so the times above are mostly distance between the scanning machine and the server. The table below separates the two (average of 5 requests):"
+        echo
+        echo "| URL | Request after connect, ms (server work + 1 round trip) | Network round trip (TCP connect), ms |"
+        echo "|---|---|---|"
+        printf '%s' "$SERVER"
     fi
 } > "$REPORT"
 
