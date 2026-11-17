@@ -29,6 +29,13 @@ class ApiAuthenticator
     public const NONCE_TTL = 600;
 
     /**
+     * Failed authentications allowed per IP per minute before that IP is
+     * refused for the rest of the minute (AuthenticatePartner): stops
+     * key/signature guessing and keeps junk traffic off the database.
+     */
+    public const MAX_FAILURES_PER_MINUTE = 30;
+
+    /**
      * @return array{partner: Partner, key: PartnerApiKey}
      */
     public function authenticate(?string $keyId, ?string $timestamp, ?string $nonce, ?string $signature, string $method, string $pathWithQuery, string $body, ?string $ip): array

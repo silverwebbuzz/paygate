@@ -59,6 +59,10 @@ export default function PortalLayout({
                                 ]
                               : []),
                           {
+                              label: 'Security Report',
+                              href: admin.securityReport.index(),
+                          },
+                          {
                               label: 'Section rollout',
                               href: admin.sectionRollout.index(),
                           },

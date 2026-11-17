@@ -39,6 +39,13 @@ return [
         'duplicate_window_seconds' => (int) env('PAYGATE_PAYIN_DUPLICATE_WINDOW', 120),
     ],
 
+    'security_scan' => [
+        // Admin › Testing › Security Report: the light load per page of each
+        // scan (requests, how many at a time). Keep it light on production.
+        'load_requests' => (int) env('PAYGATE_SCAN_LOAD_REQUESTS', 100),
+        'load_concurrency' => (int) env('PAYGATE_SCAN_LOAD_CONCURRENCY', 10),
+    ],
+
     'qa' => [
         // Admin › QA Checklist (super admins only, every environment): every
         // feature with how to test it, manual results, test data and a button

@@ -3,9 +3,9 @@
 namespace Tests\Feature\Security;
 
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\PartnerApi\ApiAuthenticator;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Webhook\WebhookTarget;
-use App\Http\Api\Middleware\AuthenticatePartner;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -58,7 +58,7 @@ class HardeningTest extends TestCase
 
     public function test_repeated_failed_api_authentication_locks_the_ip_out()
     {
-        for ($i = 0; $i < AuthenticatePartner::MAX_FAILURES_PER_MINUTE; $i++) {
+        for ($i = 0; $i < ApiAuthenticator::MAX_FAILURES_PER_MINUTE; $i++) {
             $this->postJson('http://api.paygate.local/v1/payins', [])->assertUnauthorized();
         }
 

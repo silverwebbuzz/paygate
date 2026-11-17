@@ -17,6 +17,7 @@ use App\Http\Admin\Qa\SectionRolloutController;
 use App\Http\Admin\Reversals\ChargebackController;
 use App\Http\Admin\Reversals\ReversalController;
 use App\Http\Admin\Roles\RoleController;
+use App\Http\Admin\Security\SecurityReportController;
 use App\Http\Admin\Settings\GlobalSettingsController;
 use App\Http\Admin\Settlements\AdjustmentController;
 use App\Http\Shared\Accounts\AccountLogController;
@@ -244,6 +245,17 @@ Route::controller(QaChecklistController::class)->prefix('qa-checklist')->name('q
     Route::post('run', 'run')->middleware('throttle:30,1')->name('run');
     Route::post('sample', 'sample')->middleware('throttle:30,1')->name('sample');
     Route::put('{key}', 'mark')->name('mark');
+});
+
+// Security Report (super admins only, every environment): automated scan,
+// manual tests, findings, client decisions; HTML preview and PDF for the client.
+Route::controller(SecurityReportController::class)->prefix('security-report')->name('security-report.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::post('scan', 'scan')->middleware('throttle:6,1')->name('scan');
+    Route::put('details', 'details')->name('details');
+    Route::get('preview', 'preview')->name('preview');
+    Route::get('download', 'download')->middleware('throttle:20,1')->name('download');
+    Route::put('entries/{key}', 'mark')->where('key', '[a-z0-9._]+')->name('mark');
 });
 
 // Section rollout (super admins only): which sections other users see,

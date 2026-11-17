@@ -445,6 +445,8 @@ A nightly job re-sums `ledger_entries` per account and alerts on any difference 
 
 **`qa_results`** (Admin › QA Checklist, local and staging only): `check_key PK` (the row key in `app/Domain/Qa/Checklist.php`), `manual_status` (`pass` / `fail` / null), `manual_note`, `tested_by FK users`, `tested_at`, `auto_status` (`queued` / `running` / `passed` / `failed` / `missing` / `error`), `auto_summary`, `auto_tests jsonb` (per test: id, status, failure message), `auto_output`, `auto_requested_by`, `auto_requested_at`, `auto_finished_at`, `updated_at`. Testing records only; no business data. The table exists on production too (migrations are the same everywhere) but stays empty.
 
+**`security_scans`** (Admin › Testing › Security Report, super admins, every environment): `id uuid PK`, `status` (`queued` / `running` / `done` / `error`), `target jsonb` (portal / api / pay URLs), `passed`, `failed`, `warnings`, `results jsonb` (per check: status pass/fail/warn, area, check, detail), `performance jsonb` (per page: requests, concurrency, per_second, p50/p95/p99 ms, failed), `error`, `requested_by FK users`, `requested_at`, `finished_at`. **`security_report_entries`**: `entry_key PK` (a key from `app/Domain/SecurityReport/Catalogue.php`: `test.*`, `finding.*`, `decision.*`), `status` (tests `pass`/`fail`/`na`; findings `open`/`fixed`/`verified`/`accepted`; decisions `pending`/`agreed`/`declined`), `note`, `updated_by FK users`, `updated_at`. Testing records only; no business data. Report details are in `settings` (`security_report.details`).
+
 **`users.notification_preferences`** (Phase 12): `{ "<alert>": false }` turns email off for that alert (on by default). Alerts themselves are Laravel database notifications (`notifications` table).
 
 ### 2.11 Platform

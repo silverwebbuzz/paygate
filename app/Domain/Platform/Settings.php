@@ -35,6 +35,9 @@ class Settings
     /** Support contact on the customer payment page (G-48). */
     public const CHECKOUT_SUPPORT = 'checkout.support';
 
+    /** Admin › Testing › Security Report: who the report is for, round, environment, tester, summary note. */
+    public const SECURITY_REPORT = 'security_report.details';
+
     /** @var array<string, mixed> */
     private const DEFAULTS = [
         self::SETTLEMENT_CUTOFF => ['timezone' => 'Asia/Kolkata', 'time' => '00:00'],
@@ -42,6 +45,7 @@ class Settings
         self::CHECKOUT_SUPPORT => ['email' => null, 'phone' => null],
         self::AUTO_APPROVE_DEPOSITS => true,
         self::UNMATCHED_APPROVAL_HOURS => 24,
+        self::SECURITY_REPORT => ['client' => null, 'round' => '1', 'environment' => null, 'prepared_by' => null, 'note' => null],
     ];
 
     public function get(string $key): mixed
