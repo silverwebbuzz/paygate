@@ -80,8 +80,8 @@ class ResolveCase
             $entry = $this->lockOpen($case);
             $payin = $case->transaction_id === null ? null : Transaction::query()->find($case->transaction_id);
 
-            if ($case->type !== CaseType::WrongBranch || $payin === null || ! $payin->isPayin() || ! $entry->isCredit()) {
-                throw ValidationException::withMessages(['case' => __('Only a “wrong branch” case about a deposit can move it here.')]);
+            if (! in_array($case->type, [CaseType::WrongBranch, CaseType::WrongAccount], true) || $payin === null || ! $payin->isPayin() || ! $entry->isCredit()) {
+                throw ValidationException::withMessages(['case' => __('Only a “wrong branch” or “wrong bank account” case about a deposit can move it here.')]);
             }
 
             $moved = $this->move->handle($actor, $payin, $entry->paymentAccount, $note);
@@ -90,7 +90,7 @@ class ResolveCase
             // link it now if the amount does.
             $entry->refresh();
 
-            if ($entry->transaction_id === null && $entry->openCase()->first()?->type === CaseType::WrongBranch && $entry->amount === $moved->amount) {
+            if ($entry->transaction_id === null && in_array($entry->openCase()->first()?->type, [CaseType::WrongBranch, CaseType::WrongAccount], true) && $entry->amount === $moved->amount) {
                 $this->matcher->link($entry, $moved, $actor, $note);
             }
 

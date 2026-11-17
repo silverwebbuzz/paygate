@@ -11,7 +11,11 @@ enum CaseType: string
 {
     case UtrNotFound = 'utr_not_found';
     case AmountMismatch = 'amount_mismatch';
+    // The deposit belongs to another branch: only Admin can move it.
     case WrongBranch = 'wrong_branch';
+    // The deposit is on another account of the same branch (client request
+    // 2026-11-17: a different thing from a wrong branch).
+    case WrongAccount = 'wrong_account';
     case DuplicateUtr = 'duplicate_utr';
     case LatePayment = 'late_payment';
     case ManualReview = 'manual_review';
@@ -25,7 +29,8 @@ enum CaseType: string
         return match ($this) {
             self::UtrNotFound => 'UTR not found',
             self::AmountMismatch => 'Amount mismatch',
-            self::WrongBranch => 'Wrong branch / account',
+            self::WrongBranch => 'Wrong branch',
+            self::WrongAccount => 'Wrong bank account',
             self::DuplicateUtr => 'Duplicate UTR',
             self::LatePayment => 'Credit for a closed deposit',
             self::ManualReview => 'Needs review',

@@ -335,7 +335,9 @@ class StatementMatchingTest extends TestCase
 
         $this->addLine()->assertSessionHasNoErrors();
         $case = ReconciliationCase::sole();
-        $this->assertSame('wrong_branch', $case->type->value);
+        // Same branch, other account: a wrong bank account, not a wrong branch.
+        $this->assertSame('wrong_account', $case->type->value);
+        $this->assertStringContainsString($second->label, (string) $case->notes);
 
         return [$second, $payin, $case];
     }

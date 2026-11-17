@@ -62,11 +62,15 @@ export function PaymentHubHeader({
                         : title
                 }
             />
+            {/* Same height on every tab, so the tabs don't jump when
+                switching: the Live line keeps its space and the
+                description stays on one line. */}
             <PageHeader
                 title={title}
                 description={description}
-                eyebrow={eyebrow}
+                eyebrow={eyebrow ?? <div aria-hidden className="h-4" />}
                 actions={actions}
+                oneLine
             />
 
             {views.length > 1 && (

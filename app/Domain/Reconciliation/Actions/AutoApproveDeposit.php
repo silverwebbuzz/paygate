@@ -30,7 +30,13 @@ use Illuminate\Validation\ValidationException;
  *    before "Get different details"). Otherwise the UTR may be someone
  *    else's typed in by a fraudster, so Admin decides (Wrong branch case).
  *
- * Only when everything is clean: exact UTR and exact amount, the deposit is
+ * A different amount (client request 2026-11-17): the customer paid ₹500
+ * into this account on one request, then typed the UTR on a new ₹1,000
+ * request given to another branch. The deposit is still moved here (same
+ * checks), but not approved: it waits as "Amount mismatch" for this branch
+ * to approve for the amount received, or decline.
+ *
+ * Approval only when everything is clean: exact UTR and exact amount, the deposit is
  * waiting (or on hold only because its branch said "not in our bank"), one
  * waiting deposit and one bank line with that UTR, and this branch is mapped
  * to the partner for deposits. Anything else stays in the queues for a
@@ -98,10 +104,6 @@ class AutoApproveDeposit
             return null;
         }
 
-        if ($line->amount !== $payin->amount) {
-            return null;
-        }
-
         return $this->moveAndApprove($line, $payin);
     }
 
@@ -122,7 +124,7 @@ class AutoApproveDeposit
             ->whereIn('status', Utr::CLAIMING)
             ->first();
 
-        if ($payin === null || $payin->payment_account_id === $entry->payment_account_id || $payin->amount !== $entry->amount) {
+        if ($payin === null || $payin->payment_account_id === $entry->payment_account_id) {
             return null;
         }
 
@@ -139,6 +141,20 @@ class AutoApproveDeposit
         }
 
         $fromBranch = (string) $payin->branch_id;
+
+        // Different amount: move only; the branch approves or declines it.
+        if ($line->amount !== $payin->amount) {
+            $moved = $this->move->handle($actor, $payin, $account, __('Automatic: the bank line of :account shows UTR :utr for ₹:bank; the deposit is for ₹:amount. Moved here to approve for the amount received, or decline.', [
+                'account' => $account->label,
+                'utr' => $line->utr_normalized,
+                'bank' => number_format($line->amount / 100, 2),
+                'amount' => number_format($payin->amount / 100, 2),
+            ]));
+
+            $this->alerts->depositAutoMoved($moved, $fromBranch, approved: false, bankAmount: $line->amount);
+
+            return null;
+        }
 
         try {
             $approved = DB::transaction(function () use ($actor, $payin, $account, $line) {

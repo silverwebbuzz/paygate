@@ -176,6 +176,63 @@ class AutoApproveDepositTest extends TestCase
         $this->assertSame($this->paidBranch->id, $payin->branch_id);
     }
 
+    /**
+     * Client scenario 2026-11-17: ABC paid ₹500 into the paid branch's
+     * account on request 1 without entering the UTR, then typed that UTR on a
+     * new ₹1,000 request given to the first branch. The paid branch's line
+     * (₹500) moves the request there, but doesn't approve the other amount.
+     */
+    public function test_a_different_amount_at_another_branch_moves_the_deposit_for_the_branch_to_decide()
+    {
+        $this->givenPaidAccountEarlier();
+        $payin = $this->depositAtFirstBranch(amount: 1000000);
+
+        $this->addLine($this->paidOperator, $this->paidAccount, credit: '5000')->assertSessionHasNoErrors();
+
+        $payin->refresh();
+        $this->assertSame('payment_submitted', $payin->status);
+        $this->assertSame($this->paidBranch->id, $payin->branch_id);
+        $this->assertSame($this->paidAccount->id, $payin->payment_account_id);
+        $case = ReconciliationCase::sole();
+        $this->assertSame('open', $case->status);
+        $this->assertSame('amount_mismatch', $case->type->value);
+        $this->assertSame($payin->id, $case->transaction_id);
+        // The paid branch is asked to check it; Admin and the first branch are told it moved.
+        $this->assertSame(1, $this->alerted($this->paidOperator, Alert::DepositMoved));
+        $this->assertSame(1, $this->alerted($this->admin, Alert::DepositAutoMoved));
+        $this->assertSame(1, $this->alerted($this->operator, Alert::DepositAutoMoved));
+
+        // The paid branch approves for the ₹500 received: the line links and the case settles.
+        $this->actingAs($this->paidOperator)->post(route('branch.deposits.approve', $payin), [
+            'bank_utr' => self::UTR,
+            'received_amount' => '5000',
+            'note' => 'Customer paid ₹5,000 of ₹10,000',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('success', $payin->refresh()->status);
+        $this->assertSame(500000, $payin->amount);
+        $this->assertSame('reconciled', $this->line()->status);
+        $this->assertSame('resolved', $case->refresh()->status);
+    }
+
+    public function test_the_customers_utr_after_a_line_of_another_amount_also_moves_the_deposit()
+    {
+        $this->givenPaidAccountEarlier();
+        $this->addLine($this->paidOperator, $this->paidAccount, credit: '5000')->assertSessionHasNoErrors();
+
+        // A ₹1,000 request allocated to the first branch; the UTR is entered afterwards.
+        $this->paidAccount->update(['status' => 'inactive']);
+        [$reference, $token] = $this->createPayin(['amount' => 1000000, 'customer' => self::CUSTOMER]);
+        $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
+        $this->paidAccount->update(['status' => 'active']);
+        $this->postProof($token, self::UTR)->assertSessionHasNoErrors();
+
+        $payin = Transaction::where('reference', $reference)->sole();
+        $this->assertSame('payment_submitted', $payin->status);
+        $this->assertSame($this->paidBranch->id, $payin->branch_id);
+        $this->assertSame('amount_mismatch', ReconciliationCase::sole()->type->value);
+    }
+
     public function test_a_deposit_the_branch_reported_not_in_its_bank_is_moved_and_approved()
     {
         $this->givenPaidAccountEarlier();

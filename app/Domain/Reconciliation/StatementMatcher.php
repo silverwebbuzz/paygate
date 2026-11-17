@@ -259,9 +259,16 @@ class StatementMatcher
         $elsewhere = $candidates->first();
 
         if ($elsewhere !== null) {
-            $this->openCase($entry, CaseType::WrongBranch, $elsewhere, $elsewhere->branch_id === $entry->branch_id
-                ? __(':reference was paid to another account of this branch (:account).', ['reference' => $elsewhere->reference, 'account' => $elsewhere->paymentAccount->label ?? '—'])
-                : __(':reference belongs to branch :branch.', ['reference' => $elsewhere->reference, 'branch' => $elsewhere->branch->name ?? '—']));
+            $elsewhere->branch_id === $entry->branch_id
+                ? $this->openCase($entry, CaseType::WrongAccount, $elsewhere, __(':reference is for bank account :account of this branch, but this line was entered under :line. If the line was entered under the wrong account, change its bank account (Match).', [
+                    'reference' => $elsewhere->reference,
+                    'account' => $elsewhere->paymentAccount->label ?? '—',
+                    'line' => $entry->paymentAccount->label ?? '—',
+                ]))
+                : $this->openCase($entry, CaseType::WrongBranch, $elsewhere, __(':reference belongs to branch :branch, not this branch. Only Admin can move the deposit here.', [
+                    'reference' => $elsewhere->reference,
+                    'branch' => $elsewhere->branch->name ?? '—',
+                ]));
 
             return;
         }

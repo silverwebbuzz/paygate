@@ -125,7 +125,7 @@ class StatementPresenter
     {
         $txn = $case->transaction;
 
-        if (! $case->isOpen() || $case->type !== CaseType::WrongBranch || $txn === null || ! $txn->isPayin()
+        if (! $case->isOpen() || ! in_array($case->type, [CaseType::WrongBranch, CaseType::WrongAccount], true) || $txn === null || ! $txn->isPayin()
             || ! in_array($txn->status, ['payment_submitted', 'payment_detected', 'under_review'], true)
             || ! $viewer->isType(UserType::Admin) || ! $viewer->can('reconciliation.resolve') || ! $viewer->can('payins.approve')) {
             return null;
