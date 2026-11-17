@@ -222,6 +222,11 @@ export default function Checkout(props: Props) {
                                     : 'Payment cancelled'
                             }
                             body="Do not transfer to the old account details. Start a new payment from the merchant’s site instead."
+                            note={
+                                status === 'expired'
+                                    ? `Already paid before the time ran out? Your money is not lost. Keep your UTR and payment screenshot, and contact ${partner.name} support with Order ID ${payin.order_id}: the payment is checked against the bank and credited.`
+                                    : undefined
+                            }
                             rows={[
                                 ['Amount', formatPaise(payin.amount)],
                                 ['Order ID', payin.order_id],
@@ -301,17 +306,20 @@ export default function Checkout(props: Props) {
     );
 }
 
-function AmountCard({
-    payin,
-    server_time,
-    ticking,
-}: Props & { ticking: boolean }) {
+/**
+ * Seconds left in the payment session, by the server's clock. With `expire`,
+ * the page reloads when time is up so the server shows the expired state.
+ */
+function useSecondsLeft(
+    expiresAt: string | null,
+    serverTime: string,
+    ticking: boolean,
+    expire = false,
+): { left: number | null; deadline: number | null } {
     const [offset] = useState(
-        () => new Date(server_time).getTime() - Date.now(),
+        () => new Date(serverTime).getTime() - Date.now(),
     );
-    const deadline = payin.expires_at
-        ? new Date(payin.expires_at).getTime()
-        : null;
+    const deadline = expiresAt ? new Date(expiresAt).getTime() : null;
     const [now, setNow] = useState(() => Date.now() + offset);
 
     useEffect(() => {
@@ -323,17 +331,50 @@ function AmountCard({
             // Time is up: let the server expire it and show the expired state.
             if (current >= deadline) {
                 clearInterval(timer);
-                router.reload();
+                if (expire) router.reload();
             }
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [ticking, deadline, offset]);
+    }, [ticking, deadline, offset, expire]);
 
-    const left =
-        deadline === null
-            ? null
-            : Math.max(0, Math.floor((deadline - now) / 1000));
+    return {
+        deadline,
+        left:
+            deadline === null
+                ? null
+                : Math.max(0, Math.floor((deadline - now) / 1000)),
+    };
+}
+
+/** Why "I've made the payment" failed, when it isn't a field error. */
+function submitProblem(status: number, maxKb: number): string {
+    switch (status) {
+        case 413:
+            return `The screenshot is too large. Upload one under ${Math.round(maxKb / 1024)} MB.`;
+        case 419:
+            return 'This page was open too long and needs a refresh. Refresh the page, then enter the UTR and screenshot again.';
+        case 429:
+            return 'Too many tries in a short time. Wait one minute, then tap “I’ve made the payment” again.';
+        case 404:
+        case 410:
+            return 'This payment link is no longer valid. If you already paid, contact the merchant’s support with your Order ID and UTR.';
+        default:
+            return 'Something went wrong on our side and your details were not saved. Your money is safe: wait a moment and tap “I’ve made the payment” again. If it keeps happening, contact the merchant’s support with your Order ID and UTR.';
+    }
+}
+
+function AmountCard({
+    payin,
+    server_time,
+    ticking,
+}: Props & { ticking: boolean }) {
+    const { left, deadline } = useSecondsLeft(
+        payin.expires_at,
+        server_time,
+        ticking,
+        true,
+    );
     const total =
         deadline === null || payin.created_at === null
             ? 1
@@ -464,12 +505,55 @@ function PayView({
     account,
     methods,
     proof,
+    server_time,
     onChooseAnother,
 }: Props & { onChooseAnother: () => void }) {
     const form = useForm<{ utr: string; photo: File | null }>({
         utr: '',
         photo: null,
     });
+    // A failure that isn't about one field (time out, too many tries, server).
+    const [problem, setProblem] = useState<string | null>(null);
+    const { left } = useSecondsLeft(payin.expires_at, server_time, true);
+    const fieldError =
+        form.errors.utr ??
+        form.errors.photo ??
+        Object.values(form.errors as Record<string, string>)[0];
+
+    const choosePhoto = (file: File | null) => {
+        setProblem(null);
+        form.clearErrors('photo');
+
+        if (file === null) {
+            form.setData('photo', null);
+
+            return;
+        }
+
+        const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+
+        if (!proof.types.includes(extension)) {
+            form.setData('photo', null);
+            form.setError(
+                'photo',
+                `This file type can’t be used. Upload a screenshot as ${proof.types.join(', ').toUpperCase()}.`,
+            );
+
+            return;
+        }
+
+        if (file.size > proof.max_kb * 1024) {
+            form.setData('photo', null);
+            form.setError(
+                'photo',
+                `The screenshot is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Upload one under ${Math.round(proof.max_kb / 1024)} MB.`,
+            );
+
+            return;
+        }
+
+        form.setData('photo', file);
+    };
     const switcher = useForm({ method: '' as string });
     const tabs = methods.filter((method) => account!.supports.includes(method));
     const current = (payin.method ?? tabs[0]) as Method;
@@ -601,12 +685,41 @@ function PayView({
                 className="flex flex-col gap-3 border-t border-[#EEF0F3] pt-3"
                 onSubmit={(event) => {
                     event.preventDefault();
+                    setProblem(null);
                     form.post(checkout.proof(token).url, {
                         forceFormData: true,
                         preserveScroll: true,
+                        onHttpException: (response) => {
+                            setProblem(
+                                submitProblem(response.status, proof.max_kb),
+                            );
+
+                            return false;
+                        },
+                        onNetworkError: () => {
+                            setProblem(
+                                'No internet connection. Check your connection, then tap “I’ve made the payment” again. Your details are still filled in.',
+                            );
+
+                            return false;
+                        },
                     });
                 }}
             >
+                {left !== null && left > 0 && left <= 120 && (
+                    <div
+                        role="alert"
+                        className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 py-2.5 text-[12.5px] text-[#B91C1C]"
+                    >
+                        <b>
+                            {left < 60
+                                ? 'Less than a minute left.'
+                                : 'Less than 2 minutes left.'}
+                        </b>{' '}
+                        Already paid? Enter the UTR and upload the screenshot
+                        now, before this payment expires.
+                    </div>
+                )}
                 <label className="flex flex-col gap-1.5 text-[13px] font-medium">
                     <span>
                         UTR / reference number{' '}
@@ -650,22 +763,24 @@ function PayView({
                             <X className="size-4" />
                         </button>
                     )}
+                    {/* No `required`: the browser's warning would point at a
+                        hidden input; the button stays disabled until a
+                        screenshot is chosen, and says so. */}
                     <input
                         type="file"
-                        required
                         className="sr-only"
                         accept={proof.types.map((type) => `.${type}`).join(',')}
                         onChange={(event) =>
-                            form.setData(
-                                'photo',
-                                event.target.files?.[0] ?? null,
-                            )
+                            choosePhoto(event.target.files?.[0] ?? null)
                         }
                     />
                 </label>
-                {(form.errors.utr || form.errors.photo) && (
-                    <p className="text-[12.5px] text-[#B91C1C]">
-                        {form.errors.utr ?? form.errors.photo}
+                {(fieldError || problem) && (
+                    <p
+                        role="alert"
+                        className="rounded-lg bg-[#FEF2F2] px-3 py-2 text-[12.5px] text-[#B91C1C]"
+                    >
+                        {fieldError ?? problem}
                     </p>
                 )}
                 <button
@@ -677,8 +792,20 @@ function PayView({
                     }
                     className="h-12 rounded-xl bg-brand text-[15px] font-semibold text-white disabled:opacity-50"
                 >
-                    I’ve made the payment
+                    {form.processing ? 'Sending…' : 'I’ve made the payment'}
                 </button>
+                {!form.processing &&
+                    (form.data.utr.trim() === '' ||
+                        form.data.photo === null) && (
+                        <p className="-mt-1 text-center text-[12px] text-[#64748B]">
+                            {form.data.utr.trim() === '' &&
+                            form.data.photo === null
+                                ? 'Enter the UTR and upload the screenshot to continue.'
+                                : form.data.utr.trim() === ''
+                                  ? 'Enter the UTR to continue.'
+                                  : 'Upload the screenshot to continue.'}
+                        </p>
+                    )}
             </form>
             <button
                 type="button"
@@ -876,8 +1003,8 @@ function YonoWarning() {
                     may fail.
                 </span>
                 <span lang="hi">
-                    कृपया UPI भुगतान के लिए Yono SBI का उपयोग न करें, क्योंकि
-                    भुगतान असफल हो सकता है।
+                    कृपया UPI भुगतान के लिए Yono SBI का उपयोग न करें, क्योंकि भुगतान
+                    असफल हो सकता है।
                 </span>
             </div>
         </div>
@@ -893,10 +1020,10 @@ function PaymentRules() {
                 request.
             </span>
             <span>
-                - Do not save the details of our collection account, such as
-                the UPI ID or QR code for the next payment. We frequently update
-                our collection accounts and using old details may result in
-                money loss.
+                - Do not save the details of our collection account, such as the
+                UPI ID or QR code for the next payment. We frequently update our
+                collection accounts and using old details may result in money
+                loss.
             </span>
         </div>
     );

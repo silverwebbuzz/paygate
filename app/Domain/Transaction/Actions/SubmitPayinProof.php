@@ -73,7 +73,7 @@ class SubmitPayinProof
             if ($locked->payinStatus() !== PayinStatus::AwaitingPayment) {
                 throw ValidationException::withMessages(['utr' => $locked->payinStatus()->isOpen()
                     ? __('Choose how you paid first.')
-                    : __('This payment can no longer be updated.')]);
+                    : __('This payment session has ended (expired or closed), so it can’t be submitted here. If you already paid, keep your UTR and screenshot and contact the merchant’s support with your Order ID: the payment is checked against the bank.')]);
             }
 
             // Checked again under the lock (refuseTaken ran before it).
