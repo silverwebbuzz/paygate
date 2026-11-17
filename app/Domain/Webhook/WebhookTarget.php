@@ -12,7 +12,33 @@ use RuntimeException;
  */
 final class WebhookTarget
 {
-    public static function ensureAllowed(string $url): void
+    /**
+     * Checks the URL and returns curl options that pin the connection to the
+     * public address just checked, so a DNS answer that changes between the
+     * check and the request (DNS rebinding) can't reach a private address.
+     * Empty when private targets are allowed (local) or the host is an IP.
+     *
+     * @return array<int, mixed>
+     */
+    public static function pinnedCurlOptions(string $url): array
+    {
+        $addresses = self::ensureAllowed($url);
+        $parts = parse_url($url);
+        $host = (string) ($parts['host'] ?? '');
+
+        if ($addresses === [] || filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return [];
+        }
+
+        $port = (int) ($parts['port'] ?? (strtolower((string) ($parts['scheme'] ?? '')) === 'http' ? 80 : 443));
+
+        return [CURLOPT_RESOLVE => ["{$host}:{$port}:{$addresses[0]}"]];
+    }
+
+    /**
+     * @return list<string> the checked public addresses (empty when private targets are allowed)
+     */
+    public static function ensureAllowed(string $url): array
     {
         $parts = parse_url($url);
         $scheme = strtolower((string) ($parts['scheme'] ?? ''));
@@ -23,7 +49,7 @@ final class WebhookTarget
         }
 
         if (config('paygate.webhooks.allow_private_targets')) {
-            return;
+            return [];
         }
 
         if ($scheme !== 'https') {
@@ -41,5 +67,7 @@ final class WebhookTarget
                 throw new RuntimeException("{$host} resolves to a private or reserved address ({$address}); refused.");
             }
         }
+
+        return $addresses;
     }
 }

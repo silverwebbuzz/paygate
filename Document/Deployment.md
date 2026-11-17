@@ -176,6 +176,7 @@ It asks for a name, email and password (at least 6 characters) and creates a **S
 - [ ] Verification queries in §3.5 match; the app user can't update `ledger_entries`
 - [ ] First Super admin created; 2FA set up
 - [ ] Automated backups + point-in-time recovery switched on (§5)
+- [ ] `php artisan paygate:security-check` shows no FAIL, and `scripts/security-scan.sh` (from your Mac) shows no FAIL; see [Security-Testing.md](Security-Testing.md)
 
 ---
 
@@ -193,6 +194,7 @@ php artisan horizon:terminate     # the process supervisor restarts Horizon
 php artisan octane:reload         # only once Octane is enabled (planned for go-live; not installed yet)
 # 6. Check
 php artisan migrate:status
+php artisan paygate:security-check   # no FAIL (Security-Testing.md)
 ```
 
 ### Rules for writing migrations

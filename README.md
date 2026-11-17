@@ -13,6 +13,7 @@ Stack: Laravel 13 · PHP 8.5 (FrankenPHP) · PostgreSQL 18 · Redis 8 + Horizon 
 | [Document/Deployment.md](Document/Deployment.md)                         | **First-time database setup on staging/production**, and every later release                  |
 | [Document/Deposit-Approval-Guide.md](Document/Deposit-Approval-Guide.md) | **Client guide**: auto-approval, where branches enter UTR + amount, UTR rules, every scenario |
 | [Document/Webuzo-Server-Setup.md](Document/Webuzo-Server-Setup.md)       | **Server without Docker** (Webuzo/AlmaLinux): PostgreSQL, Redis, PHP, services, git deploys   |
+| [Document/Security-Testing.md](Document/Security-Testing.md)             | **Security & performance testing**: code review results, live scan script, manual tests, client report |
 | [Document/Legacy-API.md](Document/Legacy-API.md)                         | The old platform's partner API (reference only)                                               |
 | [Document/Architecture.md](Document/Architecture.md)                     | Architecture, flows, security, roadmap                                                        |
 

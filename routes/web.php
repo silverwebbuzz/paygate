@@ -26,8 +26,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return redirect()->route($user->type->homeRoute());
     })->name('dashboard');
 
-    // Private files (payment proofs), after an access check.
-    Route::get('files/{file}', [FileController::class, 'show'])->name('files.show');
+    // Private files (payment proofs), after an access check. Like the portals,
+    // only once 2FA is set up where it is required.
+    Route::get('files/{file}', [FileController::class, 'show'])->middleware('two-factor.required')->name('files.show');
 
     // The bell: mark alerts read.
     Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');

@@ -19,18 +19,37 @@ class AuthenticatePartner
 {
     public function __construct(private ApiAuthenticator $authenticator) {}
 
+    /**
+     * Failed authentications allowed per IP per minute before that IP is
+     * refused for the rest of the minute (stops key/signature guessing and
+     * keeps junk traffic off the database).
+     */
+    public const MAX_FAILURES_PER_MINUTE = 30;
+
     public function handle(Request $request, Closure $next): Response
     {
-        ['partner' => $partner, 'key' => $key] = $this->authenticator->authenticate(
-            $request->header('X-Key-Id'),
-            $request->header('X-Timestamp'),
-            $request->header('X-Nonce'),
-            $request->header('X-Signature'),
-            $request->getMethod(),
-            Hosts::apiRequestUri($request),
-            $request->getContent(),
-            $request->ip(),
-        );
+        $failures = 'partner-api-fail:'.$request->ip();
+
+        if (RateLimiter::tooManyAttempts($failures, self::MAX_FAILURES_PER_MINUTE)) {
+            throw new ApiException('rate_limited', 'Too many failed authentication attempts from this address. Retry in '.RateLimiter::availableIn($failures).' seconds.', 429);
+        }
+
+        try {
+            ['partner' => $partner, 'key' => $key] = $this->authenticator->authenticate(
+                $request->header('X-Key-Id'),
+                $request->header('X-Timestamp'),
+                $request->header('X-Nonce'),
+                $request->header('X-Signature'),
+                $request->getMethod(),
+                Hosts::apiRequestUri($request),
+                $request->getContent(),
+                $request->ip(),
+            );
+        } catch (ApiException $exception) {
+            RateLimiter::hit($failures, 60);
+
+            throw $exception;
+        }
 
         $request->attributes->set('partner', $partner);
         $request->attributes->set('api_key', $key);

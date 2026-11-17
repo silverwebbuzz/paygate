@@ -65,7 +65,7 @@ class DeliverWebhook implements ShouldQueue
         $error = null;
 
         try {
-            WebhookTarget::ensureAllowed($event->url);
+            $pinned = WebhookTarget::pinnedCurlOptions($event->url);
 
             $secret = PartnerApiKey::query()->where('partner_id', $event->partner_id)->where('status', 'active')->first()?->secret_encrypted;
 
@@ -79,6 +79,7 @@ class DeliverWebhook implements ShouldQueue
             $response = Http::timeout(10)
                 ->connectTimeout(5)
                 ->withoutRedirecting()
+                ->withOptions($pinned === [] ? [] : ['curl' => $pinned])
                 ->withHeaders([
                     'Content-Type' => 'application/json',
                     'User-Agent' => 'PayGate-Webhooks/1',

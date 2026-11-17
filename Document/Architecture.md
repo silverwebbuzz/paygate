@@ -331,6 +331,14 @@ CREATED ─► AWAITING_PAYMENT ─► SUBMITTED ─► CONFIRMED ─► SETTLED
 | Secrets     | Never in git, JS or logs. `.env` locally, secret manager in production. `APP_KEY` rotation plan.                                                                                                                          |
 | Audit       | Append-only `audit_logs` (admin/branch config changes), `security_logs` (failed logins, bad signatures, rate-limit hits), `transaction_events`. These tables are never updated or deleted by the app DB user.             |
 
+### Implemented hardening (Phase 13, 2026-11-17)
+
+- `SecurityHeaders` middleware on every response: HSTS (https only, no includeSubDomains), `X-Frame-Options: SAMEORIGIN`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, COOP, a baseline CSP on HTML (`frame-ancestors 'self'; base-uri 'self'; object-src 'none'`); API answers `Cache-Control: no-store`.
+- Partner API: 30 failed authentications per IP per minute, then 429.
+- Private files need 2FA where the portal does.
+- Webhook delivery is pinned to the IP checked by the SSRF guard (no DNS rebinding).
+- `php artisan paygate:security-check` and `scripts/security-scan.sh`; test plan and open decisions in [Security-Testing.md](Security-Testing.md).
+
 ### Separation of duties
 
 - Sensitive actions (activate account, change partner fees, record settlement) can require a **second admin approval** (maker–checker). This is phased in.
