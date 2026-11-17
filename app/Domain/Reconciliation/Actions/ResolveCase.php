@@ -64,6 +64,18 @@ class ResolveCase
             $this->ensureSameMoney($entry, $txn);
             $part = $txn->isPayin() ? null : $this->transferFor($entry, $txn);
 
+            // One UTR is one transfer: a line with a UTR links only to the
+            // deposit with that UTR.
+            $utr = $entry->utr_normalized;
+
+            if ($txn->isPayin() && $utr !== null && $txn->customer_utr_normalized !== $utr && $txn->bank_utr_normalized !== $utr) {
+                throw ValidationException::withMessages(['transaction' => __(':reference has UTR :theirs, but this bank line shows :utr. Only the deposit with the same UTR can be linked.', [
+                    'reference' => $txn->reference,
+                    'theirs' => $txn->bank_utr_normalized ?? $txn->customer_utr_normalized ?? __('none'),
+                    'utr' => $utr,
+                ])]);
+            }
+
             if ($txn->isPayin() && ! in_array($txn->status, self::LINKABLE_PAYIN, true)) {
                 throw ValidationException::withMessages(['transaction' => in_array($txn->status, ['rejected', 'expired'], true)
                     ? __(':reference is :status: an administrator can approve it late.', ['reference' => $txn->reference, 'status' => $txn->status])
@@ -249,6 +261,12 @@ class ResolveCase
 
     public function close(User $actor, ReconciliationCase $case, Resolution $resolution, string $note): void
     {
+        // Client request 2026-11-17: only Admin closes a line (bank charges,
+        // a line typed twice, money returned outside PayGate).
+        if (! $actor->isType(UserType::Admin)) {
+            throw ValidationException::withMessages(['resolution' => __('Only an administrator can close a case.')]);
+        }
+
         if (! in_array($resolution, [Resolution::Rejected, Resolution::Refunded], true)) {
             throw ValidationException::withMessages(['resolution' => __('Choose how to close this case.')]);
         }

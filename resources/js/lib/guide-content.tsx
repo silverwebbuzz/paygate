@@ -620,10 +620,10 @@ export const GUIDE: GuideSection[] = [
                 marks: [
                     'The case number and status (Open / Resolved).',
                     'Why it did not match, in one line.',
-                    'Search any deposit by Transaction ID, Order ID or UTR.',
+                    'A bank line with a UTR offers only the deposit with that same UTR. A line without a UTR (e.g. cash deposit) offers deposits of the same amount on that account. Search finds any deposit, but only the same UTR can be linked.',
                     '**Link**: shown only when the amount is exactly the same. The line is linked to that deposit.',
                     'Different amount: it cannot be linked or approved. Decline the deposit; if the bank line was typed wrong, Admin corrects it.',
-                    'Close the line when it is not a customer payment (bank charges, own transfer) or the money was returned to the customer. A reason is required.',
+                    '**Admin only**: close the line when it is not a customer payment (bank charges, own transfer, a line typed twice) or the money was returned to the customer. A reason is required. Branch logins do not see these buttons or the Resolve button.',
                 ],
             },
             {

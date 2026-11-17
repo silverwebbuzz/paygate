@@ -258,7 +258,10 @@ export default function Cases(props: Props) {
             key: 'action',
             header: '',
             align: 'right',
+            // Branch login: no Resolve button (client request 2026-11-17);
+            // the branch acts from Manual Entry.
             cell: (item) =>
+                portal !== 'branch' &&
                 item.can.resolve && (
                     <PgButton
                         variant="primary"
@@ -517,7 +520,9 @@ function CaseDrawer({
                         </h3>
                         <p className="text-xs text-tx3">
                             {line.direction === 'credit'
-                                ? 'Deposits on this account for exactly this amount, around the line’s date. Only an exact amount can be linked.'
+                                ? line.utr
+                                    ? `Deposits with UTR ${line.utr}. Only the same UTR and the exact amount can be linked.`
+                                    : 'Deposits on this account for exactly this amount, around the line’s date. Only an exact amount can be linked.'
                                 : 'Paid payouts of this branch for exactly this amount, around the line’s date.'}
                         </p>
                         <form
@@ -582,7 +587,15 @@ function CaseDrawer({
                                                 '—'}
                                         </div>
                                     </div>
-                                    {candidate.late ? (
+                                    {line.utr &&
+                                    candidate.direction === 'payin' &&
+                                    candidate.customer_utr !== line.utr &&
+                                    candidate.bank_utr !== line.utr ? (
+                                        <span className="max-w-[200px] text-right text-xs text-tx3">
+                                            Different UTR: only the deposit with
+                                            UTR {line.utr} can be linked.
+                                        </span>
+                                    ) : candidate.late ? (
                                         !candidate.same_amount ? (
                                             <span className="max-w-[200px] text-right text-xs text-tx3">
                                                 Different amount: it can’t be
@@ -683,47 +696,50 @@ function CaseDrawer({
                         </section>
                     )}
 
-                    <section className="flex flex-col gap-2.5">
-                        <h3 className="text-[12px] font-semibold tracking-[.04em] text-tx3 uppercase">
-                            Or close it
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                            <PgButton
-                                onClick={() =>
-                                    setAction({
-                                        kind: 'close',
-                                        resolution: 'rejected',
-                                    })
-                                }
-                            >
-                                Not a customer payment
-                            </PgButton>
-                            {line.direction === 'credit' && (
+                    {/* Only Admin closes a line (client request 2026-11-17). */}
+                    {portal === 'admin' && (
+                        <section className="flex flex-col gap-2.5">
+                            <h3 className="text-[12px] font-semibold tracking-[.04em] text-tx3 uppercase">
+                                Or close it
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
                                 <PgButton
                                     onClick={() =>
                                         setAction({
                                             kind: 'close',
-                                            resolution: 'refunded',
+                                            resolution: 'rejected',
                                         })
                                     }
                                 >
-                                    Returned to customer
+                                    Not a customer payment
                                 </PgButton>
-                            )}
-                            {portal === 'admin' && canAdjust && (
-                                <Link
-                                    href={
-                                        adminAdjustments.index({
-                                            query: { case: item.id },
-                                        }).url
-                                    }
-                                    className="inline-flex h-8 items-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
-                                >
-                                    Correct with an adjustment
-                                </Link>
-                            )}
-                        </div>
-                    </section>
+                                {line.direction === 'credit' && (
+                                    <PgButton
+                                        onClick={() =>
+                                            setAction({
+                                                kind: 'close',
+                                                resolution: 'refunded',
+                                            })
+                                        }
+                                    >
+                                        Returned to customer
+                                    </PgButton>
+                                )}
+                                {portal === 'admin' && canAdjust && (
+                                    <Link
+                                        href={
+                                            adminAdjustments.index({
+                                                query: { case: item.id },
+                                            }).url
+                                        }
+                                        className="inline-flex h-8 items-center rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
+                                    >
+                                        Correct with an adjustment
+                                    </Link>
+                                )}
+                            </div>
+                        </section>
+                    )}
                 </>
             )}
 

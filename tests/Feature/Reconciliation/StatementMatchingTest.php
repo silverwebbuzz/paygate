@@ -382,7 +382,7 @@ class StatementMatchingTest extends TestCase
         // Typed again under the right account: refused while the wrong line holds the UTR.
         $this->addLine(['payment_account_id' => $second->id])->assertSessionHasErrors('utr');
 
-        $this->actingAs($this->owner)->post(route('branch.cases.close', $wrong), ['resolution' => 'rejected', 'note' => 'Typed under the wrong account by mistake'])
+        $this->actingAs($this->admin)->post(route('admin.cases.close', $wrong), ['resolution' => 'rejected', 'note' => 'Typed under the wrong account by mistake'])
             ->assertSessionHasNoErrors();
 
         // Closed as not a customer payment, the wrong line no longer holds it.
@@ -427,6 +427,33 @@ class StatementMatchingTest extends TestCase
         $this->actingAs($this->admin)->post($url, [...$fix, 'amount' => '4000'])->assertSessionHasErrors('case');
     }
 
+    /**
+     * Client report 2026-11-17: a line with a UTR offered every deposit of
+     * the same amount. It offers only the deposit with its UTR, and linking
+     * another UTR is refused.
+     */
+    public function test_a_line_with_a_utr_offers_and_links_only_the_deposit_with_that_utr()
+    {
+        $payin = $this->submittedPayin(['amount' => 500000]);
+        $other = $this->submittedPayin(['amount' => 600000], '626812820492');
+        $sameAmount = $this->submittedPayin(['amount' => 600000], '626812820493');
+
+        // The bank shows ₹6,000 with $payin's UTR (₹5,000).
+        $this->addLine(['credit' => '6000'])->assertSessionHasNoErrors();
+        $case = ReconciliationCase::sole();
+        $this->assertSame('amount_mismatch', $case->type->value);
+
+        $candidates = $this->partial($this->owner, route('branch.cases.index', ['case' => $case->id]), 'reconciliation/cases', 'candidates')->json('props.candidates');
+        $this->assertSame([$payin->reference], array_column($candidates, 'reference'));
+
+        // Same amount and account, another UTR: refused.
+        $this->actingAs($this->owner)->post(route('branch.cases.link', $case), ['transaction_id' => $sameAmount->id])
+            ->assertSessionHasErrors('transaction');
+        $this->actingAs($this->admin)->post(route('admin.cases.link', $case), ['transaction_id' => $other->id])
+            ->assertSessionHasErrors('transaction');
+        $this->assertNull($this->line()->transaction_id);
+    }
+
     public function test_a_line_without_utr_is_linked_by_hand_only_to_the_same_amount()
     {
         $payin = $this->submittedPayin(['amount' => 500000]);
@@ -458,17 +485,22 @@ class StatementMatchingTest extends TestCase
         $this->addLine(['utr' => '', 'description' => 'SMS CHARGES', 'credit' => '', 'debit' => '17.70'])->assertSessionHasNoErrors();
         $charges = ReconciliationCase::sole();
 
-        $this->actingAs($this->owner)->post(route('branch.cases.close', $charges), ['resolution' => 'refunded', 'note' => 'x'])
-            ->assertSessionHasErrors('resolution');
+        // Only Admin closes a line (client request 2026-11-17).
         $this->actingAs($this->owner)->post(route('branch.cases.close', $charges), ['resolution' => 'rejected', 'note' => 'Bank SMS charges'])
+            ->assertSessionHasErrors('resolution');
+        $this->assertSame('open', $charges->refresh()->status);
+
+        $this->actingAs($this->admin)->post(route('admin.cases.close', $charges), ['resolution' => 'refunded', 'note' => 'x'])
+            ->assertSessionHasErrors('resolution');
+        $this->actingAs($this->admin)->post(route('admin.cases.close', $charges), ['resolution' => 'rejected', 'note' => 'Bank SMS charges'])
             ->assertSessionHasNoErrors();
 
         $this->assertSame('ignored', StatementEntry::sole()->status);
         $this->assertSame('rejected', $charges->refresh()->resolution->value);
-        $this->assertDatabaseHas('audit_logs', ['action' => 'reconciliation.case_resolved', 'subject_id' => $charges->id, 'actor_id' => $this->owner->id]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'reconciliation.case_resolved', 'subject_id' => $charges->id, 'actor_id' => $this->admin->id]);
 
         // Already resolved.
-        $this->actingAs($this->owner)->post(route('branch.cases.close', $charges), ['resolution' => 'rejected', 'note' => 'again'])
+        $this->actingAs($this->admin)->post(route('admin.cases.close', $charges), ['resolution' => 'rejected', 'note' => 'again'])
             ->assertSessionHasErrors('case');
     }
 

@@ -206,7 +206,16 @@ class StatementPresenter
 
         if ($finding) {
             $query->where(fn ($query) => TransactionController::search($query, trim($reference)));
+        } elseif ($credit && $entry->utr_normalized !== null) {
+            // A line with a UTR belongs only to the deposit with that UTR
+            // (client report 2026-11-17: other deposits of the same amount
+            // were offered); the amount is shown, and must match to link.
+            $utr = $entry->utr_normalized;
+            $query->where(fn ($query) => $query->where('customer_utr_normalized', $utr)->orWhere('bank_utr_normalized', $utr)
+                ->when($case->transaction_id !== null, fn ($query) => $query->orWhere('transactions.id', $case->transaction_id)))
+                ->whereIn('status', ['payment_submitted', 'payment_detected', 'under_review', 'success', 'rejected', 'expired']);
         } elseif ($credit) {
+            // No UTR on the line (e.g. a cash deposit): same amount, around its date.
             $query->where(fn ($query) => $query->where('amount', $entry->amount)->when($case->transaction_id !== null, fn ($query) => $query->orWhere('transactions.id', $case->transaction_id)))
                 ->whereIn('status', ['payment_submitted', 'payment_detected', 'under_review', 'success', 'rejected', 'expired'])
                 ->whereBetween('created_at', [$from, $to]);
