@@ -1,29 +1,29 @@
-import { Head, Link, router } from "@inertiajs/react";
-import { Upload } from "lucide-react";
-import { useState } from "react";
-import { PgButton } from "@/components/pg/button";
-import { DataTable, Panel } from "@/components/pg/data-table";
-import type { Column } from "@/components/pg/data-table";
-import { EmptyState } from "@/components/pg/empty-state";
-import { SelectInput } from "@/components/pg/field";
-import { FormDialog } from "@/components/pg/form-dialog";
-import { PageHeader } from "@/components/pg/page-header";
-import { PeriodFilter, periodQuery } from "@/components/pg/period-filter";
-import type { PeriodQuery, PeriodValue } from "@/components/pg/period-filter";
+import { Head, Link, router } from '@inertiajs/react';
+import { Upload } from 'lucide-react';
+import { useState } from 'react';
+import { PgButton } from '@/components/pg/button';
+import { DataTable, Panel } from '@/components/pg/data-table';
+import type { Column } from '@/components/pg/data-table';
+import { EmptyState } from '@/components/pg/empty-state';
+import { SelectInput } from '@/components/pg/field';
+import { FormDialog } from '@/components/pg/form-dialog';
+import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
 import {
     accountLabel,
     StatementImportDialog,
-} from "@/components/pg/statement-import-dialog";
-import type { StatementAccount } from "@/components/pg/statement-import-dialog";
-import { StatusBadge } from "@/components/pg/status-badge";
-import { formatDate, formatDateTime } from "@/lib/dates";
-import { formatPaise } from "@/lib/money";
-import adminImports from "@/routes/admin/statement-imports";
-import adminStatements from "@/routes/admin/statements";
-import branchImports from "@/routes/branch/statement-imports";
-import branchStatements from "@/routes/branch/statements";
-import { show as fileUrl } from "@/routes/files";
-import type { UserType } from "@/types";
+} from '@/components/pg/statement-import-dialog';
+import type { StatementAccount } from '@/components/pg/statement-import-dialog';
+import { StatusBadge } from '@/components/pg/status-badge';
+import { formatDate, formatDateTime } from '@/lib/dates';
+import { formatPaise } from '@/lib/money';
+import adminImports from '@/routes/admin/statement-imports';
+import adminStatements from '@/routes/admin/statements';
+import branchImports from '@/routes/branch/statement-imports';
+import branchStatements from '@/routes/branch/statements';
+import { show as fileUrl } from '@/routes/files';
+import type { UserType } from '@/types';
 
 type ImportRow = {
     id: string;
@@ -66,18 +66,18 @@ type Props = {
 /** Statement History: every statement file imported, with what it added. */
 export default function StatementImports(props: Props) {
     const { portal, imports, filters, period, accounts, branches, can } = props;
-    const routes = portal === "admin" ? adminImports : branchImports;
-    const statements = portal === "admin" ? adminStatements : branchStatements;
+    const routes = portal === 'admin' ? adminImports : branchImports;
+    const statements = portal === 'admin' ? adminStatements : branchStatements;
     const [importing, setImporting] = useState(false);
     const [problems, setProblems] = useState<ImportRow | null>(null);
 
-    const visit = (next: Partial<Props["filters"] & PeriodQuery>) =>
+    const visit = (next: Partial<Props['filters'] & PeriodQuery>) =>
         router.get(
             routes.index({
                 query: Object.fromEntries(
                     Object.entries({
                         ...filters,
-                        ...("range" in next ? {} : periodQuery(period)),
+                        ...('range' in next ? {} : periodQuery(period)),
                         ...next,
                     }).filter(([, value]) => value),
                 ) as Record<string, string>,
@@ -88,8 +88,8 @@ export default function StatementImports(props: Props) {
 
     const columns: Column<ImportRow>[] = [
         {
-            key: "when",
-            header: "Imported",
+            key: 'when',
+            header: 'Imported',
             cell: (row) => (
                 <div className="text-xs whitespace-nowrap">
                     <div>{formatDateTime(row.created_at)}</div>
@@ -98,8 +98,8 @@ export default function StatementImports(props: Props) {
             ),
         },
         {
-            key: "account",
-            header: "Account",
+            key: 'account',
+            header: 'Account',
             cell: (row) => (
                 <div className="text-xs">
                     <div className="font-medium">
@@ -112,8 +112,8 @@ export default function StatementImports(props: Props) {
             ),
         },
         {
-            key: "file",
-            header: "File",
+            key: 'file',
+            header: 'File',
             cell: (row) =>
                 row.file_id ? (
                     <a
@@ -124,12 +124,12 @@ export default function StatementImports(props: Props) {
                         {row.file}
                     </a>
                 ) : (
-                    <span className="text-xs">{row.file ?? "—"}</span>
+                    <span className="text-xs">{row.file ?? '—'}</span>
                 ),
         },
         {
-            key: "period",
-            header: "Period",
+            key: 'period',
+            header: 'Period',
             cell: (row) => (
                 <span className="text-xs whitespace-nowrap">
                     {formatDate(row.period_from)} – {formatDate(row.period_to)}
@@ -137,13 +137,13 @@ export default function StatementImports(props: Props) {
             ),
         },
         {
-            key: "lines",
-            header: "Lines",
+            key: 'lines',
+            header: 'Lines',
             cell: (row) => (
                 <div className="text-xs whitespace-nowrap">
                     <b>{row.rows_imported}</b> added
                     <span className="text-tx3">
-                        {" "}
+                        {' '}
                         · {row.rows_duplicate} already there
                     </span>
                     {row.rows_failed > 0 && (
@@ -159,27 +159,27 @@ export default function StatementImports(props: Props) {
             ),
         },
         {
-            key: "credit",
-            header: "Credit",
-            align: "right",
+            key: 'credit',
+            header: 'Credit',
+            align: 'right',
             cell: (row) => (
                 <span className="text-ok">{formatPaise(row.credit_total)}</span>
             ),
         },
         {
-            key: "debit",
-            header: "Debit",
-            align: "right",
+            key: 'debit',
+            header: 'Debit',
+            align: 'right',
             cell: (row) => (
                 <span className="text-er">{formatPaise(row.debit_total)}</span>
             ),
         },
         {
-            key: "status",
-            header: "Status",
+            key: 'status',
+            header: 'Status',
             cell: (row) => (
                 <StatusBadge
-                    status={row.status === "completed" ? "success" : row.status}
+                    status={row.status === 'completed' ? 'success' : row.status}
                     label={row.status}
                 />
             ),
@@ -217,10 +217,10 @@ export default function StatementImports(props: Props) {
                     <PeriodFilter period={period} onChange={visit} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
-                    {portal === "admin" && (
+                    {portal === 'admin' && (
                         <SelectInput
                             className="h-[30px] w-[190px] text-[12.5px]"
-                            value={filters.branch ?? ""}
+                            value={filters.branch ?? ''}
                             onChange={(event) =>
                                 visit({
                                     branch: event.target.value || null,
@@ -238,7 +238,7 @@ export default function StatementImports(props: Props) {
                     )}
                     <SelectInput
                         className="h-[30px] w-[260px] text-[12.5px]"
-                        value={filters.account ?? ""}
+                        value={filters.account ?? ''}
                         onChange={(event) =>
                             visit({ account: event.target.value || null })
                         }
@@ -316,7 +316,7 @@ export default function StatementImports(props: Props) {
                             <li key={error.row}>
                                 <span className="font-mono text-tx3">
                                     Row {error.row}
-                                </span>{" "}
+                                </span>{' '}
                                 {error.message}
                             </li>
                         ))}

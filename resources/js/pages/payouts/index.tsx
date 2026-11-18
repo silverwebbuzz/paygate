@@ -1,37 +1,37 @@
-import { router, useForm } from "@inertiajs/react";
-import { Check, Copy, Search } from "lucide-react";
-import { useEffect, useState } from "react";
-import { PgButton } from "@/components/pg/button";
-import { Panel, ViewDetails } from "@/components/pg/data-table";
-import { EmptyState } from "@/components/pg/empty-state";
-import { Field, SelectInput, TextInput } from "@/components/pg/field";
-import { FormDialog } from "@/components/pg/form-dialog";
-import { LiveIndicator } from "@/components/pg/page-header";
-import { PaymentHubHeader } from "@/components/pg/payment-hub";
+import { router, useForm } from '@inertiajs/react';
+import { Check, Copy, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { PgButton } from '@/components/pg/button';
+import { Panel, ViewDetails } from '@/components/pg/data-table';
+import { EmptyState } from '@/components/pg/empty-state';
+import { Field, SelectInput, TextInput } from '@/components/pg/field';
+import { FormDialog } from '@/components/pg/form-dialog';
+import { LiveIndicator } from '@/components/pg/page-header';
+import { PaymentHubHeader } from '@/components/pg/payment-hub';
 import {
     OlderOpenBanner,
     PeriodFilter,
     periodQuery,
-} from "@/components/pg/period-filter";
-import type { OlderOpen, PeriodValue } from "@/components/pg/period-filter";
-import { StatusBadge } from "@/components/pg/status-badge";
-import { TransactionDrawer } from "@/components/pg/transaction-drawer";
-import type { TxnDetail, TxnRow } from "@/components/pg/transaction-drawer";
-import { useClipboard } from "@/hooks/use-clipboard";
-import { formatDateTime, formatRelative } from "@/lib/dates";
-import { formatPaise } from "@/lib/money";
-import type { HubProps } from "@/lib/payment-hub";
-import { TONE_CLASSES } from "@/lib/status";
-import { cn } from "@/lib/utils";
-import adminPayouts from "@/routes/admin/payouts";
-import branchPayouts from "@/routes/branch/payouts";
-import type { UserType } from "@/types";
-import { cleanUtr } from "@/lib/utr";
+} from '@/components/pg/period-filter';
+import type { OlderOpen, PeriodValue } from '@/components/pg/period-filter';
+import { StatusBadge } from '@/components/pg/status-badge';
+import { TransactionDrawer } from '@/components/pg/transaction-drawer';
+import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
+import { useClipboard } from '@/hooks/use-clipboard';
+import { formatDateTime, formatRelative } from '@/lib/dates';
+import { formatPaise } from '@/lib/money';
+import type { HubProps } from '@/lib/payment-hub';
+import { TONE_CLASSES } from '@/lib/status';
+import { cn } from '@/lib/utils';
+import adminPayouts from '@/routes/admin/payouts';
+import branchPayouts from '@/routes/branch/payouts';
+import type { UserType } from '@/types';
+import { cleanUtr } from '@/lib/utr';
 
-type Tab = "to_pay" | "paying" | "paid" | "failed";
+type Tab = 'to_pay' | 'paying' | 'paid' | 'failed';
 
 type PayTo = {
-    type: "bank" | "upi";
+    type: 'bank' | 'upi';
     name: string;
     account_number: string | null;
     ifsc: string | null;
@@ -67,13 +67,13 @@ const TAB_INFO: Record<
     Tab,
     { label: string; icon: string; tone: keyof typeof TONE_CLASSES }
 > = {
-    to_pay: { label: "To pay", icon: "◷", tone: "wn" },
-    paying: { label: "Being paid", icon: "→", tone: "in" },
-    paid: { label: "Paid today", icon: "✓", tone: "ok" },
-    failed: { label: "Failed today", icon: "✕", tone: "er" },
+    to_pay: { label: 'To pay', icon: '◷', tone: 'wn' },
+    paying: { label: 'Being paid', icon: '→', tone: 'in' },
+    paid: { label: 'Paid today', icon: '✓', tone: 'ok' },
+    failed: { label: 'Failed today', icon: '✕', tone: 'er' },
 };
 
-type Dialog = null | { kind: "complete" | "fail" | "reassign"; payout: Row };
+type Dialog = null | { kind: 'complete' | 'fail' | 'reassign'; payout: Row };
 
 /**
  * Manual Payout: the branch pays each customer from its bank, then records
@@ -82,7 +82,7 @@ type Dialog = null | { kind: "complete" | "fail" | "reassign"; payout: Row };
  */
 export default function Payouts(props: Props) {
     const { portal, tab, tabs, items, filters, period } = props;
-    const routes = portal === "admin" ? adminPayouts : branchPayouts;
+    const routes = portal === 'admin' ? adminPayouts : branchPayouts;
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(props.selected);
     const [dialog, setDialog] = useState<Dialog>(null);
@@ -94,7 +94,7 @@ export default function Payouts(props: Props) {
                 query: Object.fromEntries(
                     Object.entries({
                         tab,
-                        ...("range" in next ? {} : periodQuery(period)),
+                        ...('range' in next ? {} : periodQuery(period)),
                         search,
                         ...next,
                     }).filter(([, v]) => v),
@@ -113,9 +113,9 @@ export default function Payouts(props: Props) {
     }, [search]);
 
     useEffect(() => {
-        if (tab !== "to_pay" && tab !== "paying") return;
+        if (tab !== 'to_pay' && tab !== 'paying') return;
         const timer = setInterval(
-            () => router.reload({ only: ["items", "tabs", "hub"] }),
+            () => router.reload({ only: ['items', 'tabs', 'hub'] }),
             20000,
         );
 
@@ -124,21 +124,21 @@ export default function Payouts(props: Props) {
 
     const openPayout = (id: string) => {
         setOpenId(id);
-        router.reload({ only: ["detail", "selected"], data: { txn: id } });
+        router.reload({ only: ['detail', 'selected'], data: { txn: id } });
     };
 
     const actions = (payout: Row) =>
         payout.can.process &&
-        ["assigned", "processing"].includes(payout.status) && (
+        ['assigned', 'processing'].includes(payout.status) && (
             <div
                 className="flex flex-wrap gap-1.5"
                 onClick={(event) => event.stopPropagation()}
             >
                 {/* Once money has left the bank it can't move or fail. */}
-                {portal === "admin" && !payout.paid_amount && (
+                {portal === 'admin' && !payout.paid_amount && (
                     <PgButton
                         className="h-7 text-xs"
-                        onClick={() => setDialog({ kind: "reassign", payout })}
+                        onClick={() => setDialog({ kind: 'reassign', payout })}
                     >
                         Move
                     </PgButton>
@@ -147,12 +147,12 @@ export default function Payouts(props: Props) {
                     <PgButton
                         variant="danger"
                         className="h-7 text-xs"
-                        onClick={() => setDialog({ kind: "fail", payout })}
+                        onClick={() => setDialog({ kind: 'fail', payout })}
                     >
                         Can’t pay
                     </PgButton>
                 )}
-                {payout.status === "assigned" && (
+                {payout.status === 'assigned' && (
                     <PgButton
                         className="h-7 text-xs"
                         onClick={() =>
@@ -169,11 +169,11 @@ export default function Payouts(props: Props) {
                 <PgButton
                     variant="primary"
                     className="h-7 text-xs"
-                    onClick={() => setDialog({ kind: "complete", payout })}
+                    onClick={() => setDialog({ kind: 'complete', payout })}
                 >
                     {(payout.paid_amount ?? 0) > 0
-                        ? "Record next transfer"
-                        : "Record transfer"}
+                        ? 'Record next transfer'
+                        : 'Record transfer'}
                 </PgButton>
             </div>
         );
@@ -183,10 +183,10 @@ export default function Payouts(props: Props) {
             <PaymentHubHeader
                 hub={props.hub}
                 view="queue"
-                live={tab === "to_pay" || tab === "paying"}
+                live={tab === 'to_pay' || tab === 'paying'}
                 description="Pay each customer from your bank, then record the transfer: UTR, date and proof. You may pay in parts (record each transfer); it completes when they add up. If you can’t pay, mark it so the partner can retry."
                 eyebrow={
-                    (tab === "to_pay" || tab === "paying") && (
+                    (tab === 'to_pay' || tab === 'paying') && (
                         <LiveIndicator>
                             Live · refreshes every 20 s
                         </LiveIndicator>
@@ -201,24 +201,24 @@ export default function Payouts(props: Props) {
                         type="button"
                         onClick={() => visit({ tab: key })}
                         className={cn(
-                            "flex flex-col gap-1 rounded-[10px] border bg-sf px-3.5 py-3 text-left",
+                            'flex flex-col gap-1 rounded-[10px] border bg-sf px-3.5 py-3 text-left',
                             key === tab
-                                ? "border-ac shadow-[0_0_0_3px_var(--color-acs)]"
-                                : "border-ln hover:border-ac",
+                                ? 'border-ac shadow-[0_0_0_3px_var(--color-acs)]'
+                                : 'border-ln hover:border-ac',
                         )}
                     >
                         <span className="flex items-center gap-1.5 text-xs text-tx2">
                             <span
                                 className={cn(
-                                    "grid size-5 place-items-center rounded text-[10px]",
+                                    'grid size-5 place-items-center rounded text-[10px]',
                                     TONE_CLASSES[TAB_INFO[key].tone],
                                 )}
                             >
                                 {TAB_INFO[key].icon}
                             </span>
-                            {period.range === "today"
+                            {period.range === 'today'
                                 ? TAB_INFO[key].label
-                                : TAB_INFO[key].label.replace(" today", "")}
+                                : TAB_INFO[key].label.replace(' today', '')}
                         </span>
                         <span className="text-lg font-semibold">
                             {tabs[key].count}
@@ -239,7 +239,7 @@ export default function Payouts(props: Props) {
                 <div className="mt-2 empty:hidden">
                     <OlderOpenBanner
                         older={props.older}
-                        noun={["payout", "payouts"]}
+                        noun={['payout', 'payouts']}
                         onShow={visit}
                     />
                 </div>
@@ -257,10 +257,10 @@ export default function Payouts(props: Props) {
                 </label>
                 <div className="flex-1" />
                 <span className="text-xs text-tx3">
-                    {items.total}{" "}
-                    {tab === "to_pay"
-                        ? "waiting · newest first"
-                        : "· newest first"}
+                    {items.total}{' '}
+                    {tab === 'to_pay'
+                        ? 'waiting · newest first'
+                        : '· newest first'}
                 </span>
             </Panel>
 
@@ -268,13 +268,13 @@ export default function Payouts(props: Props) {
                 <Panel>
                     <EmptyState
                         title={
-                            tab === "to_pay"
-                                ? "Nothing to pay right now"
-                                : "Nothing here"
+                            tab === 'to_pay'
+                                ? 'Nothing to pay right now'
+                                : 'Nothing here'
                         }
                         description={
-                            tab === "to_pay"
-                                ? "New withdrawals appear here as soon as partners request them."
+                            tab === 'to_pay'
+                                ? 'New withdrawals appear here as soon as partners request them.'
                                 : undefined
                         }
                     />
@@ -292,11 +292,11 @@ export default function Payouts(props: Props) {
                                         {payout.partner?.name}
                                     </div>
                                     <div className="truncate text-xs text-tx3">
-                                        {portal === "admin" &&
-                                            `${payout.branch?.name ?? "—"} · `}
+                                        {portal === 'admin' &&
+                                            `${payout.branch?.name ?? '—'} · `}
                                         <span className="font-mono">
                                             {payout.reference}
-                                        </span>{" "}
+                                        </span>{' '}
                                         · {formatRelative(payout.created_at)}
                                     </div>
                                 </div>
@@ -319,19 +319,19 @@ export default function Payouts(props: Props) {
                                         label="Pay to"
                                         value={payout.pay_to.name}
                                     />
-                                    {payout.pay_to.type === "bank" ? (
+                                    {payout.pay_to.type === 'bank' ? (
                                         <>
                                             <CopyLine
                                                 label="Account number"
                                                 value={
                                                     payout.pay_to
-                                                        .account_number ?? ""
+                                                        .account_number ?? ''
                                                 }
                                                 mono
                                             />
                                             <CopyLine
                                                 label="IFSC"
-                                                value={payout.pay_to.ifsc ?? ""}
+                                                value={payout.pay_to.ifsc ?? ''}
                                                 mono
                                             />
                                             {payout.pay_to.bank_name && (
@@ -347,7 +347,7 @@ export default function Payouts(props: Props) {
                                     ) : (
                                         <CopyLine
                                             label="UPI ID"
-                                            value={payout.pay_to.upi_id ?? ""}
+                                            value={payout.pay_to.upi_id ?? ''}
                                             mono
                                         />
                                     )}
@@ -361,51 +361,51 @@ export default function Payouts(props: Props) {
                                 </div>
                             ) : (
                                 <div className="text-xs text-tx3">
-                                    {payout.beneficiary?.name} ·{" "}
+                                    {payout.beneficiary?.name} ·{' '}
                                     <span className="font-mono">
                                         {payout.beneficiary?.masked}
                                     </span>
                                     {payout.bank_utr && (
                                         <div>
-                                            UTR{" "}
+                                            UTR{' '}
                                             <span className="font-mono">
                                                 {payout.bank_utr}
                                             </span>
                                             {(payout.payments?.length ?? 0) >
                                                 1 &&
-                                                ` + ${(payout.payments?.length ?? 1) - 1} more transfer(s)`}{" "}
-                                            ·{" "}
+                                                ` + ${(payout.payments?.length ?? 1) - 1} more transfer(s)`}{' '}
+                                            ·{' '}
                                             {formatDateTime(payout.decided_at)}
                                         </div>
                                     )}
-                                    {payout.status === "failed" && (
+                                    {payout.status === 'failed' && (
                                         <div className="text-er">
                                             {payout.reason_code?.replaceAll(
-                                                "_",
-                                                " ",
+                                                '_',
+                                                ' ',
                                             )}
                                             {payout.note && ` — ${payout.note}`}
                                         </div>
                                     )}
                                 </div>
                             )}
-                            {payout.status === "processing" &&
+                            {payout.status === 'processing' &&
                                 (payout.paid_amount ?? 0) > 0 && (
                                     <div className="rounded-md bg-inb px-2.5 py-1.5 text-xs text-in">
-                                        Paid{" "}
+                                        Paid{' '}
                                         <b>
                                             {formatPaise(
                                                 payout.paid_amount ?? 0,
                                             )}
-                                        </b>{" "}
-                                        in {payout.payments?.length ?? 0}{" "}
-                                        transfer(s) ·{" "}
+                                        </b>{' '}
+                                        in {payout.payments?.length ?? 0}{' '}
+                                        transfer(s) ·{' '}
                                         <b>
                                             {formatPaise(
                                                 payout.amount -
                                                     (payout.paid_amount ?? 0),
                                             )}
-                                        </b>{" "}
+                                        </b>{' '}
                                         left to pay
                                     </div>
                                 )}
@@ -453,14 +453,14 @@ export default function Payouts(props: Props) {
                 />
             )}
 
-            {dialog?.kind === "complete" && (
+            {dialog?.kind === 'complete' && (
                 <CompleteDialog
                     payout={dialog.payout}
                     url={routes.complete(dialog.payout.id).url}
                     onClose={() => setDialog(null)}
                 />
             )}
-            {dialog?.kind === "fail" && (
+            {dialog?.kind === 'fail' && (
                 <FailDialog
                     payout={dialog.payout}
                     reasons={props.reasons}
@@ -468,7 +468,7 @@ export default function Payouts(props: Props) {
                     onClose={() => setDialog(null)}
                 />
             )}
-            {dialog?.kind === "reassign" && (
+            {dialog?.kind === 'reassign' && (
                 <ReassignDialog
                     payout={dialog.payout}
                     branches={props.branches}
@@ -502,8 +502,8 @@ function CopyLine({
                 <div className="text-[11px] text-tx3">{label}</div>
                 <div
                     className={cn(
-                        "truncate text-[13px] font-medium",
-                        mono && "font-mono",
+                        'truncate text-[13px] font-medium',
+                        mono && 'font-mono',
                     )}
                 >
                     {value}
@@ -529,19 +529,19 @@ function CopyLine({
 
 /** Today's date and time in India, for a datetime-local input. */
 function nowIndia(): string {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Kolkata",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hourCycle: "h23",
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
     }).formatToParts(new Date());
     const get = (type: string) =>
-        parts.find((part) => part.type === type)?.value ?? "";
+        parts.find((part) => part.type === type)?.value ?? '';
 
-    return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+    return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
 }
 
 /**
@@ -566,11 +566,11 @@ function CompleteDialog({
         proof: File | null;
         note: string;
     }>({
-        amount: (left / 100).toFixed(2).replace(/\.00$/, ""),
-        bank_utr: "",
+        amount: (left / 100).toFixed(2).replace(/\.00$/, ''),
+        bank_utr: '',
         paid_at: nowIndia(),
         proof: null,
-        note: "",
+        note: '',
     });
     const errors = form.errors as Record<string, string | undefined>;
 
@@ -585,7 +585,7 @@ function CompleteDialog({
                     : `Record the transfer for ${payout.reference}`
             }
             description={`To ${payout.pay_to?.name ?? payout.beneficiary?.name}. Only after the money has left your bank. Paid in parts? Record each transfer as you send it; the payout is complete when they add up to ${formatPaise(payout.amount)}.`}
-            submitLabel={form.processing ? "Saving…" : "Record transfer"}
+            submitLabel={form.processing ? 'Saving…' : 'Record transfer'}
             processing={form.processing}
             onSubmit={() =>
                 form.post(url, {
@@ -597,8 +597,8 @@ function CompleteDialog({
         >
             {paid > 0 && (
                 <div className="rounded-lg bg-sf2 px-3 py-2 text-[12.5px]">
-                    Already paid <b>{formatPaise(paid)}</b> in{" "}
-                    {payout.payments?.length ?? 0} transfer(s) ·{" "}
+                    Already paid <b>{formatPaise(paid)}</b> in{' '}
+                    {payout.payments?.length ?? 0} transfer(s) ·{' '}
                     <b>{formatPaise(left)}</b> left
                 </div>
             )}
@@ -618,7 +618,7 @@ function CompleteDialog({
                     required
                     value={form.data.amount}
                     onChange={(event) =>
-                        form.setData("amount", event.target.value)
+                        form.setData('amount', event.target.value)
                     }
                 />
             </Field>
@@ -634,7 +634,7 @@ function CompleteDialog({
                     className="font-mono"
                     value={form.data.bank_utr}
                     onChange={(event) =>
-                        form.setData("bank_utr", cleanUtr(event.target.value))
+                        form.setData('bank_utr', cleanUtr(event.target.value))
                     }
                 />
             </Field>
@@ -644,7 +644,7 @@ function CompleteDialog({
                     required
                     value={form.data.paid_at}
                     onChange={(event) =>
-                        form.setData("paid_at", event.target.value)
+                        form.setData('paid_at', event.target.value)
                     }
                 />
             </Field>
@@ -659,7 +659,7 @@ function CompleteDialog({
                     required
                     accept=".jpg,.jpeg,.png,.webp,.pdf"
                     onChange={(event) =>
-                        form.setData("proof", event.target.files?.[0] ?? null)
+                        form.setData('proof', event.target.files?.[0] ?? null)
                     }
                     className="text-[13px] file:mr-3 file:h-8 file:rounded-[7px] file:border file:border-ln file:bg-sf file:px-3 file:text-[13px] file:font-medium"
                 />
@@ -668,7 +668,7 @@ function CompleteDialog({
                 <TextInput
                     value={form.data.note}
                     onChange={(event) =>
-                        form.setData("note", event.target.value)
+                        form.setData('note', event.target.value)
                     }
                 />
             </Field>
@@ -687,7 +687,7 @@ function FailDialog({
     url: string;
     onClose: () => void;
 }) {
-    const form = useForm({ reason_code: "", note: "" });
+    const form = useForm({ reason_code: '', note: '' });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
@@ -707,7 +707,7 @@ function FailDialog({
                     required
                     value={form.data.reason_code}
                     onChange={(event) =>
-                        form.setData("reason_code", event.target.value)
+                        form.setData('reason_code', event.target.value)
                     }
                 >
                     <option value="">Choose…</option>
@@ -720,16 +720,16 @@ function FailDialog({
             </Field>
             <Field
                 label={
-                    form.data.reason_code === "other"
-                        ? "Details (required)"
-                        : "Details (optional)"
+                    form.data.reason_code === 'other'
+                        ? 'Details (required)'
+                        : 'Details (optional)'
                 }
                 error={errors.note}
             >
                 <TextInput
                     value={form.data.note}
                     onChange={(event) =>
-                        form.setData("note", event.target.value)
+                        form.setData('note', event.target.value)
                     }
                 />
             </Field>
@@ -744,11 +744,11 @@ function ReassignDialog({
     onClose,
 }: {
     payout: Row;
-    branches: Props["branches"];
+    branches: Props['branches'];
     url: string;
     onClose: () => void;
 }) {
-    const form = useForm({ branch_id: "", reason: "" });
+    const form = useForm({ branch_id: '', reason: '' });
     const errors = form.errors as Record<string, string | undefined>;
 
     return (
@@ -768,7 +768,7 @@ function ReassignDialog({
                     required
                     value={form.data.branch_id}
                     onChange={(event) =>
-                        form.setData("branch_id", event.target.value)
+                        form.setData('branch_id', event.target.value)
                     }
                 >
                     <option value="">Choose…</option>
@@ -786,7 +786,7 @@ function ReassignDialog({
                     required
                     value={form.data.reason}
                     onChange={(event) =>
-                        form.setData("reason", event.target.value)
+                        form.setData('reason', event.target.value)
                     }
                 />
             </Field>

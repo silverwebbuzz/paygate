@@ -1,15 +1,15 @@
-import { Head, Link, router } from "@inertiajs/react";
-import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
-import { DataTable, Panel } from "@/components/pg/data-table";
-import { EmptyState } from "@/components/pg/empty-state";
-import { ViewTabs } from "@/components/pg/filter-bar";
-import { PageHeader } from "@/components/pg/page-header";
-import { PeriodFilter, periodQuery } from "@/components/pg/period-filter";
-import type { PeriodQuery, PeriodValue } from "@/components/pg/period-filter";
-import { formatDateTime } from "@/lib/dates";
-import { cn } from "@/lib/utils";
-import { apiLogs } from "@/routes/partner";
+import { Head, Link, router } from '@inertiajs/react';
+import { Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { DataTable, Panel } from '@/components/pg/data-table';
+import { EmptyState } from '@/components/pg/empty-state';
+import { ViewTabs } from '@/components/pg/filter-bar';
+import { PageHeader } from '@/components/pg/page-header';
+import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
+import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
+import { formatDateTime } from '@/lib/dates';
+import { cn } from '@/lib/utils';
+import { apiLogs } from '@/routes/partner';
 
 type Log = {
     id: string;
@@ -38,13 +38,13 @@ type Props = {
 export default function ApiLogs({ logs, filters, period }: Props) {
     const [search, setSearch] = useState(filters.search);
 
-    const visit = (next: Partial<Props["filters"] & PeriodQuery>) =>
+    const visit = (next: Partial<Props['filters'] & PeriodQuery>) =>
         router.get(
             apiLogs({
                 query: Object.fromEntries(
                     Object.entries({
                         ...filters,
-                        ...("range" in next ? {} : periodQuery(period)),
+                        ...('range' in next ? {} : periodQuery(period)),
                         search,
                         ...next,
                     }).filter(([, v]) => v),
@@ -72,14 +72,14 @@ export default function ApiLogs({ logs, filters, period }: Props) {
             <Panel className="overflow-hidden">
                 <ViewTabs
                     views={[
-                        { key: "all", label: "All" },
-                        { key: "ok", label: "Succeeded" },
-                        { key: "client", label: "Refused (4xx)" },
-                        { key: "server", label: "Server errors (5xx)" },
+                        { key: 'all', label: 'All' },
+                        { key: 'ok', label: 'Succeeded' },
+                        { key: 'client', label: 'Refused (4xx)' },
+                        { key: 'server', label: 'Server errors (5xx)' },
                     ]}
-                    active={filters.result ?? "all"}
+                    active={filters.result ?? 'all'}
                     onChange={(key) =>
-                        visit({ result: key === "all" ? null : key })
+                        visit({ result: key === 'all' ? null : key })
                     }
                 />
                 <div className="border-b border-ln2 px-3 py-2.5">
@@ -101,8 +101,8 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                 <DataTable
                     columns={[
                         {
-                            key: "at",
-                            header: "Time",
+                            key: 'at',
+                            header: 'Time',
                             cell: (l: Log) => (
                                 <span className="text-xs whitespace-nowrap">
                                     {formatDateTime(l.at)}
@@ -110,8 +110,8 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                             ),
                         },
                         {
-                            key: "call",
-                            header: "Call",
+                            key: 'call',
+                            header: 'Call',
                             cell: (l: Log) => (
                                 <span className="font-mono text-xs">
                                     <b>{l.method}</b> {l.path}
@@ -119,17 +119,17 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                             ),
                         },
                         {
-                            key: "status",
-                            header: "Result",
+                            key: 'status',
+                            header: 'Result',
                             cell: (l: Log) => (
                                 <span
                                     className={cn(
-                                        "rounded-md px-2 py-0.5 font-mono text-xs font-medium",
+                                        'rounded-md px-2 py-0.5 font-mono text-xs font-medium',
                                         l.status_code < 400
-                                            ? "bg-okb text-ok"
+                                            ? 'bg-okb text-ok'
                                             : l.status_code < 500
-                                              ? "bg-wnb text-wn"
-                                              : "bg-erb text-er",
+                                              ? 'bg-wnb text-wn'
+                                              : 'bg-erb text-er',
                                     )}
                                 >
                                     {l.status_code}
@@ -137,32 +137,32 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                             ),
                         },
                         {
-                            key: "order",
-                            header: "Order id",
+                            key: 'order',
+                            header: 'Order id',
                             cell: (l: Log) => (
                                 <span className="font-mono text-xs">
-                                    {l.order_id ?? "—"}
+                                    {l.order_id ?? '—'}
                                 </span>
                             ),
                         },
                         {
-                            key: "ms",
-                            header: "Time taken",
-                            align: "right",
+                            key: 'ms',
+                            header: 'Time taken',
+                            align: 'right',
                             cell: (l: Log) => `${l.duration_ms} ms`,
                         },
                         {
-                            key: "ip",
-                            header: "From IP",
+                            key: 'ip',
+                            header: 'From IP',
                             cell: (l: Log) => (
                                 <span className="font-mono text-xs">
-                                    {l.ip ?? "—"}
+                                    {l.ip ?? '—'}
                                 </span>
                             ),
                         },
                         {
-                            key: "req",
-                            header: "Request id",
+                            key: 'req',
+                            header: 'Request id',
                             cell: (l: Log) => (
                                 <span className="font-mono text-[11px] text-tx3">
                                     {l.request_id}

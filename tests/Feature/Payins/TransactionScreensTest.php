@@ -93,6 +93,36 @@ class TransactionScreensTest extends TestCase
         $this->assertNull($this->partial($stranger, route('partner.payins.index', ['txn' => $payin->id]), 'transactions/index', 'detail')->json('props.detail'));
     }
 
+    public function test_the_timeline_names_who_did_each_step_as_far_as_the_viewer_may_see()
+    {
+        $payin = $this->submittedPayin();
+        $approver = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create(['name' => 'Ravi Approver']);
+        $this->actingAs($approver)->post(route('branch.deposits.approve', $payin), ['bank_utr' => '626812820491'])->assertSessionHasNoErrors();
+
+        $by = fn (array $detail, string $event) => collect($detail['timeline'])->firstWhere('event', $event)['by'];
+
+        // Admin: name, role and branch; the API call names the partner and key.
+        $admin = $this->partial(User::factory()->admin()->withTwoFactor()->create(), route('admin.transactions.index', ['txn' => $payin->id]), 'transactions/index', 'detail')->json('props.detail');
+        $this->assertSame('Ravi Approver', $by($admin, 'approved')['name']);
+        $this->assertSame($this->branch->name, $by($admin, 'approved')['org']);
+        $this->assertNotNull($by($admin, 'approved')['role']);
+        $this->assertSame($this->partner->name, $by($admin, 'created')['name']);
+        $this->assertStringStartsWith('API key', (string) $by($admin, 'created')['role']);
+        $this->assertSame('Customer', $by($admin, 'proof_submitted')['name']);
+        $this->assertSame('PayGate (automatic)', $by($admin, 'allocation_confirmed')['name']);
+        $this->assertStringStartsWith('to '.$this->branch->name, (string) collect($admin['timeline'])->firstWhere('event', 'allocated')['detail']);
+
+        // The same branch sees its own person; the partner sees "PayGate".
+        $branch = $this->partial(User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create(), route('branch.payins.index', ['txn' => $payin->id]), 'transactions/index', 'detail')->json('props.detail');
+        $this->assertSame('Ravi Approver', $by($branch, 'approved')['name']);
+        $this->assertSame('Partner', $by($branch, 'created')['name']);
+
+        $partner = $this->partial(User::factory()->partner(SystemRoles::PARTNER_OWNER, $this->partner)->create(), route('partner.payins.index', ['txn' => $payin->id]), 'transactions/index', 'detail')->json('props.detail');
+        $this->assertSame(['name' => 'PayGate', 'role' => null, 'org' => null, 'auto' => false], $by($partner, 'approved'));
+        $this->assertSame('Your server', $by($partner, 'created')['name']);
+        $this->assertNull(collect($partner['timeline'])->firstWhere('event', 'allocated')['detail']);
+    }
+
     public function test_search_finds_by_reference_order_id_and_utr()
     {
         $payin = $this->submittedPayin(['order_id' => 'ORD-FIND-ME', 'customer' => ['id' => 'cust-1', 'name' => 'Ravi Kumar']], '777766665555');

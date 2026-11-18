@@ -1,44 +1,44 @@
-import { Link, router, useForm, usePage } from "@inertiajs/react";
-import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
-import { PgButton } from "@/components/pg/button";
-import { ConfirmDialog } from "@/components/pg/confirm-dialog";
-import { DataTable, Panel } from "@/components/pg/data-table";
-import type { Column } from "@/components/pg/data-table";
-import { Drawer } from "@/components/pg/drawer";
-import { EmptyState } from "@/components/pg/empty-state";
-import { Field, SelectInput, TextInput } from "@/components/pg/field";
-import { ViewTabs } from "@/components/pg/filter-bar";
+import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { PgButton } from '@/components/pg/button';
+import { ConfirmDialog } from '@/components/pg/confirm-dialog';
+import { DataTable, Panel } from '@/components/pg/data-table';
+import type { Column } from '@/components/pg/data-table';
+import { Drawer } from '@/components/pg/drawer';
+import { EmptyState } from '@/components/pg/empty-state';
+import { Field, SelectInput, TextInput } from '@/components/pg/field';
+import { ViewTabs } from '@/components/pg/filter-bar';
 import {
     OlderOpenBanner,
     PeriodFilter,
     periodQuery,
-} from "@/components/pg/period-filter";
-import type { OlderOpen, PeriodValue } from "@/components/pg/period-filter";
-import { FormDialog } from "@/components/pg/form-dialog";
-import { KpiGrid, StatTile } from "@/components/pg/kpi-card";
-import { PaymentHubHeader } from "@/components/pg/payment-hub";
+} from '@/components/pg/period-filter';
+import type { OlderOpen, PeriodValue } from '@/components/pg/period-filter';
+import { FormDialog } from '@/components/pg/form-dialog';
+import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
+import { PaymentHubHeader } from '@/components/pg/payment-hub';
 import {
     CompareBlock,
     LineAmount,
     LineSummary,
     MATCH_LABELS,
     MoveLineDialog,
-} from "@/components/pg/reconciliation";
+} from '@/components/pg/reconciliation';
 import type {
     CaseSummary,
     LineTxn,
     StatementLine,
-} from "@/components/pg/reconciliation";
-import { StatusBadge } from "@/components/pg/status-badge";
-import { formatDate, formatDateTime, formatRelative } from "@/lib/dates";
-import { formatPaise } from "@/lib/money";
-import type { HubProps } from "@/lib/payment-hub";
-import adminAdjustments from "@/routes/admin/adjustments";
-import adminCases from "@/routes/admin/cases";
-import branchCases from "@/routes/branch/cases";
-import type { UserType } from "@/types";
-import { cleanUtr } from "@/lib/utr";
+} from '@/components/pg/reconciliation';
+import { StatusBadge } from '@/components/pg/status-badge';
+import { formatDate, formatDateTime, formatRelative } from '@/lib/dates';
+import { formatPaise } from '@/lib/money';
+import type { HubProps } from '@/lib/payment-hub';
+import adminAdjustments from '@/routes/admin/adjustments';
+import adminCases from '@/routes/admin/cases';
+import branchCases from '@/routes/branch/cases';
+import type { UserType } from '@/types';
+import { cleanUtr } from '@/lib/utr';
 
 type CaseRow = CaseSummary & {
     branch: { code: string; name: string };
@@ -69,7 +69,7 @@ type Candidate = LineTxn & { late: boolean; same_amount: boolean };
 type Props = {
     portal: UserType;
     hub: HubProps;
-    tab: "open" | "resolved";
+    tab: 'open' | 'resolved';
     cases: {
         data: CaseRow[];
         total: number;
@@ -99,11 +99,11 @@ type Props = {
 
 type Action =
     | null
-    | { kind: "link"; txn: Candidate }
-    | { kind: "late"; txn: Candidate }
-    | { kind: "move" }
-    | { kind: "move_line" }
-    | { kind: "close"; resolution: "rejected" | "refunded" };
+    | { kind: 'link'; txn: Candidate }
+    | { kind: 'late'; txn: Candidate }
+    | { kind: 'move' }
+    | { kind: 'move_line' }
+    | { kind: 'close'; resolution: 'rejected' | 'refunded' };
 
 /**
  * Unsettled UTR (Admin and branch): the reconciliation
@@ -122,7 +122,7 @@ export default function Cases(props: Props) {
         types,
         branches,
     } = props;
-    const routes = portal === "admin" ? adminCases : branchCases;
+    const routes = portal === 'admin' ? adminCases : branchCases;
     const [search, setSearch] = useState(filters.search);
     const [openId, setOpenId] = useState<string | null>(props.selected);
     const open =
@@ -136,7 +136,7 @@ export default function Cases(props: Props) {
                     Object.entries({
                         tab,
                         ...filters,
-                        ...("range" in next ? {} : periodQuery(period)),
+                        ...('range' in next ? {} : periodQuery(period)),
                         search,
                         ...next,
                     }).filter(([, value]) => value),
@@ -156,22 +156,22 @@ export default function Cases(props: Props) {
 
     useEffect(() => {
         if (props.selected && !props.candidates)
-            router.reload({ only: ["candidates"] });
+            router.reload({ only: ['candidates'] });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const openCase = (id: string) => {
         setOpenId(id);
         router.reload({
-            only: ["candidates", "selected"],
+            only: ['candidates', 'selected'],
             data: { case: id, find: null },
         });
     };
 
     const columns: Column<CaseRow>[] = [
         {
-            key: "case",
-            header: "Case",
+            key: 'case',
+            header: 'Case',
             cell: (item) => (
                 <div>
                     <div className="font-mono text-xs">{item.reference}</div>
@@ -182,14 +182,14 @@ export default function Cases(props: Props) {
             ),
         },
         {
-            key: "line",
-            header: "Bank line",
+            key: 'line',
+            header: 'Bank line',
             cell: (item) =>
                 item.entry && (
                     <div className="max-w-[240px]">
                         <LineAmount line={item.entry} />
                         <div className="font-mono text-xs">
-                            {item.entry.utr ?? "no UTR"}
+                            {item.entry.utr ?? 'no UTR'}
                         </div>
                         {item.entry.description && (
                             <div className="truncate text-xs">
@@ -197,15 +197,15 @@ export default function Cases(props: Props) {
                             </div>
                         )}
                         <div className="truncate text-xs text-tx3">
-                            {formatDate(item.entry.value_date)} ·{" "}
+                            {formatDate(item.entry.value_date)} ·{' '}
                             {item.entry.account.label}
                         </div>
                     </div>
                 ),
         },
         {
-            key: "txn",
-            header: "Transaction",
+            key: 'txn',
+            header: 'Transaction',
             cell: (item) =>
                 item.entry?.transaction ? (
                     <div>
@@ -213,7 +213,7 @@ export default function Cases(props: Props) {
                             {item.entry.transaction.reference}
                         </div>
                         <div className="text-xs text-tx3">
-                            {formatPaise(item.entry.transaction.amount)} ·{" "}
+                            {formatPaise(item.entry.transaction.amount)} ·{' '}
                             {item.entry.transaction.branch}
                         </div>
                         <StatusBadge
@@ -225,11 +225,11 @@ export default function Cases(props: Props) {
                     <span className="text-xs text-tx3">none found</span>
                 ),
         },
-        ...(portal === "admin"
+        ...(portal === 'admin'
             ? [
                   {
-                      key: "branch",
-                      header: "Bank entry branch",
+                      key: 'branch',
+                      header: 'Bank entry branch',
                       cell: (item: CaseRow) => (
                           <span className="rounded-md bg-sf2 px-2 py-0.5 text-xs">
                               {item.branch.name}
@@ -239,8 +239,8 @@ export default function Cases(props: Props) {
               ]
             : []),
         {
-            key: "match",
-            header: "Branch match",
+            key: 'match',
+            header: 'Branch match',
             cell: (item) =>
                 item.entry && (
                     <StatusBadge
@@ -250,8 +250,8 @@ export default function Cases(props: Props) {
                 ),
         },
         {
-            key: "notes",
-            header: "Why",
+            key: 'notes',
+            header: 'Why',
             cell: (item) => (
                 <div className="max-w-[300px] text-xs whitespace-pre-line text-tx2">
                     {item.notes}
@@ -259,10 +259,10 @@ export default function Cases(props: Props) {
             ),
         },
         {
-            key: "when",
-            header: tab === "open" ? "Waiting" : "Resolution",
+            key: 'when',
+            header: tab === 'open' ? 'Waiting' : 'Resolution',
             cell: (item) =>
-                tab === "open" ? (
+                tab === 'open' ? (
                     <span className="text-xs whitespace-nowrap">
                         {formatRelative(item.created_at)}
                     </span>
@@ -272,20 +272,20 @@ export default function Cases(props: Props) {
                             {item.resolution_label}
                         </div>
                         <div className="text-tx3">
-                            {item.resolved_by} ·{" "}
+                            {item.resolved_by} ·{' '}
                             {formatDateTime(item.resolved_at)}
                         </div>
                     </div>
                 ),
         },
         {
-            key: "action",
-            header: "",
-            align: "right",
+            key: 'action',
+            header: '',
+            align: 'right',
             // Branch login: no Resolve button (client request 2026-11-17);
             // the branch acts from Manual Entry.
             cell: (item) =>
-                portal !== "branch" &&
+                portal !== 'branch' &&
                 item.can.resolve && (
                     <PgButton
                         variant="primary"
@@ -339,10 +339,10 @@ export default function Cases(props: Props) {
             <Panel className="overflow-hidden">
                 <ViewTabs
                     views={[
-                        { key: "open", label: "Open", count: counts.open },
+                        { key: 'open', label: 'Open', count: counts.open },
                         {
-                            key: "resolved",
-                            label: "Resolved",
+                            key: 'resolved',
+                            label: 'Resolved',
                             count: counts.resolved,
                         },
                     ]}
@@ -358,7 +358,7 @@ export default function Cases(props: Props) {
                     <div className="mt-2 empty:hidden">
                         <OlderOpenBanner
                             older={props.older}
-                            noun={["open case", "open cases"]}
+                            noun={['open case', 'open cases']}
                             onShow={visit}
                         />
                     </div>
@@ -366,7 +366,7 @@ export default function Cases(props: Props) {
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
                     <SelectInput
                         className="h-[30px] w-[240px] text-[12.5px]"
-                        value={filters.type ?? ""}
+                        value={filters.type ?? ''}
                         onChange={(event) =>
                             visit({ type: event.target.value || null })
                         }
@@ -377,14 +377,14 @@ export default function Cases(props: Props) {
                                 {label}
                                 {counts.types[key]
                                     ? ` (${counts.types[key]} open)`
-                                    : ""}
+                                    : ''}
                             </option>
                         ))}
                     </SelectInput>
-                    {portal === "admin" && (
+                    {portal === 'admin' && (
                         <SelectInput
                             className="h-[30px] w-[190px] text-[12.5px]"
-                            value={filters.branch ?? ""}
+                            value={filters.branch ?? ''}
                             onChange={(event) =>
                                 visit({ branch: event.target.value || null })
                             }
@@ -420,13 +420,13 @@ export default function Cases(props: Props) {
                         empty={
                             <EmptyState
                                 title={
-                                    tab === "open"
-                                        ? "Nothing unsettled"
-                                        : "No resolved cases"
+                                    tab === 'open'
+                                        ? 'Nothing unsettled'
+                                        : 'No resolved cases'
                                 }
                                 description={
-                                    tab === "open"
-                                        ? "Every statement line matched its transaction."
+                                    tab === 'open'
+                                        ? 'Every statement line matched its transaction.'
                                         : undefined
                                 }
                             />
@@ -478,15 +478,15 @@ function CaseDrawer({
     candidates: Candidate[] | null;
     onClose: () => void;
 }) {
-    const routes = portal === "admin" ? adminCases : branchCases;
-    const [find, setFind] = useState("");
+    const routes = portal === 'admin' ? adminCases : branchCases;
+    const [find, setFind] = useState('');
     const [action, setAction] = useState<Action>(null);
     const line = item.entry;
     const txn = line?.transaction ?? null;
-    const isOpen = item.status !== "resolved";
+    const isOpen = item.status !== 'resolved';
     const { errors: pageErrors, auth } = usePage().props;
     const errors = pageErrors as Record<string, string | undefined>;
-    const canAdjust = auth.permissions.includes("adjustments.create");
+    const canAdjust = auth.permissions.includes('adjustments.create');
     const problem =
         errors.transaction ??
         errors.case ??
@@ -496,7 +496,7 @@ function CaseDrawer({
 
     const lookup = () =>
         router.reload({
-            only: ["candidates"],
+            only: ['candidates'],
             data: { case: item.id, find: find || null },
         });
 
@@ -511,14 +511,14 @@ function CaseDrawer({
             subtitle={`${item.type_label} · ${item.branch.name} · opened ${formatDateTime(item.created_at)}`}
             summaries={[
                 {
-                    label: "Bank line",
-                    value: line ? <LineAmount line={line} /> : "—",
+                    label: 'Bank line',
+                    value: line ? <LineAmount line={line} /> : '—',
                 },
                 {
-                    label: "Transaction",
-                    value: txn ? formatPaise(txn.amount) : "None found",
+                    label: 'Transaction',
+                    value: txn ? formatPaise(txn.amount) : 'None found',
                 },
-                { label: "Reason", value: item.type_label },
+                { label: 'Reason', value: item.type_label },
             ]}
         >
             <div className="rounded-lg bg-hdb px-3 py-2.5 text-[12.5px] whitespace-pre-line text-hd">
@@ -534,7 +534,7 @@ function CaseDrawer({
                 <CompareBlock
                     transactionBranch={txn?.branch ?? null}
                     transactionSub={
-                        txn ? `Points at ${txn.reference}` : "No transaction"
+                        txn ? `Points at ${txn.reference}` : 'No transaction'
                     }
                     lineBranch={line.branch.name}
                     lineSub={line.account.label}
@@ -544,7 +544,7 @@ function CaseDrawer({
 
             {!isOpen && (
                 <div className="rounded-lg bg-okb px-3 py-2.5 text-[12.5px] text-ok">
-                    {item.resolution_label} · {item.resolved_by} ·{" "}
+                    {item.resolution_label} · {item.resolved_by} ·{' '}
                     {formatDateTime(item.resolved_at)}
                 </div>
             )}
@@ -553,15 +553,15 @@ function CaseDrawer({
                 <>
                     <section className="flex flex-col gap-2.5">
                         <h3 className="text-[12px] font-semibold tracking-[.04em] text-tx3 uppercase">
-                            Link to a{" "}
-                            {line.direction === "credit" ? "deposit" : "payout"}
+                            Link to a{' '}
+                            {line.direction === 'credit' ? 'deposit' : 'payout'}
                         </h3>
                         <p className="text-xs text-tx3">
-                            {line.direction === "credit"
+                            {line.direction === 'credit'
                                 ? line.utr
                                     ? `Deposits with UTR ${line.utr}. Only the same UTR and the exact amount can be linked.`
-                                    : "Deposits on this account for exactly this amount, around the line’s date. Only an exact amount can be linked."
-                                : "Paid payouts of this branch for exactly this amount, around the line’s date."}
+                                    : 'Deposits on this account for exactly this amount, around the line’s date. Only an exact amount can be linked.'
+                                : 'Paid payouts of this branch for exactly this amount, around the line’s date.'}
                         </p>
                         <form
                             className="flex gap-2"
@@ -607,26 +607,26 @@ function CaseDrawer({
                                             <span
                                                 className={
                                                     candidate.same_amount
-                                                        ? ""
-                                                        : "text-er"
+                                                        ? ''
+                                                        : 'text-er'
                                                 }
                                             >
                                                 {formatPaise(candidate.amount)}
-                                            </span>{" "}
-                                            · {candidate.partner} · created{" "}
+                                            </span>{' '}
+                                            · {candidate.partner} · created{' '}
                                             {formatDateTime(
                                                 candidate.created_at,
                                             )}
                                         </div>
                                         <div className="font-mono text-xs text-tx3">
-                                            UTR{" "}
+                                            UTR{' '}
                                             {candidate.bank_utr ??
                                                 candidate.customer_utr ??
-                                                "—"}
+                                                '—'}
                                         </div>
                                     </div>
                                     {line.utr &&
-                                    candidate.direction === "payin" &&
+                                    candidate.direction === 'payin' &&
                                     candidate.customer_utr !== line.utr &&
                                     candidate.bank_utr !== line.utr ? (
                                         <span className="max-w-[200px] text-right text-xs text-tx3">
@@ -646,7 +646,7 @@ function CaseDrawer({
                                                 className="h-7 px-2 text-xs"
                                                 onClick={() =>
                                                     setAction({
-                                                        kind: "late",
+                                                        kind: 'late',
                                                         txn: candidate,
                                                     })
                                                 }
@@ -665,7 +665,7 @@ function CaseDrawer({
                                             className="h-7 px-2 text-xs"
                                             onClick={() =>
                                                 setAction({
-                                                    kind: "link",
+                                                    kind: 'link',
                                                     txn: candidate,
                                                 })
                                             }
@@ -674,11 +674,11 @@ function CaseDrawer({
                                         </PgButton>
                                     ) : (
                                         <span className="max-w-[200px] text-right text-xs text-tx3">
-                                            {line.direction === "debit"
-                                                ? "No transfer of this amount without a bank line: only exact amounts can be linked"
-                                                : candidate.status === "success"
-                                                  ? "Different amount: only exact amounts can be linked"
-                                                  : "A different amount can’t be approved: decline it from the statement line (Manual Entry), and this line waits for a deposit of the amount the bank shows. If the line was typed wrong, Admin corrects it."}
+                                            {line.direction === 'debit'
+                                                ? 'No transfer of this amount without a bank line: only exact amounts can be linked'
+                                                : candidate.status === 'success'
+                                                  ? 'Different amount: only exact amounts can be linked'
+                                                  : 'A different amount can’t be approved: decline it from the statement line (Manual Entry), and this line waits for a deposit of the amount the bank shows. If the line was typed wrong, Admin corrects it.'}
                                         </span>
                                     )}
                                 </div>
@@ -690,22 +690,22 @@ function CaseDrawer({
                         <section className="flex items-center justify-between gap-3 rounded-lg border border-ac bg-acs p-3 text-[12.5px]">
                             <div className="min-w-0">
                                 <div className="font-medium">
-                                    The customer’s deposit is waiting at{" "}
-                                    {item.move.branch ?? "another branch"}
+                                    The customer’s deposit is waiting at{' '}
+                                    {item.move.branch ?? 'another branch'}
                                 </div>
                                 <div className="text-xs text-tx2">
                                     <span className="font-mono">
                                         {item.move.reference}
-                                    </span>{" "}
-                                    · {formatPaise(item.move.amount)} ·{" "}
-                                    {item.move.status.replaceAll("_", " ")}.
+                                    </span>{' '}
+                                    · {formatPaise(item.move.amount)} ·{' '}
+                                    {item.move.status.replaceAll('_', ' ')}.
                                     This line shows the money arrived here.
                                 </div>
                             </div>
                             <PgButton
                                 variant="primary"
                                 className="h-7 flex-none px-2 text-xs"
-                                onClick={() => setAction({ kind: "move" })}
+                                onClick={() => setAction({ kind: 'move' })}
                             >
                                 Move deposit here
                             </PgButton>
@@ -727,7 +727,7 @@ function CaseDrawer({
                             </div>
                             <PgButton
                                 className="h-7 flex-none px-2 text-xs"
-                                onClick={() => setAction({ kind: "move_line" })}
+                                onClick={() => setAction({ kind: 'move_line' })}
                             >
                                 Change account
                             </PgButton>
@@ -735,7 +735,7 @@ function CaseDrawer({
                     )}
 
                     {/* Only Admin closes a line (client request 2026-11-17). */}
-                    {portal === "admin" && (
+                    {portal === 'admin' && (
                         <section className="flex flex-col gap-2.5">
                             <h3 className="text-[12px] font-semibold tracking-[.04em] text-tx3 uppercase">
                                 Or close it
@@ -744,26 +744,26 @@ function CaseDrawer({
                                 <PgButton
                                     onClick={() =>
                                         setAction({
-                                            kind: "close",
-                                            resolution: "rejected",
+                                            kind: 'close',
+                                            resolution: 'rejected',
                                         })
                                     }
                                 >
                                     Not a customer payment
                                 </PgButton>
-                                {line.direction === "credit" && (
+                                {line.direction === 'credit' && (
                                     <PgButton
                                         onClick={() =>
                                             setAction({
-                                                kind: "close",
-                                                resolution: "refunded",
+                                                kind: 'close',
+                                                resolution: 'refunded',
                                             })
                                         }
                                     >
                                         Returned to customer
                                     </PgButton>
                                 )}
-                                {portal === "admin" && canAdjust && (
+                                {portal === 'admin' && canAdjust && (
                                     <Link
                                         href={
                                             adminAdjustments.index({
@@ -781,18 +781,18 @@ function CaseDrawer({
                 </>
             )}
 
-            {action?.kind === "link" && (
+            {action?.kind === 'link' && (
                 <ConfirmDialog
                     open
                     onOpenChange={(next) => !next && setAction(null)}
                     title={`Link this line to ${action.txn.reference}?`}
                     description={
-                        action.txn.status === "success"
-                            ? "The approved transaction becomes reconciled with this bank line."
-                            : "The deposit is marked as found in the bank. It still has to be approved in Manual Deposit or from the statement line."
+                        action.txn.status === 'success'
+                            ? 'The approved transaction becomes reconciled with this bank line.'
+                            : 'The deposit is marked as found in the bank. It still has to be approved in Manual Deposit or from the statement line.'
                     }
                     confirmLabel="Link"
-                    input={{ label: "Note (optional)" }}
+                    input={{ label: 'Note (optional)' }}
                     onConfirm={(note) =>
                         router.post(
                             routes.link(item.id).url,
@@ -806,7 +806,7 @@ function CaseDrawer({
                     }
                 />
             )}
-            {action?.kind === "move" && item.move && (
+            {action?.kind === 'move' && item.move && (
                 <ConfirmDialog
                     open
                     onOpenChange={(next) => !next && setAction(null)}
@@ -814,7 +814,7 @@ function CaseDrawer({
                     description="The deposit leaves the branch it was given and comes to this line’s branch and account, back in Pending. This line links to it, and the branch can approve it."
                     confirmLabel="Move deposit"
                     input={{
-                        label: "Note (required, kept in the history)",
+                        label: 'Note (required, kept in the history)',
                         required: true,
                     }}
                     onConfirm={(note) =>
@@ -830,7 +830,7 @@ function CaseDrawer({
                     }
                 />
             )}
-            {action?.kind === "move_line" && line && (
+            {action?.kind === 'move_line' && line && (
                 <MoveLineDialog
                     url={routes.moveLine(item.id).url}
                     from={line.account.label}
@@ -839,18 +839,18 @@ function CaseDrawer({
                         name: [
                             account.label,
                             account.bank &&
-                                `${account.bank}${account.last4 ? ` ··${account.last4}` : ""}`,
+                                `${account.bank}${account.last4 ? ` ··${account.last4}` : ''}`,
                             account.upi,
                         ]
                             .filter(Boolean)
-                            .join(" · "),
+                            .join(' · '),
                     }))}
                     preselect={txn?.account_id}
                     onClose={() => setAction(null)}
                     onDone={onClose}
                 />
             )}
-            {action?.kind === "late" && line && (
+            {action?.kind === 'late' && line && (
                 <ApproveLate
                     url={adminCases.approveLate(item.id).url}
                     txn={action.txn}
@@ -859,23 +859,23 @@ function CaseDrawer({
                     onDone={onClose}
                 />
             )}
-            {action?.kind === "close" && (
+            {action?.kind === 'close' && (
                 <ConfirmDialog
                     open
                     onOpenChange={(next) => !next && setAction(null)}
                     title={
-                        action.resolution === "rejected"
-                            ? "Close as not a customer payment?"
-                            : "Close as returned to the customer?"
+                        action.resolution === 'rejected'
+                            ? 'Close as not a customer payment?'
+                            : 'Close as returned to the customer?'
                     }
                     description={
-                        action.resolution === "rejected"
-                            ? "For bank charges, interest, own transfers or a line typed by mistake. The line stays in the statement, marked closed, and its UTR is freed: a line with the same UTR waiting as a duplicate is matched again."
-                            : "The branch sent this money back to the customer outside PayGate. Nothing is credited to any partner."
+                        action.resolution === 'rejected'
+                            ? 'For bank charges, interest, own transfers or a line typed by mistake. The line stays in the statement, marked closed, and its UTR is freed: a line with the same UTR waiting as a duplicate is matched again.'
+                            : 'The branch sent this money back to the customer outside PayGate. Nothing is credited to any partner.'
                     }
                     confirmLabel="Close case"
                     tone="warning"
-                    input={{ label: "Note (required)", required: true }}
+                    input={{ label: 'Note (required)', required: true }}
                     onConfirm={(note) =>
                         router.post(
                             routes.close(item.id).url,
@@ -909,8 +909,8 @@ function ApproveLate({
 }) {
     const form = useForm({
         transaction_id: txn.id,
-        bank_utr: line.utr ?? "",
-        note: "",
+        bank_utr: line.utr ?? '',
+        note: '',
     });
     const errors = form.errors as Record<string, string | undefined>;
 
@@ -944,7 +944,7 @@ function ApproveLate({
                     className="font-mono"
                     value={form.data.bank_utr}
                     onChange={(event) =>
-                        form.setData("bank_utr", cleanUtr(event.target.value))
+                        form.setData('bank_utr', cleanUtr(event.target.value))
                     }
                 />
             </Field>
@@ -952,7 +952,7 @@ function ApproveLate({
                 <TextInput
                     value={form.data.note}
                     onChange={(event) =>
-                        form.setData("note", event.target.value)
+                        form.setData('note', event.target.value)
                     }
                 />
             </Field>

@@ -149,7 +149,7 @@ class AutoApproveDeposit
                 'utr' => $line->utr_normalized,
                 'bank' => number_format($line->amount / 100, 2),
                 'amount' => number_format($payin->amount / 100, 2),
-            ]));
+            ]), automatic: true);
 
             $this->alerts->depositAutoMoved($moved, $fromBranch, approved: false, bankAmount: $line->amount);
 
@@ -161,7 +161,7 @@ class AutoApproveDeposit
                 $this->move->handle($actor, $payin, $account, __('Automatic: the bank line of :account shows UTR :utr for this amount.', [
                     'account' => $account->label,
                     'utr' => $line->utr_normalized,
-                ]), alert: false);
+                ]), alert: false, automatic: true);
 
                 // Moved only to be approved: if it can't be, undo the move too.
                 return $this->approve($line->refresh(), $payin->refresh(), rethrow: true)

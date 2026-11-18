@@ -150,7 +150,8 @@ class AutoApproveDepositTest extends TestCase
         $this->assertSame('success', $payin->status);
         $this->assertSame($this->paidBranch->id, $payin->branch_id);
         $this->assertSame($this->paidAccount->id, $payin->payment_account_id);
-        $this->assertTrue(TransactionEvent::where(['transaction_id' => $payin->id, 'event' => 'moved'])->exists());
+        // Recorded as automatic, not as the person's own move.
+        $this->assertTrue(TransactionEvent::where(['transaction_id' => $payin->id, 'event' => 'moved'])->sole()->data['auto'] ?? false);
         $this->assertSame('resolved', ReconciliationCase::sole()->status);
         // Admin and the first branch are told; the paid branch gets no "check and approve" alert.
         $this->assertSame(1, $this->alerted($this->admin, Alert::DepositAutoMoved));

@@ -141,6 +141,15 @@ export type TxnDetail = {
         from: string | null;
         to: string | null;
         actor: string;
+        /** Who, as this viewer may see them (TimelineActors). */
+        by: {
+            name: string;
+            role: string | null;
+            org: string | null;
+            auto: boolean;
+        };
+        /** Where it was assigned / moved (account, branch). */
+        detail: string | null;
         reason: string | null;
         at: string;
         data: Record<string, unknown> | null;
@@ -225,6 +234,11 @@ export const METHOD_LABELS: Record<string, string> = {
 const EVENT_LABELS: Record<string, string> = {
     created: 'Pay-in created',
     allocated: 'Account assigned',
+    moved: 'Moved to another account',
+    not_in_bank: 'Marked: not found in our bank',
+    cancelled: 'Cancelled',
+    unmatched_alerted: 'Alert: no bank line found yet',
+    part_paid_alerted: 'Alert: payout only partly paid',
     method_changed: 'Customer switched method',
     account_changed: 'Customer asked for different payment details',
     utr_conflict: 'Same UTR used on another deposit',
@@ -587,18 +601,46 @@ function Timeline({ detail }: { detail: TxnDetail }) {
                                 {formatDateTime(event.at)}
                             </span>
                         </div>
-                        <div className="text-xs text-tx3">
-                            by {event.actor.replace('_', ' ')}
-                            {event.reason && ` · ${event.reason}`}
-                            {event.data?.utr
-                                ? ` · UTR ${text(event.data.utr)}`
-                                : ''}
-                            {event.data?.bank_utr
-                                ? ` · bank UTR ${text(event.data.bank_utr)}`
-                                : ''}
-                            {event.data?.reason_code
-                                ? ` · ${text(event.data.reason_code).replaceAll('_', ' ')}`
-                                : ''}
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-tx3">
+                            <span>by</span>
+                            <b className="font-medium text-tx2">
+                                {event.by.name}
+                            </b>
+                            {event.by.auto && (
+                                <span className="rounded bg-acs px-1.5 py-px text-[11px] text-act">
+                                    Automatic
+                                </span>
+                            )}
+                            {(event.by.role || event.by.org) && (
+                                <span>
+                                    (
+                                    {[event.by.role, event.by.org]
+                                        .filter(Boolean)
+                                        .join(' · ')}
+                                    )
+                                </span>
+                            )}
+                        </div>
+                        {event.detail && (
+                            <div className="text-xs text-tx2">
+                                {event.detail}
+                            </div>
+                        )}
+                        <div className="text-xs text-tx3 empty:hidden">
+                            {[
+                                event.reason,
+                                event.data?.utr &&
+                                    `UTR ${text(event.data.utr)}`,
+                                event.data?.bank_utr &&
+                                    `bank UTR ${text(event.data.bank_utr)}`,
+                                event.data?.reason_code &&
+                                    text(event.data.reason_code).replaceAll(
+                                        '_',
+                                        ' ',
+                                    ),
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')}
                         </div>
                         {event.event === 'utr_conflict' ? (
                             <div className="mt-1 rounded-md bg-erb px-2 py-1 text-xs text-er">

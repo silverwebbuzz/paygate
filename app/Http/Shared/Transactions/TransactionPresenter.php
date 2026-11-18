@@ -244,6 +244,7 @@ class TransactionPresenter
     {
         $type = $viewer->type;
         $events = $txn->events()->get();
+        $people = new TimelineActors($events, $viewer);
         $proofIds = $events->pluck('data.proof_file_id')->filter()->values()->all();
 
         return [
@@ -264,7 +265,9 @@ class TransactionPresenter
                 'from' => $event->from_status,
                 'to' => $event->to_status,
                 'actor' => $event->actor_type,
-                'reason' => $event->reason,
+                'by' => $people->by($event),
+                'detail' => $people->detail($event),
+                'reason' => $people->reason($event),
                 'at' => $event->created_at->toIso8601String(),
                 'data' => $type === UserType::Admin ? $event->data : array_intersect_key($event->data ?? [], array_flip(['utr', 'bank_utr', 'reason_code', 'possible_duplicate_of', 'method', 'to', 'auto', 'claimed_by', 'approved'])),
             ])->values()->all(),

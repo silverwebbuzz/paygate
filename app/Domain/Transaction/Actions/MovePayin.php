@@ -40,9 +40,13 @@ class MovePayin
         private AlertDispatcher $alerts,
     ) {}
 
-    public function handle(User $actor, Transaction $payin, PaymentAccount $to, string $reason, bool $alert = true): Transaction
+    /**
+     * $automatic: moved by AutoApproveDeposit because of $actor's bank line,
+     * not by $actor's own decision (shown so in the timeline).
+     */
+    public function handle(User $actor, Transaction $payin, PaymentAccount $to, string $reason, bool $alert = true, bool $automatic = false): Transaction
     {
-        return DB::transaction(function () use ($actor, $payin, $to, $reason, $alert) {
+        return DB::transaction(function () use ($actor, $payin, $to, $reason, $alert, $automatic) {
             /** @var Transaction $locked */
             $locked = Transaction::query()->whereKey($payin->id)->lockForUpdate()->firstOrFail();
 
@@ -92,12 +96,14 @@ class MovePayin
                 'branch_id' => $to->branch_id,
                 'method' => $locked->method,
                 'reservation' => ['date' => $date, 'amount' => $locked->amount, 'scopes' => $scopes],
+                ...($automatic ? ['auto' => true] : []),
             ]);
             TransactionEvent::record($locked, 'moved', $from['status'], $locked->status, 'user', $actor->id, $reason, [
                 'from_branch_id' => $from['branch_id'],
                 'from_account_id' => $from['payment_account_id'],
                 'branch_id' => $to->branch_id,
                 'account_id' => $to->id,
+                ...($automatic ? ['auto' => true] : []),
             ]);
             AuditLog::record('payin.moved', $locked, $from, [
                 'branch_id' => $to->branch_id,
