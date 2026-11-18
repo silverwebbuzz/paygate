@@ -7,6 +7,7 @@ use App\Domain\Partner\Actions\IssueApiKey;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PartnerApi\ApiAuthenticator;
 use App\Domain\PartnerApi\Models\ApiRequestLog;
+use App\Domain\Reporting\Period;
 use App\Http\Controller;
 use App\Support\Hosts;
 use Illuminate\Database\Eloquent\Builder;
@@ -48,8 +49,12 @@ class ApiLogController extends Controller
         $result = in_array($request->query('result'), ['ok', 'client', 'server'], true) ? (string) $request->query('result') : null;
         $search = trim((string) $request->query('search'));
 
+        // Sent in the period (Today by default, client request 2026-11-18).
+        $period = Period::fromRequest($request);
+
         $logs = ApiRequestLog::query()
             ->where('partner_id', $actor->partner_id)
+            ->where(fn (Builder $query) => $period->apply($query, 'created_at'))
             ->when($result === 'ok', fn (Builder $query) => $query->where('status_code', '<', 400))
             ->when($result === 'client', fn (Builder $query) => $query->whereBetween('status_code', [400, 499]))
             ->when($result === 'server', fn (Builder $query) => $query->where('status_code', '>=', 500))
@@ -75,6 +80,7 @@ class ApiLogController extends Controller
         return Inertia::render('partner/api-logs', [
             'logs' => $logs,
             'filters' => ['result' => $result, 'search' => $search],
+            'period' => $period->toArray(),
         ]);
     }
 }

@@ -7,6 +7,7 @@ use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Payout\Actions\ProcessPayout;
 use App\Domain\Platform\Models\ReasonCode;
+use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Support\Money;
@@ -48,12 +49,21 @@ class PayoutQueueController extends Controller
         $actor = $request->user();
         $tab = array_key_exists((string) $request->query('tab'), self::TABS) ? (string) $request->query('tab') : 'to_pay';
         $search = trim((string) $request->query('search'));
-        $today = CarbonImmutable::now(config('app.business_timezone'))->startOfDay()->utc();
+        $period = Period::fromRequest($request);
 
-        $inTab = fn (string $key) => TransactionController::scoped($actor)
+        // The period (Today by default) applies to every tab: Paid / Failed
+        // by decision time, the open tabs by creation time (client request
+        // 2026-11-18). Open payouts from before it are counted in a banner.
+        $decided = fn (string $key) => in_array($key, ['paid', 'failed'], true);
+        $open = fn (string $key) => TransactionController::scoped($actor)
             ->where('direction', 'payout')
-            ->whereIn('status', self::TABS[$key])
-            ->when(in_array($key, ['paid', 'failed'], true), fn (Builder $query) => $query->where('decided_at', '>=', $today));
+            ->whereIn('status', self::TABS[$key]);
+        $inTab = fn (string $key) => $open($key)
+            ->where(fn (Builder $query) => $period->apply($query, $decided($key) ? 'decided_at' : 'created_at'));
+        $older = $decided($tab) ? null : $period->olderOpen(
+            $open($tab)->when($search !== '', fn (Builder $query) => TransactionController::search($query, $search)),
+            'transactions.created_at',
+        );
 
         $items = $inTab($tab)
             ->with(['partner', 'branch', 'customer', 'beneficiary', 'statementEntry', 'payoutPayments.proof', 'payoutPayments.creator', 'payoutPayments.statementEntry', 'payoutPayments.approvedReturn'])
@@ -93,6 +103,8 @@ class PayoutQueueController extends Controller
             ]]),
             'items' => [...$items->toArray(), 'data' => $rows],
             'filters' => ['search' => $search],
+            'period' => $period->toArray(),
+            'older' => $older,
             'reasons' => ReasonCode::options('payout_reject'),
             'selected' => is_string($selected) ? $selected : null,
             'detail' => Inertia::optional(function () use ($selected, $actor) {

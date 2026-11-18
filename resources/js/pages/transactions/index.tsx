@@ -1,53 +1,61 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { RefreshCw, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { PgButton } from '@/components/pg/button';
+import { Head, Link, router } from "@inertiajs/react";
+import { RefreshCw, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { PgButton } from "@/components/pg/button";
 import {
     ChargebackCell,
     RaiseChargebackDialog,
-} from '@/components/pg/chargeback';
-import { DataTable, Panel } from '@/components/pg/data-table';
-import { ReturnCell, ReturnDialog } from '@/components/pg/payout-return';
-import type { ReturnAction } from '@/components/pg/payout-return';
-import type { Column } from '@/components/pg/data-table';
-import { EmptyState } from '@/components/pg/empty-state';
-import { ViewTabs } from '@/components/pg/filter-bar';
-import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
-import { LiveIndicator, PageHeader } from '@/components/pg/page-header';
-import { PaymentHubHeader } from '@/components/pg/payment-hub';
-import { PeriodFilter, periodQuery } from '@/components/pg/period-filter';
-import type { PeriodQuery, PeriodValue } from '@/components/pg/period-filter';
-import { Segmented } from '@/components/pg/segmented';
-import { StatusBadge } from '@/components/pg/status-badge';
+} from "@/components/pg/chargeback";
+import { DataTable, Panel } from "@/components/pg/data-table";
+import { ReturnCell, ReturnDialog } from "@/components/pg/payout-return";
+import type { ReturnAction } from "@/components/pg/payout-return";
+import type { Column } from "@/components/pg/data-table";
+import { EmptyState } from "@/components/pg/empty-state";
+import { ViewTabs } from "@/components/pg/filter-bar";
+import { KpiGrid, StatTile } from "@/components/pg/kpi-card";
+import { LiveIndicator, PageHeader } from "@/components/pg/page-header";
+import { PaymentHubHeader } from "@/components/pg/payment-hub";
+import {
+    OlderOpenBanner,
+    PeriodFilter,
+    periodQuery,
+} from "@/components/pg/period-filter";
+import type {
+    OlderOpen,
+    PeriodQuery,
+    PeriodValue,
+} from "@/components/pg/period-filter";
+import { Segmented } from "@/components/pg/segmented";
+import { StatusBadge } from "@/components/pg/status-badge";
 import {
     METHOD_LABELS,
     TransactionDrawer,
-} from '@/components/pg/transaction-drawer';
-import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
-import { TxnFilters } from '@/components/pg/txn-filters';
-import type { TxnFilterValues } from '@/components/pg/txn-filters';
-import { formatDateTime } from '@/lib/dates';
-import { formatPaise } from '@/lib/money';
-import type { HubProps } from '@/lib/payment-hub';
-import admin from '@/routes/admin';
-import branch from '@/routes/branch';
-import { show as fileUrl } from '@/routes/files';
-import partner from '@/routes/partner';
-import type { UserType } from '@/types';
+} from "@/components/pg/transaction-drawer";
+import type { TxnDetail, TxnRow } from "@/components/pg/transaction-drawer";
+import { TxnFilters } from "@/components/pg/txn-filters";
+import type { TxnFilterValues } from "@/components/pg/txn-filters";
+import { formatDateTime } from "@/lib/dates";
+import { formatPaise } from "@/lib/money";
+import type { HubProps } from "@/lib/payment-hub";
+import admin from "@/routes/admin";
+import branch from "@/routes/branch";
+import { show as fileUrl } from "@/routes/files";
+import partner from "@/routes/partner";
+import type { UserType } from "@/types";
 
 type Group =
-    | 'open'
-    | 'pending'
-    | 'hold'
-    | 'success'
-    | 'rejected'
-    | 'closed'
-    | 'chargeback'
-    | 'return';
+    | "open"
+    | "pending"
+    | "hold"
+    | "success"
+    | "rejected"
+    | "closed"
+    | "chargeback"
+    | "return";
 
 type Props = {
     portal: UserType;
-    direction: 'payin' | 'payout';
+    direction: "payin" | "payout";
     transactions: {
         data: TxnRow[];
         total: number;
@@ -59,6 +67,8 @@ type Props = {
     filters: TxnFilterValues & { status: Group | null; search: string };
     /** Null on the Chargebacks / Payout returns pages (every open case). */
     period: PeriodValue | null;
+    /** Open ones created before the period (shown in a banner). */
+    older?: OlderOpen;
     partners: { id: string; code: string; name: string }[];
     branch_options: { id: string; code: string; name: string }[];
     summary: Partial<
@@ -67,7 +77,7 @@ type Props = {
     selected: string | null;
     detail?: TxnDetail | null;
     /** The Chargebacks / Payout returns page: this list fixed on that tab. */
-    page?: 'chargeback' | 'return' | null;
+    page?: "chargeback" | "return" | null;
     /** All deposits / All withdrawals: a tab of Payments › Deposit / Withdrawal. */
     hub?: HubProps | null;
 };
@@ -91,7 +101,7 @@ const LIST_ROUTE = {
  * keeps the tab.
  */
 const PAGE_ROUTE: Record<
-    'chargeback' | 'return',
+    "chargeback" | "return",
     Partial<Record<UserType, typeof admin.payoutReturns.index>>
 > = {
     chargeback: {
@@ -107,96 +117,96 @@ const PAGE_ROUTE: Record<
 
 const CHARGEBACK_TITLES: Partial<Record<UserType, [string, string]>> = {
     partner: [
-        'Chargebacks',
-        'Deposits your customers’ banks took back after success. The amount is debited from your balance on the day it was approved; fees stay charged.',
+        "Chargebacks",
+        "Deposits your customers’ banks took back after success. The amount is debited from your balance on the day it was approved; fees stay charged.",
     ],
     branch: [
-        'Chargebacks',
-        'Chargebacks your branch raised on approved deposits and what Admin decided.',
+        "Chargebacks",
+        "Chargebacks your branch raised on approved deposits and what Admin decided.",
     ],
 };
 
 const RETURNS_TITLES: Record<UserType, [string, string]> = {
     admin: [
-        'Payout returns',
-        'Paid payouts that came back (all or part). Partners raise “Not received”; the branch, or another admin, confirms what came back.',
+        "Payout returns",
+        "Paid payouts that came back (all or part). Partners raise “Not received”; the branch, or another admin, confirms what came back.",
     ],
     partner: [
-        'Payout returns',
-        'Payouts your customers said they didn’t receive. A confirmed amount is credited back to your balance that day; fees stay charged.',
+        "Payout returns",
+        "Payouts your customers said they didn’t receive. A confirmed amount is credited back to your balance that day; fees stay charged.",
     ],
     branch: [
-        'Payout returns',
-        'Partners say these payouts weren’t received. Check your bank: confirm what came back (amount, UTR, proof) or reject with a note.',
+        "Payout returns",
+        "Partners say these payouts weren’t received. Check your bank: confirm what came back (amount, UTR, proof) or reject with a note.",
     ],
 };
 
-const TITLES: Record<'payin' | 'payout', Record<UserType, [string, string]>> = {
+const TITLES: Record<"payin" | "payout", Record<UserType, [string, string]>> = {
     payin: {
         admin: [
-            'Transactions',
-            'Every pay-in across partners and branches. Search by our id, order id, UTR or customer.',
+            "Transactions",
+            "Every pay-in across partners and branches. Search by our id, order id, UTR or customer.",
         ],
         partner: [
-            'Pay-in',
-            'Your customers’ deposits. Credit a customer only when the status is Success.',
+            "Pay-in",
+            "Your customers’ deposits. Credit a customer only when the status is Success.",
         ],
         branch: [
-            'Pay-in history',
-            'Deposits paid into your accounts, newest first.',
+            "Pay-in history",
+            "Deposits paid into your accounts, newest first.",
         ],
     },
     payout: {
-        admin: ['Transactions', 'Every payout across partners and branches.'],
+        admin: ["Transactions", "Every payout across partners and branches."],
         partner: [
-            'Pay-out',
-            'Withdrawals to your customers. The amount plus the fee is charged to your balance.',
+            "Pay-out",
+            "Withdrawals to your customers. The amount plus the fee is charged to your balance.",
         ],
         branch: [
-            'Pay-out history',
-            'Withdrawals your branch paid or couldn’t pay.',
+            "Pay-out history",
+            "Withdrawals your branch paid or couldn’t pay.",
         ],
     },
 };
 
-const TABS: Record<'payin' | 'payout', [Group | 'all', string][]> = {
+const TABS: Record<"payin" | "payout", [Group | "all", string][]> = {
     payin: [
-        ['all', 'All'],
-        ['pending', 'Pending'],
-        ['hold', 'On hold'],
-        ['success', 'Success'],
-        ['rejected', 'Declined'],
-        ['open', 'Not paid yet'],
-        ['closed', 'Expired'],
-        ['chargeback', 'Chargeback'],
+        ["all", "All"],
+        ["pending", "Pending"],
+        ["hold", "On hold"],
+        ["success", "Success"],
+        ["rejected", "Declined"],
+        ["open", "Not paid yet"],
+        ["closed", "Expired"],
+        ["chargeback", "Chargeback"],
     ],
     payout: [
-        ['all', 'All'],
-        ['pending', 'Waiting for branch'],
-        ['hold', 'Being paid'],
-        ['success', 'Paid'],
-        ['rejected', 'Failed'],
-        ['return', 'Returns'],
+        ["all", "All"],
+        ["pending", "Waiting for branch"],
+        ["hold", "Being paid"],
+        ["success", "Paid"],
+        ["rejected", "Failed"],
+        ["return", "Returns"],
     ],
 };
 
 const KPIS: Record<
-    'payin' | 'payout',
-    [Group, string, string, 'ok' | 'wn' | 'hd' | 'er' | 'rv'][]
+    "payin" | "payout",
+    [Group, string, string, "ok" | "wn" | "hd" | "er" | "rv"][]
 > = {
     payin: [
-        ['success', 'Success', '✓', 'ok'],
-        ['pending', 'Pending', '◷', 'wn'],
-        ['hold', 'On hold', '‖', 'hd'],
-        ['rejected', 'Declined', '✕', 'er'],
-        ['chargeback', 'Chargeback', '↺', 'rv'],
+        ["success", "Success", "✓", "ok"],
+        ["pending", "Pending", "◷", "wn"],
+        ["hold", "On hold", "‖", "hd"],
+        ["rejected", "Declined", "✕", "er"],
+        ["chargeback", "Chargeback", "↺", "rv"],
     ],
     payout: [
-        ['success', 'Paid', '✓', 'ok'],
-        ['pending', 'Waiting for branch', '◷', 'wn'],
-        ['hold', 'Being paid', '‖', 'hd'],
-        ['rejected', 'Failed', '✕', 'er'],
-        ['return', 'Returned', '↺', 'rv'],
+        ["success", "Paid", "✓", "ok"],
+        ["pending", "Waiting for branch", "◷", "wn"],
+        ["hold", "Being paid", "‖", "hd"],
+        ["rejected", "Failed", "✕", "er"],
+        ["return", "Returned", "↺", "rv"],
     ],
 };
 
@@ -206,6 +216,7 @@ export default function Transactions({
     transactions,
     filters,
     period,
+    older = null,
     partners,
     branch_options,
     summary,
@@ -220,19 +231,19 @@ export default function Transactions({
     const [returning, setReturning] = useState<ReturnAction | null>(null);
     const open = transactions.data.find((txn) => txn.id === openId) ?? null;
     const [title, description] =
-        (page === 'return' && RETURNS_TITLES[portal]) ||
-        (page === 'chargeback' && CHARGEBACK_TITLES[portal]) ||
+        (page === "return" && RETURNS_TITLES[portal]) ||
+        (page === "chargeback" && CHARGEBACK_TITLES[portal]) ||
         TITLES[direction][portal];
     // Chargebacks / returns show only while their section is open (Section rollout).
-    const returnsOpen = direction === 'payout' && summary.return !== undefined;
+    const returnsOpen = direction === "payout" && summary.return !== undefined;
     const chargebacksOpen =
-        direction === 'payin' && summary.chargeback !== undefined;
+        direction === "payin" && summary.chargeback !== undefined;
 
-    const visit = (next: Partial<Props['filters'] & PeriodQuery>) => {
-        const kept = period && !('range' in next) ? periodQuery(period) : {};
+    const visit = (next: Partial<Props["filters"] & PeriodQuery>) => {
+        const kept = period && !("range" in next) ? periodQuery(period) : {};
         const merged = { ...filters, ...kept, search, ...next };
         const target =
-            merged.status === 'chargeback' || merged.status === 'return'
+            merged.status === "chargeback" || merged.status === "return"
                 ? (PAGE_ROUTE[merged.status][portal] ?? null)
                 : null;
         const query = Object.fromEntries(
@@ -267,20 +278,20 @@ export default function Transactions({
         if (!live) return;
         const timer = setInterval(() => {
             if (document.hidden) return;
-            router.reload({ only: ['transactions', 'summary', 'hub'] });
+            router.reload({ only: ["transactions", "summary", "hub"] });
         }, 20000);
 
         return () => clearInterval(timer);
     }, [live]);
 
     useEffect(() => {
-        if (selected && !detail) router.reload({ only: ['detail'] });
+        if (selected && !detail) router.reload({ only: ["detail"] });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const openTxn = (id: string) => {
         setOpenId(id);
-        router.reload({ only: ['detail', 'selected'], data: { txn: id } });
+        router.reload({ only: ["detail", "selected"], data: { txn: id } });
     };
 
     // A deposit with a chargeback (a payout with a return) is also counted under Success.
@@ -288,7 +299,7 @@ export default function Transactions({
         Object.entries(summary) as [Group, { count: number }][]
     ).reduce(
         (sum, [group, figures]) =>
-            group === 'chargeback' || group === 'return'
+            group === "chargeback" || group === "return"
                 ? sum
                 : sum + figures.count,
         0,
@@ -298,8 +309,8 @@ export default function Transactions({
 
     const columns: Column<TxnRow>[] = [
         {
-            key: 'txn',
-            header: 'Transaction',
+            key: "txn",
+            header: "Transaction",
             cell: (t) => (
                 <div>
                     <div className="font-mono text-xs font-medium">
@@ -309,33 +320,33 @@ export default function Transactions({
                 </div>
             ),
         },
-        ...(portal !== 'partner'
+        ...(portal !== "partner"
             ? [
                   {
-                      key: 'partner',
-                      header: 'Partner',
+                      key: "partner",
+                      header: "Partner",
                       cell: (t: TxnRow) =>
                           t.partner && <span>{t.partner.name}</span>,
                   },
               ]
             : []),
         // Admin sees every branch; branches see only their own, partners none.
-        ...(portal === 'admin'
+        ...(portal === "admin"
             ? [
                   {
-                      key: 'branch',
-                      header: 'Branch',
+                      key: "branch",
+                      header: "Branch",
                       cell: (t: TxnRow) =>
-                          t.branch ? <div>{t.branch.name}</div> : '—',
+                          t.branch ? <div>{t.branch.name}</div> : "—",
                   },
               ]
             : []),
         {
-            key: 'customer',
-            header: 'Customer',
+            key: "customer",
+            header: "Customer",
             cell: (t) => (
                 <div>
-                    <div>{t.customer?.name ?? t.customer?.id ?? '—'}</div>
+                    <div>{t.customer?.name ?? t.customer?.id ?? "—"}</div>
                     <div className="text-xs text-tx3">
                         {t.customer?.mobile ?? t.customer?.id}
                     </div>
@@ -343,9 +354,9 @@ export default function Transactions({
             ),
         },
         {
-            key: 'amount',
-            header: 'Amount · Net',
-            align: 'right',
+            key: "amount",
+            header: "Amount · Net",
+            align: "right",
             cell: (t) => (
                 <div>
                     <div className="font-medium">{formatPaise(t.amount)}</div>
@@ -356,18 +367,18 @@ export default function Transactions({
                     )}
                     <div className="text-xs text-tx3">
                         {t.net === null
-                            ? '—'
-                            : `${direction === 'payout' ? 'Charged' : 'Net'} ${formatPaise(t.net)}`}
+                            ? "—"
+                            : `${direction === "payout" ? "Charged" : "Net"} ${formatPaise(t.net)}`}
                     </div>
                 </div>
             ),
         },
         {
-            key: 'method',
-            header: 'Method',
+            key: "method",
+            header: "Method",
             cell: (t) => (
                 <div>
-                    <div>{t.method ? METHOD_LABELS[t.method] : '—'}</div>
+                    <div>{t.method ? METHOD_LABELS[t.method] : "—"}</div>
                     {t.account && (
                         <div className="text-xs text-tx3">
                             {t.account.bank ?? t.account.upi}
@@ -377,19 +388,19 @@ export default function Transactions({
             ),
         },
         {
-            key: 'utr',
-            header: 'UTR',
+            key: "utr",
+            header: "UTR",
             cell: (t) => (
                 <span className="font-mono text-xs">
-                    {t.bank_utr ?? t.customer_utr ?? '—'}
+                    {t.bank_utr ?? t.customer_utr ?? "—"}
                 </span>
             ),
         },
-        ...(portal !== 'partner' && direction === 'payin'
+        ...(portal !== "partner" && direction === "payin"
             ? [
                   {
-                      key: 'proof',
-                      header: 'Proof',
+                      key: "proof",
+                      header: "Proof",
                       cell: (t: TxnRow) =>
                           t.proof_file_id ? (
                               <a
@@ -402,21 +413,21 @@ export default function Transactions({
                                   View
                               </a>
                           ) : (
-                              '—'
+                              "—"
                           ),
                   },
               ]
             : []),
         {
-            key: 'status',
-            header: 'Status',
+            key: "status",
+            header: "Status",
             cell: (t) => <StatusBadge status={t.status} />,
         },
         ...(chargebacksOpen
             ? [
                   {
-                      key: 'chargeback',
-                      header: 'Chargeback',
+                      key: "chargeback",
+                      header: "Chargeback",
                       cell: (t: TxnRow) => (
                           <ChargebackCell txn={t} onRaise={setRaising} />
                       ),
@@ -425,8 +436,8 @@ export default function Transactions({
             : returnsOpen
               ? [
                     {
-                        key: 'return',
-                        header: 'Return',
+                        key: "return",
+                        header: "Return",
                         cell: (t: TxnRow) => (
                             <ReturnCell txn={t} onAction={setReturning} />
                         ),
@@ -434,8 +445,8 @@ export default function Transactions({
                 ]
               : []),
         {
-            key: 'created',
-            header: 'Created ↓',
+            key: "created",
+            header: "Created ↓",
             cell: (t) => (
                 <span className="text-xs whitespace-nowrap">
                     {formatDateTime(t.created_at)}
@@ -443,8 +454,8 @@ export default function Transactions({
             ),
         },
         {
-            key: 'decided',
-            header: portal === 'partner' ? 'Decided' : 'Decided · By',
+            key: "decided",
+            header: portal === "partner" ? "Decided" : "Decided · By",
             cell: (t) => (
                 <div className="text-xs">
                     <div className="whitespace-nowrap text-tx3">
@@ -485,16 +496,16 @@ export default function Transactions({
                         description={description}
                         actions={
                             <>
-                                {portal === 'admin' && (
+                                {portal === "admin" && (
                                     <Segmented
                                         options={[
                                             {
-                                                value: 'payin',
-                                                label: 'Pay-ins',
+                                                value: "payin",
+                                                label: "Pay-ins",
                                             },
                                             {
-                                                value: 'payout',
-                                                label: 'Payouts',
+                                                value: "payout",
+                                                label: "Payouts",
                                             },
                                         ]}
                                         value={direction}
@@ -518,8 +529,8 @@ export default function Transactions({
                 {KPIS[direction]
                     .filter(
                         ([group]) =>
-                            (group !== 'return' || returnsOpen) &&
-                            (group !== 'chargeback' || chargebacksOpen),
+                            (group !== "return" || returnsOpen) &&
+                            (group !== "chargeback" || chargebacksOpen),
                     )
                     .map(([group, label, icon, tone]) => (
                         <StatTile
@@ -537,27 +548,36 @@ export default function Transactions({
                     views={TABS[direction]
                         .filter(
                             ([key]) =>
-                                (key !== 'return' || returnsOpen) &&
-                                (key !== 'chargeback' || chargebacksOpen),
+                                (key !== "return" || returnsOpen) &&
+                                (key !== "chargeback" || chargebacksOpen),
                         )
                         .map(([key, label]) => ({
                             key,
                             label,
-                            count: key === 'all' ? total : figure(key).count,
+                            count: key === "all" ? total : figure(key).count,
                         }))}
-                    active={filters.status ?? 'all'}
+                    active={filters.status ?? "all"}
                     onChange={(key) =>
-                        visit({ status: key === 'all' ? null : (key as Group) })
+                        visit({ status: key === "all" ? null : (key as Group) })
                     }
                 />
                 {period && (
                     <div className="border-b border-ln2 px-3 py-2.5">
                         <PeriodFilter period={period} onChange={visit} />
                         <p className="mt-1.5 text-[11.5px] text-tx3">
-                            {direction === 'payin'
-                                ? 'The period applies by creation date. Pending, On hold and Not paid yet always show every open deposit, whatever the date.'
-                                : 'The period applies by creation date. Waiting for branch and Being paid always show every open payout, whatever the date.'}
+                            The period applies by creation date.
                         </p>
+                        <div className="mt-2 empty:hidden">
+                            <OlderOpenBanner
+                                older={older}
+                                noun={
+                                    direction === "payin"
+                                        ? ["open deposit", "open deposits"]
+                                        : ["open payout", "open payouts"]
+                                }
+                                onShow={visit}
+                            />
+                        </div>
                     </div>
                 )}
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
@@ -579,8 +599,8 @@ export default function Transactions({
                     <div className="flex-1" />
                     <span className="text-xs text-tx3">
                         {transactions.total === 0
-                            ? 'No results'
-                            : `Showing ${transactions.from}–${transactions.to} of ${transactions.total}`}{' '}
+                            ? "No results"
+                            : `Showing ${transactions.from}–${transactions.to} of ${transactions.total}`}{" "}
                         · newest first
                     </span>
                 </div>
@@ -598,8 +618,8 @@ export default function Transactions({
                                 filters.partner ||
                                 filters.branches.length > 0 ||
                                 period
-                                    ? 'Try another search, filter, period or tab.'
-                                    : 'Pay-ins appear here as soon as they are created.'
+                                    ? "Try another search, filter, period or tab."
+                                    : "Pay-ins appear here as soon as they are created."
                             }
                         />
                     }

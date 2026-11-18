@@ -4,6 +4,8 @@ namespace App\Domain\Reporting;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -64,6 +66,33 @@ final class Period
         $endsNow = ! in_array($this->range, ['yesterday', 'prev_month', 'custom'], true);
 
         $query->where($column, '>=', $this->from)->where($column, $endsNow ? '<=' : '<', $this->to);
+    }
+
+    /**
+     * Open work from before the period (client request 2026-11-18: "Today"
+     * lists only today, but an older deposit still waiting must not go
+     * unnoticed). $open is the list's query limited to the open statuses;
+     * returns how many fall before the period and the Custom range that
+     * shows them (oldest day → now, at most a year), or null for none.
+     *
+     * @param  EloquentBuilder<covariant Model>  $open
+     * @return array{count: int, from: string, to: string}|null
+     */
+    public function olderOpen(EloquentBuilder $open, string $column): ?array
+    {
+        $older = $open->where($column, '<', $this->from);
+        $count = (clone $older)->count();
+
+        if ($count === 0) {
+            return null;
+        }
+
+        $zone = (string) config('app.business_timezone');
+        $now = CarbonImmutable::now($zone);
+        $oldest = CarbonImmutable::parse((string) $older->min($column))->setTimezone($zone)->startOfDay();
+        $oldest = $oldest->max($now->subDays(365)->startOfDay());
+
+        return ['count' => $count, 'from' => $oldest->format('Y-m-d\TH:i'), 'to' => $now->format('Y-m-d\TH:i')];
     }
 
     /**

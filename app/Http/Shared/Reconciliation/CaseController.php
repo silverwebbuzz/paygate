@@ -10,6 +10,7 @@ use App\Domain\Reconciliation\Actions\ResolveCase;
 use App\Domain\Reconciliation\Enums\CaseType;
 use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
+use App\Domain\Reporting\Period;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
 use App\Http\Shared\Transactions\PaymentHub;
@@ -49,7 +50,18 @@ class CaseController extends Controller
                 ->where('reference', strtoupper($search))
                 ->orWhereHas('entry', fn (Builder $query) => $query->where('utr_normalized', Transaction::normaliseUtr($search)))
                 ->orWhereHas('transaction', fn (Builder $query) => $query->where('reference', strtoupper($search)))));
-        $inTab = fn (string $key) => $key === 'open' ? $base()->where('status', '!=', 'resolved') : $base()->where('status', 'resolved');
+        $period = Period::fromRequest($request);
+        // The period (Today by default): open cases by when they were
+        // opened, resolved ones by when they were resolved (client request
+        // 2026-11-18). Open cases from before it are counted in a banner.
+        $openCases = fn () => $base()->where('status', '!=', 'resolved');
+        $inTab = fn (string $key) => $key === 'open'
+            ? $openCases()->where(fn (Builder $query) => $period->apply($query, 'reconciliation_cases.created_at'))
+            : $base()->where('status', 'resolved')->where(fn (Builder $query) => $period->apply($query, 'reconciliation_cases.resolved_at'));
+        $older = $tab === 'open' ? $period->olderOpen(
+            $openCases()->when($type !== null, fn (Builder $query) => $query->where('type', $type->value)),
+            'reconciliation_cases.created_at',
+        ) : null;
 
         $with = ['branch', 'resolver', 'transaction.branch', ...array_map(fn (string $relation) => 'entry.'.$relation, StatementPresenter::WITH)];
         $cases = $inTab($tab)
@@ -79,6 +91,8 @@ class CaseController extends Controller
             'tab' => $tab,
             'cases' => [...$cases->toArray(), 'data' => $rows],
             'filters' => ['type' => $type?->value, 'branch' => is_string($branch) ? $branch : null, 'search' => $search],
+            'period' => $period->toArray(),
+            'older' => $older,
             'counts' => [
                 'open' => $inTab('open')->count(),
                 'resolved' => $inTab('resolved')->count(),

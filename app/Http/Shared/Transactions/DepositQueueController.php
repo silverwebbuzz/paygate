@@ -54,12 +54,18 @@ class DepositQueueController extends Controller
 
         $base = fn () => TransactionController::filtered(TransactionController::scoped($actor)->where('direction', 'payin'), $filters);
 
-        // Approved / declined tabs show the decisions made in the period
-        // (Today by default). Open tabs show every open deposit, any date,
-        // so nothing waiting is missed.
+        // The period (Today by default) applies to every tab: Approved /
+        // Declined by decision time, the open tabs by creation time (client
+        // request 2026-11-18). Open deposits from before the period are
+        // counted in a banner that shows them in one click.
+        $decided = fn (string $key) => in_array($key, ['approved', 'declined'], true);
         $inTab = fn (Builder $query, string $key) => $query
             ->whereIn('status', self::TABS[$key])
-            ->when(in_array($key, ['approved', 'declined'], true), fn (Builder $query) => $period->apply($query, 'decided_at'));
+            ->where(fn (Builder $query) => $period->apply($query, $decided($key) ? 'decided_at' : 'created_at'));
+        $older = $decided($tab) ? null : $period->olderOpen(
+            $base()->whereIn('status', self::TABS[$tab])->when($search !== '', fn (Builder $query) => TransactionController::search($query, $search)),
+            'transactions.created_at',
+        );
 
         $items = $inTab($base(), $tab)
             ->with(TransactionController::ROW_RELATIONS)
@@ -85,6 +91,7 @@ class DepositQueueController extends Controller
             ],
             'filters' => ['search' => $search, ...$filters],
             'period' => $period->toArray(),
+            'older' => $older,
             ...TransactionController::filterOptions($actor),
             'reasons' => ReasonCode::options('payin_reject'),
             'selected' => is_string($selected) ? $selected : null,

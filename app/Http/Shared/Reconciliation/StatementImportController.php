@@ -9,6 +9,7 @@ use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Actions\ImportStatement;
 use App\Domain\Reconciliation\Import\ColumnMapping;
 use App\Domain\Reconciliation\Models\StatementImport;
+use App\Domain\Reporting\Period;
 use App\Http\Controller;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -38,7 +39,11 @@ class StatementImportController extends Controller
         $branch = $request->query('branch');
         $account = $request->query('account');
 
+        // Imported in the period (Today by default, client request 2026-11-18).
+        $period = Period::fromRequest($request);
+
         $imports = ReconciliationScope::imports($actor)
+            ->where(fn (Builder $query) => $period->apply($query, 'statement_imports.created_at'))
             ->with(['paymentAccount', 'branch', 'file', 'importer'])
             ->when(is_string($branch) && $branch !== '' && $actor->isType(UserType::Admin), fn (Builder $query) => $query->where('branch_id', $branch))
             ->when(is_string($account) && $account !== '', fn (Builder $query) => $query->where('payment_account_id', $account))
@@ -77,6 +82,7 @@ class StatementImportController extends Controller
             'portal' => $actor->type->value,
             'imports' => [...$imports->toArray(), 'data' => $rows],
             'filters' => ['branch' => is_string($branch) ? $branch : null, 'account' => is_string($account) ? $account : null],
+            'period' => $period->toArray(),
             'accounts' => ReconciliationScope::accounts($actor)->with('branch')->orderBy('label')->get()
                 ->map(fn ($account) => ['id' => $account->id, 'label' => $account->label, 'bank' => $account->bank_name, 'number' => $account->maskedAccountNumber(), 'branch_id' => $account->branch_id, 'branch' => $account->branch->name])
                 ->values(),
