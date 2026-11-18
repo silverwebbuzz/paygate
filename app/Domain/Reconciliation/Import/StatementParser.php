@@ -2,8 +2,8 @@
 
 namespace App\Domain\Reconciliation\Import;
 
-use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Utr;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
@@ -166,9 +166,9 @@ final class StatementParser
     {
         $tokens = preg_split('/[^A-Z0-9]+/', mb_strtoupper($text)) ?: [];
 
-        // Numbers only (client request 2026-11-18): a NEFT reference with
-        // letters (HDFCN5…) is not taken as the UTR.
-        foreach (['/^\d{12}$/', '/^\d{13,22}$/'] as $pattern) {
+        // A 12-digit UPI / IMPS number first, then a NEFT / RTGS reference
+        // (HDFCN5…), then a longer number (client request 2026-11-18).
+        foreach (['/^\d{12}$/', Utr::BANK_REFERENCE_PATTERN, '/^\d{13,22}$/'] as $pattern) {
             foreach ($tokens as $token) {
                 if (preg_match($pattern, $token) === 1) {
                     return $token;
@@ -308,7 +308,7 @@ final class StatementParser
             $normalised = str_pad(ltrim($normalised, '0'), 12, '0', STR_PAD_LEFT);
         }
 
-        if (preg_match(SubmitPayinProof::UTR_PATTERN, $normalised) === 1 && preg_match('/\d{6}/', $normalised) === 1 && trim($normalised, '0') !== '') {
+        if (Utr::valid($normalised) && preg_match('/\d{6}/', $normalised) === 1 && trim($normalised, '0') !== '') {
             return $normalised;
         }
 

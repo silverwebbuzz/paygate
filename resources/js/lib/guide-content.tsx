@@ -236,7 +236,7 @@ export const GUIDE: GuideSection[] = [
                     [
                         '**UTR**',
                         'The bank',
-                        '**Numbers only** (no letters), usually 12 digits, e.g. `626812820491`. Spaces and dashes are removed; a reference with letters is refused.',
+                        'UPI / IMPS / QR: **numbers only**, usually 12 digits, e.g. `626812820491`. Bank transfer (NEFT / RTGS): also the bank’s reference, 4-letter bank code + digits, e.g. `HDFCN52026092812`. Spaces and dashes are removed; any other text is refused.',
                         'Proof of one bank transfer. Used to match the bank statement with the deposit.',
                     ],
                     [

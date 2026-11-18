@@ -26,6 +26,27 @@ use Throwable;
  */
 final class Utr
 {
+    /** UPI / IMPS / QR: numbers only (client request 2026-11-18). */
+    public const NUMBER_PATTERN = '/^[0-9]{6,22}$/';
+
+    /**
+     * NEFT (16 characters) / RTGS (22): the bank's 4-letter code, N / R (or
+     * a digit), then digits, e.g. HDFCN52026092812 (client 2026-11-18).
+     */
+    public const BANK_REFERENCE_PATTERN = '/^[A-Z]{4}[A-Z0-9][0-9]{11,17}$/';
+
+    public const MESSAGE = 'Enter the 12-digit UTR, or the NEFT / RTGS reference from your bank statement (e.g. HDFCN52026092812). Other letters or text are not accepted.';
+
+    /**
+     * Whether a normalised UTR has a valid format: numbers, or (when bank
+     * references are allowed) a NEFT / RTGS reference.
+     */
+    public static function valid(string $normalised, bool $bankReference = true): bool
+    {
+        return preg_match(self::NUMBER_PATTERN, $normalised) === 1
+            || ($bankReference && preg_match(self::BANK_REFERENCE_PATTERN, $normalised) === 1);
+    }
+
     /** Statuses in which a transaction no longer holds its bank UTR. */
     public const RELEASED = ['rejected', 'expired', 'cancelled', 'failed'];
 

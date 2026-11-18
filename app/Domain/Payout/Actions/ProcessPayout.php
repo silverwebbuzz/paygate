@@ -17,7 +17,6 @@ use App\Domain\Payout\PayoutReservation;
 use App\Domain\Payout\PayoutRouter;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\StatementMatcher;
-use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Transaction\Utr;
@@ -81,8 +80,8 @@ class ProcessPayout
     {
         $utr = Transaction::normaliseUtr($bankUtr);
 
-        if (preg_match(SubmitPayinProof::UTR_PATTERN, $utr) !== 1) {
-            throw ValidationException::withMessages(['bank_utr' => __('Enter the UTR of your transfer (numbers only, 6–22 digits).')]);
+        if (! Utr::valid($utr)) {
+            throw ValidationException::withMessages(['bank_utr' => __(Utr::MESSAGE)]);
         }
 
         if ($paidAt->isFuture()) {

@@ -454,6 +454,14 @@ class StatementMatchingTest extends TestCase
         $this->assertNull($this->line()->transaction_id);
     }
 
+    /** Client request 2026-11-18: a bank line's UTR is numbers or a NEFT / RTGS reference. */
+    public function test_a_bank_line_takes_a_number_or_a_neft_rtgs_reference_only()
+    {
+        $this->addLine(['utr' => 'UTR-REF-77'])->assertSessionHasErrors('utr');
+        $this->addLine(['utr' => 'SBINR52026092812345678', 'description' => 'RTGS'])->assertSessionHasNoErrors();
+        $this->assertSame('SBINR52026092812345678', StatementEntry::sole()->utr_normalized);
+    }
+
     public function test_a_line_without_utr_is_linked_by_hand_only_to_the_same_amount()
     {
         $payin = $this->submittedPayin(['amount' => 500000]);

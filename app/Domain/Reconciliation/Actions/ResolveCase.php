@@ -14,8 +14,8 @@ use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Actions\MovePayin;
-use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Utr;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -200,8 +200,8 @@ class ResolveCase
             $entry = $this->lockOpen($case);
             $normalised = $utr === null || trim($utr) === '' ? null : Transaction::normaliseUtr($utr);
 
-            if ($normalised !== null && preg_match(SubmitPayinProof::UTR_PATTERN, $normalised) !== 1) {
-                throw ValidationException::withMessages(['utr' => __('Enter the UTR / reference number only (numbers only, 6–22 digits).')]);
+            if ($normalised !== null && ! Utr::valid($normalised)) {
+                throw ValidationException::withMessages(['utr' => __(Utr::MESSAGE)]);
             }
 
             if ($normalised === null && trim((string) $entry->description) === '') {

@@ -32,7 +32,7 @@ import adminAdjustments from '@/routes/admin/adjustments';
 import adminCases from '@/routes/admin/cases';
 import branchCases from '@/routes/branch/cases';
 import type { UserType } from '@/types';
-import { utrDigits } from '@/lib/utr';
+import { cleanUtr } from '@/lib/utr';
 
 type CaseRow = CaseSummary & {
     branch: { code: string; name: string };
@@ -902,12 +902,12 @@ function ApproveLate({
             )}
             <Field label="Bank UTR" error={errors.bank_utr}>
                 <TextInput
-                    inputMode="numeric"
+                    autoCapitalize="characters"
                     required
                     className="font-mono"
                     value={form.data.bank_utr}
                     onChange={(event) =>
-                        form.setData('bank_utr', utrDigits(event.target.value))
+                        form.setData('bank_utr', cleanUtr(event.target.value))
                     }
                 />
             </Field>

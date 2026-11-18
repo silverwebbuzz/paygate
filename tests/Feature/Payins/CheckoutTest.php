@@ -405,6 +405,26 @@ class CheckoutTest extends TestCase
         $this->assertStringNotContainsString('public', $file->path);
     }
 
+    /**
+     * Client request 2026-11-18: UPI / QR UTRs are numbers only; a bank
+     * transfer may also give a NEFT / RTGS reference. Other text is refused.
+     */
+    public function test_upi_utrs_are_numbers_only_and_bank_transfers_also_take_a_neft_or_rtgs_reference()
+    {
+        $this->activeAccount();
+
+        [, $upi] = $this->createPayin();
+        $this->choose($upi, 'upi');
+        $this->submitProof($upi, ['utr' => 'HDFCN52026092812'])->assertSessionHasErrors('utr');
+        $this->submitProof($upi, ['utr' => 'UTR626812820491'])->assertSessionHasErrors('utr');
+
+        [$reference, $bank] = $this->createPayin(['order_id' => 'ORD-NEFT', 'customer' => ['id' => 'neft-1']]);
+        $this->choose($bank, 'bank_transfer');
+        $this->submitProof($bank, ['utr' => 'ABC123456'])->assertSessionHasErrors('utr');
+        $this->submitProof($bank, ['utr' => 'hdfcn5202-6092812'])->assertSessionHasNoErrors();
+        $this->assertSame('HDFCN52026092812', $this->payin($reference)->customer_utr_normalized);
+    }
+
     public function test_a_pending_or_successful_utr_is_refused_and_only_a_declined_one_released()
     {
         Notification::fake();

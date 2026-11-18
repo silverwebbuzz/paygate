@@ -48,7 +48,7 @@ import branchDeposits from '@/routes/branch/deposits';
 import branchImports from '@/routes/branch/statement-imports';
 import branchStatements from '@/routes/branch/statements';
 import type { UserType } from '@/types';
-import { utrDigits } from '@/lib/utr';
+import { cleanUtr } from '@/lib/utr';
 
 type Filters = {
     from: string;
@@ -975,11 +975,11 @@ function EditLine({
         >
             <Field label="UTR / reference" error={errors.utr ?? errors.case}>
                 <TextInput
-                    inputMode="numeric"
+                    autoCapitalize="characters"
                     className="font-mono"
                     value={form.data.utr}
                     onChange={(event) =>
-                        form.setData('utr', utrDigits(event.target.value))
+                        form.setData('utr', cleanUtr(event.target.value))
                     }
                 />
             </Field>
@@ -1041,12 +1041,12 @@ function ApproveFromLine({
                 error={errors.bank_utr ?? errors.status}
             >
                 <TextInput
-                    inputMode="numeric"
+                    autoCapitalize="characters"
                     required
                     className="font-mono"
                     value={form.data.bank_utr}
                     onChange={(event) =>
-                        form.setData('bank_utr', utrDigits(event.target.value))
+                        form.setData('bank_utr', cleanUtr(event.target.value))
                     }
                 />
             </Field>

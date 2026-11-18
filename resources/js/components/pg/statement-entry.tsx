@@ -12,7 +12,7 @@ import type { HubEntryAccount } from '@/lib/payment-hub';
 import adminStatements from '@/routes/admin/statements';
 import branchStatements from '@/routes/branch/statements';
 import type { UserType } from '@/types';
-import { utrDigits } from '@/lib/utr';
+import { cleanUtr } from '@/lib/utr';
 
 /** Debit entry is hidden for now (client request); flip to bring it back. */
 export const SHOW_DEBIT = false;
@@ -143,12 +143,12 @@ export function StatementEntryBar({
                 </Field>
                 <Field label="UTR / reference" error={form.errors.utr}>
                     <TextInput
-                        inputMode="numeric"
+                        autoCapitalize="characters"
                         className="h-[34px] font-mono text-[13px]"
                         placeholder="e.g. 626812820491"
                         value={form.data.utr}
                         onChange={(event) =>
-                            form.setData('utr', utrDigits(event.target.value))
+                            form.setData('utr', cleanUtr(event.target.value))
                         }
                     />
                 </Field>

@@ -15,7 +15,7 @@ import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import checkout from '@/routes/pay/checkout';
-import { utrDigits } from '@/lib/utr';
+import { cleanUtr } from '@/lib/utr';
 
 type Method = 'upi' | 'qr' | 'bank_transfer';
 
@@ -716,17 +716,32 @@ function PayView({
                         UTR / reference number{' '}
                         <span className="text-[#B91C1C]">*</span>{' '}
                         <span className="font-normal text-[#64748B]">
-                            (from your bank or UPI app)
+                            {current === 'bank_transfer'
+                                ? '(12-digit IMPS number, or NEFT / RTGS reference)'
+                                : '(12 digits, from your UPI app)'}
                         </span>
                     </span>
                     <input
                         required
-                        inputMode="numeric"
+                        inputMode={
+                            current === 'bank_transfer' ? 'text' : 'numeric'
+                        }
+                        autoCapitalize="characters"
                         autoComplete="off"
-                        placeholder="e.g. 626812820491"
+                        placeholder={
+                            current === 'bank_transfer'
+                                ? 'e.g. 626812820491 or HDFCN52026092812'
+                                : 'e.g. 626812820491'
+                        }
                         value={form.data.utr}
                         onChange={(event) =>
-                            form.setData('utr', utrDigits(event.target.value))
+                            form.setData(
+                                'utr',
+                                cleanUtr(
+                                    event.target.value,
+                                    current === 'bank_transfer',
+                                ),
+                            )
                         }
                         className="h-11 rounded-xl border border-[#E4E7EC] px-3 font-mono text-[15px] outline-none focus:border-ac focus:ring-[3px] focus:ring-acs"
                     />
