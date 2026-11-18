@@ -74,36 +74,39 @@ export function PaymentHubHeader({
             />
 
             {views.length > 1 && (
+                // Button-like tabs on a tinted strip (client request
+                // 2026-11-18: the plain underline didn't read as tabs).
                 <nav
                     aria-label={`${title} sections`}
-                    className="flex items-center gap-0.5 overflow-x-auto rounded-[10px] border border-ln bg-sf px-2"
+                    className="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-ln bg-sf2 p-1.5"
                 >
                     {views.map((item) => {
                         const count = hub.counts[item.key];
+                        const active = item.key === view;
 
                         return (
                             <Link
                                 key={item.key}
                                 href={item.href}
                                 preserveScroll={false}
-                                aria-current={
-                                    item.key === view ? 'page' : undefined
-                                }
+                                aria-current={active ? 'page' : undefined}
                                 className={cn(
-                                    'flex h-[42px] items-center gap-1.5 border-b-2 px-3 text-[13px] font-medium whitespace-nowrap',
-                                    item.key === view
-                                        ? 'border-ac text-tx'
-                                        : 'border-transparent text-tx2 hover:text-tx',
+                                    'flex h-9 items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors',
+                                    active
+                                        ? 'border-transparent bg-brand text-white shadow-[0_2px_8px_rgba(15,23,42,.18)]'
+                                        : 'border-ln bg-sf text-tx2 shadow-[0_1px_2px_rgba(15,23,42,.06)] hover:border-ac/50 hover:text-tx',
                                 )}
                             >
                                 {item.label}
                                 {count !== undefined && (
                                     <span
                                         className={cn(
-                                            'rounded-[5px] px-1.5 py-px text-[11px]',
-                                            count > 0
-                                                ? 'bg-wnb font-semibold text-wn'
-                                                : 'bg-sf2 text-tx3',
+                                            'min-w-5 rounded-[5px] px-1.5 py-px text-center text-[11px]',
+                                            active
+                                                ? 'bg-white/25 font-semibold text-white'
+                                                : count > 0
+                                                  ? 'bg-wnb font-semibold text-wn'
+                                                  : 'bg-sf2 text-tx3',
                                         )}
                                     >
                                         {count}
