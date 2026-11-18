@@ -201,7 +201,7 @@ class ResolveCase
             $normalised = $utr === null || trim($utr) === '' ? null : Transaction::normaliseUtr($utr);
 
             if ($normalised !== null && preg_match(SubmitPayinProof::UTR_PATTERN, $normalised) !== 1) {
-                throw ValidationException::withMessages(['utr' => __('Enter the UTR / reference number only (6–22 letters or digits).')]);
+                throw ValidationException::withMessages(['utr' => __('Enter the UTR / reference number only (numbers only, 6–22 digits).')]);
             }
 
             if ($normalised === null && trim((string) $entry->description) === '') {

@@ -118,9 +118,8 @@ class ChargebackTest extends TestCase
         $this->assertSame(1000000, $hook->payload['data']['chargeback']['amount']);
         $this->assertSame(1000000, PayinData::forPartner($payin)['chargeback']['amount']);
 
-        // Approved: no second chargeback, and no refund on top.
+        // Approved: no second chargeback.
         $this->raise($payin)->assertSessionHasErrors('transaction');
-        $this->actingAs($this->admin)->post(route('admin.reversals.store'), ['transaction_id' => $payin->id, 'kind' => 'refund', 'reason' => 'x'])->assertSessionHasErrors('transaction');
     }
 
     public function test_no_utr_is_needed_and_the_amount_is_at_most_the_deposit()

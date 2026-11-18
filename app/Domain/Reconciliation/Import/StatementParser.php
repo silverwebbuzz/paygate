@@ -166,7 +166,9 @@ final class StatementParser
     {
         $tokens = preg_split('/[^A-Z0-9]+/', mb_strtoupper($text)) ?: [];
 
-        foreach (['/^\d{12}$/', '/^[A-Z]{4}(?=(?:[A-Z]*\d){8})[A-Z0-9]{12,18}$/', '/^\d{13,22}$/'] as $pattern) {
+        // Numbers only (client request 2026-11-18): a NEFT reference with
+        // letters (HDFCN5…) is not taken as the UTR.
+        foreach (['/^\d{12}$/', '/^\d{13,22}$/'] as $pattern) {
             foreach ($tokens as $token) {
                 if (preg_match($pattern, $token) === 1) {
                     return $token;

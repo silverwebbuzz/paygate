@@ -474,18 +474,6 @@ class CheckoutTest extends TestCase
         $this->assertSame('payment_submitted', $this->payin($reference)->status);
     }
 
-    public function test_cancelling_releases_the_reservation()
-    {
-        $account = $this->activeAccount();
-        [$reference, $token] = $this->createPayin(['amount' => 250000]);
-        $this->choose($token, 'upi');
-
-        $this->api('POST', "/v1/payins/{$reference}/cancel")->assertOk();
-
-        $this->assertSame(0, $this->reserved('account', $account->id));
-        $this->get($this->page($token))->assertInertia(fn (Assert $page) => $page->where('payin.status', 'cancelled'));
-    }
-
     public function test_page_views_and_method_changes_do_not_use_up_the_submit_limit()
     {
         $this->activeAccount();

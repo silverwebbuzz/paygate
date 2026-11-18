@@ -107,7 +107,8 @@ class StatementImportTest extends TestCase
         $upi = StatementEntry::where('utr_normalized', '626812820491')->sole();
         $this->assertSame('matched', $upi->status);
         $this->assertSame($payin->id, $upi->transaction_id);
-        $this->assertSame(['utr_not_found', 'manual_review'], ReconciliationCase::orderBy('created_at')->get()->map(fn ($case) => $case->type->value)->all());
+        // The NEFT line's reference has letters: no UTR, so it needs review.
+        $this->assertSame(['manual_review', 'manual_review'], ReconciliationCase::orderBy('created_at')->get()->map(fn ($case) => $case->type->value)->all());
 
         // The same file again is refused…
         $again = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('copy.csv', $csv)));

@@ -74,7 +74,7 @@ class PayoutReturnTest extends TestCase
             'beneficiary' => ['type' => 'bank', 'name' => 'Ravi', 'account_number' => '50100482716640', 'ifsc' => 'HDFC0001203'],
         ])->assertCreated();
         $payout = Transaction::where(['direction' => 'payout', 'partner_transaction_id' => $order])->sole();
-        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(500000, 'IMPS60123456'.random_int(1000, 9999)))->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(500000, '60123456'.random_int(1000, 9999)))->assertSessionHasNoErrors();
 
         return $payout->refresh();
     }
@@ -93,7 +93,7 @@ class PayoutReturnTest extends TestCase
         return [
             'amount' => '2500',
             // The credit's own UTR (the money coming back), not the payout's.
-            'utr' => 'IMPS77310455',
+            'utr' => '77310455',
             // As typed on the bank statement (India time); booking is on the confirmation day.
             'returned_at' => now()->setTimezone('Asia/Kolkata')->subMinute()->format('Y-m-d\TH:i'),
             'note' => 'Second transfer bounced: account closed',
@@ -263,12 +263,9 @@ class PayoutReturnTest extends TestCase
                 ->where('summary.return.amount', 250000));
     }
 
-    public function test_only_a_paid_payout_can_be_returned_and_refunds_no_longer_take_payouts()
+    public function test_only_a_paid_payout_can_be_returned()
     {
         $payout = $this->paidPayout();
-
-        $this->actingAs($this->admin)->post(route('admin.reversals.store'), ['transaction_id' => $payout->id, 'kind' => 'return', 'reason' => 'x'])->assertSessionHasErrors('kind');
-        $this->actingAs($this->admin)->post(route('admin.reversals.store'), ['transaction_id' => $payout->id, 'kind' => 'refund', 'reason' => 'x'])->assertSessionHasErrors('transaction');
 
         $this->api('POST', '/v1/payouts', [
             'order_id' => 'WD-2', 'amount' => 100000, 'customer' => ['id' => 'c1'],

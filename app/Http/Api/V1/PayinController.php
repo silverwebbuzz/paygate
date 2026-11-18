@@ -5,9 +5,7 @@ namespace App\Http\Api\V1;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\PartnerApi\Exceptions\ApiException;
-use App\Domain\Transaction\Actions\ClosePayin;
 use App\Domain\Transaction\Actions\CreatePayin;
-use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Api\V1\Requests\CreatePayinRequest;
 use App\Http\Controller;
@@ -85,21 +83,6 @@ class PayinController extends Controller
             'data' => $payins->map(fn (Transaction $payin) => PayinResource::make($payin))->values(),
             'not_found' => array_values(array_diff([...$ids, ...$orderIds], $found)),
         ]);
-    }
-
-    /**
-     * POST /v1/payins/{id}/cancel: only while the customer hasn't paid yet.
-     */
-    public function cancel(Request $request, string $reference, ClosePayin $close): JsonResponse
-    {
-        $payin = $this->query($request)->where('reference', $reference)->first()
-            ?? throw new ApiException('not_found', 'No pay-in with this id for your account.', 404);
-
-        if (! $close->handle($payin, PayinStatus::Cancelled, 'partner_api', $this->key($request)->id, 'Cancelled by the partner.')) {
-            throw new ApiException('not_cancellable', "A pay-in in status {$payin->fresh()?->status} can't be cancelled.", 409);
-        }
-
-        return response()->json(['data' => PayinResource::make($payin->refresh())]);
     }
 
     /**

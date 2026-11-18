@@ -43,7 +43,7 @@ enum Menu: string
             self::Accounts => 'Bank & UPI accounts',
             self::Payins => 'Pay-ins (deposits)',
             self::Payouts => 'Payouts (withdrawals)',
-            self::Reversals => 'Refunds & chargebacks',
+            self::Reversals => 'Chargebacks & payout returns',
             self::Statements => 'Account statements',
             self::Reconciliation => 'Reconciliation',
             self::Balances => 'Balances',

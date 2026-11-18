@@ -6,7 +6,6 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\PartnerApi\Exceptions\ApiException;
 use App\Domain\Payout\Actions\CreatePayout;
-use App\Domain\Payout\Actions\ProcessPayout;
 use App\Domain\Payout\PartnerBalance;
 use App\Domain\Payout\PayoutData;
 use App\Domain\Transaction\Models\Transaction;
@@ -65,18 +64,6 @@ class PayoutController extends Controller
             'data' => $payouts->map(fn (Transaction $payout) => PayoutData::forPartner($payout))->values(),
             'not_found' => array_values(array_diff([...$ids, ...$orderIds], $found)),
         ]);
-    }
-
-    public function cancel(Request $request, string $reference, ProcessPayout $process): JsonResponse
-    {
-        $payout = $this->query($request)->where('reference', $reference)->first()
-            ?? throw new ApiException('not_found', 'No payout with this id for your account.', 404);
-
-        if (! $process->cancel($payout, 'partner_api', $this->key($request)->id)) {
-            throw new ApiException('not_cancellable', "A payout in status {$payout->fresh()?->status} can't be cancelled (the branch may already be paying it).", 409);
-        }
-
-        return response()->json(['data' => PayoutData::forPartner($payout->refresh())]);
     }
 
     /**

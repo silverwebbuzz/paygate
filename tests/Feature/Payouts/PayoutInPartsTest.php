@@ -95,7 +95,7 @@ class PayoutInPartsTest extends TestCase
 
         // ₹500 today: processing; that ₹500 is booked today (partner −, branch +,
         // no fees yet) and leaves the hold.
-        $this->pay($payout, 50000, 'IMPS700000000001')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000001')->assertSessionHasNoErrors();
         $payout->refresh();
         $this->assertSame('processing', $payout->status);
         $this->assertSame(1, $this->journals($payout));
@@ -105,19 +105,19 @@ class PayoutInPartsTest extends TestCase
 
         // Money left the bank: it can't fail or move now, and the rest can't be overpaid.
         $this->actingAs($this->operator)->post(route('branch.payouts.fail', $payout), ['reason_code' => 'invalid_beneficiary'])->assertSessionHasErrors('status');
-        $this->pay($payout, 50001, 'IMPS700000000002')->assertSessionHasErrors('amount');
+        $this->pay($payout, 50001, '700000000002')->assertSessionHasErrors('amount');
         // One UTR is one transfer.
-        $this->pay($payout, 50000, 'IMPS700000000001')->assertSessionHasErrors('bank_utr');
+        $this->pay($payout, 50000, '700000000001')->assertSessionHasErrors('bank_utr');
 
         $this->actingAs($this->operator)->get(route('branch.payouts.index'))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('items.data.0.paid_amount', 50000)
-                ->where('items.data.0.payments.0.utr', 'IMPS700000000001')
+                ->where('items.data.0.payments.0.utr', '700000000001')
                 ->where('items.data.0.payments.0.recorded_by', $this->operator->name));
 
         // The rest the next day: success, that ₹500 booked with the fees.
         $this->travel(1)->days();
-        $this->pay($payout, 50000, 'IMPS700000000002')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000002')->assertSessionHasNoErrors();
         $payout->refresh();
         $this->assertSame('success', $payout->status);
         $this->assertSame(2, $this->journals($payout));
@@ -126,37 +126,37 @@ class PayoutInPartsTest extends TestCase
         $this->assertSame([false, true], PayoutPayment::query()->orderBy('created_at')->pluck('fees_booked')->all());
         $this->assertSame(1000000 - 105000, $this->ledger->balance(Ledger::PARTNER_POSITION, $this->partner->id, $this->branch->id));
         $this->assertSame(0, $this->position()['reserved']);
-        $this->assertSame('IMPS700000000001', $payout->bank_utr_normalized);
+        $this->assertSame('700000000001', $payout->bank_utr_normalized);
 
         // The partner API lists both transfers; `utr` stays the first.
         $this->api('GET', "/v1/payouts/{$payout->reference}")
             ->assertJsonPath('data.status', 'success')
-            ->assertJsonPath('data.utr', 'IMPS700000000001')
+            ->assertJsonPath('data.utr', '700000000001')
             ->assertJsonPath('data.paid_amount', 100000)
             ->assertJsonCount(2, 'data.payments')
-            ->assertJsonPath('data.payments.1.utr', 'IMPS700000000002');
+            ->assertJsonPath('data.payments.1.utr', '700000000002');
     }
 
     public function test_each_transfer_needs_a_proof_and_a_past_date()
     {
         $payout = $this->payout();
 
-        $this->pay($payout, 50000, 'IMPS700000000001', ['proof' => null])->assertSessionHasErrors('proof');
-        $this->pay($payout, 50000, 'IMPS700000000001', ['proof' => UploadedFile::fake()->create('x.exe', 10)])->assertSessionHasErrors('proof');
-        $this->pay($payout, 50000, 'IMPS700000000001', ['paid_at' => now()->addDay()->format('Y-m-d\TH:i')])->assertSessionHasErrors('paid_at');
-        $this->pay($payout, 0, 'IMPS700000000001')->assertSessionHasErrors('amount');
+        $this->pay($payout, 50000, '700000000001', ['proof' => null])->assertSessionHasErrors('proof');
+        $this->pay($payout, 50000, '700000000001', ['proof' => UploadedFile::fake()->create('x.exe', 10)])->assertSessionHasErrors('proof');
+        $this->pay($payout, 50000, '700000000001', ['paid_at' => now()->addDay()->format('Y-m-d\TH:i')])->assertSessionHasErrors('paid_at');
+        $this->pay($payout, 0, '700000000001')->assertSessionHasErrors('amount');
         $this->assertSame(0, PayoutPayment::count());
 
         // A PDF is fine.
-        $this->pay($payout, 50000, 'IMPS700000000001', ['proof' => UploadedFile::fake()->create('slip.pdf', 40, 'application/pdf')])->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000001', ['proof' => UploadedFile::fake()->create('slip.pdf', 40, 'application/pdf')])->assertSessionHasNoErrors();
         $this->assertSame('payout_proof', DB::table('files')->where('id', PayoutPayment::sole()->proof_file_id)->value('purpose'));
     }
 
     public function test_the_partner_sees_each_transfer_and_its_proof_but_not_the_branch()
     {
         $payout = $this->payout();
-        $this->pay($payout, 50000, 'IMPS700000000001')->assertSessionHasNoErrors();
-        $this->pay($payout, 50000, 'IMPS700000000002')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000001')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000002')->assertSessionHasNoErrors();
         $proof = PayoutPayment::query()->orderBy('paid_at')->firstOrFail()->proof_file_id;
 
         $this->actingAs($this->partnerUser)->get(route('partner.payouts.index'))
@@ -188,14 +188,14 @@ class PayoutInPartsTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         // The statement shows the first transfer before the branch records it.
-        $line('IMPS700000000001');
-        $this->pay($payout, 50000, 'IMPS700000000001')->assertSessionHasNoErrors();
-        $first = StatementEntry::where('utr_normalized', 'IMPS700000000001')->sole();
+        $line('700000000001');
+        $this->pay($payout, 50000, '700000000001')->assertSessionHasNoErrors();
+        $first = StatementEntry::where('utr_normalized', '700000000001')->sole();
         $this->assertSame(['matched', $payout->id], [$first->status, $first->transaction_id]);
 
         // The second is recorded first, then the statement arrives.
-        $this->pay($payout, 50000, 'IMPS700000000002')->assertSessionHasNoErrors();
-        $line('IMPS700000000002');
+        $this->pay($payout, 50000, '700000000002')->assertSessionHasNoErrors();
+        $line('700000000002');
 
         $lines = StatementEntry::query()->orderBy('created_at')->get();
         $this->assertSame(['reconciled', 'reconciled'], $lines->pluck('status')->all());
@@ -205,8 +205,8 @@ class PayoutInPartsTest extends TestCase
     public function test_one_transfer_bounces_and_comes_back_and_later_the_other_too()
     {
         $payout = $this->payout();
-        $this->pay($payout, 50000, 'IMPS700000000001')->assertSessionHasNoErrors();
-        $this->pay($payout, 50000, 'IMPS700000000002')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000001')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000002')->assertSessionHasNoErrors();
         [$first, $second] = PayoutPayment::query()->orderBy('paid_at')->orderBy('created_at')->get()->all();
         $partner = fn () => $this->ledger->balance(Ledger::PARTNER_POSITION, $this->partner->id, $this->branch->id);
         $before = $partner();
@@ -215,7 +215,7 @@ class PayoutInPartsTest extends TestCase
         $return = PayoutReturn::sole();
         $confirm = fn (array $overrides = []) => $this->actingAs($this->operator)->post(route('branch.payout-returns.confirm', $return), [
             'amount' => '500',
-            'utr' => 'NEFTRET0000001',
+            'utr' => '9100000001',
             'returned_at' => now()->setTimezone('Asia/Kolkata')->subMinute()->format('Y-m-d\TH:i'),
             'proof' => UploadedFile::fake()->create('credit.pdf', 40, 'application/pdf'),
             ...$overrides,
@@ -240,7 +240,7 @@ class PayoutInPartsTest extends TestCase
         $this->actingAs($this->partnerUser)->post(route('partner.payouts.return', $payout), ['reason' => 'Now the rest too'])->assertSessionHasNoErrors();
         $again = PayoutReturn::query()->where('status', 'requested')->sole();
         $this->actingAs($this->operator)->post(route('branch.payout-returns.confirm', $again), [
-            'payout_payment_id' => $first->id, 'amount' => '500', 'utr' => 'NEFTRET0000002',
+            'payout_payment_id' => $first->id, 'amount' => '500', 'utr' => '9100000002',
             'returned_at' => now()->setTimezone('Asia/Kolkata')->subMinute()->format('Y-m-d\TH:i'),
             'proof' => UploadedFile::fake()->image('credit.png'),
         ])->assertSessionHasNoErrors();
@@ -261,14 +261,14 @@ class PayoutInPartsTest extends TestCase
     public function test_the_partner_hears_of_each_part_by_webhook()
     {
         $payout = $this->payout();
-        $this->pay($payout, 30000, 'IMPS700000000001')->assertSessionHasNoErrors();
+        $this->pay($payout, 30000, '700000000001')->assertSessionHasNoErrors();
 
         $partial = WebhookEvent::where(['transaction_id' => $payout->id, 'event_type' => 'payout.partial'])->sole();
         $this->assertSame('processing', $partial->payload['data']['status']);
         $this->assertSame(30000, $partial->payload['data']['paid_amount']);
-        $this->assertSame('IMPS700000000001', $partial->payload['data']['payments'][0]['utr']);
+        $this->assertSame('700000000001', $partial->payload['data']['payments'][0]['utr']);
 
-        $this->pay($payout, 70000, 'IMPS700000000002')->assertSessionHasNoErrors();
+        $this->pay($payout, 70000, '700000000002')->assertSessionHasNoErrors();
         $this->assertSame(1, WebhookEvent::where(['transaction_id' => $payout->id, 'event_type' => 'payout.partial'])->count());
         $success = WebhookEvent::where(['transaction_id' => $payout->id, 'event_type' => 'payout.success'])->sole();
         $this->assertSame(100000, $success->payload['data']['paid_amount']);
@@ -282,7 +282,7 @@ class PayoutInPartsTest extends TestCase
         $payout = $this->payout();
         $alerts = app(AlertDispatcher::class);
 
-        $this->pay($payout, 50000, 'IMPS700000000001')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000001')->assertSessionHasNoErrors();
         $this->travel(23)->hours();
         $this->assertSame(0, $alerts->payoutsPartPaid());
 
@@ -293,12 +293,12 @@ class PayoutInPartsTest extends TestCase
         Notification::assertNotSentTo([$stranger, $this->partnerUser], PortalAlert::class, fn (PortalAlert $alert) => $alert->alert === Alert::PayoutPartPaid);
 
         // Another part, still not all of it: a day later it alerts again.
-        $this->pay($payout, 20000, 'IMPS700000000002')->assertSessionHasNoErrors();
+        $this->pay($payout, 20000, '700000000002')->assertSessionHasNoErrors();
         $this->travel(25)->hours();
         $this->assertSame(1, $alerts->payoutsPartPaid());
 
         // Paid in full: nothing more.
-        $this->pay($payout, 30000, 'IMPS700000000003')->assertSessionHasNoErrors();
+        $this->pay($payout, 30000, '700000000003')->assertSessionHasNoErrors();
         $this->travel(25)->hours();
         $this->assertSame(0, $alerts->payoutsPartPaid());
     }
@@ -309,20 +309,20 @@ class PayoutInPartsTest extends TestCase
         // 23 Oct 23:58 India: the first ₹500 leaves the bank.
         $this->travelTo(now()->setTimezone($india)->setTime(23, 58)->utc());
         $payout = $this->payout();
-        $this->pay($payout, 50000, 'IMPS700000000001', ['paid_at' => now()->setTimezone($india)->format('Y-m-d\TH:i')])->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000001', ['paid_at' => now()->setTimezone($india)->format('Y-m-d\TH:i')])->assertSessionHasNoErrors();
         $first = PayoutPayment::sole();
         $sentDay = $first->paid_at->setTimezone($india)->toDateString();
 
         // 00:03 the next day: the rest. Completed (and booked) on the new day.
         $this->travel(5)->minutes();
-        $this->pay($payout, 50000, 'IMPS700000000002', ['paid_at' => now()->setTimezone($india)->format('Y-m-d\TH:i')])->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000002', ['paid_at' => now()->setTimezone($india)->format('Y-m-d\TH:i')])->assertSessionHasNoErrors();
         $this->assertSame('success', $payout->refresh()->status);
         $this->assertNotSame($sentDay, $payout->succeeded_at->setTimezone($india)->toDateString());
 
         // The first transfer bounced at 23:59 on its own day: that date is accepted.
         $this->actingAs($this->partnerUser)->post(route('partner.payouts.return', $payout), ['reason' => 'Only ₹500 arrived'])->assertSessionHasNoErrors();
         $this->actingAs($this->operator)->post(route('branch.payout-returns.confirm', PayoutReturn::sole()), [
-            'payout_payment_id' => $first->id, 'amount' => '500', 'utr' => 'NEFTRET0000001',
+            'payout_payment_id' => $first->id, 'amount' => '500', 'utr' => '9100000001',
             'returned_at' => $sentDay.'T23:59',
             'proof' => UploadedFile::fake()->image('credit.png'),
         ])->assertSessionHasNoErrors();
@@ -349,7 +349,7 @@ class PayoutInPartsTest extends TestCase
         // 23:58: ₹500 leaves the bank and is booked that day.
         $this->travelTo(now()->setTimezone($india)->addDay()->setTime(23, 58)->utc());
         $payout = $this->payout();
-        $this->pay($payout, 50000, 'IMPS700000000001')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000001')->assertSessionHasNoErrors();
         $this->travel(1)->minutes();
         $settle();
         $this->assertSame([50000, 0], [$latest('branch')->gross_payout, $latest('branch')->branch_commission]);
@@ -357,7 +357,7 @@ class PayoutInPartsTest extends TestCase
 
         // 00:03 next day: the other ₹500, with the fees.
         $this->travel(4)->minutes();
-        $this->pay($payout, 50000, 'IMPS700000000002')->assertSessionHasNoErrors();
+        $this->pay($payout, 50000, '700000000002')->assertSessionHasNoErrors();
         $this->travel(1)->minutes();
         $settle();
         $this->assertSame([50000, 3000], [$latest('branch')->gross_payout, $latest('branch')->branch_commission]);

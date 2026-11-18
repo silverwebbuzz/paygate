@@ -167,7 +167,7 @@ const TABS: Record<'payin' | 'payout', [Group | 'all', string][]> = {
         ['success', 'Success'],
         ['rejected', 'Declined'],
         ['open', 'Not paid yet'],
-        ['closed', 'Expired / cancelled'],
+        ['closed', 'Expired'],
         ['chargeback', 'Chargeback'],
     ],
     payout: [
@@ -176,7 +176,6 @@ const TABS: Record<'payin' | 'payout', [Group | 'all', string][]> = {
         ['hold', 'Being paid'],
         ['success', 'Paid'],
         ['rejected', 'Failed'],
-        ['closed', 'Cancelled'],
         ['return', 'Returns'],
     ],
 };

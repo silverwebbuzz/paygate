@@ -176,12 +176,13 @@ class PartnerApiTest extends TestCase
             ->assertJsonPath('not_found', ['PI000000NOPE']);
     }
 
-    public function test_open_payins_can_be_cancelled_once()
+    /** Client request 2026-11-18: no cancelling; the pay-in just expires. */
+    public function test_payins_cannot_be_cancelled()
     {
         [$reference] = $this->createPayin();
 
-        $this->api('POST', "/v1/payins/{$reference}/cancel")->assertOk()->assertJsonPath('data.status', 'cancelled')->assertJsonPath('data.payment_url', null);
-        $this->api('POST', "/v1/payins/{$reference}/cancel")->assertStatus(409)->assertJsonPath('error.code', 'not_cancellable');
+        $this->api('POST', "/v1/payins/{$reference}/cancel")->assertNotFound();
+        $this->assertNotSame('cancelled', Transaction::where('reference', $reference)->sole()->status);
     }
 
     public function test_partners_are_rate_limited()

@@ -225,7 +225,7 @@ export const GUIDE: GuideSection[] = [
                         '**Transaction ID**',
                         'Our system, automatically',
                         '`PI261116K7M2X9QA` (deposit) · `PO261116K7M2X9QA` (payout)',
-                        'Our official number. Use it with support, in statements, chargebacks and refunds.',
+                        'Our official number. Use it with support, in statements and chargebacks.',
                     ],
                     [
                         '**Order ID**',
@@ -236,7 +236,7 @@ export const GUIDE: GuideSection[] = [
                     [
                         '**UTR**',
                         'The bank',
-                        '12-digit number, e.g. `626812820491`, or IMPS/NEFT reference',
+                        '**Numbers only** (no letters), usually 12 digits, e.g. `626812820491`. Spaces and dashes are removed; a reference with letters is refused.',
                         'Proof of one bank transfer. Used to match the bank statement with the deposit.',
                     ],
                     [
@@ -727,41 +727,36 @@ export const GUIDE: GuideSection[] = [
     {
         id: 'reversals',
         group: 'Withdrawals',
-        title: 'Chargebacks, Refunds and Payout returns',
+        title: 'Chargebacks and Payout returns',
         icon: RotateCcw,
         summary: 'When money goes back after a payment was already successful.',
         blocks: [
             {
                 kind: 'table',
-                head: ['', 'Chargeback', 'Refund', 'Payout return'],
+                head: ['', 'Chargeback', 'Payout return'],
                 rows: [
                     [
                         'For',
-                        'A successful **deposit**',
                         'A successful **deposit**',
                         'A successful **payout**',
                     ],
                     [
                         'What happened',
                         'The customer’s bank took the money back',
-                        'The branch sent the money back to the customer',
                         'The payout (or part) came back to the branch’s bank, e.g. it bounced',
                     ],
                     [
                         'Who raises it',
                         'Branch (or Admin), with the bank’s notice',
-                        'Admin',
                         'Partner (“customer did not receive it”), or Admin',
                     ],
                     [
                         'Who confirms',
                         'Admin approves (not the same person who raised it)',
-                        'Admin',
                         'Branch confirms the amount and date (or Admin)',
                     ],
                     [
                         'Money effect',
-                        'Partner −amount, branch +amount',
                         'Partner −amount, branch +amount',
                         'Branch −amount, partner +amount',
                     ],
@@ -769,18 +764,15 @@ export const GUIDE: GuideSection[] = [
                         'Fees',
                         'Fees already earned stay earned',
                         'Fees already earned stay earned',
-                        'Fees already earned stay earned',
                     ],
                     [
                         'Booked on',
                         'The day Admin approves',
-                        'The day it is done',
                         'The day the branch confirms',
                     ],
                     [
                         'Partner told',
                         'Webhook `payin.chargeback`',
-                        'Webhook `payin.refunded`',
                         'Webhook `payout.returned`',
                     ],
                 ],
@@ -791,13 +783,13 @@ export const GUIDE: GuideSection[] = [
                     'The deposit or payout keeps status **Success**. A separate chargeback / return status shows where the request is.',
                     'No UTR is asked for chargebacks and payout returns. The bank’s notice or proof is the evidence.',
                     'If a request is rejected, nothing is booked and it can be raised again.',
+                    'Deposit refunds are not used: a deposit is never refunded from PayGate.',
                     'Only one open payout return per payout at a time.',
                 ],
             },
         ],
         links: [
             link('Chargebacks', admin.chargebacks.index()),
-            link('Refunds', admin.refunds.index()),
             link('Payout returns', admin.payoutReturns.index()),
         ],
     },
@@ -851,7 +843,7 @@ export const GUIDE: GuideSection[] = [
                 kind: 'points',
                 title: 'How the dashboard adds up',
                 items: [
-                    'Deposits − commission, payouts + commission, chargebacks, payout returns, adjustments and refunds = **Current Balance**.',
+                    'Deposits − commission, payouts + commission, chargebacks, payout returns and adjustments = **Current Balance**.',
                     'Current Balance + settlement payments recorded = **Net Balance** (what is still open).',
                     'Admin has three views: Admin, Branch and Partner. A branch sees only its own. A partner sees only its own totals (no branches).',
                     '**Settlement** (Finance): Finance calculates a settlement for a period and records the payment (who paid whom, how much, reference).',
@@ -1018,7 +1010,7 @@ export const GUIDE: GuideSection[] = [
                         'Tabs: All withdrawals · Manual Payout · UTR Reconciliation.',
                     ],
                     [
-                        'Payments › Refunds / Chargebacks / Payout returns',
+                        'Payments › Chargebacks / Payout returns',
                         'Money that goes back after a successful payment.',
                     ],
                     [
@@ -1322,11 +1314,6 @@ export const GUIDE: GuideSection[] = [
                         '`duplicate_request`',
                         'Same customer, same amount, unpaid, a few seconds ago',
                         'Send the customer to the first payment link.',
-                    ],
-                    [
-                        '`insufficient_balance`',
-                        'Balance does not cover payout + fee',
-                        'Try a smaller amount, or settle / top up first.',
                     ],
                     [
                         '`no_branch_available`',

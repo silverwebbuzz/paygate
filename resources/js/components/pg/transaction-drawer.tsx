@@ -248,7 +248,6 @@ const EVENT_LABELS: Record<string, string> = {
     waiting_alerted: 'Branch alerted: waiting too long',
     declined: 'Declined',
     expired: 'Expired',
-    cancelled: 'Cancelled',
     // payouts
     assigned: 'Sent to a branch (balance held)',
     reassigned: 'Moved to another branch',
@@ -502,9 +501,7 @@ function Overview({
                         items={[
                             {
                                 label: 'Branch',
-                                value: txn.branch
-                                    ? `${txn.branch.name}`
-                                    : null,
+                                value: txn.branch ? `${txn.branch.name}` : null,
                             },
                             { label: 'Account', value: txn.account.label },
                             {

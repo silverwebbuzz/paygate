@@ -379,7 +379,6 @@ class AlertDispatcher
     {
         $what = match ($reversal->kind) {
             'chargeback' => __('Chargeback on :reference', ['reference' => $txn->reference]),
-            'refund' => __('Deposit :reference refunded', ['reference' => $txn->reference]),
             default => __('Payout :reference returned', ['reference' => $txn->reference]),
         };
         $body = __('₹:amount · :reason', ['amount' => $this->money($reversal->amount), 'reason' => $reversal->reason]);

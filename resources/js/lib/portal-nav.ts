@@ -150,11 +150,6 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                 // All withdrawals (opens first), Manual Payout, UTR Reconciliation.
                 { label: 'Withdrawal', hub: 'withdrawal' },
                 {
-                    label: 'Refunds',
-                    href: admin.refunds.index(),
-                    permission: 'reversals.view',
-                },
-                {
                     label: 'Chargebacks',
                     href: admin.chargebacks.index(),
                     permission: 'reversals.view',

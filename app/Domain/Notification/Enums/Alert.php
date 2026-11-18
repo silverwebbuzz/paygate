@@ -56,7 +56,7 @@ enum Alert: string
             self::SettlementCalculated => 'Settlement calculated',
             self::AccountVerification => 'Bank account awaiting verification',
             self::AccountReviewed => 'Bank account verified or rejected',
-            self::Reversal => 'Chargeback, refund or returned payout',
+            self::Reversal => 'Chargeback or returned payout',
             self::ChargebackRequested => 'Chargeback raised by a branch, awaiting approval',
             self::PayoutReturnRequested => 'Partner says a paid payout wasn’t received: check and confirm',
             self::PayoutPartPaid => 'Payout only partly paid for over a day',

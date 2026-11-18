@@ -95,21 +95,24 @@ class PayoutTest extends TestCase
         $this->assertStringNotContainsString('50100482716640', (string) json_encode(DB::table('payout_beneficiaries')->first()));
     }
 
-    public function test_balance_is_low_when_the_total_balance_cannot_cover_amount_plus_fee()
+    /**
+     * Client request 2026-11-18: the partner's balance isn't checked; only
+     * the daily withdrawal limit.
+     */
+    public function test_the_balance_is_not_checked_only_the_daily_withdrawal_limit()
     {
-        $this->fund($this->branch, 9400);
+        $this->fund($this->branch, 1000);
 
-        // ₹90 needs ₹94.50 (Database.md §3.3): refused, nothing stored.
-        $this->api('POST', '/v1/payouts', $this->body(['amount' => 9000]))
+        // ₹90 + fee is more than the ₹10 balance: created anyway.
+        $this->api('POST', '/v1/payouts', $this->body(['amount' => 9000]))->assertCreated();
+        $this->assertSame(1, Transaction::where('direction', 'payout')->count());
+
+        // The daily withdrawal limit still refuses.
+        $this->partner->update(['withdrawal_daily_limit' => 15000]);
+        $this->api('POST', '/v1/payouts', $this->body(['order_id' => 'WD-2', 'amount' => 9000]))
             ->assertStatus(422)
-            ->assertJsonPath('error.code', 'insufficient_balance');
-        $this->assertSame(0, Transaction::where('direction', 'payout')->count());
-        $this->assertSame(0, $this->position()['reserved']);
-
-        // The largest possible is ₹89.52 (needs exactly ₹94.00).
-        $this->api('GET', '/v1/balance')->assertOk()->assertJsonPath('data.available', 9400)->assertJsonPath('data.max_payout', 8952);
-        $this->api('POST', '/v1/payouts', $this->body(['amount' => 8952]))->assertCreated();
-        $this->assertSame(0, $this->position()['balance'] - $this->position()['reserved']);
+            ->assertJsonPath('error.code', 'daily_limit_reached');
+        $this->assertSame(1, Transaction::where('direction', 'payout')->count());
     }
 
     public function test_branches_take_turns_whatever_balance_each_holds()
@@ -130,7 +133,8 @@ class PayoutTest extends TestCase
         $this->assertSame(9450, $this->position()['reserved']);
 
         $this->api('GET', '/v1/balance')->assertOk()->assertJsonPath('data.available', 100000 - 18900);
-        $this->api('POST', '/v1/payouts', $this->body(['amount' => 80000]))->assertStatus(422)->assertJsonPath('error.code', 'insufficient_balance');
+        // More than the available balance: created anyway (balance not checked).
+        $this->api('POST', '/v1/payouts', $this->body(['amount' => 80000]))->assertCreated();
     }
 
     public function test_admin_is_alerted_about_short_branches_and_refused_payouts()
@@ -208,7 +212,7 @@ class PayoutTest extends TestCase
         $payout = Transaction::where('reference', $id)->firstOrFail();
 
         $this->actingAs($this->operator)->post(route('branch.payouts.start', $payout))->assertSessionHasNoErrors();
-        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(9000, 'IMPS 5268 1282 0491'))->assertSessionHasNoErrors();
+        $this->actingAs($this->operator)->post(route('branch.payouts.complete', $payout), $this->transfer(9000, '5268 1282 0491'))->assertSessionHasNoErrors();
 
         $payout->refresh();
         $this->assertSame('success', $payout->status);
@@ -223,7 +227,7 @@ class PayoutTest extends TestCase
         $this->assertSame(180, $ledger->balance(Ledger::PLATFORM_MARGIN));
         $this->assertDatabaseHas('webhook_events', ['transaction_id' => $payout->id, 'event_type' => 'payout.success']);
 
-        $this->api('GET', "/v1/payouts/{$id}")->assertJsonPath('data.status', 'success')->assertJsonPath('data.utr', 'IMPS526812820491')->assertJsonPath('data.fee', 450);
+        $this->api('GET', "/v1/payouts/{$id}")->assertJsonPath('data.status', 'success')->assertJsonPath('data.utr', '526812820491')->assertJsonPath('data.fee', 450);
     }
 
     public function test_a_failed_payout_releases_the_hold_and_the_partner_can_retry()
@@ -243,17 +247,14 @@ class PayoutTest extends TestCase
         $this->api('POST', '/v1/payouts', $this->body(['amount' => 9000]))->assertCreated();
     }
 
-    public function test_partners_cancel_only_before_the_branch_starts()
+    /** Client request 2026-11-18: a payout can't be cancelled. */
+    public function test_payouts_cannot_be_cancelled()
     {
         $this->fund($this->branch, 50000);
-        $a = $this->api('POST', '/v1/payouts', $this->body())->json('data.id');
-        $b = $this->api('POST', '/v1/payouts', $this->body())->json('data.id');
+        $id = $this->api('POST', '/v1/payouts', $this->body())->json('data.id');
 
-        $this->api('POST', "/v1/payouts/{$a}/cancel")->assertOk()->assertJsonPath('data.status', 'cancelled');
-
-        $this->actingAs($this->operator)->post(route('branch.payouts.start', Transaction::where('reference', $b)->firstOrFail()));
-        $this->api('POST', "/v1/payouts/{$b}/cancel")->assertStatus(409)->assertJsonPath('error.code', 'not_cancellable');
-
+        $this->api('POST', "/v1/payouts/{$id}/cancel")->assertNotFound();
+        $this->assertSame('assigned', Transaction::where('reference', $id)->sole()->status);
         $this->assertSame(9450, $this->position()['reserved']);
     }
 

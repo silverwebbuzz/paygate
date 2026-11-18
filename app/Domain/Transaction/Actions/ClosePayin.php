@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Ends a pay-in the customer never paid: `expired` (time ran out, run by
- * the scheduler every minute) or `cancelled` (by the partner via the API).
+ * the scheduler every minute). Cancelling was removed (client request
+ * 2026-11-18).
  * Only pay-ins still waiting for payment can be closed; the capacity they
  * reserved is given back.
  */

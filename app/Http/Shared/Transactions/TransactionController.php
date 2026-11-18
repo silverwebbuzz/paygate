@@ -39,14 +39,13 @@ class TransactionController extends Controller
             'hold' => ['under_review'],
             'success' => ['success'],
             'rejected' => ['rejected'],
-            'closed' => ['expired', 'cancelled'],
+            'closed' => ['expired'],
         ],
         'payout' => [
             'pending' => ['assigned'],
             'hold' => ['processing'],
             'success' => ['success'],
             'rejected' => ['failed', 'rejected', 'returned'],
-            'closed' => ['cancelled'],
         ],
     ];
 

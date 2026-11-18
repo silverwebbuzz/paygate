@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import adminPayouts from '@/routes/admin/payouts';
 import branchPayouts from '@/routes/branch/payouts';
 import type { UserType } from '@/types';
+import { utrDigits } from '@/lib/utr';
 
 type Tab = 'to_pay' | 'paying' | 'paid' | 'failed';
 
@@ -597,12 +598,13 @@ function CompleteDialog({
                 error={errors.bank_utr}
             >
                 <TextInput
+                    inputMode="numeric"
                     autoFocus
                     required
                     className="font-mono"
                     value={form.data.bank_utr}
                     onChange={(event) =>
-                        form.setData('bank_utr', event.target.value)
+                        form.setData('bank_utr', utrDigits(event.target.value))
                     }
                 />
             </Field>

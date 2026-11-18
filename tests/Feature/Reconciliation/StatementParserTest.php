@@ -28,7 +28,8 @@ class StatementParserTest extends TestCase
     {
         $this->assertSame('626812820491', StatementParser::extractUtr('UPI/626812820491/Payment from Rahul/rahul@okaxis'));
         $this->assertSame('626812820491', StatementParser::extractUtr('IMPS-626812820491-RAHUL-SBIN0001234'));
-        $this->assertSame('HDFCN52026092812345678', StatementParser::extractUtr('NEFT-HDFCN52026092812345678-ACME LTD'));
+        // UTRs are numbers only: a NEFT reference with letters is not one.
+        $this->assertNull(StatementParser::extractUtr('NEFT-HDFCN52026092812345678-ACME LTD'));
         $this->assertSame('560925071657565', StatementParser::extractUtr('AIR-NASIR 560925071657565'));
         $this->assertNull(StatementParser::extractUtr('SMS CHARGES FOR SEP'));
     }

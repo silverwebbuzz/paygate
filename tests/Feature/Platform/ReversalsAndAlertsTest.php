@@ -9,11 +9,9 @@ use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Notification\Enums\Alert;
 use App\Domain\Notification\Notifications\PortalAlert;
 use App\Domain\Transaction\Models\Transaction;
-use App\Domain\Webhook\Models\WebhookEvent;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\ChannelManager;
 use Illuminate\Notifications\SendQueuedNotifications;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Tests\Concerns\BuildsPayinNetwork;
@@ -54,46 +52,14 @@ class ReversalsAndAlertsTest extends TestCase
         return $payin->refresh();
     }
 
-    private function reverse(Transaction $txn, string $kind)
-    {
-        return $this->actingAs($this->admin)->post(route('admin.reversals.store'), [
-            'transaction_id' => $txn->id, 'kind' => $kind, 'reason' => 'Bank notice 77', 'external_reference' => 'CB-77',
-        ]);
-    }
-
-    private function positions(): array
-    {
-        return [
-            $this->ledger->balance(Ledger::PARTNER_POSITION, $this->partner->id, $this->branch->id),
-            $this->ledger->balance(Ledger::BRANCH_POSITION, $this->partner->id, $this->branch->id),
-            $this->ledger->balance(Ledger::PLATFORM_MARGIN),
-        ];
-    }
-
-    public function test_a_refund_debits_the_partner_once()
+    /** Client request 2026-11-18: deposit refunds are not used. */
+    public function test_deposits_cannot_be_refunded()
     {
         $payin = $this->approved();
-        $this->reverse($payin, 'refund')->assertSessionHasNoErrors();
-        $this->assertSame('refunded', $payin->refresh()->status);
-        $this->assertSame([-60000, 40000, 20000], $this->positions());
-        $this->assertTrue(WebhookEvent::where(['transaction_id' => $payin->id, 'event_type' => 'payin.refunded'])->exists());
 
-        // Once only; chargebacks and payout returns are no longer recorded here.
-        $this->reverse($payin, 'refund')->assertSessionHasErrors('transaction');
-        $this->reverse($payin, 'chargeback')->assertSessionHasErrors('kind');
-        $this->reverse($payin, 'return')->assertSessionHasErrors('kind');
-        $this->assertSame(0, (int) DB::table('ledger_entries')->sum('amount'));
-    }
-
-    public function test_only_admins_with_the_permission_record_reversals()
-    {
-        $payin = $this->approved();
-        $viewer = User::factory()->admin(SystemRoles::ADMIN_VIEWER)->withTwoFactor()->create();
-
-        $this->actingAs($viewer)->get(route('admin.chargebacks.index'))->assertOk();
-        $this->actingAs($viewer)->post(route('admin.reversals.store'), ['transaction_id' => $payin->id, 'kind' => 'refund', 'reason' => 'x'])->assertForbidden();
-        $this->actingAs($this->admin)->get(route('admin.refunds.index', ['find' => $payin->reference]))
-            ->assertInertia(fn ($page) => $page->component('admin/reversals')->where('candidate.reference', $payin->reference));
+        $this->actingAs($this->admin)->get('/admin/refunds')->assertNotFound();
+        $this->actingAs($this->admin)->post('/admin/reversals', ['transaction_id' => $payin->id, 'kind' => 'refund', 'reason' => 'x'])->assertNotFound();
+        $this->assertSame('success', $payin->refresh()->status);
     }
 
     public function test_alerts_reach_the_people_who_can_act_by_bell_and_email()

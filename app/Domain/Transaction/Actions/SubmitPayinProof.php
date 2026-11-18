@@ -34,7 +34,9 @@ use Illuminate\Validation\ValidationException;
  */
 class SubmitPayinProof
 {
-    public const UTR_PATTERN = '/^[A-Z0-9]{6,22}$/';
+    // Numbers only (client request 2026-11-18): every UTR in the system,
+    // typed by a customer, branch or Admin, or read from a statement file.
+    public const UTR_PATTERN = '/^[0-9]{6,22}$/';
 
     private const PENDING = 'This UTR has already been submitted for another payment that is pending (being checked). If that was you, please wait for it to be confirmed — don’t submit it again. Otherwise check the UTR in your bank or UPI app.';
 
@@ -59,7 +61,7 @@ class SubmitPayinProof
         }
 
         if ($normalised !== null && preg_match(self::UTR_PATTERN, $normalised) !== 1) {
-            throw ValidationException::withMessages(['utr' => __('That doesn’t look like a UTR. It is usually 12 digits, shown in your bank or UPI app.')]);
+            throw ValidationException::withMessages(['utr' => __('A UTR has numbers only (no letters), usually 12 digits, shown in your bank or UPI app.')]);
         }
 
         if ($normalised !== null) {

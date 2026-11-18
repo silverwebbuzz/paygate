@@ -15,6 +15,7 @@ import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import { cn } from '@/lib/utils';
 import checkout from '@/routes/pay/checkout';
+import { utrDigits } from '@/lib/utr';
 
 type Method = 'upi' | 'qr' | 'bank_transfer';
 
@@ -213,27 +214,17 @@ export default function Checkout(props: Props) {
                             }
                         />
                     )}
-                    {(status === 'expired' || status === 'cancelled') && (
+                    {status === 'expired' && (
                         <Result
                             tone="expired"
-                            title={
-                                status === 'expired'
-                                    ? 'Payment session expired'
-                                    : 'Payment cancelled'
-                            }
+                            title="Payment session expired"
                             body="Do not transfer to the old account details. Start a new payment from the merchant’s site instead."
-                            note={
-                                status === 'expired'
-                                    ? `Already paid before the time ran out? Your money is not lost. Keep your UTR and payment screenshot, and contact ${partner.name} support with Order ID ${payin.order_id}: the payment is checked against the bank and credited.`
-                                    : undefined
-                            }
+                            note={`Already paid before the time ran out? Your money is not lost. Keep your UTR and payment screenshot, and contact ${partner.name} support with Order ID ${payin.order_id}: the payment is checked against the bank and credited.`}
                             rows={[
                                 ['Amount', formatPaise(payin.amount)],
                                 ['Order ID', payin.order_id],
                                 [
-                                    status === 'expired'
-                                        ? 'Expired at'
-                                        : 'Cancelled at',
+                                    'Expired at',
                                     formatDateTime(
                                         payin.completed_at ?? payin.expires_at,
                                     ),
@@ -730,12 +721,12 @@ function PayView({
                     </span>
                     <input
                         required
-                        inputMode="text"
+                        inputMode="numeric"
                         autoComplete="off"
                         placeholder="e.g. 626812820491"
                         value={form.data.utr}
                         onChange={(event) =>
-                            form.setData('utr', event.target.value)
+                            form.setData('utr', utrDigits(event.target.value))
                         }
                         className="h-11 rounded-xl border border-[#E4E7EC] px-3 font-mono text-[15px] outline-none focus:border-ac focus:ring-[3px] focus:ring-acs"
                     />

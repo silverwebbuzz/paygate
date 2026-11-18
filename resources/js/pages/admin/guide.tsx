@@ -43,7 +43,7 @@ export default function Guide() {
                             type="search"
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
-                            placeholder="Search: UTR, IP, Match, refund…"
+                            placeholder="Search: UTR, IP, Match, chargeback…"
                             className="h-9 w-full rounded-[8px] border border-ln bg-sf pr-2.5 pl-8 text-[13px] outline-none focus:border-ac"
                         />
                     </label>

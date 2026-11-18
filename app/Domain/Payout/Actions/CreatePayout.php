@@ -51,12 +51,13 @@ class CreatePayout
                     throw new ApiException('customer_blocked', 'This customer is blocked from withdrawals.', 403);
                 }
 
-                $reservation = $this->router->assign($partner, (int) $data['amount']);
+                // Client request 2026-11-18: the partner's balance is not
+                // checked; only the daily withdrawal limits (partner, above;
+                // branch and partner-branch pair, reserved by the router).
+                $reservation = $this->router->assign($partner, (int) $data['amount'], checkBalance: false);
 
                 if ($reservation === null) {
-                    throw $this->router->refusal($partner, (int) $data['amount']) === 'insufficient_balance'
-                        ? new ApiException('insufficient_balance', 'Balance is low: your balance does not cover this amount plus the fee. Try a smaller amount, or settle / top up first.', 422)
-                        : new ApiException('no_branch_available', 'No branch can take this payout right now: none is set up for this amount, or all have reached today’s withdrawal limit.', 422);
+                    throw new ApiException('no_branch_available', 'No branch can take this payout right now: none is set up for this amount, or all have reached today’s withdrawal limit.', 422);
                 }
 
                 $payout = Transaction::create([

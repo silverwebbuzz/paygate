@@ -61,14 +61,12 @@ const STATUSES: Record<string, [string, string][]> = {
         ['awaiting_payment', 'Awaiting payment'],
         ['rejected', 'Declined'],
         ['expired', 'Expired'],
-        ['cancelled', 'Cancelled'],
     ],
     payouts: [
         ['success', 'Paid'],
         ['assigned', 'Assigned'],
         ['processing', 'Processing'],
         ['failed', 'Failed'],
-        ['cancelled', 'Cancelled'],
     ],
 };
 
@@ -353,7 +351,7 @@ export default function Reports(props: Props) {
                                                 : item.status === 'failed'
                                                   ? 'failed'
                                                   : item.status === 'expired'
-                                                    ? 'cancelled'
+                                                    ? 'expired'
                                                     : 'processing'
                                         }
                                         label={EXPORT_LABELS[item.status]}

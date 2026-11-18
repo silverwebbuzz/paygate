@@ -516,19 +516,19 @@ class StatementMatchingTest extends TestCase
             'status' => 'processing',
         ]);
 
-        $this->addLine(['utr' => 'IMPS601234567890', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
+        $this->addLine(['utr' => '601234567890', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
         $this->assertSame('utr_not_found', ReconciliationCase::sole()->type->value);
 
         // The branch records that transfer: the waiting debit links itself to it.
         $part = PayoutPayment::create([
             'transaction_id' => $payout->id, 'branch_id' => $this->branch->id, 'amount' => 250000,
-            'utr' => 'IMPS601234567890', 'utr_normalized' => 'IMPS601234567890', 'paid_at' => now(), 'created_at' => now(),
+            'utr' => '601234567890', 'utr_normalized' => '601234567890', 'paid_at' => now(), 'created_at' => now(),
         ]);
-        $payout->forceFill(['status' => 'success', 'bank_utr_normalized' => 'IMPS601234567890', 'partner_commission' => 0, 'branch_commission' => 0, 'platform_margin' => 0, 'succeeded_at' => now()])->save();
+        $payout->forceFill(['status' => 'success', 'bank_utr_normalized' => '601234567890', 'partner_commission' => 0, 'branch_commission' => 0, 'platform_margin' => 0, 'succeeded_at' => now()])->save();
         DB::transaction(fn () => app(StatementMatcher::class)->payoutPartPaid($part, $payout));
 
-        $this->assertSame('reconciled', $this->line('IMPS601234567890')->status);
-        $this->assertSame($part->id, $this->line('IMPS601234567890')->payout_payment_id);
+        $this->assertSame('reconciled', $this->line('601234567890')->status);
+        $this->assertSame($part->id, $this->line('601234567890')->payout_payment_id);
         $this->assertSame('resolved', ReconciliationCase::sole()->status);
     }
 
@@ -545,17 +545,17 @@ class StatementMatchingTest extends TestCase
         ]);
         $first = PayoutPayment::create([
             'transaction_id' => $payout->id, 'branch_id' => $this->branch->id, 'amount' => 250000,
-            'utr' => 'IMPS601234567891', 'utr_normalized' => 'IMPS601234567891', 'paid_at' => now(), 'created_at' => now(),
+            'utr' => '601234567891', 'utr_normalized' => '601234567891', 'paid_at' => now(), 'created_at' => now(),
         ]);
         $second = PayoutPayment::create([
             'transaction_id' => $payout->id, 'branch_id' => $this->branch->id, 'amount' => 250000,
-            'utr' => 'IMPS601234567892', 'utr_normalized' => 'IMPS601234567892', 'paid_at' => now(), 'created_at' => now(),
+            'utr' => '601234567892', 'utr_normalized' => '601234567892', 'paid_at' => now(), 'created_at' => now(),
         ]);
 
         // The first transfer's line links itself; the second's shows another UTR.
-        $this->addLine(['utr' => 'IMPS601234567891', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
-        $this->assertSame($first->id, $this->line('IMPS601234567891')->payout_payment_id);
-        $this->addLine(['utr' => 'IMPS609999999999', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
+        $this->addLine(['utr' => '601234567891', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
+        $this->assertSame($first->id, $this->line('601234567891')->payout_payment_id);
+        $this->addLine(['utr' => '609999999999', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
         $case = ReconciliationCase::where('status', 'open')->sole();
 
         // The payout already has a line, but its second transfer doesn't.
@@ -563,10 +563,10 @@ class StatementMatchingTest extends TestCase
         $this->assertSame([[$payout->reference, true]], array_map(fn (array $candidate) => [$candidate['reference'], $candidate['same_amount']], $candidates));
 
         $this->actingAs($this->owner)->post(route('branch.cases.link', $case), ['transaction_id' => $payout->id])->assertSessionHasNoErrors();
-        $this->assertSame($second->id, $this->line('IMPS609999999999')->payout_payment_id);
+        $this->assertSame($second->id, $this->line('609999999999')->payout_payment_id);
 
         // Both transfers have a line now: nothing left to offer.
-        $this->addLine(['utr' => 'IMPS608888888888', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
+        $this->addLine(['utr' => '608888888888', 'credit' => '', 'debit' => '2500'])->assertSessionHasNoErrors();
         $next = ReconciliationCase::where('status', 'open')->sole();
         $this->assertSame([], $this->partial($this->owner, route('branch.cases.index', ['case' => $next->id]), 'reconciliation/cases', 'candidates')->json('props.candidates'));
     }

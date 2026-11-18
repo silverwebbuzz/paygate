@@ -16,7 +16,6 @@ const STATUSES: Record<string, StatusStyle> = {
     success: { label: 'Success', tone: 'ok', icon: '✓' },
     rejected: { label: 'Declined', tone: 'er', icon: '✕' },
     expired: { label: 'Expired', tone: 'nt', icon: '⧗' },
-    cancelled: { label: 'Cancelled', tone: 'nt', icon: '–' },
     chargeback: { label: 'Chargeback', tone: 'er', icon: '↺' },
     refunded: { label: 'Refunded', tone: 'rv', icon: '↺' },
     // payout

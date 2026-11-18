@@ -22,9 +22,9 @@ use Illuminate\Validation\ValidationException;
  *   branches with withdrawals on whose per-payout range fits the amount,
  *   in round-robin order (the pair used longest ago first);
  * - needed = amount + the partner's withdrawal fee at that pair's rate;
- * - the partner's total balance over all branches (minus what open payouts
- *   hold) must cover it, checked under a lock on the partner row; the hold
- *   is placed on the chosen pair, whether or not that branch has the money;
+ * - the hold is placed on the chosen pair. The partner's balance is not
+ *   checked for new payouts (client request 2026-11-18): only the daily
+ *   withdrawal limits; `checkBalance` remains for callers that want it;
  * - the branch, pair and partner daily withdrawal limits are reserved too.
  *
  * No branch fits → null. Call inside a DB transaction.
@@ -60,24 +60,6 @@ class PayoutRouter
         }
 
         return null;
-    }
-
-    /**
-     * @return 'insufficient_balance'|'no_branch_available'
-     */
-    public function refusal(Partner $partner, int $amount): string
-    {
-        $fees = $this->candidates($partner, $amount)
-            ->map(fn (PartnerBranchMapping $mapping) => $this->fee($mapping, $amount))
-            ->filter(fn (?int $fee) => $fee !== null);
-
-        if ($fees->isEmpty()) {
-            return 'no_branch_available';
-        }
-
-        $available = $this->available($partner);
-
-        return $fees->contains(fn (int $fee) => $available >= $amount + $fee) ? 'no_branch_available' : 'insufficient_balance';
     }
 
     public function available(Partner $partner): int

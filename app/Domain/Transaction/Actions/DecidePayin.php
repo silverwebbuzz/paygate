@@ -88,7 +88,7 @@ class DecidePayin
         $utr = Transaction::normaliseUtr($bankUtr);
 
         if (preg_match(SubmitPayinProof::UTR_PATTERN, $utr) !== 1) {
-            throw ValidationException::withMessages(['bank_utr' => __('Enter the UTR exactly as your bank statement shows it (6–22 letters or digits).')]);
+            throw ValidationException::withMessages(['bank_utr' => __('Enter the UTR exactly as your bank statement shows it (numbers only, 6–22 digits).')]);
         }
 
         if ($received !== null && $received <= 0) {

@@ -65,14 +65,13 @@ export default function Balance({ balance, limits, payouts_enabled }: Props) {
                     </p>
                 )}
                 <p>
-                    Each payout goes to the next of your branches in turn. It
-                    must fit your total available balance, including the
-                    payout fee. When your balance is not enough, the API
-                    answers{' '}
+                    Each payout goes to the next of your branches in turn. Your
+                    balance is not checked; your daily withdrawal limit is. Over
+                    the limit, the API answers{' '}
                     <code className="rounded bg-sf2 px-1 font-mono text-[12px]">
-                        insufficient_balance
-                    </code>{' '}
-                    (“balance is low”).
+                        daily_limit_reached
+                    </code>
+                    .
                 </p>
                 <p>
                     Your payout limits: {formatLimit(limits.min)} to{' '}

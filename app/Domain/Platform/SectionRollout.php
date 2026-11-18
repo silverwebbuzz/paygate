@@ -53,7 +53,6 @@ class SectionRollout
                 'payouts' => ['label' => 'Manual Payout', 'paths' => ['/admin/payouts']],
             ],
             'Payments' => [
-                'refunds' => ['label' => 'Refunds', 'paths' => ['/admin/refunds', '/admin/reversals']],
                 'chargebacks' => ['label' => 'Chargebacks', 'paths' => ['/admin/chargebacks']],
                 'payout_returns' => ['label' => 'Payout returns', 'paths' => ['/admin/payout-returns']],
             ],

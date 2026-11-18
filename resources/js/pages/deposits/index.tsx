@@ -30,6 +30,7 @@ import adminDeposits from '@/routes/admin/deposits';
 import { show as fileUrl } from '@/routes/files';
 import branchDeposits from '@/routes/branch/deposits';
 import type { UserType } from '@/types';
+import { utrDigits } from '@/lib/utr';
 
 type Tab = 'pending' | 'hold' | 'awaiting' | 'approved' | 'declined';
 
@@ -791,13 +792,14 @@ function ApproveDialog({
                 error={errors.bank_utr ?? errors.commission ?? errors.status}
             >
                 <TextInput
+                    inputMode="numeric"
                     autoFocus
                     required
                     className="font-mono"
                     value={form.data.bank_utr}
                     invalid={!!errors.bank_utr}
                     onChange={(event) =>
-                        form.setData('bank_utr', event.target.value)
+                        form.setData('bank_utr', utrDigits(event.target.value))
                     }
                 />
             </Field>

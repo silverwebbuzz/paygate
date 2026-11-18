@@ -15,7 +15,6 @@ use App\Http\Admin\Platform\PageController;
 use App\Http\Admin\Qa\QaChecklistController;
 use App\Http\Admin\Qa\SectionRolloutController;
 use App\Http\Admin\Reversals\ChargebackController;
-use App\Http\Admin\Reversals\ReversalController;
 use App\Http\Admin\Roles\RoleController;
 use App\Http\Admin\Security\SecurityReportController;
 use App\Http\Admin\Settings\GlobalSettingsController;
@@ -120,9 +119,8 @@ Route::controller(AdjustmentController::class)->prefix('settlements/adjustments'
 });
 Route::get('commissions', [CommissionController::class, 'index'])->name('commissions.index');
 
-// Refunds (pay-in refunds, returned payouts), and chargebacks raised by branches.
-Route::get('refunds', [ReversalController::class, 'index'])->name('refunds.index');
-Route::post('reversals', [ReversalController::class, 'store'])->name('reversals.store');
+// Deposit refunds were removed (client request 2026-11-18). Chargebacks
+// raised by branches:
 Route::controller(ChargebackController::class)->prefix('chargebacks')->name('chargebacks.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('{chargeback}/approve', 'approve')->name('approve');
