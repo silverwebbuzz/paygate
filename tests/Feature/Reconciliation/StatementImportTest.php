@@ -119,13 +119,15 @@ class StatementImportTest extends TestCase
 
         $import = StatementImport::sole();
         $this->assertSame('completed', $import->status);
-        $this->assertSame(3, $import->rows_imported);
-        $this->assertSame(2, $import->rows_failed);
+        $this->assertSame(2, $import->rows_imported);
+        $this->assertSame(3, $import->rows_failed);
         $this->assertSame(1753400, $import->credit_total);
-        $this->assertSame(1770, $import->debit_total);
+        $this->assertSame(0, $import->debit_total);
         $this->assertSame('2026-09-25', $import->period_from?->toDateString());
-        // File rows 8 (amount "abc") and 9 (31 February) can't be read.
-        $this->assertSame([8, 9], array_column($import->errors ?? [], 'row'));
+        // Never stored: row 7 (no UTR, client request 2026-11-18), 8 (amount
+        // "abc") and 9 (31 February).
+        $this->assertSame([7, 8, 9], array_column($import->errors ?? [], 'row'));
+        $this->assertSame(['utr', 'amount', 'date'], array_column($import->errors ?? [], 'field'));
         $this->assertNotNull($import->file_id);
         Storage::disk('local')->assertExists($import->file->path);
 
@@ -133,13 +135,13 @@ class StatementImportTest extends TestCase
         $upi = StatementEntry::where('utr_normalized', '626812820491')->sole();
         $this->assertSame('matched', $upi->status);
         $this->assertSame($payin->id, $upi->transaction_id);
-        $this->assertSame(['utr_not_found', 'manual_review'], ReconciliationCase::orderBy('created_at')->get()->map(fn ($case) => $case->type->value)->all());
+        $this->assertSame(['utr_not_found'], ReconciliationCase::orderBy('created_at')->get()->map(fn ($case) => $case->type->value)->all());
 
         // The same file again: every line is already in PayGate…
         $again = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('copy.csv', $csv)));
         $this->assertSame('HDFC Bank', $again['layout']);
-        $this->assertSame(['stored', 'stored', 'stored'], array_column($this->lines($again)['lines'], 'duplicate'));
-        $this->import($again, null, [5, 6, 7])->assertSessionHasErrors('rows');
+        $this->assertSame(['stored', 'stored'], array_column($this->lines($again)['lines'], 'duplicate'));
+        $this->import($again, null, [5, 6])->assertSessionHasErrors('rows');
 
         // …and an overlapping one adds only the new line.
         $overlap = self::HEADER.implode("\n", [
@@ -152,8 +154,8 @@ class StatementImportTest extends TestCase
 
         $second = StatementImport::whereKeyNot($import->id)->sole();
         $this->assertSame(1, $second->rows_imported);
-        $this->assertSame(2, $second->rows_duplicate);
-        $this->assertSame(4, StatementEntry::count());
+        $this->assertSame(1, $second->rows_duplicate);
+        $this->assertSame(3, StatementEntry::count());
         $this->assertSame(1, StatementTemplate::count());
     }
 
@@ -163,7 +165,7 @@ class StatementImportTest extends TestCase
         $sheet->getActiveSheet()->fromArray([
             ['Txn Date', 'Description', 'Amount', 'Cr/Dr'],
             [ExcelDate::PHPToExcel(new \DateTime('2026-09-25')), 'IMPS/626812820491/RAHUL', 5000, 'CR'],
-            [ExcelDate::PHPToExcel(new \DateTime('2026-09-26')), 'ATM WDL 1234', 2000.5, 'DR'],
+            [ExcelDate::PHPToExcel(new \DateTime('2026-09-26')), 'IMPS-OUT/626812820777/RENT', 2000.5, 'DR'],
         ]);
         $path = tempnam(sys_get_temp_dir(), 'stm').'.xlsx';
         (new Xlsx($sheet))->save($path);
@@ -179,7 +181,7 @@ class StatementImportTest extends TestCase
         $this->assertSame(['credit', 'debit'], $lines->pluck('entry_direction')->all());
         $this->assertSame([500000, 200050], $lines->pluck('amount')->all());
         $this->assertSame('626812820491', $lines[0]->utr_normalized);
-        $this->assertNull($lines[1]->utr_normalized);
+        $this->assertSame('626812820777', $lines[1]->utr_normalized);
     }
 
     public function test_unreadable_files_and_bad_mappings_are_explained()
@@ -225,6 +227,72 @@ class StatementImportTest extends TestCase
         $this->import($again, null, [2, 3])->assertSessionHasNoErrors();
         $this->assertSame(2, StatementEntry::count());
         $this->assertSame([0, 1], StatementImport::pluck('rows_duplicate')->sort()->values()->all());
+    }
+
+    public function test_each_line_says_before_the_import_what_will_happen_and_why()
+    {
+        $this->manualApproval();
+        $match = $this->submittedPayin(['amount' => 500000], '626812820491');
+        $short = $this->submittedPayin(['amount' => 200000], '626812820492');
+        $csv = "Date,Narration,Deposit,Withdrawal\n".implode("\n", [
+            '25/09/2026,UPI 626812820491 RAHUL,5000,',      // row 2: matches
+            '25/09/2026,UPI 626812820492 AMIT,1500,',       // row 3: amount differs
+            '25/09/2026,UPI 626812820499 NOBODY,700,',      // row 4: no deposit
+            '25/09/2026,CASH DEPOSIT BY SELF,900,',         // row 5: no UTR
+            '25/09/2026,IMPS-OUT/630714700316,,14803',      // row 6: no payout
+            '25/09/2026,IMPS-CHG/630714700316,,6',          // row 7: same UTR as row 6
+            '31/02/2026,UPI 626812820493 BAD DATE,100,',    // row 8: can't be read
+        ]);
+
+        $preview = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('mixed.csv', $csv)));
+        $lines = $this->lines($preview);
+        $check = collect($lines['lines'])->mapWithKeys(fn (array $line) => [$line['row'] => $line['check']]);
+
+        $this->assertSame('ok', $check[2]['level']);
+        $this->assertStringContainsString($match->reference, $check[2]['message']);
+        $this->assertSame('warn', $check[3]['level']);
+        $this->assertStringContainsString($short->reference.' is for ₹2,000.00; the bank shows ₹1,500.00', $check[3]['message']);
+        $this->assertStringContainsString('No deposit has this UTR yet', $check[4]['message']);
+        $this->assertStringContainsString('No payout of this branch', $check[6]['message']);
+        $this->assertStringContainsString('earlier line of this file has the same UTR', $check[7]['message']);
+
+        // Rows breaking a rule are listed, never stored: no UTR (row 5),
+        // impossible date (row 8), with the field and their cells.
+        $this->assertArrayNotHasKey(5, $check->all());
+        $this->assertSame([[5, 'utr'], [8, 'date']], array_map(fn (array $error) => [$error['row'], $error['field']], $lines['errors']));
+        $this->assertStringContainsString('No UTR in this row', $lines['errors'][0]['message']);
+        $this->assertStringContainsString('31/02/2026', $lines['errors'][1]['text']);
+        $this->assertSame(['utr' => 1, 'date' => 1], $this->lines($preview)['failed_by']);
+
+        // The result says how many matched and how many wait in Unsettled.
+        $this->import($preview, null, [2, 3, 4])->assertSessionHasNoErrors();
+        $toast = session('inertia.flash_data')['toast'] ?? null;
+        $this->assertSame('warning', $toast['type']);
+        $this->assertStringContainsString('3 lines imported: 1 matched, 2 in Unsettled UTR', $toast['message']);
+    }
+
+    public function test_a_column_that_does_not_fit_our_rules_is_refused_with_what_it_should_hold()
+    {
+        // Google Pay's Excel export: "Transaction ID" is Google's own code.
+        $csv = "Payer,Creation time,Transaction ID,Amount\n"
+            ."A,\"1 Nov 2026, 21:22\",CICAgPi5uMjEdw,3491\n"
+            ."B,\"1 Nov 2026, 21:20\",CICAgPi5mKbKfQ,3500\n"
+            ."C,\"1 Nov 2026, 21:20\",CICAgPi56ILqCA,600\n";
+        $preview = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('gpay.csv', $csv)));
+
+        $response = $this->actingAs($this->owner)->post(route('branch.statement-imports.lines'), ['token' => $preview['token'], 'mapping' => $preview['mapping']]);
+
+        $response->assertSessionHasErrors(['mapping', 'mapping.utr']);
+        $message = session('errors')->first('mapping');
+        $this->assertStringContainsString('The UTR column C “Transaction ID” doesn’t hold UTRs (3 of 3 rows fail, e.g. “CICAgPi5uMjEdw”', $message);
+        $this->assertStringContainsString('12 digits for UPI / IMPS', $message);
+
+        // The wrong date format for most rows: the date column is named.
+        $dates = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('dates.csv', "Date,Narration,Deposit\n2026-09-25,UPI 626812820491,100\n2026-09-26,UPI 626812820492,100\n2026-09-27,UPI 626812820493,100\n")));
+        $this->actingAs($this->owner)->post(route('branch.statement-imports.lines'), ['token' => $dates['token'], 'mapping' => [...$dates['mapping'], 'date_format' => 'd/m/Y']])
+            ->assertSessionHasErrors(['mapping', 'mapping.date']);
+        $this->assertStringContainsString('The date column A “Date” doesn’t hold dates in the format d/m/Y', session('errors')->first('mapping'));
+        $this->assertSame(0, StatementEntry::count());
     }
 
     public function test_a_line_with_a_utr_already_stored_is_a_duplicate_even_with_another_date_or_narration()

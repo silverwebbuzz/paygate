@@ -271,6 +271,60 @@ class StatementMatchingTest extends TestCase
         $this->assertNull($case->resolved_by); // the system
     }
 
+    public function test_a_line_on_another_branch_that_arrived_first_points_at_the_deposit_when_the_customer_claims_it()
+    {
+        // Client report 2026-11-18: the money landed on this branch's account
+        // (imported first, "UTR not found"); the customer then submitted the
+        // UTR on a deposit of another branch. The case stayed "UTR not found".
+        $other = Branch::factory()->create();
+        $this->mapPair($this->partner, $other);
+        $otherAccount = $this->activeAccount($other);
+        $this->account->update(['status' => 'inactive']);
+        [$reference, $token] = $this->createPayin(['amount' => 500000]);
+        $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
+        $this->account->update(['status' => 'active']);
+
+        $this->addLine()->assertSessionHasNoErrors();
+        $case = ReconciliationCase::sole();
+        $this->assertSame('utr_not_found', $case->type->value);
+
+        $this->postProof($token, '626812820491')->assertSessionHasNoErrors();
+
+        // Now as if the deposit had come first: a Wrong branch case on it.
+        $payin = Transaction::where('reference', $reference)->firstOrFail();
+        $this->assertSame($otherAccount->id, $payin->payment_account_id);
+        $case->refresh();
+        $this->assertSame('wrong_branch', $case->type->value);
+        $this->assertSame($payin->id, $case->transaction_id);
+        $this->assertSame('open', $case->status);
+        $this->assertSame('unmatched', $this->line()->status);
+    }
+
+    public function test_the_recheck_command_repairs_cases_left_as_utr_not_found()
+    {
+        $other = Branch::factory()->create();
+        $this->mapPair($this->partner, $other);
+        $this->activeAccount($other);
+        $this->account->update(['status' => 'inactive']);
+        [$reference, $token] = $this->createPayin(['amount' => 500000]);
+        $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
+        $this->account->update(['status' => 'active']);
+        $this->addLine()->assertSessionHasNoErrors();
+        $this->postProof($token, '626812820491')->assertSessionHasNoErrors();
+
+        // As left behind before the fix: back to "UTR not found", no deposit.
+        $case = ReconciliationCase::sole();
+        $case->forceFill(['type' => 'utr_not_found', 'transaction_id' => null])->save();
+
+        $this->artisan('reconciliation:recheck')->expectsOutputToContain('1 “UTR not found” case(s) now point at their deposit.')->assertSuccessful();
+
+        $case->refresh();
+        $this->assertSame('wrong_branch', $case->type->value);
+        $this->assertSame(Transaction::where('reference', $reference)->value('id'), $case->transaction_id);
+        // Running it again changes nothing.
+        $this->artisan('reconciliation:recheck')->expectsOutputToContain('0 “UTR not found”')->assertSuccessful();
+    }
+
     public function test_declining_a_deposit_whose_credit_was_found_opens_a_late_payment_case_admin_can_approve()
     {
         $payin = $this->submittedPayin(['amount' => 500000]);

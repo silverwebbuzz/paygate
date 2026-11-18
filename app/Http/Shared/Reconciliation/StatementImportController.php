@@ -167,10 +167,13 @@ class StatementImportController extends Controller
                 'utr' => $line['utr_normalized'],
                 'description' => $line['description'] === null ? null : mb_substr($line['description'], 0, 160),
                 'duplicate' => $line['duplicate'],
+                'check' => $line['check'],
                 'transaction' => $line['transaction'],
             ], $read['lines']),
-            'errors' => array_slice($read['errors'], 0, 50),
+            'errors' => array_slice($read['errors'], 0, 200),
             'failed' => count($read['errors']),
+            // Per rule (utr / date / amount), over the whole file.
+            'failed_by' => (object) array_count_values(array_column($read['errors'], 'field')),
         ]);
 
         return back();
@@ -197,12 +200,17 @@ class StatementImportController extends Controller
         $result = $import->handle($actor, $account, $staged['path'], $staged['name'], $staged['mime'], ColumnMapping::fromArray($data['mapping']), $rows, $data['layout'] ?? null);
         $request->session()->forget(self::SESSION.'.'.$data['token']);
 
+        // What became of the lines: matched, or waiting in Unsettled UTR.
+        $unsettled = $result->entries()->whereHas('openCase')->count();
+        $matched = $result->rows_imported - $unsettled;
+
         Inertia::flash('toast', [
-            'type' => 'success',
-            'message' => __(':imported lines imported, :duplicates already in PayGate. Matched lines are ready to approve; the rest are in the unsettled queue.', [
+            'type' => $unsettled > 0 ? 'warning' : 'success',
+            'message' => trim(__(':imported lines imported: :matched matched, :unsettled in Unsettled UTR (open it to see why).', [
                 'imported' => $result->rows_imported,
-                'duplicates' => $result->rows_duplicate,
-            ]),
+                'matched' => $matched,
+                'unsettled' => $unsettled,
+            ]).($result->rows_duplicate > 0 ? ' '.__(':duplicates were already in PayGate and skipped.', ['duplicates' => $result->rows_duplicate]) : '')),
         ]);
 
         return back();

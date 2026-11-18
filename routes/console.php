@@ -2,6 +2,7 @@
 
 use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Platform\Settings;
+use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Reporting\Actions\ManageReportExports;
 use App\Domain\Settlement\Actions\CalculateSettlement;
 use App\Domain\Transaction\Actions\ClosePayin;
@@ -14,6 +15,13 @@ use Illuminate\Support\Facades\Schedule;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Open "UTR not found" cases whose deposit arrived later on another account
+// or branch: match their lines again (client report 2026-11-18). Safe to run
+// any time; it only updates cases.
+Artisan::command('reconciliation:recheck', function (StatementMatcher $matcher) {
+    $this->info($matcher->recheckUnfound().' “UTR not found” case(s) now point at their deposit.');
+})->purpose('Re-match open “UTR not found” bank lines');
 
 // Pay-ins nobody paid in time: release their accounts' capacity (Phase 6).
 Schedule::call(fn () => app(ClosePayin::class)->expireDue())

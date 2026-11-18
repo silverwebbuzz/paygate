@@ -15,7 +15,9 @@ use Throwable;
  * layout, so the person uploading only has to check it.
  *
  * Rows without any credit or debit (opening balance, totals, footers) are
- * skipped; rows that can't be read are reported with their row number.
+ * skipped. A row that breaks a rule (date not in the format or in the
+ * future, amount unreadable, no UTR) is reported with its row number, the
+ * field and the value, and never stored.
  */
 final class StatementParser
 {
@@ -124,7 +126,7 @@ final class StatementParser
 
     /**
      * @param  list<list<mixed>>  $rows
-     * @return array{lines: list<array{row: int, date: string, direction: string, amount: int, utr_normalized: ?string, description: ?string, balance: ?string}>, errors: list<array{row: int, message: string}>}
+     * @return array{lines: list<array{row: int, date: string, direction: string, amount: int, utr_normalized: string, description: ?string, balance: ?string}>, errors: list<array{row: int, field: string, value: string, message: string}>}
      */
     public static function parse(array $rows, ColumnMapping $mapping): array
     {
@@ -142,7 +144,8 @@ final class StatementParser
             try {
                 [$direction, $amount] = self::direction($mapping, $cell);
             } catch (InvalidArgumentException $exception) {
-                $errors[] = ['row' => $rowNo, 'message' => $exception->getMessage()];
+                $value = collect([$mapping->amount, $mapping->credit, $mapping->debit])->map(fn (?int $column) => self::text($cell($column)))->first(fn (string $text) => $text !== '') ?? '';
+                $errors[] = ['row' => $rowNo, 'field' => 'amount', 'value' => $value, 'message' => $exception->getMessage()];
 
                 continue;
             }
@@ -151,10 +154,19 @@ final class StatementParser
                 continue; // opening balance, totals…
             }
 
+            $dateText = self::text($cell($mapping->date));
             $date = self::parseDate($cell($mapping->date), $mapping->dateFormat);
 
             if ($date === null) {
-                $errors[] = ['row' => $rowNo, 'message' => __('Date “:value” is not in the format :format.', ['value' => self::text($cell($mapping->date)), 'format' => $mapping->dateFormat])];
+                $errors[] = ['row' => $rowNo, 'field' => 'date', 'value' => $dateText, 'message' => __('Date “:value” is not in the format :format.', ['value' => $dateText, 'format' => $mapping->dateFormat])];
+
+                continue;
+            }
+
+            // A bank line can't be from the future: usually day and month
+            // read the wrong way round (dd/mm vs mm/dd).
+            if ($date > now(config('app.business_timezone'))->addDay()->toDateString()) {
+                $errors[] = ['row' => $rowNo, 'field' => 'date', 'value' => $dateText, 'message' => __('Date “:value” would be :date, in the future: check the date format.', ['value' => $dateText, 'date' => $date])];
 
                 continue;
             }
@@ -162,6 +174,16 @@ final class StatementParser
             $description = self::text($cell($mapping->description));
             $utrText = self::text($cell($mapping->utr));
             $utr = self::utrFrom($utrText) ?? self::extractUtr($description);
+
+            // No UTR, no match: such a line is never stored (client request
+            // 2026-11-18), it is reported instead.
+            if ($utr === null) {
+                $errors[] = ['row' => $rowNo, 'field' => 'utr', 'value' => $utrText, 'message' => $utrText === ''
+                    ? __('No UTR in this row (UTR column empty, none in the narration). :rule', ['rule' => Utr::RULE])
+                    : __('“:value” is not a UTR, and the narration has none. :rule', ['value' => mb_substr($utrText, 0, 40), 'rule' => Utr::RULE])];
+
+                continue;
+            }
 
             $lines[] = [
                 'row' => $rowNo,
@@ -332,7 +354,11 @@ final class StatementParser
             $normalised = str_pad(ltrim($normalised, '0'), 12, '0', STR_PAD_LEFT);
         }
 
-        if (Utr::valid($normalised) && preg_match('/\d{6}/', $normalised) === 1 && trim($normalised, '0') !== '') {
+        // A statement's UTR is 12+ digits (UPI / IMPS) or a NEFT / RTGS
+        // reference; a shorter number is a cheque / branch reference.
+        $number = ctype_digit($normalised);
+
+        if (Utr::valid($normalised) && (! $number || strlen($normalised) >= 12) && trim($normalised, '0') !== '') {
             return $normalised;
         }
 

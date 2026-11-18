@@ -6,6 +6,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Notification\AlertDispatcher;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Platform\Models\StoredFile;
 use App\Domain\Reconciliation\Import\ColumnMapping;
 use App\Domain\Reconciliation\Import\StatementFile;
@@ -15,7 +16,9 @@ use App\Domain\Reconciliation\Models\StatementImport;
 use App\Domain\Reconciliation\Models\StatementTemplate;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Transaction\Models\Transaction;
+use App\Domain\Transaction\Utr;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -117,7 +120,7 @@ class ImportStatement
      * Each line also says which deposit / payout carries its UTR, so the
      * branch can see at a glance which lines are PayGate's.
      *
-     * @return array{lines: list<array{row: int, date: string, direction: string, amount: int, utr_normalized: ?string, description: ?string, balance: ?string, hash: string, duplicate: ?string, transaction: ?array{reference: string, status: string}}>, errors: list<array{row: int, message: string}>, headers: list<string>}
+     * @return array{lines: list<array{row: int, date: string, direction: string, amount: int, utr_normalized: ?string, description: ?string, balance: ?string, hash: string, duplicate: ?string, check: ?array{level: string, message: string}, transaction: ?array{reference: string, status: string}}>, errors: list<array{row: int, message: string, text: string}>, headers: list<string>}
      */
     public function lines(PaymentAccount $account, string $path, ColumnMapping $mapping): array
     {
@@ -128,6 +131,7 @@ class ImportStatement
         }
 
         $parsed = StatementParser::parse($rows, $mapping);
+        $this->ensureColumnsFit($parsed, $mapping, StatementParser::headers($rows, $mapping->headerRow));
 
         if ($parsed['lines'] === []) {
             throw ValidationException::withMessages(['mapping' => $parsed['errors'] === []
@@ -145,10 +149,15 @@ class ImportStatement
             $lines[] = [...$line, 'hash' => StatementEntry::rowHash($account->id, $line['date'], $line['direction'], $line['amount'], $line['utr_normalized'], $line['description'], $seen[$base])];
         }
 
-        $utrs = array_values(array_unique(array_filter(array_column($lines, 'utr_normalized'))));
+        $utrs = array_values(array_unique(array_column($lines, 'utr_normalized')));
         $stored = collect();
         $hashes = collect();
+        /** @var Collection<int, Transaction> $transactions */
         $transactions = collect();
+        /** @var Collection<int, PayoutPayment> $parts */
+        $parts = collect();
+        /** @var Collection<int, array{0: string, 1: string, 2: string}> $elsewhere UTR, utrKey, account of lines already stored */
+        $elsewhere = collect();
 
         foreach (array_chunk($utrs, 1000) as $chunk) {
             $stored = $stored->merge(StatementEntry::query()
@@ -157,17 +166,17 @@ class ImportStatement
                 ->get(['utr_normalized', 'entry_direction', 'amount'])
                 ->map(fn (StatementEntry $entry) => self::utrKey((string) $entry->utr_normalized, $entry->entry_direction, $entry->amount)));
 
+            // Every deposit / payout carrying these UTRs, any account, to say
+            // before the import what will happen to each line.
             $transactions = $transactions->merge(Transaction::query()
-                ->where(fn ($query) => $query
-                    ->where('payment_account_id', $account->id)
-                    ->orWhere(fn ($query) => $query->where('direction', 'payout')->where('branch_id', $account->branch_id)))
                 ->where(fn ($query) => $query->whereIn('bank_utr_normalized', $chunk)->orWhereIn('customer_utr_normalized', $chunk))
                 ->orderBy('created_at')
-                ->get(['reference', 'status', 'direction', 'bank_utr_normalized', 'customer_utr_normalized'])
-                ->flatMap(fn (Transaction $txn) => collect([$txn->bank_utr_normalized, $txn->customer_utr_normalized])
-                    ->filter()
-                    ->unique()
-                    ->mapWithKeys(fn ($utr) => [$utr.'|'.($txn->direction === 'payout' ? 'debit' : 'credit') => ['reference' => $txn->reference, 'status' => $txn->status]])));
+                ->get(['id', 'reference', 'status', 'direction', 'amount', 'branch_id', 'payment_account_id', 'bank_utr_normalized', 'customer_utr_normalized']));
+            $parts = $parts->merge(PayoutPayment::query()->whereIn('utr_normalized', $chunk)->with('transaction:id,reference,branch_id')->get());
+            $elsewhere = $elsewhere->merge(StatementEntry::query()
+                ->whereIn('utr_normalized', $chunk)
+                ->get(['utr_normalized', 'payment_account_id', 'entry_direction', 'amount'])
+                ->map(fn (StatementEntry $entry) => [(string) $entry->utr_normalized, self::utrKey((string) $entry->utr_normalized, $entry->entry_direction, $entry->amount), $entry->payment_account_id]));
         }
 
         foreach (array_chunk(array_column($lines, 'hash'), 1000) as $chunk) {
@@ -177,25 +186,43 @@ class ImportStatement
         $stored = $stored->flip();
         $hashes = $hashes->flip();
         $inFile = [];
+        $inFileUtr = [];
 
         foreach ($lines as &$line) {
-            $key = $line['utr_normalized'] === null ? null : self::utrKey($line['utr_normalized'], $line['direction'], $line['amount']);
+            // Every line has a UTR (StatementParser reports those without).
+            $key = self::utrKey($line['utr_normalized'], $line['direction'], $line['amount']);
 
             $line['duplicate'] = match (true) {
-                $hashes->has($line['hash']) || ($key !== null && $stored->has($key)) => 'stored',
-                $key !== null && isset($inFile[$key]) => 'repeated',
+                $hashes->has($line['hash']) || $stored->has($key) => 'stored',
+                isset($inFile[$key]) => 'repeated',
                 default => null,
             };
-            $line['transaction'] = $line['utr_normalized'] === null ? null : $transactions->get($line['utr_normalized'].'|'.$line['direction']);
+            // Another bank line with this UTR, in PayGate or earlier in the
+            // file: a "Duplicate UTR" case (StatementMatcher::twin: any other
+            // line with the UTR, whatever its amount, e.g. a bank charge).
+            $twin = match (true) {
+                $line['duplicate'] !== null => null,
+                $elsewhere->contains(fn (array $other) => $other[0] === $line['utr_normalized']) => 'stored',
+                isset($inFileUtr[$line['utr_normalized']]) => 'file',
+                default => null,
+            };
+            [$line['check'], $line['transaction']] = $line['duplicate'] !== null
+                ? [null, null]
+                : $this->check($line, $account, $transactions, $parts, $twin);
 
-            if ($key !== null) {
-                $inFile[$key] = true;
-            }
+            $inFileUtr[$line['utr_normalized']] = true;
+            $inFile[$key] = true;
         }
 
         unset($line);
 
-        return ['lines' => $lines, 'errors' => $parsed['errors'], 'headers' => StatementParser::headers($rows, $mapping->headerRow)];
+        // The cells of each unreadable row, so the branch sees which it is.
+        $errors = array_map(fn (array $error) => [
+            ...$error,
+            'text' => mb_substr(implode(' · ', array_filter(array_map(fn ($cell) => StatementParser::text($cell), $rows[$error['row'] - 1] ?? []), fn (string $cell) => $cell !== '')), 0, 200),
+        ], $parsed['errors']);
+
+        return ['lines' => $lines, 'errors' => $errors, 'headers' => StatementParser::headers($rows, $mapping->headerRow)];
     }
 
     /**
@@ -323,6 +350,146 @@ class ImportStatement
         Storage::disk('local')->delete($path);
 
         return $import;
+    }
+
+    /**
+     * What the import will do with a line, as StatementMatcher decides it,
+     * said before the branch ticks it (client request 2026-11-18): ok (it
+     * will match) or warn (it will go to Unsettled UTR, and why). Also the
+     * deposit / payout the line points at, if any.
+     *
+     * @param  array{direction: string, amount: int, utr_normalized: string}  $line
+     * @param  Collection<int, Transaction>  $transactions
+     * @param  Collection<int, PayoutPayment>  $parts
+     * @param  'stored'|'file'|null  $twin  another line with this UTR: in PayGate, or earlier in the file
+     * @return array{0: array{level: string, message: string}, 1: ?array{reference: string, status: string}}
+     */
+    private function check(array $line, PaymentAccount $account, Collection $transactions, Collection $parts, ?string $twin): array
+    {
+        $utr = $line['utr_normalized'];
+        $rupees = fn (int $paise) => '₹'.number_format($paise / 100, 2);
+        $warn = fn (string $message) => ['level' => 'warn', 'message' => $message];
+        $ref = fn (Transaction $txn) => ['reference' => $txn->reference, 'status' => $txn->status];
+
+        if ($twin === 'stored') {
+            return [$warn(__('UTR :utr is already on another bank line in PayGate (another amount or account): it will go to Unsettled UTR as a duplicate UTR.', ['utr' => $utr])), null];
+        }
+
+        if ($twin === 'file') {
+            return [$warn(__('An earlier line of this file has the same UTR (e.g. a bank charge): if both are imported, this one goes to Unsettled UTR as a duplicate UTR.')), null];
+        }
+
+        if ($line['direction'] === 'debit') {
+            $part = $parts->first(fn (PayoutPayment $part) => $part->utr_normalized === $utr && $part->branch_id === $account->branch_id);
+            $payout = $part !== null ? $part->transaction : $transactions->first(fn (Transaction $txn) => $txn->direction === 'payout' && $txn->branch_id === $account->branch_id && $txn->bank_utr_normalized === $utr);
+
+            if ($payout === null) {
+                return [$warn(__('No payout of this branch has this UTR: it will go to Unsettled UTR. Untick it if it is not a PayGate payout.')), null];
+            }
+
+            $amount = $part !== null ? $part->amount : $payout->amount;
+
+            return $amount === $line['amount']
+                ? [['level' => 'ok', 'message' => __('Matches payout :reference.', ['reference' => $payout->reference])], $ref($payout)]
+                : [$warn(__('Payout :reference was paid as :txn; the bank shows :bank: it will go to Unsettled UTR (amount mismatch).', ['reference' => $payout->reference, 'txn' => $rupees($amount), 'bank' => $rupees($line['amount'])])), $ref($payout)];
+        }
+
+        $payins = $transactions->filter(fn (Transaction $txn) => $txn->direction === 'payin' && ($txn->bank_utr_normalized === $utr || $txn->customer_utr_normalized === $utr));
+        $own = $payins->where('payment_account_id', $account->id);
+        $live = $own->filter(fn (Transaction $txn) => in_array($txn->status, ['payment_submitted', 'payment_detected', 'under_review'], true)
+            || ($txn->status === 'success' && $txn->bank_utr_normalized === $utr));
+
+        if ($live->count() > 1) {
+            return [$warn(__('Several deposits claim this UTR (:references): it will go to Unsettled UTR.', ['references' => $live->pluck('reference')->join(', ')])), $ref($live->firstOrFail())];
+        }
+
+        if ($live->count() === 1) {
+            $txn = $live->firstOrFail();
+
+            return $txn->amount === $line['amount']
+                ? [['level' => 'ok', 'message' => $txn->status === 'success'
+                    ? __('Matches :reference (already approved): it will be reconciled.', ['reference' => $txn->reference])
+                    : __('Matches :reference (:amount): it will be matched to the deposit.', ['reference' => $txn->reference, 'amount' => $rupees($txn->amount)])], $ref($txn)]
+                : [$warn(__(':reference is for :txn; the bank shows :bank: it will go to Unsettled UTR (amount mismatch).', ['reference' => $txn->reference, 'txn' => $rupees($txn->amount), 'bank' => $rupees($line['amount'])])), $ref($txn)];
+        }
+
+        $closed = $own->first(fn (Transaction $txn) => in_array($txn->status, ['rejected', 'expired', 'cancelled'], true));
+
+        if ($closed !== null) {
+            return [$warn(__(':reference is :status: it will go to Unsettled UTR as a late payment.', ['reference' => $closed->reference, 'status' => str_replace('_', ' ', $closed->status)])), $ref($closed)];
+        }
+
+        if ($own->isNotEmpty()) {
+            $txn = $own->firstOrFail();
+
+            return [$warn(__(':reference has this UTR but is :status: it will go to Unsettled UTR.', ['reference' => $txn->reference, 'status' => str_replace('_', ' ', $txn->status)])), $ref($txn)];
+        }
+
+        if ($payins->isNotEmpty()) {
+            return [$warn($payins->contains('branch_id', $account->branch_id)
+                ? __('A deposit with this UTR is on another account of this branch: it may be moved here automatically, otherwise it goes to Unsettled UTR. Check the account you are importing for.')
+                : __('A deposit with this UTR belongs to another branch: it goes to Unsettled UTR, where Admin can move it.')), null];
+        }
+
+        return [$warn(__('No deposit has this UTR yet: it will go to Unsettled UTR, and links itself if the customer submits the UTR later.')), null];
+    }
+
+    /**
+     * When one field fails on most rows, the column chosen for it is wrong
+     * (client request 2026-11-18): say so once, with examples and what the
+     * column must hold, instead of listing every row.
+     *
+     * @param  array{lines: list<array<string, mixed>>, errors: list<array{row: int, field: string, value: string, message: string}>}  $parsed
+     * @param  list<string>  $headers
+     */
+    private function ensureColumnsFit(array $parsed, ColumnMapping $mapping, array $headers): void
+    {
+        $rows = count($parsed['lines']) + count($parsed['errors']);
+        $name = function (?int $column) use ($headers): string {
+            if ($column === null) {
+                return '';
+            }
+
+            $letter = '';
+
+            for ($n = $column + 1; $n > 0; $n = intdiv($n - 1, 26)) {
+                $letter = chr(65 + ($n - 1) % 26).$letter;
+            }
+
+            return trim($letter.' “'.($headers[$column] ?? '').'”');
+        };
+
+        foreach (['date', 'amount', 'utr'] as $field) {
+            $failed = array_values(array_filter($parsed['errors'], fn (array $error) => $error['field'] === $field));
+
+            if (count($failed) < 3 || count($failed) * 2 < $rows) {
+                continue;
+            }
+
+            $examples = collect($failed)->pluck('value')->filter()->unique()->take(3)->map(fn (string $value) => '“'.mb_substr($value, 0, 30).'”')->join(', ');
+            $share = __(':failed of :rows rows', ['failed' => count($failed), 'rows' => $rows]);
+
+            $message = match ($field) {
+                'date' => __('The date column :column doesn’t hold dates in the format :format (:share fail, e.g. :examples). Choose the date column, and the date format exactly as written in the file.', [
+                    'column' => $name($mapping->date), 'format' => $mapping->dateFormat, 'share' => $share, 'examples' => $examples ?: '—',
+                ]),
+                'amount' => __('The amount column(s) :column don’t hold amounts (:share fail, e.g. :examples). Amounts look like 1,234.50, ₹500 or 500.00 Cr. Choose the credit / debit columns, or one amount column.', [
+                    'column' => collect([$mapping->amount, $mapping->credit, $mapping->debit])->filter(fn (?int $column) => $column !== null)->map($name)->join(', '), 'share' => $share, 'examples' => $examples ?: '—',
+                ]),
+                default => $mapping->utr === null
+                    ? __('No UTR was found in :share: no UTR column is chosen and the narration has none. Choose the column with the UTR. :rule', ['share' => $share, 'rule' => Utr::RULE])
+                    : __('The UTR column :column doesn’t hold UTRs (:share fail, e.g. :examples), and the narration has none either. :rule Choose the column with the UTR, or the narration. Some exports have no UTR at all (e.g. Google Pay’s Excel file): download the CSV instead.', [
+                        'column' => $name($mapping->utr), 'share' => $share, 'examples' => $examples ?: '—', 'rule' => Utr::RULE,
+                    ]),
+            };
+
+            $key = match ($field) {
+                'amount' => $mapping->amount !== null ? 'mapping.amount' : 'mapping.credit',
+                default => 'mapping.'.$field,
+            };
+
+            throw ValidationException::withMessages(['mapping' => $message, $key => __('This column doesn’t fit: see the message above.')]);
+        }
     }
 
     /** One bank transfer on an account: its UTR, direction and amount. */

@@ -53,6 +53,12 @@ type Line = {
     description: string | null;
     /** stored: already in PayGate; repeated: twice in this file. */
     duplicate: 'stored' | 'repeated' | null;
+    /**
+     * What the import will do with it (ImportStatement::check): ok = it
+     * will match; warn = it will go to Unsettled UTR, and why. Null for
+     * duplicates.
+     */
+    check: { level: 'ok' | 'warn'; message: string } | null;
     /** The deposit / payout carrying this line's UTR, if any. */
     transaction: { reference: string; status: string } | null;
 };
@@ -61,8 +67,20 @@ type Line = {
 type Lines = {
     token: string;
     lines: Line[];
-    errors: { row: number; message: string }[];
+    /**
+     * Rows that break a rule (date, amount, no proper UTR) and are never
+     * stored, with the field, the bad value and their cells (`text`).
+     */
+    errors: {
+        row: number;
+        field: 'date' | 'amount' | 'utr';
+        value: string;
+        message: string;
+        text: string;
+    }[];
     failed: number;
+    /** Rows not imported, per rule, over the whole file. */
+    failed_by: Partial<Record<'date' | 'amount' | 'utr', number>>;
 };
 
 const ROLES: [keyof Mapping, string][] = [
@@ -395,7 +413,7 @@ function MappingStep({
                 {columnSelect(
                     'utr',
                     'UTR / reference column',
-                    'Optional: the UTR is also found in the description.',
+                    'UPI / IMPS: 12 digits. NEFT / RTGS: bank reference, e.g. HDFCN52026092812. If this column has none, the UTR is read from the narration; rows without a UTR are not imported.',
                 )}
                 {columnSelect('balance', 'Balance column', 'Optional.')}
             </div>
@@ -504,12 +522,19 @@ function MappingStep({
     );
 }
 
-type Filter = 'all' | 'credit' | 'debit' | 'linked';
+type Filter = 'all' | 'credit' | 'debit' | 'match' | 'problems';
+
+/** A table row: a line of the file, or a row that couldn't be read. */
+type TableRow =
+    | { kind: 'line'; row: number; line: Line }
+    | { kind: 'error'; row: number; error: Lines['errors'][number] };
 
 /**
  * Step 3: every line of the file with a checkbox, all unticked. The branch
- * ticks the lines that belong in PayGate; lines already in PayGate are
- * shown greyed and can't be ticked.
+ * ticks the lines that belong in PayGate. Each line says beforehand what
+ * the import will do with it (client request 2026-11-18): match a deposit
+ * / payout, or go to Unsettled UTR and why. Lines already in PayGate and
+ * rows that couldn't be read are shown in place and can't be ticked.
  */
 function LinesStep({
     preview,
@@ -535,30 +560,71 @@ function LinesStep({
     const [filter, setFilter] = useState<Filter>('all');
     const [search, setSearch] = useState('');
     const ticked = useMemo(() => new Set(selected), [selected]);
-    const duplicates = lines.lines.filter((line) => line.duplicate).length;
-    const linked = lines.lines.filter(
-        (line) => line.transaction && !line.duplicate,
-    ).length;
+    const count = (test: (line: Line) => boolean) =>
+        lines.lines.filter(test).length;
+    const matching = count((line) => line.check?.level === 'ok');
+    const unsettled = count((line) => line.check?.level === 'warn');
+    const duplicates = count((line) => line.duplicate !== null);
     const query = search.trim().toLowerCase();
-    const shown = lines.lines.filter(
-        (line) =>
-            (filter === 'all' ||
-                (filter === 'linked'
-                    ? line.transaction !== null
-                    : line.direction === filter)) &&
+
+    const rows: TableRow[] = useMemo(
+        () =>
+            [
+                ...lines.lines.map((line): TableRow => ({
+                    kind: 'line',
+                    row: line.row,
+                    line,
+                })),
+                ...lines.errors.map((problem): TableRow => ({
+                    kind: 'error',
+                    row: problem.row,
+                    error: problem,
+                })),
+            ].sort((a, b) => a.row - b.row),
+        [lines],
+    );
+
+    const shown = rows.filter((item) => {
+        if (item.kind === 'error') {
+            return (
+                (filter === 'all' || filter === 'problems') &&
+                (query === '' ||
+                    item.error.text.toLowerCase().includes(query) ||
+                    item.error.message.toLowerCase().includes(query))
+            );
+        }
+
+        const line = item.line;
+        const inFilter =
+            filter === 'all' ||
+            (filter === 'match'
+                ? line.check?.level === 'ok'
+                : filter === 'problems'
+                  ? line.check?.level !== 'ok'
+                  : line.direction === filter);
+
+        return (
+            inFilter &&
             (query === '' ||
                 [
                     line.utr,
                     line.description,
                     String(line.amount / 100),
                     line.transaction?.reference,
-                ].some((value) => value?.toLowerCase().includes(query))),
+                    line.check?.message,
+                ].some((value) => value?.toLowerCase().includes(query)))
+        );
+    });
+    const selectable = shown.flatMap((item) =>
+        item.kind === 'line' && !item.line.duplicate ? [item.line] : [],
     );
-    const selectable = shown.filter((line) => !line.duplicate);
     const allShownTicked =
         selectable.length > 0 &&
         selectable.every((line) => ticked.has(line.row));
     const chosen = lines.lines.filter((line) => ticked.has(line.row));
+    const chosenUnsettled = chosen.filter(
+        (line) => line.check?.level === 'warn',
+    ).length;
     const credit = chosen
         .filter((line) => line.direction === 'credit')
         .reduce((sum, line) => sum + line.amount, 0);
@@ -573,12 +639,12 @@ function LinesStep({
                 : [...selected, row],
         );
     const toggleShown = () => {
-        const rows = new Set(selectable.map((line) => line.row));
+        const shownRows = new Set(selectable.map((line) => line.row));
 
         onSelect(
             allShownTicked
-                ? selected.filter((row) => !rows.has(row))
-                : [...new Set([...selected, ...rows])],
+                ? selected.filter((row) => !shownRows.has(row))
+                : [...new Set([...selected, ...shownRows])],
         );
     };
 
@@ -586,14 +652,15 @@ function LinesStep({
         <FormDialog
             open
             onOpenChange={(next) => !next && onCancel()}
-            width={1040}
+            width={1100}
             title="Choose the lines to import"
             description={
                 <>
                     <b>{preview.file}</b> for {accountLabel(preview.account)}.
                     Tick only the lines that belong in PayGate: lines left
-                    unticked (personal transfers…) are never stored. The same
-                    file can be uploaded again later to add more.
+                    unticked (personal transfers…) are never stored. The Check
+                    column says what will happen to each line. The same file can
+                    be uploaded again later to add more.
                 </>
             }
             submitLabel={
@@ -612,24 +679,25 @@ function LinesStep({
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-tx2">
                 <span>
-                    <b className="text-tx">{lines.lines.length}</b> lines in the
-                    file
+                    <b className="text-tx">{lines.lines.length}</b> lines
                 </span>
-                {linked > 0 && (
-                    <span>
-                        <b className="text-tx">{linked}</b> carry the UTR of a
-                        PayGate deposit / payout
+                <span className="text-ok">
+                    ✓ <b>{matching}</b> will match a deposit / payout
+                </span>
+                {unsettled > 0 && (
+                    <span className="text-wn">
+                        ⚠ <b>{unsettled}</b> would go to Unsettled UTR
                     </span>
                 )}
                 {duplicates > 0 && (
                     <span>
                         <b className="text-tx">{duplicates}</b> already in
-                        PayGate
+                        PayGate (skipped)
                     </span>
                 )}
                 {lines.failed > 0 && (
                     <span className="text-er">
-                        {lines.failed} couldn’t be read
+                        ✕ <b>{lines.failed}</b> can’t be imported
                     </span>
                 )}
                 <button
@@ -641,20 +709,67 @@ function LinesStep({
                 </button>
             </div>
 
+            {lines.failed > 0 && (
+                <div className="rounded-lg bg-erb px-3 py-2.5 text-[12.5px] text-er">
+                    <b>
+                        {lines.failed}{' '}
+                        {lines.failed === 1 ? 'row breaks' : 'rows break'} our
+                        rules and won’t be imported
+                    </b>{' '}
+                    (
+                    {(
+                        [
+                            ['utr', 'no proper UTR'],
+                            ['date', 'date not in the format'],
+                            ['amount', 'amount unreadable'],
+                        ] as const
+                    )
+                        .map(([field, label]) => [
+                            lines.failed_by[field] ?? 0,
+                            label,
+                        ])
+                        .filter(([total]) => total)
+                        .map(([total, label]) => `${total} ${label}`)
+                        .join(', ')}
+                    ). Each one says why in the Check column. If many rows fail,
+                    a column or the date format is usually wrong:{' '}
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="font-medium underline underline-offset-2"
+                    >
+                        change the columns
+                    </button>
+                    . If only a few rows fail (totals, notes), you can ignore
+                    them, or correct them in the file and upload it again.{' '}
+                    <button
+                        type="button"
+                        onClick={() => setFilter('problems')}
+                        className="font-medium underline underline-offset-2"
+                    >
+                        Show them
+                    </button>
+                </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
                 <Segmented<Filter>
                     options={[
                         { value: 'all', label: 'All' },
                         { value: 'credit', label: 'Credits' },
                         { value: 'debit', label: 'Debits' },
-                        { value: 'linked', label: 'PayGate UTRs' },
+                        { value: 'match', label: `Will match (${matching})` },
+                        {
+                            value: 'problems',
+                            label: `Problems (${unsettled + duplicates + lines.failed})`,
+                        },
                     ]}
                     value={filter}
                     onChange={setFilter}
                 />
                 <div className="min-w-[200px] flex-1">
                     <TextInput
-                        placeholder="Search UTR, narration or amount"
+                        placeholder="Search UTR, narration, amount or problem"
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                     />
@@ -670,8 +785,8 @@ function LinesStep({
                 )}
             </div>
 
-            <div className="max-h-[420px] overflow-auto rounded-lg border border-ln">
-                <table className="w-full min-w-[760px] border-collapse text-xs">
+            <div className="max-h-[440px] overflow-auto rounded-lg border border-ln">
+                <table className="w-full min-w-[900px] border-collapse text-xs">
                     <thead className="sticky top-0 z-[1] bg-sf2">
                         <tr className="text-left text-tx3">
                             <th className="w-8 px-2 py-1.5">
@@ -693,84 +808,49 @@ function LinesStep({
                             <th className="px-2 py-1.5 font-medium">
                                 Narration
                             </th>
-                            <th className="px-2 py-1.5 font-medium">
-                                In PayGate
+                            <th className="w-[320px] px-2 py-1.5 font-medium">
+                                Check
                             </th>
                         </tr>
                     </thead>
                     <tbody>
-                        {shown.map((line) => (
-                            <tr
-                                key={line.row}
-                                onClick={() =>
-                                    !line.duplicate && toggle(line.row)
-                                }
-                                className={cn(
-                                    'border-t border-ln2',
-                                    line.duplicate
-                                        ? 'text-tx3'
-                                        : 'cursor-pointer hover:bg-sf2',
-                                    ticked.has(line.row) && 'bg-acs/40',
-                                )}
-                            >
-                                <td className="px-2 py-1.5">
-                                    <input
-                                        type="checkbox"
-                                        className="size-4 accent-ac"
-                                        aria-label={`Row ${line.row}`}
-                                        disabled={line.duplicate !== null}
-                                        checked={ticked.has(line.row)}
-                                        onClick={(event) =>
-                                            event.stopPropagation()
-                                        }
-                                        onChange={() => toggle(line.row)}
-                                    />
-                                </td>
-                                <td className="px-2 py-1.5 text-tx3">
-                                    {line.row}
-                                </td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">
-                                    {formatDate(line.date)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        'px-2 py-1.5 text-right whitespace-nowrap tabular-nums',
-                                        line.direction === 'credit' &&
-                                            !line.duplicate &&
-                                            'text-ok',
-                                    )}
+                        {shown.map((item) =>
+                            item.kind === 'error' ? (
+                                <tr
+                                    key={`e${item.row}`}
+                                    className="border-t border-ln2 bg-erb/50 align-top"
                                 >
-                                    {line.direction === 'credit' ? '+' : '−'}
-                                    {formatPaise(line.amount)}
-                                </td>
-                                <td className="px-2 py-1.5 font-mono whitespace-nowrap">
-                                    {line.utr ?? '—'}
-                                </td>
-                                <td
-                                    className="max-w-[300px] truncate px-2 py-1.5"
-                                    title={line.description ?? ''}
-                                >
-                                    {line.description ?? '—'}
-                                </td>
-                                <td className="px-2 py-1.5 whitespace-nowrap">
-                                    {line.duplicate === 'stored' ? (
-                                        'Already imported'
-                                    ) : line.duplicate === 'repeated' ? (
-                                        'Repeated in this file'
-                                    ) : line.transaction ? (
-                                        <span className="rounded bg-acs px-1.5 py-px text-act">
-                                            {line.transaction.reference} ·{' '}
-                                            {line.transaction.status.replace(
-                                                /_/g,
-                                                ' ',
-                                            )}
-                                        </span>
-                                    ) : (
-                                        ''
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                                    <td className="px-2 py-1.5">
+                                        <input
+                                            type="checkbox"
+                                            className="size-4"
+                                            aria-label={`Row ${item.row} can’t be imported`}
+                                            disabled
+                                        />
+                                    </td>
+                                    <td className="px-2 py-1.5 text-tx3">
+                                        {item.row}
+                                    </td>
+                                    <td
+                                        colSpan={4}
+                                        className="max-w-[460px] truncate px-2 py-1.5 text-tx2"
+                                        title={item.error.text}
+                                    >
+                                        {item.error.text || '(empty row)'}
+                                    </td>
+                                    <td className="px-2 py-1.5 text-er">
+                                        ✕ Not imported: {item.error.message}
+                                    </td>
+                                </tr>
+                            ) : (
+                                <LineRow
+                                    key={item.row}
+                                    line={item.line}
+                                    ticked={ticked.has(item.row)}
+                                    onToggle={() => toggle(item.row)}
+                                />
+                            ),
+                        )}
                         {shown.length === 0 && (
                             <tr>
                                 <td
@@ -784,21 +864,6 @@ function LinesStep({
                     </tbody>
                 </table>
             </div>
-
-            {lines.errors.length > 0 && (
-                <details className="text-[12.5px] text-tx2">
-                    <summary className="cursor-pointer">
-                        {lines.failed} rows couldn’t be read (not imported)
-                    </summary>
-                    <ul className="mt-1 list-disc pl-5">
-                        {lines.errors.map((problem) => (
-                            <li key={problem.row}>
-                                Row {problem.row}: {problem.message}
-                            </li>
-                        ))}
-                    </ul>
-                </details>
-            )}
 
             <div className="text-[12.5px] text-tx2">
                 {chosen.length === 0 ? (
@@ -814,10 +879,90 @@ function LinesStep({
                                 <b className="text-tx">{formatPaise(debit)}</b>
                             </>
                         )}
+                        {chosenUnsettled > 0 && (
+                            <span className="text-wn">
+                                {' '}
+                                · ⚠ {chosenUnsettled} of them will go to
+                                Unsettled UTR (see Check)
+                            </span>
+                        )}
                     </>
                 )}
             </div>
         </FormDialog>
+    );
+}
+
+/** One line of the file in the Choose lines table. */
+function LineRow({
+    line,
+    ticked,
+    onToggle,
+}: {
+    line: Line;
+    ticked: boolean;
+    onToggle: () => void;
+}) {
+    const skipped = line.duplicate !== null;
+
+    return (
+        <tr
+            onClick={() => !skipped && onToggle()}
+            className={cn(
+                'border-t border-ln2 align-top',
+                skipped ? 'text-tx3' : 'cursor-pointer hover:bg-sf2',
+                ticked && 'bg-acs/40',
+            )}
+        >
+            <td className="px-2 py-1.5">
+                <input
+                    type="checkbox"
+                    className="size-4 accent-ac"
+                    aria-label={`Row ${line.row}`}
+                    disabled={skipped}
+                    checked={ticked}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={onToggle}
+                />
+            </td>
+            <td className="px-2 py-1.5 text-tx3">{line.row}</td>
+            <td className="px-2 py-1.5 whitespace-nowrap">
+                {formatDate(line.date)}
+            </td>
+            <td
+                className={cn(
+                    'px-2 py-1.5 text-right whitespace-nowrap tabular-nums',
+                    line.direction === 'credit' && !skipped && 'text-ok',
+                )}
+            >
+                {line.direction === 'credit' ? '+' : '−'}
+                {formatPaise(line.amount)}
+            </td>
+            <td className="px-2 py-1.5 font-mono whitespace-nowrap">
+                {line.utr ?? '—'}
+            </td>
+            <td
+                className="max-w-[240px] truncate px-2 py-1.5"
+                title={line.description ?? ''}
+            >
+                {line.description ?? '—'}
+            </td>
+            <td
+                className={cn(
+                    'px-2 py-1.5',
+                    line.check?.level === 'ok' && 'text-ok',
+                    line.check?.level === 'warn' && 'text-wn',
+                )}
+            >
+                {line.duplicate === 'stored'
+                    ? 'Already in PayGate: skipped'
+                    : line.duplicate === 'repeated'
+                      ? 'Repeated in this file: skipped'
+                      : line.check
+                        ? `${line.check.level === 'ok' ? '✓' : '⚠'} ${line.check.message}`
+                        : ''}
+            </td>
+        </tr>
     );
 }
 

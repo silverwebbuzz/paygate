@@ -13,6 +13,7 @@ use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Matches bank statement lines to transactions (Requirements F8; rules
@@ -370,12 +371,63 @@ class StatementMatcher
             ->first();
 
         if ($line === null) {
+            $this->recheckLinesElsewhere($utr);
+
             return;
         }
 
         $line->amount === $payin->amount
             ? $this->link($line, $payin, $actor, __('The deposit arrived after the bank line.'))
             : $this->retype($line, CaseType::AmountMismatch, $payin, $this->amountNote($line, $payin));
+    }
+
+    /**
+     * The customer's UTR is on a waiting bank line of another account or
+     * branch (the money arrived there first, as "UTR not found"). Match it
+     * again, so it ends as it would have had the deposit come first: a
+     * Wrong account / Wrong branch case pointing at the deposit, for Admin
+     * to move (client report 2026-11-18: the case stayed "UTR not found").
+     */
+    private function recheckLinesElsewhere(string $utr): void
+    {
+        StatementEntry::query()
+            ->where(['entry_direction' => 'credit', 'utr_normalized' => $utr, 'status' => 'unmatched'])
+            ->whereNull('transaction_id')
+            ->whereHas('openCase', fn ($query) => $query->whereNull('transaction_id'))
+            ->lockForUpdate()
+            ->get()
+            ->each(fn (StatementEntry $line) => $this->match($line));
+    }
+
+    /**
+     * Open cases still saying "no deposit has this UTR": match their lines
+     * again (`php artisan reconciliation:recheck`), e.g. for lines left
+     * behind before recheckLinesElsewhere existed. Returns how many cases
+     * now point at a transaction.
+     */
+    public function recheckUnfound(): int
+    {
+        $fixed = 0;
+
+        ReconciliationCase::query()
+            ->where('type', CaseType::UtrNotFound->value)
+            ->where('status', '!=', 'resolved')
+            ->whereNull('transaction_id')
+            ->with('entry')
+            ->get()
+            ->each(function (ReconciliationCase $case) use (&$fixed) {
+                $line = $case->entry;
+
+                if ($line === null || $line->utr_normalized === null) {
+                    return;
+                }
+
+                DB::transaction(fn () => $this->match($line));
+
+                $fixed += (int) ($line->refresh()->transaction_id !== null || $case->refresh()->transaction_id !== null);
+            });
+
+        return $fixed;
     }
 
     private function openCase(StatementEntry $entry, CaseType $type, ?Transaction $txn, string $note, string $status = 'unmatched'): void
