@@ -51,8 +51,12 @@ type Line = {
     amount: number;
     utr: string | null;
     description: string | null;
-    /** stored: already in PayGate; repeated: twice in this file. */
-    duplicate: 'stored' | 'repeated' | null;
+    /**
+     * Never imported: stored = already on this account; elsewhere = the UTR
+     * is already on another bank line in PayGate (another account, branch
+     * or amount: one UTR is one bank transfer); repeated = twice in this file.
+     */
+    duplicate: 'stored' | 'elsewhere' | 'repeated' | null;
     /**
      * What the import will do with it (ImportStatement::check): ok = it
      * will match; warn = it will go to Unsettled UTR, and why. Null for
@@ -956,11 +960,13 @@ function LineRow({
             >
                 {line.duplicate === 'stored'
                     ? 'Already in PayGate: skipped'
-                    : line.duplicate === 'repeated'
-                      ? 'Repeated in this file: skipped'
-                      : line.check
-                        ? `${line.check.level === 'ok' ? '✓' : '⚠'} ${line.check.message}`
-                        : ''}
+                    : line.duplicate === 'elsewhere'
+                      ? 'UTR already on another bank line in PayGate (another account or branch): skipped. One UTR is one bank transfer: check you chose the right account.'
+                      : line.duplicate === 'repeated'
+                        ? 'Repeated in this file: skipped'
+                        : line.check
+                          ? `${line.check.level === 'ok' ? '✓' : '⚠'} ${line.check.message}`
+                          : ''}
             </td>
         </tr>
     );

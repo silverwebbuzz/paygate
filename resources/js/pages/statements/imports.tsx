@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { Upload } from 'lucide-react';
 import { useState } from 'react';
 import { PgButton } from '@/components/pg/button';
+import { ConfirmDialog } from '@/components/pg/confirm-dialog';
 import { DataTable, Panel } from '@/components/pg/data-table';
 import type { Column } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
@@ -45,6 +46,10 @@ type ImportRow = {
     debit_total: number;
     errors: { row: number; message: string }[];
     imported_by: string | null;
+    /** Undo import (Admin): when, by whom, how many lines removed. */
+    undone_at: string | null;
+    undone_by: string | null;
+    rows_removed: number;
 };
 
 type Props = {
@@ -60,7 +65,7 @@ type Props = {
     period: PeriodValue;
     accounts: (StatementAccount & { branch_id: string })[];
     branches: { id: string; code: string; name: string }[];
-    can: { create: boolean };
+    can: { create: boolean; undo: boolean };
 };
 
 /** Statement History: every statement file imported, with what it added. */
@@ -70,6 +75,8 @@ export default function StatementImports(props: Props) {
     const statements = portal === 'admin' ? adminStatements : branchStatements;
     const [importing, setImporting] = useState(false);
     const [problems, setProblems] = useState<ImportRow | null>(null);
+    const [undoing, setUndoing] = useState<ImportRow | null>(null);
+    const [undoBusy, setUndoBusy] = useState(false);
 
     const visit = (next: Partial<Props['filters'] & PeriodQuery>) =>
         router.get(
@@ -177,13 +184,44 @@ export default function StatementImports(props: Props) {
         {
             key: 'status',
             header: 'Status',
-            cell: (row) => (
-                <StatusBadge
-                    status={row.status === 'completed' ? 'success' : row.status}
-                    label={row.status}
-                />
-            ),
+            cell: (row) =>
+                row.undone_at ? (
+                    <div className="text-xs">
+                        <StatusBadge status="rejected" label="undone" />
+                        <div className="mt-0.5 text-tx3">
+                            {row.rows_removed} lines removed
+                            {row.undone_by && ` by ${row.undone_by}`},{' '}
+                            {formatDateTime(row.undone_at)}
+                        </div>
+                    </div>
+                ) : (
+                    <StatusBadge
+                        status={
+                            row.status === 'completed' ? 'success' : row.status
+                        }
+                        label={row.status}
+                    />
+                ),
         },
+        ...(can.undo
+            ? [
+                  {
+                      key: 'undo',
+                      header: '',
+                      cell: (row: ImportRow) =>
+                          !row.undone_at &&
+                          row.rows_imported > 0 && (
+                              <button
+                                  type="button"
+                                  onClick={() => setUndoing(row)}
+                                  className="text-xs font-medium whitespace-nowrap text-er hover:underline"
+                              >
+                                  Undo import
+                              </button>
+                          ),
+                  },
+              ]
+            : []),
     ];
 
     return (
@@ -191,7 +229,7 @@ export default function StatementImports(props: Props) {
             <Head title="Statement History" />
             <PageHeader
                 title="Statement History"
-                description="Every statement file imported, with the lines it added. Lines already in the statement are never added twice."
+                description="Every statement file imported, with the lines it added. A UTR already on a bank line is never added twice."
                 actions={
                     <>
                         <Link
@@ -210,6 +248,44 @@ export default function StatementImports(props: Props) {
                         )}
                     </>
                 }
+            />
+
+            <ConfirmDialog
+                open={undoing !== null}
+                onOpenChange={(next) => !next && setUndoing(null)}
+                title="Undo this import?"
+                tone="danger"
+                confirmLabel={undoBusy ? 'Removing…' : 'Remove its lines'}
+                processing={undoBusy}
+                description={
+                    undoing && (
+                        <>
+                            <b>{undoing.file ?? 'This file'}</b> on{' '}
+                            {undoing.branch} · {undoing.account} added{' '}
+                            {undoing.rows_imported} lines. Its lines and their
+                            Unsettled UTR cases are removed, so the file can be
+                            imported again on the right account. Lines already
+                            linked to a deposit / payout, or whose case was
+                            resolved, are kept. The import stays here, marked as
+                            undone.
+                        </>
+                    )
+                }
+                onConfirm={() => {
+                    if (!undoing) return;
+                    setUndoBusy(true);
+                    router.post(
+                        adminImports.undo(undoing.id).url,
+                        {},
+                        {
+                            preserveScroll: true,
+                            onFinish: () => {
+                                setUndoBusy(false);
+                                setUndoing(null);
+                            },
+                        },
+                    );
+                }}
             />
 
             <Panel className="overflow-hidden">

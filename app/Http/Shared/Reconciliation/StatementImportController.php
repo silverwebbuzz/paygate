@@ -7,6 +7,7 @@ use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Actions\ImportStatement;
+use App\Domain\Reconciliation\Actions\UndoStatementImport;
 use App\Domain\Reconciliation\Import\ColumnMapping;
 use App\Domain\Reconciliation\Models\StatementImport;
 use App\Domain\Reporting\Period;
@@ -44,7 +45,7 @@ class StatementImportController extends Controller
 
         $imports = ReconciliationScope::imports($actor)
             ->where(fn (Builder $query) => $period->apply($query, 'statement_imports.created_at'))
-            ->with(['paymentAccount', 'branch', 'file', 'importer'])
+            ->with(['paymentAccount', 'branch', 'file', 'importer', 'undoer'])
             ->when(is_string($branch) && $branch !== '' && $actor->isType(UserType::Admin), fn (Builder $query) => $query->where('branch_id', $branch))
             ->when(is_string($account) && $account !== '', fn (Builder $query) => $query->where('payment_account_id', $account))
             ->orderByDesc('created_at')
@@ -75,6 +76,9 @@ class StatementImportController extends Controller
                 'debit_total' => $import->debit_total,
                 'errors' => $import->errors ?? [],
                 'imported_by' => $import->importer?->name,
+                'undone_at' => $import->undone_at?->toIso8601String(),
+                'undone_by' => $import->undoer?->name,
+                'rows_removed' => $import->rows_removed,
             ];
         }
 
@@ -87,7 +91,7 @@ class StatementImportController extends Controller
                 ->map(fn ($account) => ['id' => $account->id, 'label' => $account->label, 'bank' => $account->bank_name, 'number' => $account->maskedAccountNumber(), 'branch_id' => $account->branch_id, 'branch' => $account->branch->name])
                 ->values(),
             'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
-            'can' => ['create' => $actor->can('statements.create')],
+            'can' => ['create' => $actor->can('statements.create'), 'undo' => $actor->isType(UserType::Admin) && $actor->can('statements.create')],
         ]);
     }
 
@@ -211,6 +215,29 @@ class StatementImportController extends Controller
                 'matched' => $matched,
                 'unsettled' => $unsettled,
             ]).($result->rows_duplicate > 0 ? ' '.__(':duplicates were already in PayGate and skipped.', ['duplicates' => $result->rows_duplicate]) : '')),
+        ]);
+
+        return back();
+    }
+
+    /**
+     * Admin: remove the lines of a wrong import that nothing depends on
+     * (UndoStatementImport).
+     */
+    public function undo(Request $request, StatementImport $statementImport, UndoStatementImport $undo): RedirectResponse
+    {
+        Gate::authorize('statements.create');
+
+        $actor = $this->actor($request);
+        abort_unless($actor->isType(UserType::Admin), 403);
+
+        $result = $undo->handle($actor, $statementImport);
+
+        Inertia::flash('toast', [
+            'type' => $result['kept'] > 0 ? 'warning' : 'success',
+            'message' => $result['kept'] > 0
+                ? __(':removed lines removed. :kept kept: they are linked to a deposit / payout or their case was already resolved.', $result)
+                : __(':removed lines removed with their Unsettled UTR cases.', $result),
         ]);
 
         return back();

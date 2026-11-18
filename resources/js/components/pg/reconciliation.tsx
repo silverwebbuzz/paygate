@@ -77,7 +77,8 @@ export const DISPLAY_LABELS: Record<StatementLine['display'], string> = {
 export const MATCH_LABELS: Record<StatementLine['branch_match'], string> = {
     matched: 'Matched',
     mismatch: 'Mismatch',
-    none: 'Not matched',
+    // No deposit / payout yet, so no branch to compare with.
+    none: 'No deposit yet',
 };
 
 /** The line's amount, signed and coloured: + credit, − debit. */

@@ -35,12 +35,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $debit_total
  * @property list<array{row: int, message: string}>|null $errors
  * @property string|null $imported_by
+ * @property CarbonInterface|null $undone_at Undo import: when Admin removed its lines
+ * @property string|null $undone_by
+ * @property int $rows_removed lines removed by Undo import
  * @property CarbonInterface $created_at
  * @property CarbonInterface|null $completed_at
  * @property-read Branch $branch
  * @property-read PaymentAccount $paymentAccount
  * @property-read StoredFile|null $file
  * @property-read User|null $importer
+ * @property-read User|null $undoer
  */
 class StatementImport extends Model
 {
@@ -64,6 +68,7 @@ class StatementImport extends Model
             'errors' => 'array',
             'created_at' => 'datetime',
             'completed_at' => 'datetime',
+            'undone_at' => 'datetime',
         ];
     }
 
@@ -73,6 +78,14 @@ class StatementImport extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function undoer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'undone_by');
     }
 
     /**

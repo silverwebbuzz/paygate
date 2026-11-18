@@ -8,6 +8,7 @@ use App\Domain\Notification\AlertDispatcher;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Payout\Models\PayoutPayment;
 use App\Domain\Platform\Models\StoredFile;
+use App\Domain\Reconciliation\Enums\Resolution;
 use App\Domain\Reconciliation\Import\ColumnMapping;
 use App\Domain\Reconciliation\Import\StatementFile;
 use App\Domain\Reconciliation\Import\StatementParser;
@@ -173,9 +174,14 @@ class ImportStatement
                 ->orderBy('created_at')
                 ->get(['id', 'reference', 'status', 'direction', 'amount', 'branch_id', 'payment_account_id', 'bank_utr_normalized', 'customer_utr_normalized']));
             $parts = $parts->merge(PayoutPayment::query()->whereIn('utr_normalized', $chunk)->with('transaction:id,reference,branch_id')->get());
+            // As StatementMatcher::lineWithUtr counts them: a line closed as
+            // "not a customer payment" doesn't hold its UTR.
             $elsewhere = $elsewhere->merge(StatementEntry::query()
                 ->whereIn('utr_normalized', $chunk)
-                ->get(['utr_normalized', 'payment_account_id', 'entry_direction', 'amount'])
+                ->where(fn ($query) => $query
+                    ->where('status', '!=', 'ignored')
+                    ->orWhereDoesntHave('cases', fn ($cases) => $cases->where('resolution', Resolution::Rejected->value)))
+                ->get(['id', 'utr_normalized', 'payment_account_id', 'entry_direction', 'amount', 'status'])
                 ->map(fn (StatementEntry $entry) => [(string) $entry->utr_normalized, self::utrKey((string) $entry->utr_normalized, $entry->entry_direction, $entry->amount), $entry->payment_account_id]));
         }
 
@@ -192,20 +198,20 @@ class ImportStatement
             // Every line has a UTR (StatementParser reports those without).
             $key = self::utrKey($line['utr_normalized'], $line['direction'], $line['amount']);
 
+            // Never stored twice (client report 2026-11-18): this account's
+            // own line ("stored"), the UTR on any other bank line in PayGate,
+            // another account or branch or amount ("elsewhere": one UTR is
+            // one bank transfer), or twice in this file ("repeated").
             $line['duplicate'] = match (true) {
                 $hashes->has($line['hash']) || $stored->has($key) => 'stored',
+                $elsewhere->contains(fn (array $other) => $other[0] === $line['utr_normalized']) => 'elsewhere',
                 isset($inFile[$key]) => 'repeated',
                 default => null,
             };
-            // Another bank line with this UTR, in PayGate or earlier in the
-            // file: a "Duplicate UTR" case (StatementMatcher::twin: any other
-            // line with the UTR, whatever its amount, e.g. a bank charge).
-            $twin = match (true) {
-                $line['duplicate'] !== null => null,
-                $elsewhere->contains(fn (array $other) => $other[0] === $line['utr_normalized']) => 'stored',
-                isset($inFileUtr[$line['utr_normalized']]) => 'file',
-                default => null,
-            };
+            // An earlier line of this file with the same UTR but another
+            // amount (e.g. a bank charge): a "Duplicate UTR" case if both
+            // are imported (StatementMatcher::twin).
+            $twin = $line['duplicate'] === null && isset($inFileUtr[$line['utr_normalized']]) ? 'file' : null;
             [$line['check'], $line['transaction']] = $line['duplicate'] !== null
                 ? [null, null]
                 : $this->check($line, $account, $transactions, $parts, $twin);
@@ -282,13 +288,20 @@ class ImportStatement
                 ->whereIn('row_hash', array_column($lines, 'hash'))
                 ->pluck('row_hash')
                 ->flip();
+            $taken = StatementEntry::query()
+                ->whereIn('utr_normalized', array_column($lines, 'utr_normalized'))
+                ->where(fn ($query) => $query
+                    ->where('status', '!=', 'ignored')
+                    ->orWhereDoesntHave('cases', fn ($cases) => $cases->where('resolution', Resolution::Rejected->value)))
+                ->pluck('utr_normalized')
+                ->flip();
 
             $imported = 0;
             $credit = 0;
             $debit = 0;
 
             foreach ($lines as $line) {
-                if ($line['duplicate'] !== null || $existing->has($line['hash'])) {
+                if ($line['duplicate'] !== null || $existing->has($line['hash']) || $taken->has($line['utr_normalized'])) {
                     continue;
                 }
 
@@ -361,7 +374,7 @@ class ImportStatement
      * @param  array{direction: string, amount: int, utr_normalized: string}  $line
      * @param  Collection<int, Transaction>  $transactions
      * @param  Collection<int, PayoutPayment>  $parts
-     * @param  'stored'|'file'|null  $twin  another line with this UTR: in PayGate, or earlier in the file
+     * @param  'file'|null  $twin  an earlier line of the file with this UTR
      * @return array{0: array{level: string, message: string}, 1: ?array{reference: string, status: string}}
      */
     private function check(array $line, PaymentAccount $account, Collection $transactions, Collection $parts, ?string $twin): array
@@ -370,10 +383,6 @@ class ImportStatement
         $rupees = fn (int $paise) => '₹'.number_format($paise / 100, 2);
         $warn = fn (string $message) => ['level' => 'warn', 'message' => $message];
         $ref = fn (Transaction $txn) => ['reference' => $txn->reference, 'status' => $txn->status];
-
-        if ($twin === 'stored') {
-            return [$warn(__('UTR :utr is already on another bank line in PayGate (another amount or account): it will go to Unsettled UTR as a duplicate UTR.', ['utr' => $utr])), null];
-        }
 
         if ($twin === 'file') {
             return [$warn(__('An earlier line of this file has the same UTR (e.g. a bank charge): if both are imported, this one goes to Unsettled UTR as a duplicate UTR.')), null];

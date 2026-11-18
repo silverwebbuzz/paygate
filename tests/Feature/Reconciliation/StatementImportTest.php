@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Reconciliation;
 
+use App\Domain\Branch\Models\Branch;
+use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
@@ -295,15 +297,72 @@ class StatementImportTest extends TestCase
         $this->assertSame(0, StatementEntry::count());
     }
 
+    public function test_the_same_file_on_another_branchs_account_adds_nothing()
+    {
+        // Client report 2026-11-18: the same Google Pay file imported on a
+        // second branch's account filled Unsettled UTR with duplicates.
+        $csv = "Date,Narration,Deposit\n25/09/2026,UPI 630739524977 BHUSHAN,800\n25/09/2026,UPI 499683632003 BHARAT,1425\n";
+        $this->import($this->flashed($this->preview(UploadedFile::fake()->createWithContent('gpay.csv', $csv))))->assertSessionHasNoErrors();
+        $this->assertSame(2, StatementEntry::count());
+
+        $other = Branch::factory()->create();
+        $otherAccount = $this->activeAccount($other);
+        $otherOwner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $other)->withTwoFactor()->create();
+        $preview = $this->actingAs($otherOwner)->post(route('branch.statement-imports.preview'), ['payment_account_id' => $otherAccount->id, 'file' => UploadedFile::fake()->createWithContent('gpay.csv', $csv)])
+            ->getSession()->get('inertia.flash_data')['import_preview'];
+        $lines = $this->actingAs($otherOwner)->post(route('branch.statement-imports.lines'), ['token' => $preview['token'], 'mapping' => $preview['mapping']])
+            ->getSession()->get('inertia.flash_data')['import_lines'];
+
+        $this->assertSame(['elsewhere', 'elsewhere'], array_column($lines['lines'], 'duplicate'));
+        $this->actingAs($otherOwner)->post(route('branch.statement-imports.store'), ['token' => $preview['token'], 'mapping' => $preview['mapping'], 'rows' => [2, 3]])
+            ->assertSessionHasErrors('rows');
+        $this->assertSame(2, StatementEntry::count());
+        $this->assertSame(0, ReconciliationCase::where('type', 'duplicate_utr')->count());
+    }
+
+    public function test_admin_undoes_a_wrong_import_keeping_lines_that_matched()
+    {
+        $this->manualApproval();
+        $payin = $this->submittedPayin(['amount' => 80000], '630739524977');
+        $csv = "Date,Narration,Deposit\n25/09/2026,UPI 630739524977 BHUSHAN,800\n25/09/2026,UPI 499683632003 BHARAT,1425\n25/09/2026,UPI 630716517978 KOMAL,10000\n";
+        $this->import($this->flashed($this->preview(UploadedFile::fake()->createWithContent('wrong.csv', $csv))))->assertSessionHasNoErrors();
+        $import = StatementImport::sole();
+        $this->assertSame(2, ReconciliationCase::count());
+
+        // Branches can't undo; Admin can.
+        $this->actingAs($this->owner)->post('/admin/statements/imports/'.$import->id.'/undo')->assertForbidden();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $this->actingAs($admin)->post(route('admin.statement-imports.undo', $import))->assertSessionHasNoErrors();
+
+        // The matched line stays; the two unmatched ones and their cases go.
+        $this->assertSame([$payin->id], StatementEntry::pluck('transaction_id')->all());
+        $this->assertSame(0, ReconciliationCase::count());
+        $import->refresh();
+        $this->assertNotNull($import->undone_at);
+        $this->assertSame($admin->id, $import->undone_by);
+        $this->assertSame(2, $import->rows_removed);
+        $this->assertTrue(AuditLog::where('action', 'statement.import_undone')->exists());
+
+        // Shown in Statement History; can't be undone twice.
+        $this->actingAs($admin)->get(route('admin.statement-imports.index'))
+            ->assertInertia(fn ($page) => $page->where('imports.data.0.rows_removed', 2)->where('can.undo', true));
+        $this->actingAs($admin)->post(route('admin.statement-imports.undo', $import))->assertSessionHasErrors('import');
+
+        // The removed lines can be imported again (e.g. on the right account).
+        $again = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('wrong.csv', $csv)));
+        $this->assertSame([null, null], array_column(array_slice($this->lines($again)['lines'], 1), 'duplicate'));
+    }
+
     public function test_a_line_with_a_utr_already_stored_is_a_duplicate_even_with_another_date_or_narration()
     {
         $this->import($this->flashed($this->preview(UploadedFile::fake()->createWithContent('a.csv', "Date,Narration,Deposit\n25/09/2026,UPI 626812820491 RAHUL,100\n"))))->assertSessionHasNoErrors();
 
         $other = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('b.csv', "Date,Narration,Deposit\n26/09/2026,UPI/CR/626812820491/RAHUL K,100\n26/09/2026,UPI/CR/626812820491/RAHUL K,100\n26/09/2026,IMPS-CHG/626812820491,5\n")));
 
-        // Same UTR + direction + amount: stored. A charge under the same
-        // UTR (another amount) is a separate line.
-        $this->assertSame(['stored', 'stored', null], array_column($this->lines($other)['lines'], 'duplicate'));
+        // Same UTR + direction + amount: stored. Under the same UTR with
+        // another amount (e.g. a charge): also never added, the UTR is
+        // already on a bank line (client report 2026-11-18).
+        $this->assertSame(['stored', 'stored', 'elsewhere'], array_column($this->lines($other)['lines'], 'duplicate'));
     }
 
     public function test_a_saved_layout_with_a_wrong_date_format_is_corrected_on_the_next_upload()

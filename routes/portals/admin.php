@@ -89,6 +89,8 @@ Route::controller(StatementImportController::class)->prefix('statements/imports'
     Route::post('preview', 'preview')->middleware('throttle:20,1')->name('preview');
     Route::post('lines', 'lines')->middleware('throttle:30,1')->name('lines');
     Route::post('/', 'store')->name('store');
+    // Admin only: remove a wrong import's lines (client report 2026-11-18).
+    Route::post('{statementImport}/undo', 'undo')->name('undo');
     Route::delete('{token}', 'cancel')->name('cancel');
 });
 Route::controller(CaseController::class)->prefix('unsettled')->name('cases.')->group(function () {

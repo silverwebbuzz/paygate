@@ -720,7 +720,7 @@ export default function Statements(props: Props) {
                         <option value="">Branch match: all</option>
                         <option value="matched">Matched</option>
                         <option value="mismatch">Mismatch</option>
-                        <option value="none">Not matched</option>
+                        <option value="none">No deposit yet</option>
                     </SelectInput>
                     <label className="flex h-[30px] w-[240px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
