@@ -297,7 +297,8 @@ export default function Payouts(props: Props) {
                                         <span className="font-mono">
                                             {payout.reference}
                                         </span>{' '}
-                                        · {formatRelative(payout.created_at)}
+                                        · {formatDateTime(payout.created_at)} (
+                                        {formatRelative(payout.created_at)})
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">

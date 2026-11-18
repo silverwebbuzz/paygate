@@ -259,25 +259,45 @@ export default function Cases(props: Props) {
             ),
         },
         {
-            key: 'when',
-            header: tab === 'open' ? 'Waiting' : 'Resolution',
-            cell: (item) =>
-                tab === 'open' ? (
-                    <span className="text-xs whitespace-nowrap">
-                        {formatRelative(item.created_at)}
-                    </span>
-                ) : (
-                    <div className="text-xs">
-                        <div className="font-medium">
-                            {item.resolution_label}
-                        </div>
-                        <div className="text-tx3">
-                            {item.resolved_by} ·{' '}
-                            {formatDateTime(item.resolved_at)}
-                        </div>
-                    </div>
-                ),
+            // Exact date and time (client request 2026-11-18), with how long
+            // it has been waiting underneath.
+            key: 'opened',
+            header: 'Opened',
+            cell: (item) => (
+                <div className="text-xs whitespace-nowrap">
+                    <div>{formatDateTime(item.created_at)}</div>
+                    {tab === 'open' &&
+                        formatRelative(item.created_at).endsWith(' ago') && (
+                            <div className="text-tx3">
+                                waiting{' '}
+                                {formatRelative(item.created_at).replace(
+                                    ' ago',
+                                    '',
+                                )}
+                            </div>
+                        )}
+                </div>
+            ),
         },
+        ...(tab === 'resolved'
+            ? [
+                  {
+                      key: 'when',
+                      header: 'Resolution',
+                      cell: (item: CaseRow) => (
+                          <div className="text-xs">
+                              <div className="font-medium">
+                                  {item.resolution_label}
+                              </div>
+                              <div className="whitespace-nowrap text-tx3">
+                                  {item.resolved_by} ·{' '}
+                                  {formatDateTime(item.resolved_at)}
+                              </div>
+                          </div>
+                      ),
+                  },
+              ]
+            : []),
         {
             key: 'action',
             header: '',
