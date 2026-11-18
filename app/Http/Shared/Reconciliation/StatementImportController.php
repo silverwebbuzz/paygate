@@ -5,6 +5,7 @@ namespace App\Http\Shared\Reconciliation;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Actions\ImportStatement;
 use App\Domain\Reconciliation\Import\ColumnMapping;
 use App\Domain\Reconciliation\Models\StatementImport;
@@ -20,7 +21,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Statement import in two steps (upload → check the columns → import) and
+ * Statement import in three steps (upload → check the columns → tick the
+ * lines to import) and
  * the Statement History of every file imported. The staged upload is kept
  * in the session under a random token until it is imported or cancelled.
  */
@@ -133,7 +135,43 @@ class StatementImportController extends Controller
     }
 
     /**
-     * Step 2: import with the confirmed columns.
+     * Step 2: every line of the file with the confirmed columns, for the
+     * branch to tick the ones to import (all unticked).
+     */
+    public function lines(Request $request, ImportStatement $import): RedirectResponse
+    {
+        Gate::authorize('statements.create');
+
+        $actor = $this->actor($request);
+        $data = $request->validate([
+            'token' => ['required', 'string', 'size:32'],
+            'mapping' => ['required', 'array'],
+        ]);
+        [$staged, $account] = $this->staged($request, $actor, $data['token']);
+
+        $read = $import->lines($account, $staged['path'], ColumnMapping::fromArray($data['mapping']));
+
+        Inertia::flash('import_lines', [
+            'token' => $data['token'],
+            'lines' => array_map(fn (array $line) => [
+                'row' => $line['row'],
+                'date' => $line['date'],
+                'direction' => $line['direction'],
+                'amount' => $line['amount'],
+                'utr' => $line['utr_normalized'],
+                'description' => $line['description'] === null ? null : mb_substr($line['description'], 0, 160),
+                'duplicate' => $line['duplicate'],
+                'transaction' => $line['transaction'],
+            ], $read['lines']),
+            'errors' => array_slice($read['errors'], 0, 50),
+            'failed' => count($read['errors']),
+        ]);
+
+        return back();
+    }
+
+    /**
+     * Step 3: import the ticked lines.
      */
     public function store(Request $request, ImportStatement $import): RedirectResponse
     {
@@ -144,25 +182,20 @@ class StatementImportController extends Controller
             'token' => ['required', 'string', 'size:32'],
             'layout' => ['nullable', 'string', 'max:100'],
             'mapping' => ['required', 'array'],
-        ]);
+            'rows' => ['required', 'array', 'min:1', 'max:'.ImportStatement::MAX_ROWS],
+            'rows.*' => ['integer', 'min:1'],
+        ], ['rows.required' => __('Tick the lines to import.'), 'rows.min' => __('Tick the lines to import.')]);
+        [$staged, $account] = $this->staged($request, $actor, $data['token']);
 
-        /** @var array{path: string, name: string, mime: string, account_id: string}|null $staged */
-        $staged = $request->session()->get(self::SESSION.'.'.$data['token']);
-        $account = $staged === null ? null : ReconciliationScope::accounts($actor)->find($staged['account_id']);
-
-        if ($staged === null || $account === null) {
-            throw ValidationException::withMessages(['file' => __('The upload has expired. Choose the file again.')]);
-        }
-
-        $result = $import->handle($actor, $account, $staged['path'], $staged['name'], $staged['mime'], ColumnMapping::fromArray($data['mapping']), $data['layout'] ?? null);
+        $rows = array_values(array_map('intval', $data['rows']));
+        $result = $import->handle($actor, $account, $staged['path'], $staged['name'], $staged['mime'], ColumnMapping::fromArray($data['mapping']), $rows, $data['layout'] ?? null);
         $request->session()->forget(self::SESSION.'.'.$data['token']);
 
         Inertia::flash('toast', [
-            'type' => $result->rows_failed > 0 ? 'warning' : 'success',
-            'message' => __(':imported lines imported, :duplicates already in the statement, :failed could not be read. Matched lines are ready to approve; the rest are in the unsettled queue.', [
+            'type' => 'success',
+            'message' => __(':imported lines imported, :duplicates already in PayGate. Matched lines are ready to approve; the rest are in the unsettled queue.', [
                 'imported' => $result->rows_imported,
                 'duplicates' => $result->rows_duplicate,
-                'failed' => $result->rows_failed,
             ]),
         ]);
 
@@ -179,6 +212,24 @@ class StatementImportController extends Controller
         }
 
         return back();
+    }
+
+    /**
+     * The staged upload of this token and its account (still in scope).
+     *
+     * @return array{0: array{path: string, name: string, mime: string, account_id: string}, 1: PaymentAccount}
+     */
+    private function staged(Request $request, User $actor, string $token): array
+    {
+        /** @var array{path: string, name: string, mime: string, account_id: string}|null $staged */
+        $staged = $request->session()->get(self::SESSION.'.'.$token);
+        $account = $staged === null ? null : ReconciliationScope::accounts($actor)->find($staged['account_id']);
+
+        if ($staged === null || ! $account instanceof PaymentAccount) {
+            throw ValidationException::withMessages(['file' => __('The upload has expired. Choose the file again.')]);
+        }
+
+        return [$staged, $account];
     }
 
     private function actor(Request $request): User

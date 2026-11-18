@@ -33,7 +33,9 @@ final class StatementParser
             $cells = array_map(fn ($cell) => mb_strtolower(self::text($cell)), $row);
             $joined = implode(' | ', $cells);
 
-            if (count(array_filter($cells)) >= 3 && str_contains($joined, 'date') && preg_match('/credit|deposit|debit|withdraw|amount/', $joined) === 1) {
+            // Wallet / UPI exports (Google Pay for Business…) have "Creation
+            // time" instead of a date column.
+            if (count(array_filter($cells)) >= 3 && preg_match('/date|time/', $joined) === 1 && preg_match('/credit|deposit|debit|withdraw|amount/', $joined) === 1) {
                 $headerRow = $index + 1;
                 break;
             }
@@ -55,10 +57,11 @@ final class StatementParser
         $debit = $find('/debit|withdraw|^dr\.?$/', '/credit|deposit|\//');
         $mapping = [
             'header_row' => $headerRow,
-            'date' => $find('/value\s*date/') ?? $find('/date/'),
+            'date' => $find('/value\s*date/') ?? $find('/date/', '/update/') ?? $find('/creat|txn\s*time|transaction\s*time|^time$/'),
             'date_format' => ColumnMapping::DATE_FORMATS[0],
-            'description' => $find('/narration|description|particular|remark|details/'),
-            'utr' => $find('/utr|ref(erence)?|chq|cheque/', '/date/'),
+            // Wallet exports have no narration: the payer's name helps most.
+            'description' => $find('/narration|description|particular|remark|details/') ?? $find('/^payer/'),
+            'utr' => $find('/utr|rrn|ref(erence)?|chq|cheque/', '/date/') ?? $find('/transaction\s*id|txn\s*id/'),
             'credit' => $credit,
             'debit' => $debit,
             'amount' => $credit === null && $debit === null ? $find('/amount|amt/') : null,
@@ -67,10 +70,28 @@ final class StatementParser
         ];
 
         if ($mapping['date'] !== null) {
-            $mapping['date_format'] = self::guessDateFormat(array_column(array_slice($rows, $headerRow, 30), (int) $mapping['date']));
+            $mapping['date_format'] = self::dateFormatFor($rows, $headerRow, (int) $mapping['date']);
         }
 
         return $mapping;
+    }
+
+    /**
+     * The date format that reads the most dates of a column (the first 30
+     * lines under the header).
+     *
+     * @param  list<list<mixed>>  $rows
+     */
+    public static function dateFormatFor(array $rows, int $headerRow, int $column, ?string $preferred = null): string
+    {
+        $samples = array_column(array_slice($rows, $headerRow, 30), $column);
+
+        // A saved layout keeps its format while it still reads the file.
+        if ($preferred !== null && array_filter($samples, fn ($value) => self::text($value) !== '' && self::parseDate($value, $preferred) !== null) !== []) {
+            return $preferred;
+        }
+
+        return self::guessDateFormat($samples);
     }
 
     /**
@@ -181,7 +202,7 @@ final class StatementParser
 
     /**
      * A date cell as Y-m-d: an Excel serial number, or text in the given
-     * format (a time after the date is ignored).
+     * format (a time after the date, with or without a comma, is ignored).
      */
     public static function parseDate(mixed $value, string $format): ?string
     {
@@ -193,7 +214,10 @@ final class StatementParser
             }
         }
 
-        $text = preg_replace('/[\sT]+\d{1,2}:\d{2}(:\d{2})?(\.\d+)?\s*([AaPp][Mm])?\s*$/', '', self::text($value)) ?? '';
+        // "1 Nov 2026, 21:22" / "Nov 2, 2026, 1:23 PM": the time goes.
+        // Google Pay writes a narrow no-break space before "PM".
+        $text = preg_replace('/[\x{00A0}\x{2007}\x{202F}]/u', ' ', self::text($value)) ?? '';
+        $text = preg_replace('/[\s,T]+\d{1,2}:\d{2}(:\d{2})?(\.\d+)?\s*([AaPp]\.?[Mm]\.?)?\s*$/', '', $text) ?? '';
         $date = DateTimeImmutable::createFromFormat('!'.$format, $text);
         $problems = DateTimeImmutable::getLastErrors();
 

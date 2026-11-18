@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
  */
 final class ColumnMapping
 {
-    public const DATE_FORMATS = ['d/m/Y', 'd-m-Y', 'd.m.Y', 'd/m/y', 'd-m-y', 'd-M-Y', 'd M Y', 'd-M-y', 'd M y', 'd/M/Y', 'Y-m-d', 'Y/m/d', 'm/d/Y'];
+    public const DATE_FORMATS = ['d/m/Y', 'd-m-Y', 'd.m.Y', 'd/m/y', 'd-m-y', 'd-M-Y', 'd M Y', 'd-M-y', 'd M y', 'd/M/Y', 'M d, Y', 'M d Y', 'Y-m-d', 'Y/m/d', 'm/d/Y'];
 
     public function __construct(
         public readonly int $headerRow,

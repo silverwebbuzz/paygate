@@ -1,12 +1,14 @@
-import { router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
-import adminImports from '@/routes/admin/statement-imports';
-import branchImports from '@/routes/branch/statement-imports';
-import type { UserType } from '@/types';
-import { Field, SelectInput, TextInput } from './field';
-import { FormDialog } from './form-dialog';
-import { Segmented } from './segmented';
+import { router, useForm, usePage } from "@inertiajs/react";
+import { useEffect, useMemo, useState } from "react";
+import { formatDate } from "@/lib/dates";
+import { formatPaise } from "@/lib/money";
+import { cn } from "@/lib/utils";
+import adminImports from "@/routes/admin/statement-imports";
+import branchImports from "@/routes/branch/statement-imports";
+import type { UserType } from "@/types";
+import { Field, SelectInput, TextInput } from "./field";
+import { FormDialog } from "./form-dialog";
+import { Segmented } from "./segmented";
 
 export type StatementAccount = {
     id: string;
@@ -41,21 +43,45 @@ type Preview = {
     date_formats: string[];
 };
 
+/** One line of the file, read with the confirmed columns. */
+type Line = {
+    row: number;
+    date: string;
+    direction: "credit" | "debit";
+    amount: number;
+    utr: string | null;
+    description: string | null;
+    /** stored: already in PayGate; repeated: twice in this file. */
+    duplicate: "stored" | "repeated" | null;
+    /** The deposit / payout carrying this line's UTR, if any. */
+    transaction: { reference: string; status: string } | null;
+};
+
+/** Flashed by StatementImportController::lines (step 2 → 3). */
+type Lines = {
+    token: string;
+    lines: Line[];
+    errors: { row: number; message: string }[];
+    failed: number;
+};
+
 const ROLES: [keyof Mapping, string][] = [
-    ['date', 'Date'],
-    ['description', 'Description'],
-    ['utr', 'UTR'],
-    ['credit', 'Credit'],
-    ['debit', 'Debit'],
-    ['amount', 'Amount'],
-    ['type', 'Cr/Dr'],
-    ['balance', 'Balance'],
+    ["date", "Date"],
+    ["description", "Description"],
+    ["utr", "UTR"],
+    ["credit", "Credit"],
+    ["debit", "Debit"],
+    ["amount", "Amount"],
+    ["type", "Cr/Dr"],
+    ["balance", "Balance"],
 ];
 
 /**
  * Statement import (design: "Import statement"): 1) choose the account and
  * the bank's CSV / Excel file; 2) check which column is which (guessed from
- * the headers, or the mapping saved for this bank's layout), then import.
+ * the headers, or the mapping saved for this bank's layout); 3) tick the
+ * lines that belong in PayGate (all unticked: a statement also carries
+ * the owner's personal transfers, which are never stored).
  */
 export function StatementImportDialog({
     portal,
@@ -68,14 +94,14 @@ export function StatementImportDialog({
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
-    const routes = portal === 'admin' ? adminImports : branchImports;
+    const routes = portal === "admin" ? adminImports : branchImports;
     const flashed =
         (usePage().flash as { import_preview?: Preview }).import_preview ??
         null;
     const [preview, setPreview] = useState<Preview | null>(null);
     const [dismissed, setDismissed] = useState<string | null>(null);
     const upload = useForm<{ payment_account_id: string; file: File | null }>({
-        payment_account_id: accounts.length === 1 ? accounts[0].id : '',
+        payment_account_id: accounts.length === 1 ? accounts[0].id : "",
         file: null,
     });
 
@@ -93,7 +119,7 @@ export function StatementImportDialog({
     const finish = () => {
         setDismissed(preview?.token ?? null);
         setPreview(null);
-        upload.reset('file');
+        upload.reset("file");
         onOpenChange(false);
     };
 
@@ -128,7 +154,7 @@ export function StatementImportDialog({
             onOpenChange={(next) => !next && close()}
             title="Import statement"
             description="Upload the account’s statement exactly as the bank gives it (CSV or Excel). Lines already in the statement are skipped, so overlapping periods are fine."
-            submitLabel={upload.processing ? 'Reading…' : 'Continue'}
+            submitLabel={upload.processing ? "Reading…" : "Continue"}
             processing={upload.processing || !upload.data.file}
             onSubmit={() =>
                 upload.post(routes.preview().url, {
@@ -142,7 +168,7 @@ export function StatementImportDialog({
                     required
                     value={upload.data.payment_account_id}
                     onChange={(event) =>
-                        upload.setData('payment_account_id', event.target.value)
+                        upload.setData("payment_account_id", event.target.value)
                     }
                 >
                     <option value="">Choose…</option>
@@ -163,7 +189,7 @@ export function StatementImportDialog({
                     required
                     accept=".csv,.txt,.xls,.xlsx"
                     onChange={(event) =>
-                        upload.setData('file', event.target.files?.[0] ?? null)
+                        upload.setData("file", event.target.files?.[0] ?? null)
                     }
                     className="text-[13px] file:mr-3 file:h-8 file:rounded-[7px] file:border file:border-ln file:bg-sf file:px-3 file:text-[13px] file:font-medium"
                 />
@@ -176,10 +202,10 @@ export function accountLabel(account: StatementAccount): string {
     return [
         account.branch,
         account.label,
-        account.bank && `${account.bank} ${account.number ?? ''}`.trim(),
+        account.bank && `${account.bank} ${account.number ?? ""}`.trim(),
     ]
         .filter(Boolean)
-        .join(' · ');
+        .join(" · ");
 }
 
 function MappingStep({
@@ -193,40 +219,58 @@ function MappingStep({
     onCancel: () => void;
     onDone: () => void;
 }) {
-    const routes = portal === 'admin' ? adminImports : branchImports;
-    const form = useForm({
+    const routes = portal === "admin" ? adminImports : branchImports;
+    const form = useForm<{
+        token: string;
+        layout: string;
+        mapping: Mapping;
+        rows: number[];
+    }>({
         token: preview.token,
-        layout: preview.layout ?? preview.account.bank ?? '',
+        layout: preview.layout ?? preview.account.bank ?? "",
         mapping: preview.mapping,
+        rows: [],
     });
+    const flashedLines =
+        (usePage().flash as { import_lines?: Lines }).import_lines ?? null;
+    const [lines, setLines] = useState<Lines | null>(null);
+
+    // The lines arrive as flash data after "Show lines".
+    useEffect(() => {
+        if (flashedLines && flashedLines.token === preview.token) {
+            setLines(flashedLines);
+            form.setData("rows", []);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [flashedLines, preview.token]);
     const errors = form.errors as Record<string, string | undefined>;
     const mapping = form.data.mapping;
-    const [mode, setMode] = useState<'split' | 'single'>(
-        preview.mapping.amount !== null ? 'single' : 'split',
+    const [mode, setMode] = useState<"split" | "single">(
+        preview.mapping.amount !== null ? "single" : "split",
     );
     const headerIndex = Math.max(1, mapping.header_row) - 1;
     const headers = preview.rows[headerIndex] ?? [];
     const width = Math.max(...preview.rows.map((row) => row.length), 0);
     const columns = Array.from({ length: width }, (_, index) => index);
     const set = (key: keyof Mapping, value: number | string | null) =>
-        form.setData('mapping', { ...mapping, [key]: value });
+        form.setData("mapping", { ...mapping, [key]: value });
     const roleOf = (column: number) =>
         ROLES.filter(
             ([key]) =>
                 mapping[key] === column &&
-                (mode === 'single'
-                    ? key !== 'credit' && key !== 'debit'
-                    : key !== 'amount' && key !== 'type'),
+                (mode === "single"
+                    ? key !== "credit" && key !== "debit"
+                    : key !== "amount" && key !== "type"),
         ).map(([, label]) => label);
 
     const columnSelect = (key: keyof Mapping, label: string, hint?: string) => (
         <Field label={label} hint={hint} error={errors[`mapping.${key}`]}>
             <SelectInput
-                value={mapping[key] ?? ''}
+                value={mapping[key] ?? ""}
                 onChange={(event) =>
                     set(
                         key,
-                        event.target.value === ''
+                        event.target.value === ""
                             ? null
                             : Number(event.target.value),
                     )
@@ -235,28 +279,58 @@ function MappingStep({
                 <option value="">— none —</option>
                 {columns.map((column) => (
                     <option key={column} value={column}>
-                        {columnName(column)} · {headers[column] || '(empty)'}
+                        {columnName(column)} · {headers[column] || "(empty)"}
                     </option>
                 ))}
             </SelectInput>
         </Field>
     );
 
-    const submit = () => {
+    const effective = (data: Mapping): Mapping => ({
+        ...data,
+        ...(mode === "single"
+            ? { credit: null, debit: null }
+            : { amount: null, type: null }),
+    });
+
+    // Step 2 → 3: read every line with these columns.
+    const showLines = () => {
+        form.transform((data) => ({
+            token: data.token,
+            mapping: effective(data.mapping),
+        }));
+        form.post(routes.lines().url, {
+            preserveScroll: true,
+            preserveState: true,
+        });
+    };
+
+    const importLines = () => {
         form.transform((data) => ({
             ...data,
-            mapping: {
-                ...data.mapping,
-                ...(mode === 'single'
-                    ? { credit: null, debit: null }
-                    : { amount: null, type: null }),
-            },
+            mapping: effective(data.mapping),
         }));
         form.post(routes.store().url, {
             preserveScroll: true,
             onSuccess: onDone,
         });
     };
+
+    if (lines) {
+        return (
+            <LinesStep
+                preview={preview}
+                lines={lines}
+                selected={form.data.rows}
+                onSelect={(rows) => form.setData("rows", rows)}
+                error={errors.rows ?? errors.mapping ?? errors.file}
+                processing={form.processing}
+                onBack={() => setLines(null)}
+                onCancel={onCancel}
+                onSubmit={importLines}
+            />
+        );
+    }
 
     return (
         <FormDialog
@@ -266,15 +340,15 @@ function MappingStep({
             title="Check the columns"
             description={
                 <>
-                    <b>{preview.file}</b> for {accountLabel(preview.account)}.{' '}
+                    <b>{preview.file}</b> for {accountLabel(preview.account)}.{" "}
                     {preview.layout
                         ? `Using the saved layout “${preview.layout}”.`
-                        : 'Columns were guessed from the headers: check them once; the layout is remembered for the next file from this bank.'}
+                        : "Columns were guessed from the headers: check them once; the layout is remembered for the next file from this bank."}
                 </>
             }
-            submitLabel={form.processing ? 'Importing…' : 'Import lines'}
+            submitLabel={form.processing ? "Reading…" : "Show lines"}
             processing={form.processing}
-            onSubmit={submit}
+            onSubmit={showLines}
         >
             {(errors.file || errors.mapping || errors.token) && (
                 <div className="rounded-lg bg-erb px-3 py-2.5 text-[12.5px] text-er">
@@ -291,39 +365,39 @@ function MappingStep({
                         value={mapping.header_row}
                         onChange={(event) =>
                             set(
-                                'header_row',
+                                "header_row",
                                 Math.max(1, Number(event.target.value) || 1),
                             )
                         }
                     />
                 </Field>
-                {columnSelect('date', 'Date column')}
+                {columnSelect("date", "Date column")}
                 <Field label="Date format" hint="As written in the file.">
                     <SelectInput
                         value={mapping.date_format}
                         onChange={(event) =>
-                            set('date_format', event.target.value)
+                            set("date_format", event.target.value)
                         }
                     >
                         {preview.date_formats.map((format) => (
                             <option key={format} value={format}>
                                 {format
-                                    .replace('d', 'dd')
-                                    .replace('m', 'mm')
-                                    .replace('M', 'Mon')
-                                    .replace('Y', 'yyyy')
-                                    .replace('y', 'yy')}
+                                    .replace(/d/, "dd")
+                                    .replace("m", "mm")
+                                    .replace("M", "Mon")
+                                    .replace("Y", "yyyy")
+                                    .replace("y", "yy")}
                             </option>
                         ))}
                     </SelectInput>
                 </Field>
-                {columnSelect('description', 'Description / narration')}
+                {columnSelect("description", "Description / narration")}
                 {columnSelect(
-                    'utr',
-                    'UTR / reference column',
-                    'Optional: the UTR is also found in the description.',
+                    "utr",
+                    "UTR / reference column",
+                    "Optional: the UTR is also found in the description.",
                 )}
-                {columnSelect('balance', 'Balance column', 'Optional.')}
+                {columnSelect("balance", "Balance column", "Optional.")}
             </div>
 
             <div className="flex flex-col gap-3 rounded-lg border border-ln p-3">
@@ -334,28 +408,28 @@ function MappingStep({
                     <Segmented
                         options={[
                             {
-                                value: 'split',
-                                label: 'Credit and debit columns',
+                                value: "split",
+                                label: "Credit and debit columns",
                             },
-                            { value: 'single', label: 'One amount column' },
+                            { value: "single", label: "One amount column" },
                         ]}
                         value={mode}
                         onChange={setMode}
                     />
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                    {mode === 'split' ? (
+                    {mode === "split" ? (
                         <>
-                            {columnSelect('credit', 'Credit (money in)')}
-                            {columnSelect('debit', 'Debit (money out)')}
+                            {columnSelect("credit", "Credit (money in)")}
+                            {columnSelect("debit", "Debit (money out)")}
                         </>
                     ) : (
                         <>
-                            {columnSelect('amount', 'Amount')}
+                            {columnSelect("amount", "Amount")}
                             {columnSelect(
-                                'type',
-                                'Cr / Dr column',
-                                'Optional: without it, a minus sign means debit.',
+                                "type",
+                                "Cr / Dr column",
+                                "Optional: without it, a minus sign means debit.",
                             )}
                         </>
                     )}
@@ -375,7 +449,7 @@ function MappingStep({
                                     {columnName(column)}
                                     {roleOf(column).length > 0 && (
                                         <span className="ml-1 rounded bg-acs px-1.5 py-px text-[11px] text-act">
-                                            {roleOf(column).join(', ')}
+                                            {roleOf(column).join(", ")}
                                         </span>
                                     )}
                                 </th>
@@ -389,8 +463,8 @@ function MappingStep({
                                 <tr
                                     key={index}
                                     className={cn(
-                                        'border-t border-ln2',
-                                        index === 0 && 'font-semibold',
+                                        "border-t border-ln2",
+                                        index === 0 && "font-semibold",
                                     )}
                                 >
                                     <td className="px-2 py-1.5 text-tx3">
@@ -400,12 +474,12 @@ function MappingStep({
                                         <td
                                             key={column}
                                             className={cn(
-                                                'max-w-[220px] truncate px-2 py-1.5',
+                                                "max-w-[220px] truncate px-2 py-1.5",
                                                 roleOf(column).length > 0 &&
-                                                    'bg-acs/40',
+                                                    "bg-acs/40",
                                             )}
                                         >
-                                            {row[column] ?? ''}
+                                            {row[column] ?? ""}
                                         </td>
                                     ))}
                                 </tr>
@@ -422,7 +496,7 @@ function MappingStep({
                 <TextInput
                     value={form.data.layout}
                     onChange={(event) =>
-                        form.setData('layout', event.target.value)
+                        form.setData("layout", event.target.value)
                     }
                 />
             </Field>
@@ -430,9 +504,326 @@ function MappingStep({
     );
 }
 
+type Filter = "all" | "credit" | "debit" | "linked";
+
+/**
+ * Step 3: every line of the file with a checkbox, all unticked. The branch
+ * ticks the lines that belong in PayGate; lines already in PayGate are
+ * shown greyed and can't be ticked.
+ */
+function LinesStep({
+    preview,
+    lines,
+    selected,
+    onSelect,
+    error,
+    processing,
+    onBack,
+    onCancel,
+    onSubmit,
+}: {
+    preview: Preview;
+    lines: Lines;
+    selected: number[];
+    onSelect: (rows: number[]) => void;
+    error?: string;
+    processing: boolean;
+    onBack: () => void;
+    onCancel: () => void;
+    onSubmit: () => void;
+}) {
+    const [filter, setFilter] = useState<Filter>("all");
+    const [search, setSearch] = useState("");
+    const ticked = useMemo(() => new Set(selected), [selected]);
+    const duplicates = lines.lines.filter((line) => line.duplicate).length;
+    const linked = lines.lines.filter(
+        (line) => line.transaction && !line.duplicate,
+    ).length;
+    const query = search.trim().toLowerCase();
+    const shown = lines.lines.filter(
+        (line) =>
+            (filter === "all" ||
+                (filter === "linked"
+                    ? line.transaction !== null
+                    : line.direction === filter)) &&
+            (query === "" ||
+                [
+                    line.utr,
+                    line.description,
+                    String(line.amount / 100),
+                    line.transaction?.reference,
+                ].some((value) => value?.toLowerCase().includes(query))),
+    );
+    const selectable = shown.filter((line) => !line.duplicate);
+    const allShownTicked =
+        selectable.length > 0 &&
+        selectable.every((line) => ticked.has(line.row));
+    const chosen = lines.lines.filter((line) => ticked.has(line.row));
+    const credit = chosen
+        .filter((line) => line.direction === "credit")
+        .reduce((sum, line) => sum + line.amount, 0);
+    const debit = chosen
+        .filter((line) => line.direction === "debit")
+        .reduce((sum, line) => sum + line.amount, 0);
+
+    const toggle = (row: number) =>
+        onSelect(
+            ticked.has(row)
+                ? selected.filter((value) => value !== row)
+                : [...selected, row],
+        );
+    const toggleShown = () => {
+        const rows = new Set(selectable.map((line) => line.row));
+
+        onSelect(
+            allShownTicked
+                ? selected.filter((row) => !rows.has(row))
+                : [...new Set([...selected, ...rows])],
+        );
+    };
+
+    return (
+        <FormDialog
+            open
+            onOpenChange={(next) => !next && onCancel()}
+            width={1040}
+            title="Choose the lines to import"
+            description={
+                <>
+                    <b>{preview.file}</b> for {accountLabel(preview.account)}.
+                    Tick only the lines that belong in PayGate: lines left
+                    unticked (personal transfers…) are never stored. The same
+                    file can be uploaded again later to add more.
+                </>
+            }
+            submitLabel={
+                processing
+                    ? "Importing…"
+                    : `Import ${chosen.length} ${chosen.length === 1 ? "line" : "lines"}`
+            }
+            processing={processing || chosen.length === 0}
+            onSubmit={onSubmit}
+        >
+            {error && (
+                <div className="rounded-lg bg-erb px-3 py-2.5 text-[12.5px] text-er">
+                    {error}
+                </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-tx2">
+                <span>
+                    <b className="text-tx">{lines.lines.length}</b> lines in the
+                    file
+                </span>
+                {linked > 0 && (
+                    <span>
+                        <b className="text-tx">{linked}</b> carry the UTR of a
+                        PayGate deposit / payout
+                    </span>
+                )}
+                {duplicates > 0 && (
+                    <span>
+                        <b className="text-tx">{duplicates}</b> already in
+                        PayGate
+                    </span>
+                )}
+                {lines.failed > 0 && (
+                    <span className="text-er">
+                        {lines.failed} couldn’t be read
+                    </span>
+                )}
+                <button
+                    type="button"
+                    onClick={onBack}
+                    className="ml-auto text-[12.5px] font-medium text-act hover:underline"
+                >
+                    ← Change columns
+                </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+                <Segmented<Filter>
+                    options={[
+                        { value: "all", label: "All" },
+                        { value: "credit", label: "Credits" },
+                        { value: "debit", label: "Debits" },
+                        { value: "linked", label: "PayGate UTRs" },
+                    ]}
+                    value={filter}
+                    onChange={setFilter}
+                />
+                <div className="min-w-[200px] flex-1">
+                    <TextInput
+                        placeholder="Search UTR, narration or amount"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                    />
+                </div>
+                {selected.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => onSelect([])}
+                        className="h-8 rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
+                    >
+                        Untick all
+                    </button>
+                )}
+            </div>
+
+            <div className="max-h-[420px] overflow-auto rounded-lg border border-ln">
+                <table className="w-full min-w-[760px] border-collapse text-xs">
+                    <thead className="sticky top-0 z-[1] bg-sf2">
+                        <tr className="text-left text-tx3">
+                            <th className="w-8 px-2 py-1.5">
+                                <input
+                                    type="checkbox"
+                                    className="size-4 accent-ac"
+                                    aria-label="Tick every line shown"
+                                    disabled={selectable.length === 0}
+                                    checked={allShownTicked}
+                                    onChange={toggleShown}
+                                />
+                            </th>
+                            <th className="px-2 py-1.5 font-medium">Row</th>
+                            <th className="px-2 py-1.5 font-medium">Date</th>
+                            <th className="px-2 py-1.5 text-right font-medium">
+                                Amount
+                            </th>
+                            <th className="px-2 py-1.5 font-medium">UTR</th>
+                            <th className="px-2 py-1.5 font-medium">
+                                Narration
+                            </th>
+                            <th className="px-2 py-1.5 font-medium">
+                                In PayGate
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {shown.map((line) => (
+                            <tr
+                                key={line.row}
+                                onClick={() =>
+                                    !line.duplicate && toggle(line.row)
+                                }
+                                className={cn(
+                                    "border-t border-ln2",
+                                    line.duplicate
+                                        ? "text-tx3"
+                                        : "cursor-pointer hover:bg-sf2",
+                                    ticked.has(line.row) && "bg-acs/40",
+                                )}
+                            >
+                                <td className="px-2 py-1.5">
+                                    <input
+                                        type="checkbox"
+                                        className="size-4 accent-ac"
+                                        aria-label={`Row ${line.row}`}
+                                        disabled={line.duplicate !== null}
+                                        checked={ticked.has(line.row)}
+                                        onClick={(event) =>
+                                            event.stopPropagation()
+                                        }
+                                        onChange={() => toggle(line.row)}
+                                    />
+                                </td>
+                                <td className="px-2 py-1.5 text-tx3">
+                                    {line.row}
+                                </td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                    {formatDate(line.date)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        "px-2 py-1.5 text-right whitespace-nowrap tabular-nums",
+                                        line.direction === "credit" &&
+                                            !line.duplicate &&
+                                            "text-ok",
+                                    )}
+                                >
+                                    {line.direction === "credit" ? "+" : "−"}
+                                    {formatPaise(line.amount)}
+                                </td>
+                                <td className="px-2 py-1.5 font-mono whitespace-nowrap">
+                                    {line.utr ?? "—"}
+                                </td>
+                                <td
+                                    className="max-w-[300px] truncate px-2 py-1.5"
+                                    title={line.description ?? ""}
+                                >
+                                    {line.description ?? "—"}
+                                </td>
+                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                    {line.duplicate === "stored" ? (
+                                        "Already imported"
+                                    ) : line.duplicate === "repeated" ? (
+                                        "Repeated in this file"
+                                    ) : line.transaction ? (
+                                        <span className="rounded bg-acs px-1.5 py-px text-act">
+                                            {line.transaction.reference} ·{" "}
+                                            {line.transaction.status.replace(
+                                                /_/g,
+                                                " ",
+                                            )}
+                                        </span>
+                                    ) : (
+                                        ""
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                        {shown.length === 0 && (
+                            <tr>
+                                <td
+                                    colSpan={7}
+                                    className="px-2 py-6 text-center text-tx3"
+                                >
+                                    No line matches.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {lines.errors.length > 0 && (
+                <details className="text-[12.5px] text-tx2">
+                    <summary className="cursor-pointer">
+                        {lines.failed} rows couldn’t be read (not imported)
+                    </summary>
+                    <ul className="mt-1 list-disc pl-5">
+                        {lines.errors.map((problem) => (
+                            <li key={problem.row}>
+                                Row {problem.row}: {problem.message}
+                            </li>
+                        ))}
+                    </ul>
+                </details>
+            )}
+
+            <div className="text-[12.5px] text-tx2">
+                {chosen.length === 0 ? (
+                    "No line ticked yet."
+                ) : (
+                    <>
+                        Ticked: <b className="text-tx">{chosen.length}</b> ·
+                        credits <b className="text-tx">{formatPaise(credit)}</b>
+                        {debit > 0 && (
+                            <>
+                                {" "}
+                                · debits{" "}
+                                <b className="text-tx">{formatPaise(debit)}</b>
+                            </>
+                        )}
+                    </>
+                )}
+            </div>
+        </FormDialog>
+    );
+}
+
 /** 0 → A, 25 → Z, 26 → AA (spreadsheet column letters). */
 function columnName(index: number): string {
-    let name = '';
+    let name = "";
 
     for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) {
         name = String.fromCharCode(65 + ((n - 1) % 26)) + name;

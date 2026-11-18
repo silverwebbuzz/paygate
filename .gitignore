@@ -59,3 +59,6 @@ yarn-error.log
 # Security scan reports (sensitive; share deliberately, never commit)
 /storage/security-reports/
 security-report-*.md
+
+# Sample bank/wallet statements from the client's old system (real customer data). Reference only, never committed.
+/bankstatement/

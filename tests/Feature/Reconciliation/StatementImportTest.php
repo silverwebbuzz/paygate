@@ -59,12 +59,38 @@ class StatementImportTest extends TestCase
         return $response->getSession()->get('inertia.flash_data')['import_preview'];
     }
 
-    private function import(array $preview, ?string $layout = null): TestResponse
+    /**
+     * Step 2: the lines of the file, read with the preview's mapping.
+     *
+     * @return array<string, mixed>
+     */
+    private function lines(array $preview): array
     {
+        $response = $this->actingAs($this->owner)->post(route('branch.statement-imports.lines'), [
+            'token' => $preview['token'],
+            'mapping' => $preview['mapping'],
+        ])->assertSessionHasNoErrors();
+
+        return $response->getSession()->get('inertia.flash_data')['import_lines'];
+    }
+
+    /**
+     * Step 3. Without $rows, every line that can be ticked is ticked.
+     *
+     * @param  list<int>|null  $rows
+     */
+    private function import(array $preview, ?string $layout = null, ?array $rows = null): TestResponse
+    {
+        if ($rows === null) {
+            $lines = rescue(fn () => $this->lines($preview)['lines'], [], false);
+            $rows = array_column(array_filter($lines, fn (array $line) => $line['duplicate'] === null), 'row');
+        }
+
         return $this->actingAs($this->owner)->post(route('branch.statement-imports.store'), [
             'token' => $preview['token'],
             'mapping' => $preview['mapping'],
             'layout' => $layout,
+            'rows' => $rows,
         ]);
     }
 
@@ -109,10 +135,11 @@ class StatementImportTest extends TestCase
         $this->assertSame($payin->id, $upi->transaction_id);
         $this->assertSame(['utr_not_found', 'manual_review'], ReconciliationCase::orderBy('created_at')->get()->map(fn ($case) => $case->type->value)->all());
 
-        // The same file again is refused…
+        // The same file again: every line is already in PayGate…
         $again = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('copy.csv', $csv)));
         $this->assertSame('HDFC Bank', $again['layout']);
-        $this->import($again)->assertSessionHasErrors('file');
+        $this->assertSame(['stored', 'stored', 'stored'], array_column($this->lines($again)['lines'], 'duplicate'));
+        $this->import($again, null, [5, 6, 7])->assertSessionHasErrors('rows');
 
         // …and an overlapping one adds only the new line.
         $overlap = self::HEADER.implode("\n", [
@@ -120,7 +147,8 @@ class StatementImportTest extends TestCase
             '26/09/2026,SMS CHARGES,,26/09/2026,17.70,,"1,17,516.30"',
             '27/09/2026,UPI-626812820499-X,,27/09/2026,,700.00,"1,18,216.30"',
         ]);
-        $this->import($this->flashed($this->preview(UploadedFile::fake()->createWithContent('hdfc-late.csv', $overlap))))->assertSessionHasNoErrors();
+        // Lines already in PayGate are skipped even when ticked.
+        $this->import($this->flashed($this->preview(UploadedFile::fake()->createWithContent('hdfc-late.csv', $overlap))), null, [4, 5, 6])->assertSessionHasNoErrors();
 
         $second = StatementImport::whereKeyNot($import->id)->sole();
         $this->assertSame(1, $second->rows_imported);
@@ -159,9 +187,68 @@ class StatementImportTest extends TestCase
         $this->preview(UploadedFile::fake()->createWithContent('statement.pdf', '%PDF-1.4'))->assertSessionHasErrors('file');
 
         $preview = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('x.csv', "Date,Narration,Deposit\n25/09/2026,UPI 626812820491,100\n")));
-        $this->import([...$preview, 'mapping' => [...$preview['mapping'], 'credit' => null, 'debit' => null, 'amount' => null]])
+        $this->import([...$preview, 'mapping' => [...$preview['mapping'], 'credit' => null, 'debit' => null, 'amount' => null]], null, [2])
             ->assertSessionHasErrors('mapping.credit');
-        $this->import([...$preview, 'token' => str_repeat('x', 32)])->assertSessionHasErrors('file');
+        $this->import([...$preview, 'token' => str_repeat('x', 32)], null, [2])->assertSessionHasErrors('file');
+        $this->import($preview, null, [])->assertSessionHasErrors('rows');
+    }
+
+    public function test_only_the_ticked_lines_are_stored_and_the_file_can_be_reused_for_the_rest()
+    {
+        $this->manualApproval();
+        $payin = $this->submittedPayin(['amount' => 349100]);
+        $utr = $payin->customer_utr_normalized;
+        // Google Pay for Business export: "Creation time" with a comma and a
+        // narrow no-break space before PM; no narration column.
+        $csv = "Payer,Paid via,Type (UPI / UPI CC),Creation time,Transaction ID,Amount,Processing Fee,Net Amount,Status,Update time,Notes\n"
+            ."N R,PhonePe,UPI,\"Nov 2, 2026, 1:23\u{202F}PM\",{$utr},3491,0,3491,Scheduled to Settle,\"Nov 2, 2026, 1:23\u{202F}PM\",TRNS1\n"
+            ."OWN TRANSFER,Others,UPI,\"Nov 2, 2026, 1:21\u{202F}PM\",630677879973,2500,0,2500,Scheduled to Settle,\"Nov 2, 2026, 1:21\u{202F}PM\",TRNS2\n";
+
+        $preview = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('gpay.csv', $csv))->assertSessionHasNoErrors());
+        $this->assertSame(['date' => 3, 'date_format' => 'M d, Y', 'description' => 0, 'utr' => 4, 'amount' => 5], array_intersect_key($preview['mapping'], array_flip(['date', 'date_format', 'description', 'utr', 'amount'])));
+
+        $lines = $this->lines($preview);
+        $this->assertSame([2, 3], array_column($lines['lines'], 'row'));
+        $this->assertSame('2026-11-02', $lines['lines'][0]['date']);
+        $this->assertSame($payin->reference, $lines['lines'][0]['transaction']['reference']);
+        $this->assertNull($lines['lines'][1]['transaction']);
+
+        // Only row 2 is ticked: the personal transfer is never stored.
+        $this->import($preview, 'Google Pay', [2])->assertSessionHasNoErrors();
+        $this->assertSame([$utr], StatementEntry::pluck('utr_normalized')->all());
+        $this->assertSame('matched', StatementEntry::sole()->status);
+        $this->assertSame([2, 1, 0], [StatementImport::sole()->rows_total, StatementImport::sole()->rows_imported, StatementImport::sole()->rows_duplicate]);
+
+        // The same file later: row 2 is flagged, row 3 can still be added.
+        $again = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('gpay.csv', $csv)));
+        $this->assertSame([2 => 'stored', 3 => null], array_column($this->lines($again)['lines'], 'duplicate', 'row'));
+        $this->import($again, null, [2, 3])->assertSessionHasNoErrors();
+        $this->assertSame(2, StatementEntry::count());
+        $this->assertSame([0, 1], StatementImport::pluck('rows_duplicate')->sort()->values()->all());
+    }
+
+    public function test_a_line_with_a_utr_already_stored_is_a_duplicate_even_with_another_date_or_narration()
+    {
+        $this->import($this->flashed($this->preview(UploadedFile::fake()->createWithContent('a.csv', "Date,Narration,Deposit\n25/09/2026,UPI 626812820491 RAHUL,100\n"))))->assertSessionHasNoErrors();
+
+        $other = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('b.csv', "Date,Narration,Deposit\n26/09/2026,UPI/CR/626812820491/RAHUL K,100\n26/09/2026,UPI/CR/626812820491/RAHUL K,100\n26/09/2026,IMPS-CHG/626812820491,5\n")));
+
+        // Same UTR + direction + amount: stored. A charge under the same
+        // UTR (another amount) is a separate line.
+        $this->assertSame(['stored', 'stored', null], array_column($this->lines($other)['lines'], 'duplicate'));
+    }
+
+    public function test_a_saved_layout_with_a_wrong_date_format_is_corrected_on_the_next_upload()
+    {
+        $csv = "Payer,Creation time,Transaction ID,Amount\nA,\"1 Nov 2026, 21:22\",856385642796,3491\n";
+        $preview = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('g.csv', $csv)));
+        $this->import([...$preview, 'mapping' => [...$preview['mapping'], 'date_format' => 'd M Y']], 'Wallet')->assertSessionHasNoErrors();
+        StatementTemplate::query()->update(['mapping->date_format' => 'd/m/Y']);
+
+        $next = $this->flashed($this->preview(UploadedFile::fake()->createWithContent('g2.csv', $csv)));
+
+        $this->assertSame('Wallet', $next['layout']);
+        $this->assertSame('d M Y', $next['mapping']['date_format']);
     }
 
     public function test_statement_history_lists_imports_of_the_branch_and_the_file_downloads()

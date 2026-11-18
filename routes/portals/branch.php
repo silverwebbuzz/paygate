@@ -70,6 +70,7 @@ Route::controller(StatementController::class)->prefix('statements')->name('state
 Route::controller(StatementImportController::class)->prefix('statements/imports')->name('statement-imports.')->group(function () {
     Route::get('/', 'index')->name('index');
     Route::post('preview', 'preview')->middleware('throttle:20,1')->name('preview');
+    Route::post('lines', 'lines')->middleware('throttle:30,1')->name('lines');
     Route::post('/', 'store')->name('store');
     Route::delete('{token}', 'cancel')->name('cancel');
 });
