@@ -50,6 +50,15 @@ class TransactionController extends Controller
     ];
 
     /**
+     * Not in the "All" tab, only in their own tab (client request
+     * 2026-11-19: expired deposits got in the way). A search still finds them.
+     */
+    public const ONLY_IN_OWN_TAB = [
+        'payin' => ['expired'],
+        'payout' => [],
+    ];
+
+    /**
      * Still waiting for someone. The period applies to these too ("Today"
      * is today only, client request 2026-11-18, superseding 2026-11-09);
      * older ones are counted in a banner that shows them in one click.
@@ -108,6 +117,7 @@ class TransactionController extends Controller
             ->when($group === 'chargeback', fn (Builder $query) => self::withChargeback($query, $actor))
             ->when($group === 'return', fn (Builder $query) => $query->whereNotNull('return_status'))
             ->when($group !== null && $group !== 'chargeback' && $group !== 'return', fn (Builder $query) => $query->whereIn('status', $groups[(string) $group] ?? []))
+            ->when($group === null && $search === '' && self::ONLY_IN_OWN_TAB[$direction] !== [], fn (Builder $query) => $query->whereNotIn('status', self::ONLY_IN_OWN_TAB[$direction]))
             ->when($search !== '', fn (Builder $query) => self::search($query, $search))
             ->latest('created_at')
             ->paginate(25)

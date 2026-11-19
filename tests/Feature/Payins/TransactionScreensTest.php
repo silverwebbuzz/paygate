@@ -134,6 +134,26 @@ class TransactionScreensTest extends TestCase
         }
     }
 
+    public function test_expired_deposits_are_only_in_the_expired_tab_but_search_still_finds_them()
+    {
+        $waiting = $this->submittedPayin(['order_id' => 'ORD-WAITING'], '777766665551');
+        $expired = $this->submittedPayin(['order_id' => 'ORD-EXPIRED'], '777766665552');
+        $expired->forceFill(['status' => 'expired'])->save();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+
+        $this->actingAs($admin)->get(route('admin.transactions.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('transactions.data', 1)
+                ->where('transactions.data.0.reference', $waiting->reference)
+                ->where('summary.closed.count', 1));
+
+        $this->actingAs($admin)->get(route('admin.transactions.index', ['status' => 'closed']))
+            ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 1)->where('transactions.data.0.reference', $expired->reference));
+
+        $this->actingAs($admin)->get(route('admin.transactions.index', ['search' => 'ORD-EXPIRED']))
+            ->assertInertia(fn (Assert $page) => $page->has('transactions.data', 1)->where('transactions.data.0.reference', $expired->reference));
+    }
+
     public function test_payment_proofs_are_shown_only_to_admin_and_the_receiving_branch()
     {
         Storage::fake('local');

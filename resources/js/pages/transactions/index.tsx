@@ -294,12 +294,14 @@ export default function Transactions({
         router.reload({ only: ['detail', 'selected'], data: { txn: id } });
     };
 
-    // A deposit with a chargeback (a payout with a return) is also counted under Success.
+    // A deposit with a chargeback (a payout with a return) is also counted
+    // under Success. Expired deposits are only in their own tab, not in All
+    // (client request 2026-11-19).
     const total = (
         Object.entries(summary) as [Group, { count: number }][]
     ).reduce(
         (sum, [group, figures]) =>
-            group === 'chargeback' || group === 'return'
+            group === 'chargeback' || group === 'return' || group === 'closed'
                 ? sum
                 : sum + figures.count,
         0,
@@ -602,6 +604,11 @@ export default function Transactions({
                             ? 'No results'
                             : `Showing ${transactions.from}–${transactions.to} of ${transactions.total}`}{' '}
                         · newest first
+                        {direction === 'payin' &&
+                            !filters.status &&
+                            !filters.search &&
+                            figure('closed').count > 0 &&
+                            ` · ${figure('closed').count} expired in the Expired tab`}
                     </span>
                 </div>
                 <DataTable
