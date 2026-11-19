@@ -10,6 +10,7 @@ import {
     HelpCircle,
     Landmark,
     LayoutList,
+    ListFilter,
     PlugZap,
     Receipt,
     RotateCcw,
@@ -41,6 +42,7 @@ import adminPayouts from '@/routes/admin/payouts';
 import adminReconciliation from '@/routes/admin/reconciliation';
 import adminRoles from '@/routes/admin/roles';
 import adminSettlements from '@/routes/admin/settlements';
+import adminStatementImports from '@/routes/admin/statement-imports';
 import adminStatements from '@/routes/admin/statements';
 import adminTransactions from '@/routes/admin/transactions';
 import adminUsers from '@/routes/admin/users';
@@ -413,6 +415,48 @@ export const GUIDE: GuideSection[] = [
 
     // ─── Deposits ────────────────────────────────────────────────────────
     {
+        id: 'lists',
+        group: 'Basics',
+        title: 'Lists: period filter, tabs, dates and the timeline',
+        icon: ListFilter,
+        summary:
+            'How every list (deposits, withdrawals, Manual Deposit, Unsettled UTR, logs…) decides what it shows.',
+        blocks: [
+            {
+                kind: 'points',
+                title: 'Period filter',
+                items: [
+                    'Every list opens on **Today** and shows only what was created today. Pick 1h, 24h, 7 Days, 30 Days, Yesterday, This Month, Previous Month or **Custom** dates.',
+                    'Older ones **still waiting** (pending, on hold, open cases) are not mixed in. A yellow line says “**N older … are still waiting (from before this period).**” → **Show them** opens exactly those dates.',
+                    'Every list has a date **and time** column (Created, Opened, Imported…). Unsettled UTR shows **Opened** with “waiting 5 days” under it.',
+                ],
+            },
+            {
+                kind: 'points',
+                title: 'Tabs',
+                items: [
+                    'Payments › Deposit and Withdrawal have tabs at the top (All deposits, Manual Deposit, Manual Entry, Unsettled UTR, UTR Reconciliation). The open tab is filled with colour.',
+                    'Deposit list: **All** does **not** show **expired** deposits (and does not count them). They are only in the **Expired** tab; the count line says “· N expired in the Expired tab”.',
+                    'A **search** (Transaction ID, Order ID or UTR) from All still finds expired deposits.',
+                    'Expired deposits are never deleted: a late payment is matched against them, and they are kept for disputes and audit.',
+                ],
+            },
+            {
+                kind: 'points',
+                title: 'Timeline (open any deposit or withdrawal)',
+                items: [
+                    'Every step shows **who** did it: name, role and organisation, e.g. “by **Ravi Kumar** (Branch Owner · Mumbai)”. API calls name the partner and API key; the customer’s steps say “by the customer”.',
+                    'Steps the system did by itself (auto-approval, automatic move to another branch) have an **Automatic** badge.',
+                    'Branches and partners see names only of their own people; PayGate staff show as “PayGate Admin”, another branch as “Another branch”.',
+                ],
+            },
+        ],
+        links: [
+            link('All deposits', adminTransactions.index()),
+            link('Unsettled UTR', adminCases.index()),
+        ],
+    },
+    {
         id: 'deposit',
         group: 'Deposits',
         title: 'Deposit flow (how a customer pays)',
@@ -473,6 +517,9 @@ export const GUIDE: GuideSection[] = [
                     'When **same UTR + same amount + same bank account** → the deposit becomes Success by itself.',
                     'It does not matter which comes first. Whichever comes second completes the match.',
                     'If anything is unclear (two deposits, other amount, other account), it is **not** approved by itself. A person decides.',
+                    'Money at **another branch** with the **same amount**: the deposit is moved to that branch and approved, but only if this customer was shown that branch’s account in the last day. Otherwise Admin decides (**Wrong branch**).',
+                    'Money at another branch with a **different amount**: the deposit is moved to the branch that has the money (no other check needed). It is **never** approved: that branch sees **Amount mismatch** and **Declines** it. The first branch and Admin are told it moved.',
+                    'The customer who entered a UTR whose bank line shows a different amount sees **“The amount doesn’t match”** on the payment page (the bank’s amount is not shown). Only the exact order amount is ever added.',
                 ],
             },
             {
@@ -519,7 +566,8 @@ export const GUIDE: GuideSection[] = [
                     'A UTR becomes free again **only** when its deposit is declined, expired, cancelled or failed.',
                     'Every refused UTR **alerts Admin**. It is a double entry or someone trying fraud.',
                     'Only the branch whose account got the money can make the matching bank line.',
-                    'A deposit moves to another branch by itself **only** if that same customer was shown that branch’s account in the last day.',
+                    'A deposit moves to another branch **and is approved** by itself only if the amount is the same **and** that same customer was shown that branch’s account in the last day.',
+                    'With a **different amount** it moves to the branch whose bank line shows the UTR, but only so that branch can **Decline** it. It is never approved.',
                     'The same UTR typed on a second bank line is refused. Only Admin can correct a wrong line.',
                 ],
             },
@@ -584,6 +632,64 @@ export const GUIDE: GuideSection[] = [
                 ],
             },
             {
+                kind: 'steps',
+                title: 'Importing a bank file (Import statement)',
+                items: [
+                    'Manual Entry › **Import statement** → choose the bank account and the file. **Excel (.xlsx) or CSV** only; PDF statements can’t be read (ask the bank or wallet for Excel / CSV).',
+                    '**Check the columns**: the system guesses which column is the date, UTR, description and amount. Fix any that are wrong → **Show lines**. If a chosen column breaks our rules in many rows (e.g. the “UTR” column has names), it stops and says which column (letter and header) and what it should contain.',
+                    '**Choose the lines to import**: every line of the file is listed, **unticked**. Tick only the lines that belong in PayGate. Lines left unticked (personal transfers, salary…) are **never stored**.',
+                    'The **Check** column says what will happen to each line before you tick it: ✓ matches a deposit / payout, or ⚠ goes to Unsettled UTR and why.',
+                    '**Problems** filter: lines that will be skipped and why (see below). They can’t be ticked.',
+                    '**Import N lines** → a message says how many were imported, how many matched and how many went to Unsettled UTR. The same file can be uploaded again later to add more lines: lines already in PayGate are skipped.',
+                ],
+            },
+            {
+                kind: 'table',
+                title: 'Lines the import never stores',
+                head: ['Problem', 'Why', 'What to do'],
+                rows: [
+                    [
+                        'Already in PayGate: skipped',
+                        'The same line is already on this bank account',
+                        'Nothing. No duplicates are made.',
+                    ],
+                    [
+                        'UTR already on another bank line (another account or branch)',
+                        'One UTR is one bank transfer. It is already in PayGate on a different account',
+                        'Check you chose the right bank account. If the earlier import was on the wrong account, Admin uses **Undo import** on it.',
+                    ],
+                    [
+                        'Repeated in this file: skipped',
+                        'The same line appears twice in the file',
+                        'Nothing. It is imported once.',
+                    ],
+                    [
+                        'No UTR',
+                        'Neither the UTR column nor the description has a proper UTR (UPI 12 digits, NEFT / RTGS / IMPS bank reference)',
+                        'Enter it by hand with **Add line** if it is a customer payment.',
+                    ],
+                    [
+                        'Date not readable / in the future',
+                        'Not in the chosen date format, or after tomorrow (day and month swapped)',
+                        'Pick the right date format in Check the columns.',
+                    ],
+                    [
+                        'Amount not readable',
+                        'The amount cell is not a number',
+                        'Check the amount columns in Check the columns.',
+                    ],
+                ],
+            },
+            {
+                kind: 'points',
+                title: 'Statement History and Undo import (Admin)',
+                items: [
+                    '**Statement History** lists every import: file, branch, bank account, who imported it, when, and how many lines were imported, skipped or refused.',
+                    'Imported on the **wrong account or branch**? Admin clicks **Undo import** → **Remove its lines**. Its lines and their Unsettled UTR cases are removed, so the file can be imported again on the right account.',
+                    'Lines already linked to a deposit / payout, or whose case was resolved, are **kept**. The import stays in the list, marked **undone** with who and when.',
+                ],
+            },
+            {
                 kind: 'points',
                 title: 'UTR Reconciliation tab',
                 items: [
@@ -595,6 +701,7 @@ export const GUIDE: GuideSection[] = [
         ],
         links: [
             link('Manual Entry', adminStatements.index()),
+            link('Statement History', adminStatementImports.index()),
             link(
                 'UTR Reconciliation (deposits)',
                 adminReconciliation.index({ query: { direction: 'payin' } }),
@@ -633,7 +740,7 @@ export const GUIDE: GuideSection[] = [
                 rows: [
                     [
                         'UTR not found',
-                        'No deposit has this UTR yet',
+                        'No deposit has this UTR yet (“No deposit yet” in the Branch match filter)',
                         'Wait: it links itself when the customer enters the UTR. Or find the deposit and **Link**.',
                     ],
                     [
@@ -649,7 +756,7 @@ export const GUIDE: GuideSection[] = [
                     [
                         'Wrong branch',
                         'The deposit belongs to another branch',
-                        'The branch cannot fix it: the line shows “Admin will move it”. Admin: **Move deposit** to this line’s branch and account.',
+                        'The branch cannot fix it: the line shows “Admin will move it”. Admin: **Move deposit** to this line’s branch and account. (A different amount moves there by itself, as **Amount mismatch**, for that branch to decline.)',
                     ],
                     [
                         'Duplicate UTR',
@@ -987,7 +1094,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         'Bank & UPI Accounts',
-                        'All branch accounts. Verify new accounts, set limits, switch on/off, see the account log.',
+                        'All branch accounts. Verify new accounts, set limits, switch on/off, see the account log. The branch filter takes **several branches** at once (tick them; none = all), also in the Account log.',
                     ],
                     [
                         'Network › Partners',
@@ -1167,7 +1274,7 @@ export const GUIDE: GuideSection[] = [
                     ['Dashboard', 'Its own figures', '`/partner`'],
                     [
                         'Bank & UPI Accounts',
-                        'The active bank accounts and UPI IDs given to it (no limits)',
+                        'The active bank accounts and UPI IDs given to it (no limits). **Account log** / **Log**: when each account turned Active or Inactive and changes to its bank or UPI details, with date and time (not who or why)',
                         '`/partner/accounts`',
                     ],
                     [
@@ -1338,6 +1445,28 @@ export const GUIDE: GuideSection[] = [
                 ],
             },
             {
+                kind: 'table',
+                title: 'API keys: Generate, Rotate, Revoke (Partners › API & security)',
+                head: ['Button', 'What happens', 'When to use'],
+                rows: [
+                    [
+                        'Generate key',
+                        'A new key and secret. The secret is shown **once**, with the partner file to download.',
+                        'A new partner, or after a revoke.',
+                    ],
+                    [
+                        'Rotate secret',
+                        'A new key and secret. The old key keeps working for **24 hours**, then stops.',
+                        'Normal change of secret, without stopping the partner’s live payments.',
+                    ],
+                    [
+                        'Revoke',
+                        'The key stops **at once**: every API call with it is refused. It stays in the list as “revoked” for the audit log. Needs your password and a reason.',
+                        'The secret may have leaked. Then **Generate key** and give the new partner file to the partner.',
+                    ],
+                ],
+            },
+            {
                 kind: 'points',
                 title: 'Webhooks (our messages to the partner)',
                 items: [
@@ -1449,7 +1578,31 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         '“The customer paid ₹500 at Branch 1 but entered the UTR on a new ₹1,000 request at Branch 2.”',
-                        'When Branch 1 enters the bank line (UTR and ₹500), the request moves to Branch 1 by itself if this customer was shown Branch 1’s account in the last day. It is **not** approved by itself: Branch 1 sees **Amount mismatch** and can only **Decline** it (a different amount is never approved). Otherwise it stays a **Wrong branch** case for Admin.',
+                        'When Branch 1 enters the bank line (UTR and ₹500), the request moves to Branch 1 by itself, because Branch 1 has the money. It is **not** approved: Branch 1 sees **Amount mismatch** and can only **Decline** it (a different amount is never approved). Branch 2 and Admin are told it moved.',
+                    ],
+                    [
+                        '“The customer’s payment page says ‘The amount doesn’t match’.”',
+                        'The bank line with that UTR shows a different amount than the order. The deposit waits as **Amount mismatch** for the branch, which declines it. The customer should check the UTR and amount, and contact the partner’s support if they paid a different amount.',
+                    ],
+                    [
+                        '“A branch imported the statement on the wrong account / branch.”',
+                        'Admin: Statement History → **Undo import** on that import. Its lines and cases are removed (lines already linked to a deposit are kept). Then the branch imports the file on the right account.',
+                    ],
+                    [
+                        '“The import skipped some lines.”',
+                        'Open the **Problems** filter: each line says why (already in PayGate, UTR on another bank line, no UTR, bad date or amount). Skipped lines are never stored.',
+                    ],
+                    [
+                        '“I can’t see old pending deposits” / “Today shows old ones.”',
+                        'Lists show only the chosen period (Today by default). Older waiting ones are in the yellow line above the list: click **Show them**.',
+                    ],
+                    [
+                        '“Where are the expired deposits?”',
+                        'In the **Expired** tab of the Deposit list, not in All. Searching by Order ID, Transaction ID or UTR finds them from any tab.',
+                    ],
+                    [
+                        '“The partner lost the API secret” or “the secret leaked”.',
+                        'Lost: **Rotate secret** (old one works 24 hours). Leaked: **Revoke** (stops at once), then **Generate key** and send the new partner file.',
                     ],
                     [
                         '“Why was the deposit not approved automatically?”',
