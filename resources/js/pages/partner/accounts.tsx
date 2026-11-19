@@ -1,9 +1,11 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import { History } from 'lucide-react';
 import { AccountTable } from '@/components/pg/account-table';
 import type { AccountRow } from '@/components/pg/account-form-dialog';
 import { Panel } from '@/components/pg/data-table';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
+import accountsRoutes from '@/routes/partner/accounts';
 
 type Props = {
     accounts: AccountRow[];
@@ -20,6 +22,14 @@ export default function PartnerAccounts({ accounts }: Props) {
             <PageHeader
                 title="Bank & UPI Accounts"
                 description="Active bank accounts and UPI IDs assigned to you."
+                actions={
+                    <Link
+                        href={accountsRoutes.logs.index().url}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-[7px] border border-ln bg-sf px-3 text-[13px] font-medium"
+                    >
+                        <History className="size-3.5" /> Account log
+                    </Link>
+                }
             />
 
             <KpiGrid>
@@ -44,6 +54,18 @@ export default function PartnerAccounts({ accounts }: Props) {
                     showVerification={false}
                     showLimits={false}
                     detailed
+                    actions={(account) => (
+                        <Link
+                            href={
+                                accountsRoutes.logs.index({
+                                    query: { account: account.id },
+                                }).url
+                            }
+                            className="inline-flex h-7 items-center rounded-[7px] border border-ln bg-sf px-3 text-xs font-medium"
+                        >
+                            Log
+                        </Link>
+                    )}
                     empty="Active bank accounts and UPI IDs appear here once PayGate assigns them to you."
                 />
             </Panel>

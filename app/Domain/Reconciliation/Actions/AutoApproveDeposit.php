@@ -6,6 +6,8 @@ use App\Domain\Core\Identity\Models\User;
 use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Platform\Settings;
+use App\Domain\Reconciliation\Enums\CaseType;
+use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Transaction\Actions\DecidePayin;
 use App\Domain\Transaction\Actions\MovePayin;
@@ -32,9 +34,11 @@ use Illuminate\Validation\ValidationException;
  *
  * A different amount (client request 2026-11-17): the customer paid ₹500
  * into this account on one request, then typed the UTR on a new ₹1,000
- * request given to another branch. The deposit is still moved here (same
- * checks), but never approved: it waits as "Amount mismatch" for this branch
- * to decline (only the order amount is ever approved).
+ * request given to another branch. The deposit is still moved here, but
+ * never approved: it waits as "Amount mismatch" for this branch to decline
+ * (only the order amount is ever approved). Since 2026-11-19 this move
+ * doesn't need the "was given this account" check: the branch that received
+ * the money decides, not Admin.
  *
  * Approval only when everything is clean: exact UTR and exact amount, the deposit is
  * waiting (or on hold only because its branch said "not in our bank"), one
@@ -100,11 +104,46 @@ class AutoApproveDeposit
         $lines = StatementEntry::query()->where('utr_normalized', $utr)->get();
         $line = $lines->first();
 
-        if ($lines->count() !== 1 || ! $line->isCredit() || $line->transaction_id !== null || $line->status !== 'unmatched') {
+        // A line on the deposit's own account was already matched against it
+        // (StatementMatcher: e.g. Amount mismatch); nothing to move (client
+        // report 2026-11-19: moving it "here" refused the customer's UTR).
+        if ($lines->count() !== 1 || ! $line->isCredit() || $line->transaction_id !== null || $line->status !== 'unmatched'
+            || $line->payment_account_id === $payin->payment_account_id) {
             return null;
         }
 
         return $this->moveAndApprove($line, $payin);
+    }
+
+    /**
+     * Open "Wrong branch" cases of credit lines: try the automatic move
+     * again (`php artisan reconciliation:recheck`), e.g. for lines entered
+     * before a different amount could move without the "was given" check.
+     * Returns how many deposits moved.
+     */
+    public function recheckWrongBranch(): int
+    {
+        $moved = 0;
+
+        ReconciliationCase::query()
+            ->where(['type' => CaseType::WrongBranch->value, 'status' => 'open'])
+            ->whereNotNull('transaction_id')
+            ->with(['entry', 'transaction'])
+            ->get()
+            ->each(function (ReconciliationCase $case) use (&$moved) {
+                $line = $case->entry;
+                $payin = $case->transaction;
+
+                if ($line === null || $payin === null || ! $line->isCredit()) {
+                    return;
+                }
+
+                DB::transaction(fn () => $this->forLine($line));
+
+                $moved += (int) ($payin->refresh()->branch_id === $line->branch_id);
+            });
+
+        return $moved;
     }
 
     /**
@@ -136,13 +175,17 @@ class AutoApproveDeposit
         $actor = $this->actor($line);
         $account = $line->paymentAccount;
 
-        if ($actor === null || ! $this->eligible($payin) || ! $this->mapped($payin, $account->branch_id) || ! $this->wasGiven($payin, $account->id)) {
+        if ($actor === null || ! $this->eligible($payin) || ! $this->mapped($payin, $account->branch_id)) {
             return null;
         }
 
         $fromBranch = (string) $payin->branch_id;
 
-        // Different amount: move only; the branch declines it.
+        // Different amount: move only; the branch that has the money
+        // declines it. No "was given this account" check here (client
+        // request 2026-11-19): the deposit can't be approved after the move,
+        // so a typed-in UTR gains a fraudster nothing, and the branch holding
+        // the money is the one who can tell.
         if ($line->amount !== $payin->amount) {
             $moved = $this->move->handle($actor, $payin, $account, __('Automatic: the bank line of :account shows UTR :utr for ₹:bank; the deposit is for ₹:amount. Moved here: a different amount can’t be approved, so decline it.', [
                 'account' => $account->label,
@@ -153,6 +196,12 @@ class AutoApproveDeposit
 
             $this->alerts->depositAutoMoved($moved, $fromBranch, approved: false, bankAmount: $line->amount);
 
+            return null;
+        }
+
+        // Same amount: moved only to be approved, so the customer must really
+        // have been given this account (else Admin decides: Wrong branch).
+        if (! $this->wasGiven($payin, $account->id)) {
             return null;
         }
 

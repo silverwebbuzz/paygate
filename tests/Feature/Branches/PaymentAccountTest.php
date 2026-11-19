@@ -273,6 +273,35 @@ class PaymentAccountTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'payment_account.revealed', 'subject_id' => $account->id, 'actor_id' => $admin->id]);
     }
 
+    public function test_admin_filters_accounts_by_several_branches_at_once()
+    {
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $branches = [$this->branch, Branch::factory()->create(), Branch::factory()->create()];
+
+        foreach ($branches as $i => $branch) {
+            $this->actingAs($admin)->post(route('admin.accounts.store'), $this->payload([
+                'branch_id' => $branch->id,
+                'label' => "Account {$i}",
+                'account_number' => "5010048271664{$i}",
+                'upi_id' => "branch{$i}@hdfcbank",
+                'min_amount' => '500',
+                'max_amount' => '5000',
+            ]))->assertSessionHasNoErrors();
+        }
+
+        $this->actingAs($admin)->get(route('admin.accounts.index', ['branches' => [$branches[0]->id, $branches[1]->id]]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.branches', [$branches[0]->id, $branches[1]->id])
+                ->where('accounts.total', 2));
+
+        // The old single-branch link still works.
+        $this->actingAs($admin)->get(route('admin.accounts.index', ['branch' => $branches[2]->id]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.branches', [$branches[2]->id])
+                ->where('accounts.total', 1)
+                ->where('accounts.data.0.label', 'Account 2'));
+    }
+
     public function test_an_admin_can_change_an_account_to_any_status_and_turn_a_disabled_one_back_on()
     {
         $account = $this->add();

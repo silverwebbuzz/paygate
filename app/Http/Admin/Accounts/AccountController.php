@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,7 +41,11 @@ class AccountController extends Controller
         /** @var User $actor */
         $actor = $request->user();
         $status = in_array($request->query('status'), self::VIEWS, true) ? (string) $request->query('status') : null;
-        $branchId = $request->query('branch');
+        // Any number of branches (none = all); the old single ?branch= still works.
+        $branchIds = array_values(array_unique(array_filter(
+            [...(array) $request->query('branches', []), $request->query('branch')],
+            fn ($id) => is_string($id) && Str::isUuid($id),
+        )));
         $search = trim((string) $request->query('search'));
 
         $accounts = PaymentAccount::query()
@@ -48,7 +53,7 @@ class AccountController extends Controller
             ->when($status === 'deleted', fn (Builder $query) => $query->where('status', AccountStatus::Deleted), fn (Builder $query) => $query->notDeleted())
             ->when(in_array($status, ['pending', 'verified', 'unverified'], true), fn (Builder $query) => $query->where('verification', $status))
             ->when(in_array($status, ['active', 'inactive'], true), fn (Builder $query) => $query->where('status', $status))
-            ->when(is_string($branchId) && $branchId !== '', fn (Builder $query) => $query->where('branch_id', $branchId))
+            ->when($branchIds !== [], fn (Builder $query) => $query->whereIn('branch_id', $branchIds))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->whereLike('label', "%{$search}%")
                 ->orWhereLike('account_holder_name', "%{$search}%")
@@ -68,7 +73,7 @@ class AccountController extends Controller
                 ...$accounts->toArray(),
                 'data' => $presenter->rows($accounts->getCollection(), $actor),
             ],
-            'filters' => ['status' => $status, 'branch' => $branchId, 'search' => $search],
+            'filters' => ['status' => $status, 'branches' => $branchIds, 'search' => $search],
             'counts' => [
                 'all' => PaymentAccount::query()->notDeleted()->count(),
                 ...PaymentAccount::query()->notDeleted()->toBase()->selectRaw('verification, count(*) as total')->groupBy('verification')->pluck('total', 'verification')->all(),

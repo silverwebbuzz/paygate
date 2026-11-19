@@ -2,6 +2,7 @@
 
 use App\Domain\Notification\AlertDispatcher;
 use App\Domain\Platform\Settings;
+use App\Domain\Reconciliation\Actions\AutoApproveDeposit;
 use App\Domain\Reconciliation\StatementMatcher;
 use App\Domain\Reporting\Actions\ManageReportExports;
 use App\Domain\Settlement\Actions\CalculateSettlement;
@@ -19,9 +20,12 @@ Artisan::command('inspire', function () {
 // Open "UTR not found" cases whose deposit arrived later on another account
 // or branch: match their lines again (client report 2026-11-18). Safe to run
 // any time; it only updates cases.
-Artisan::command('reconciliation:recheck', function (StatementMatcher $matcher) {
+// Then open "Wrong branch" cases try the automatic move again (a different
+// amount moves to the branch that has the money, client request 2026-11-19).
+Artisan::command('reconciliation:recheck', function (StatementMatcher $matcher, AutoApproveDeposit $autoApprove) {
     $this->info($matcher->recheckUnfound().' “UTR not found” case(s) now point at their deposit.');
-})->purpose('Re-match open “UTR not found” bank lines');
+    $this->info($autoApprove->recheckWrongBranch().' “Wrong branch” deposit(s) moved to the branch that has the money.');
+})->purpose('Re-match open “UTR not found” bank lines and retry moving “Wrong branch” deposits');
 
 // Pay-ins nobody paid in time: release their accounts' capacity (Phase 6).
 Schedule::call(fn () => app(ClosePayin::class)->expireDue())

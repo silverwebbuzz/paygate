@@ -38,6 +38,7 @@ type Props = {
         expires_at: string | null;
         submitted_at: string | null;
         completed_at: string | null;
+        amount_mismatch: boolean;
     };
     server_time: string;
     methods: Method[];
@@ -145,7 +146,28 @@ export default function Checkout(props: Props) {
                             onChooseAnother={() => setChoosing(true)}
                         />
                     )}
-                    {waiting && (
+                    {waiting && payin.amount_mismatch && (
+                        <Result
+                            tone="failed"
+                            title="The amount doesn’t match"
+                            body={`The bank received UTR ${payin.utr}, but not for ${formatPaise(payin.amount)}. Only the exact amount of this order can be added to your ${partner.name} account.`}
+                            rows={[
+                                ['Order amount', formatPaise(payin.amount)],
+                                ['UTR', payin.utr ?? '—'],
+                                ['Order ID', payin.order_id],
+                            ]}
+                            note={`Check the UTR and the amount you paid in your UPI or bank app. If you paid a different amount, this order will be declined: contact ${partner.name} support with your Order ID and UTR.`}
+                            action={
+                                props.return_url
+                                    ? {
+                                          label: `Back to ${partner.name}`,
+                                          href: props.return_url,
+                                      }
+                                    : undefined
+                            }
+                        />
+                    )}
+                    {waiting && !payin.amount_mismatch && (
                         <Result
                             tone="pending"
                             title="Verifying your payment"
@@ -155,7 +177,7 @@ export default function Checkout(props: Props) {
                                 ['UTR', payin.utr ?? 'Screenshot sent'],
                                 ['Order ID', payin.order_id],
                             ]}
-                            note={`Your payment will reflect in your ${partner.name} account within a few minutes. The amount that actually reached us under this UTR is what gets added, so if you paid a different amount, that amount is credited. You don’t need to wait on this page.`}
+                            note={`Your payment will reflect in your ${partner.name} account within a few minutes. Only the exact amount of this order is added, so pay exactly ${formatPaise(payin.amount)}. You don’t need to wait on this page.`}
                             action={
                                 props.return_url
                                     ? {

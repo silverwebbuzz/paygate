@@ -5,6 +5,7 @@ use App\Http\Partner\Balance\BalanceController;
 use App\Http\Partner\Developers\ApiLogController;
 use App\Http\Partner\Developers\DeveloperController;
 use App\Http\Partner\Profile\BusinessProfileController;
+use App\Http\Shared\Accounts\AccountLogController;
 use App\Http\Shared\Dashboard\DashboardController;
 use App\Http\Shared\Reports\ReportController;
 use App\Http\Shared\Settlements\SettlementController;
@@ -38,6 +39,11 @@ Route::get('payout-returns', [TransactionController::class, 'index'])->defaults(
 Route::post('payout-returns/payouts/{transaction}', [PayoutReturnController::class, 'store'])->name('payouts.return');
 Route::get('balance', [BalanceController::class, 'show'])->name('balance');
 Route::get('accounts', [AccountController::class, 'index'])->name('accounts.index');
+// Short log of those accounts: active / inactive and bank / UPI changes (client request 2026-11-19).
+Route::controller(AccountLogController::class)->prefix('accounts/logs')->name('accounts.logs.')->group(function () {
+    Route::get('/', 'index')->name('index');
+    Route::get('export', 'export')->name('export');
+});
 Route::get('settlements', [SettlementController::class, 'index'])->name('settlements.index');
 Route::get('settlement-dashboard', [SettlementDashboardController::class, 'show'])->name('settlement-dashboard');
 Route::post('webhooks/{event}/resend', [TransactionController::class, 'resendWebhook'])->name('webhooks.resend');

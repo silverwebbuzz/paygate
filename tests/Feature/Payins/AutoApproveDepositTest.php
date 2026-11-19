@@ -9,6 +9,7 @@ use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Notification\Enums\Alert;
 use App\Domain\Notification\Notifications\PortalAlert;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Domain\Platform\Settings;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Reconciliation\Models\StatementEntry;
 use App\Domain\Transaction\Models\Transaction;
@@ -17,6 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Concerns\BuildsPayinNetwork;
 use Tests\TestCase;
 
@@ -303,6 +305,69 @@ class AutoApproveDepositTest extends TestCase
         $this->assertSame('payment_submitted', $fake->refresh()->status);
         $this->assertSame($this->branch->id, $fake->branch_id);
         $this->assertSame('wrong_branch', ReconciliationCase::sole()->type->value);
+    }
+
+    public function test_a_different_amount_moves_to_the_branch_with_the_money_even_if_never_given_its_account()
+    {
+        // Client request 2026-11-19: ₹500 reached the paid branch with this
+        // UTR; the ₹1,000 deposit claiming it sits at the first branch.
+        $payin = $this->depositAtFirstBranch(amount: 1000000);
+
+        $this->addLine($this->paidOperator, $this->paidAccount, credit: '5000')->assertSessionHasNoErrors();
+
+        $payin->refresh();
+        $this->assertSame('payment_submitted', $payin->status);
+        $this->assertSame($this->paidBranch->id, $payin->branch_id);
+        $case = ReconciliationCase::sole();
+        $this->assertSame('amount_mismatch', $case->type->value);
+        $this->assertSame($this->paidBranch->id, $case->branch_id);
+        $this->assertSame(1, $this->alerted($this->operator, Alert::DepositAutoMoved));
+
+        // Never approved by itself; the paid branch declines it.
+        $this->actingAs($this->paidOperator)->post(route('branch.deposits.decline', $payin), ['reason_code' => 'wrong_amount'])->assertSessionHasNoErrors();
+        $this->assertSame('rejected', $payin->refresh()->status);
+    }
+
+    public function test_the_recheck_command_moves_a_different_amount_left_as_wrong_branch()
+    {
+        // As left behind before the change: the line waits as Wrong branch.
+        $this->manualApproval();
+        $payin = $this->depositAtFirstBranch(amount: 1000000);
+        $this->addLine($this->paidOperator, $this->paidAccount, credit: '5000')->assertSessionHasNoErrors();
+        $this->assertSame('wrong_branch', ReconciliationCase::sole()->type->value);
+        $this->assertSame($this->branch->id, $payin->refresh()->branch_id);
+        app(Settings::class)->set(Settings::AUTO_APPROVE_DEPOSITS, true, $this->admin);
+
+        $this->artisan('reconciliation:recheck')->expectsOutputToContain('1 “Wrong branch” deposit(s) moved')->assertSuccessful();
+
+        $this->assertSame($this->paidBranch->id, $payin->refresh()->branch_id);
+        $this->assertSame('amount_mismatch', ReconciliationCase::sole()->type->value);
+        $this->artisan('reconciliation:recheck')->expectsOutputToContain('0 “Wrong branch”')->assertSuccessful();
+    }
+
+    public function test_the_customers_utr_on_a_line_of_another_amount_on_the_same_account_is_accepted_and_explained()
+    {
+        // Client report 2026-11-19: the branch entered ₹500 first; the
+        // customer then submitted that UTR on a ₹1,000 deposit given the same
+        // account, and was refused with "The deposit is already on this account".
+        $this->addLine($this->paidOperator, $this->paidAccount, credit: '500')->assertSessionHasNoErrors();
+        $this->account->update(['status' => 'inactive']);
+        [$reference, $token] = $this->createPayin(['amount' => 100000, 'customer' => self::CUSTOMER]);
+        $this->post("http://pay.paygate.local/p/{$token}/method", ['method' => 'upi']);
+        $this->account->update(['status' => 'active']);
+
+        $this->postProof($token, self::UTR)->assertSessionHasNoErrors();
+
+        $payin = Transaction::where('reference', $reference)->sole();
+        $this->assertSame('payment_submitted', $payin->status);
+        $this->assertSame($this->paidAccount->id, $payin->payment_account_id);
+        $case = ReconciliationCase::sole();
+        $this->assertSame('amount_mismatch', $case->type->value);
+        $this->assertSame($payin->id, $case->transaction_id);
+
+        // The customer is told the amount doesn't match (without the bank's amount).
+        $this->get("http://pay.paygate.local/p/{$token}")
+            ->assertInertia(fn (Assert $page) => $page->where('payin.amount_mismatch', true));
     }
 
     public function test_another_branchs_utr_typed_on_a_bank_line_is_refused_and_admin_alerted()

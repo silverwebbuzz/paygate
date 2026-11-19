@@ -173,6 +173,10 @@ class AccountLogTest extends TestCase
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['branch' => $other->id]))
             ->assertInertia(fn (Assert $page) => $page->where('logs.total', 0));
 
+        // Several branches at once.
+        $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['branches' => [$other->id, $this->branch->id], 'event' => 'deactivated']))
+            ->assertInertia(fn (Assert $page) => $page->where('filters.branches', [$other->id, $this->branch->id])->where('logs.total', 1));
+
         $this->actingAs($this->admin)->get(route('admin.accounts.logs.index', ['search' => 'Closed by']))
             ->assertInertia(fn (Assert $page) => $page->where('logs.total', 1)->where('logs.data.0.event', 'rejected'));
 
@@ -235,7 +239,7 @@ class AccountLogTest extends TestCase
                 ->component('accounts/logs')
                 ->where('portal', 'branch')
                 ->where('branches', [])
-                ->where('filters.branch', null)
+                ->where('filters.branches', [])
                 ->where('logs.total', 4)
                 ->where('logs.data.0.event', 'deactivated')
                 ->where('logs.data.0.who.portal', 'admin')

@@ -161,7 +161,11 @@ export default function UsersIndex({
         url: string,
         data: Record<string, string> = {},
     ) =>
-        router[method](url, data, {
+        // router.visit: router.delete takes no data argument (the reason
+        // and these callbacks were dropped).
+        router.visit(url, {
+            method,
+            data,
             preserveScroll: true,
             preserveState: true,
             onStart: () => setProcessing(true),
@@ -241,11 +245,7 @@ export default function UsersIndex({
             />
 
             <PageHeader
-                title={
-                    organisation
-                        ? `Users · ${organisation.name}`
-                        : 'Users'
-                }
+                title={organisation ? `Users · ${organisation.name}` : 'Users'}
                 description={
                     organisation
                         ? `People who can log in to the ${PORTAL_LABELS[organisation.type].toLowerCase()} portal of ${organisation.name}. Users are deactivated, never deleted.`

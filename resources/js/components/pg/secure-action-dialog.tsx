@@ -41,7 +41,12 @@ export function SecureActionDialog({
     };
 
     const submit = () =>
-        router[method](url, askReason ? { password, reason } : { password }, {
+        // router.visit, not router[method]: router.delete takes no data
+        // argument, so the password and reason were dropped (client report
+        // 2026-11-19: "Revoke is not working").
+        router.visit(url, {
+            method,
+            data: askReason ? { password, reason } : { password },
             preserveScroll: true,
             preserveState: true,
             onStart: () => setProcessing(true),

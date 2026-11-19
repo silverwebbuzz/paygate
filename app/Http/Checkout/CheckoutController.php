@@ -11,6 +11,8 @@ use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\PaymentSession\Models\PaymentSession;
 use App\Domain\Platform\Models\Page;
 use App\Domain\Platform\Settings;
+use App\Domain\Reconciliation\Enums\CaseType;
+use App\Domain\Reconciliation\Models\ReconciliationCase;
 use App\Domain\Transaction\Actions\ClosePayin;
 use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Enums\PayinStatus;
@@ -74,6 +76,11 @@ class CheckoutController extends Controller
                 'expires_at' => $payin->expires_at?->toIso8601String(),
                 'submitted_at' => $payin->submitted_at?->toIso8601String(),
                 'completed_at' => ($payin->succeeded_at ?? $payin->decided_at)?->toIso8601String(),
+                // The bank shows this UTR for another amount (the amount itself
+                // is not shown: the UTR may not be this customer's).
+                'amount_mismatch' => $payin->payinStatus() === PayinStatus::PaymentSubmitted && ReconciliationCase::query()
+                    ->where(['transaction_id' => $payin->id, 'type' => CaseType::AmountMismatch->value, 'status' => 'open'])
+                    ->exists(),
             ],
             'server_time' => now()->toIso8601String(),
             'methods' => $this->methods($payin, $partner, $showAccount ? $account : null),

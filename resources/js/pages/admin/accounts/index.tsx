@@ -13,7 +13,7 @@ import { TextInput } from '@/components/pg/field';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { FormDialog } from '@/components/pg/form-dialog';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
-import { SearchSelect } from '@/components/pg/multi-select';
+import { MultiSelect } from '@/components/pg/multi-select';
 import { PageHeader } from '@/components/pg/page-header';
 import { formatLimit } from '@/lib/money';
 import accountsRoutes from '@/routes/admin/accounts';
@@ -22,7 +22,7 @@ type Branch = { id: string; code: string; name: string };
 
 type Props = {
     accounts: { data: AccountRow[]; total: number };
-    filters: { status: string | null; branch: string | null; search: string };
+    filters: { status: string | null; branches: string[]; search: string };
     counts: Record<string, number>;
     branches: Branch[];
     reveal?: {
@@ -71,7 +71,10 @@ export default function AdminAccounts({
     const visit = (next: Partial<Props['filters']>) => {
         const query = Object.fromEntries(
             Object.entries({ ...filters, search, ...next }).filter(
-                ([, value]) => value !== null && value !== '',
+                ([, value]) =>
+                    value !== null &&
+                    value !== '' &&
+                    !(Array.isArray(value) && value.length === 0),
             ),
         );
         router.get(
@@ -191,14 +194,12 @@ export default function AdminAccounts({
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
-                    <SearchSelect
+                    <MultiSelect
                         noun="branches"
-                        ariaLabel="Branch"
-                        className="h-[30px] w-[220px] text-[12.5px]"
                         items={branches}
-                        value={filters.branch ?? ''}
-                        allLabel="All branches"
-                        onChange={(id) => visit({ branch: id || null })}
+                        selected={filters.branches}
+                        onChange={(ids) => visit({ branches: ids })}
+                        className="h-[30px] w-[220px] flex-none rounded-[7px] text-[12.5px]"
                     />
                     <div className="flex-1" />
                     <span className="text-xs text-tx3">

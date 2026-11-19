@@ -112,4 +112,63 @@ class PartnerAccountsTest extends TestCase
         $rollout(['accounts']);
         $this->actingAs($this->owner)->get(route('partner.accounts.index'))->assertOk();
     }
+
+    public function test_partners_see_a_short_log_of_active_inactive_and_bank_or_upi_changes_only()
+    {
+        $account = $this->activeAccount(null, ['label' => 'Shop account']);
+        $hidden = $this->activeAccount(Branch::factory()->create(), ['label' => 'Unmapped account']);
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $details = fn (array $changes) => [
+            'label' => 'Shop account',
+            'account_holder_name' => $account->account_holder_name,
+            'is_bank_enabled' => true,
+            'bank_name' => 'HDFC Bank',
+            'ifsc' => 'HDFC0001203',
+            'is_upi_enabled' => true,
+            'upi_display_name' => $account->upi_display_name,
+            'is_qr_enabled' => true,
+            'max_open_sessions' => 5,
+            ...$changes,
+        ];
+
+        $this->actingAs($admin)->put(route('admin.accounts.status', $account), ['status' => 'inactive', 'reason' => 'Bank asked us to stop'])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->put(route('admin.accounts.status', $hidden), ['status' => 'inactive', 'reason' => 'x'])->assertSessionHasNoErrors();
+        // A limit-only edit is not the partner's business; a UPI name change is.
+        app(SavePaymentAccount::class)->handle($admin, $this->branch, $account->refresh(), $details(['max_open_sessions' => 9]));
+        app(SavePaymentAccount::class)->handle($admin, $this->branch, $account->refresh(), $details(['upi_display_name' => 'New Shop UPI']));
+
+        $this->actingAs($this->owner)->get(route('partner.accounts.logs.index'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('accounts/logs')
+                ->where('portal', 'partner')
+                ->where('branches', [])
+                ->where('events', [
+                    ['value' => 'activated', 'label' => 'Active'],
+                    ['value' => 'deactivated', 'label' => 'Inactive'],
+                    ['value' => 'updated', 'label' => 'Bank / UPI changed'],
+                ])
+                ->where('logs.data.0.event', 'updated')
+                ->where('logs.data.0.changes', [['field' => 'UPI name', 'before' => 'Holder 1', 'now' => 'New Shop UPI']])
+                ->where('logs.data.0.who', null)
+                ->where('logs.data.0.reason', null)
+                ->where('logs.data.0.ip', null)
+                ->where('logs.data.1.event', 'deactivated')
+                ->where('logs.data.1.to', 'inactive')
+                ->where('logs.data.1.account.label', 'Shop account')
+                ->where('logs.data.2.event', 'activated')
+                ->where('logs.data.2.to', 'active')
+                ->where('logs.total', 3));
+
+        $this->actingAs($this->owner)->get(route('partner.accounts.logs.index', ['event' => 'deactivated']))
+            ->assertInertia(fn (Assert $page) => $page->where('logs.total', 1));
+
+        // Another branch's account is out of reach, also by its id.
+        $this->actingAs($this->owner)->get(route('partner.accounts.logs.index', ['account' => $hidden->id]))
+            ->assertInertia(fn (Assert $page) => $page->where('logs.total', 0)->where('account', null));
+
+        $csv = $this->actingAs($this->owner)->get(route('partner.accounts.logs.export'))->streamedContent();
+        $this->assertStringStartsWith('When,Change,Status,"Changed details"', $csv);
+        $this->assertStringNotContainsString('Bank asked us to stop', $csv);
+    }
 }
