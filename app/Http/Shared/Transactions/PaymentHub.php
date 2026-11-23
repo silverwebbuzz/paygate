@@ -105,7 +105,7 @@ final class PaymentHub
         $presenter = app(StatementPresenter::class);
 
         return [
-            'accounts' => ReconciliationScope::accounts($actor)->with('branch')->orderBy('label')->get()
+            'accounts' => ReconciliationScope::entryAccounts($actor)->with('branch')->orderBy('label')->get()
                 ->map(fn ($account) => [...$presenter->account($account), 'branch_id' => $account->branch_id, 'branch' => $account->branch->name])
                 ->values(),
             'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],

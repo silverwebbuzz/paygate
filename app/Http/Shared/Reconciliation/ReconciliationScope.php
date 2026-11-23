@@ -4,6 +4,7 @@ namespace App\Http\Shared\Reconciliation;
 
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Models\ReconciliationCase;
@@ -42,8 +43,8 @@ final class ReconciliationScope
     }
 
     /**
-     * Accounts a statement can be entered for: every account that is verified,
-     * whether or not it is switched on.
+     * Accounts whose statement lines may be listed and filtered: every
+     * verified account, whether or not it is switched on (history).
      *
      * @return Builder<PaymentAccount>
      */
@@ -52,6 +53,18 @@ final class ReconciliationScope
         return PaymentAccount::query()
             ->where('verification', AccountVerification::Verified)
             ->when(! $actor->isType(UserType::Admin), fn (Builder $query) => $query->where('branch_id', $actor->branch_id));
+    }
+
+    /**
+     * Accounts a new line can be typed or imported for: verified and active.
+     * An inactive (switched-off) or deleted account takes no new lines
+     * (client request 2026-11-23): its old lines still show in the filters.
+     *
+     * @return Builder<PaymentAccount>
+     */
+    public static function entryAccounts(User $actor): Builder
+    {
+        return self::accounts($actor)->where('status', AccountStatus::Active);
     }
 
     public static function allows(User $actor, ?string $branchId): bool

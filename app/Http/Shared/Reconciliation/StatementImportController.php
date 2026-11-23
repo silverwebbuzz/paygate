@@ -5,6 +5,7 @@ namespace App\Http\Shared\Reconciliation;
 use App\Domain\Branch\Models\Branch;
 use App\Domain\Core\Identity\Enums\UserType;
 use App\Domain\Core\Identity\Models\User;
+use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
 use App\Domain\Reconciliation\Actions\ImportStatement;
 use App\Domain\Reconciliation\Actions\UndoStatementImport;
@@ -88,7 +89,7 @@ class StatementImportController extends Controller
             'filters' => ['branch' => is_string($branch) ? $branch : null, 'account' => is_string($account) ? $account : null],
             'period' => $period->toArray(),
             'accounts' => ReconciliationScope::accounts($actor)->with('branch')->orderBy('label')->get()
-                ->map(fn ($account) => ['id' => $account->id, 'label' => $account->label, 'bank' => $account->bank_name, 'number' => $account->maskedAccountNumber(), 'branch_id' => $account->branch_id, 'branch' => $account->branch->name])
+                ->map(fn ($account) => ['id' => $account->id, 'label' => $account->label, 'bank' => $account->bank_name, 'number' => $account->maskedAccountNumber(), 'branch_id' => $account->branch_id, 'branch' => $account->branch->name, 'active' => $account->status === AccountStatus::Active])
                 ->values(),
             'branches' => $actor->isType(UserType::Admin) ? Branch::query()->orderBy('name')->get(['id', 'code', 'name']) : [],
             'can' => ['create' => $actor->can('statements.create'), 'undo' => $actor->isType(UserType::Admin) && $actor->can('statements.create')],
@@ -108,7 +109,7 @@ class StatementImportController extends Controller
             'file' => ['required', 'file', 'max:5120', 'extensions:csv,txt,xls,xlsx'],
         ], ['file.extensions' => __('Upload the statement as CSV or Excel (.csv, .xls, .xlsx).')]);
 
-        $account = ReconciliationScope::accounts($actor)->find((string) $request->input('payment_account_id'));
+        $account = ReconciliationScope::entryAccounts($actor)->find((string) $request->input('payment_account_id'));
 
         if ($account === null) {
             throw ValidationException::withMessages(['payment_account_id' => __('Choose one of your accounts.')]);
@@ -264,7 +265,7 @@ class StatementImportController extends Controller
     {
         /** @var array{path: string, name: string, mime: string, account_id: string}|null $staged */
         $staged = $request->session()->get(self::SESSION.'.'.$token);
-        $account = $staged === null ? null : ReconciliationScope::accounts($actor)->find($staged['account_id']);
+        $account = $staged === null ? null : ReconciliationScope::entryAccounts($actor)->find($staged['account_id']);
 
         if ($staged === null || ! $account instanceof PaymentAccount) {
             throw ValidationException::withMessages(['file' => __('The upload has expired. Choose the file again.')]);

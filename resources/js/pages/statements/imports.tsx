@@ -63,7 +63,7 @@ type Props = {
     filters: { branch: string | null; account: string | null };
     /** Imported in the period (Today by default). */
     period: PeriodValue;
-    accounts: (StatementAccount & { branch_id: string })[];
+    accounts: (StatementAccount & { branch_id: string; active: boolean })[];
     branches: { id: string; code: string; name: string }[];
     can: { create: boolean; undo: boolean };
 };
@@ -372,7 +372,7 @@ export default function StatementImports(props: Props) {
 
             <StatementImportDialog
                 portal={portal}
-                accounts={accounts}
+                accounts={accounts.filter((account) => account.active)}
                 open={importing}
                 onOpenChange={setImporting}
             />

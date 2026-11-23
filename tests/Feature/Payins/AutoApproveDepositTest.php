@@ -398,6 +398,18 @@ class AutoApproveDepositTest extends TestCase
         $this->assertSame($fake->reference, $event->data['possible_duplicate_of']);
     }
 
+    public function test_a_switched_off_account_takes_no_new_line_and_is_not_offered()
+    {
+        // Client request 2026-11-23: an inactive account isn't in Manual Entry.
+        $this->paidAccount->update(['status' => 'inactive']);
+
+        $this->addLine($this->paidOperator, $this->paidAccount)->assertSessionHasErrors('payment_account_id');
+        $this->assertSame(0, StatementEntry::count());
+
+        $this->actingAs($this->paidOperator)->get(route('branch.statements.index'))
+            ->assertInertia(fn (Assert $page) => $page->where('hub.entry.accounts', []));
+    }
+
     public function test_a_utr_of_an_approved_deposit_is_refused_to_anyone_else()
     {
         $this->depositAtFirstBranch();

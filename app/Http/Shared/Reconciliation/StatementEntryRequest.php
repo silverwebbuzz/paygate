@@ -54,7 +54,7 @@ class StatementEntryRequest extends FormRequest
             }
 
             if ($this->account() === null) {
-                $validator->errors()->add('payment_account_id', __('Choose one of your accounts.'));
+                $validator->errors()->add('payment_account_id', __('Choose one of your active accounts. A switched-off account takes no new lines.'));
             }
         }];
     }
@@ -64,7 +64,7 @@ class StatementEntryRequest extends FormRequest
         /** @var User $actor */
         $actor = $this->user();
 
-        return ReconciliationScope::accounts($actor)->find((string) $this->input('payment_account_id'));
+        return ReconciliationScope::entryAccounts($actor)->find((string) $this->input('payment_account_id'));
     }
 
     public function direction(): string
