@@ -32,9 +32,9 @@ export function GoLiveCheck({ check }: { check: GoLive }) {
         <div className="flex flex-col gap-2.5 text-[12.5px]">
             <p className="text-tx2">
                 This is the <b>{check.environment}</b> server
-                {live ? ' (real money)' : ' (testing, no real money)'}. API
-                base URL: <span className="font-mono">{check.base_url}</span>.
-                Every answer and webhook says its server in{' '}
+                {live ? ' (real money)' : ' (testing, no real money)'}. API base
+                URL: <span className="font-mono">{check.base_url}</span>. Every
+                answer and webhook says its server in{' '}
                 <span className="font-mono">environment</span>.
                 {live
                     ? ' URLs that look like a test site are flagged below.'
@@ -46,7 +46,12 @@ export function GoLiveCheck({ check }: { check: GoLive }) {
 
                     return (
                         <li key={item.field} className="flex gap-2">
-                            <span className={cn('w-4 flex-none font-semibold', color)}>
+                            <span
+                                className={cn(
+                                    'w-4 flex-none font-semibold',
+                                    color,
+                                )}
+                            >
                                 {mark}
                             </span>
                             <div className="min-w-0">

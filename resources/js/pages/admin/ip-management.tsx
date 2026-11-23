@@ -64,19 +64,25 @@ export default function IpManagement({
             </Panel>
             <Panel className="flex flex-col gap-2 p-4">
                 <div className="text-[13.5px] font-semibold">
-                    Calls with another server&apos;s key or an unknown key
-                    (last 7 days)
+                    Calls with another server&apos;s key or an unknown key (last
+                    7 days)
                 </div>
                 <p className="text-xs text-tx3">
                     This is the <b>{environment}</b> server. A key of another
-                    server (wrong_environment) or an unknown key usually means
-                    a partner setting still points at the wrong server. Look
-                    the key id up on the server that issued it to find the
-                    partner.
+                    server (wrong_environment) or an unknown key usually means a
+                    partner setting still points at the wrong server. Look the
+                    key id up on the server that issued it to find the partner.
                 </p>
                 <SimpleTable
                     empty="None: every call used a key of this server."
-                    headers={['Key id sent', 'Error', 'Caller IP', 'Called', 'Calls', 'Last call']}
+                    headers={[
+                        'Key id sent',
+                        'Error',
+                        'Caller IP',
+                        'Called',
+                        'Calls',
+                        'Last call',
+                    ]}
                     rows={wrong_server.map((call) => [
                         <span key="k" className="font-mono text-xs">
                             {call.key_id}

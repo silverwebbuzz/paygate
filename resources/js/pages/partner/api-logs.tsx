@@ -82,8 +82,8 @@ export default function ApiLogs({ logs, filters, period, server }: Props) {
                 <span className="font-mono">{server.base_url}</span>). Calls
                 sent to another PayGate server are in that server&apos;s log.
                 Refused calls show their error code, e.g.{' '}
-                <span className="font-mono">wrong_environment</span> when a
-                key of another server was used.
+                <span className="font-mono">wrong_environment</span> when a key
+                of another server was used.
             </p>
             <Panel className="overflow-hidden">
                 <ViewTabs

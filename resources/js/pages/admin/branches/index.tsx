@@ -346,7 +346,8 @@ export default function BranchesIndex({
                                             {formatPaise(b.today.deposit, 0)}
                                             {b.today.deposit_pending > 0 && (
                                                 <div className="text-[11px] font-normal whitespace-nowrap text-muted-foreground">
-                                                    +{formatPaise(
+                                                    +
+                                                    {formatPaise(
                                                         b.today.deposit_pending,
                                                         0,
                                                     )}{' '}
@@ -374,8 +375,10 @@ export default function BranchesIndex({
                                             {formatPaise(b.today.withdrawal, 0)}
                                             {b.today.withdrawal_pending > 0 && (
                                                 <div className="text-[11px] font-normal whitespace-nowrap text-muted-foreground">
-                                                    +{formatPaise(
-                                                        b.today.withdrawal_pending,
+                                                    +
+                                                    {formatPaise(
+                                                        b.today
+                                                            .withdrawal_pending,
                                                         0,
                                                     )}{' '}
                                                     pending

@@ -212,11 +212,11 @@ Customer ─8 pays─▶ Gateway ─9 verify / reconcile─▶ SUCCESS / FAILED 
 
 ### 2.1 Onboarding
 
-| Item                 | Detail                                                                                                                                                                                        | Tag       | Refs      |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------- |
-| Who                  | Admin creates the partner (e.g. `ABC Website`, code `ABC001`)                                                                                                                                 | Confirmed | PTR-02    |
-| Generated/configured | Partner ID, partner code, API credentials, secret key, API version, allowed IPs, return URL, pay-in callback URL, pay-in webhook URL, payout webhook URL, enabled methods, commission, status | Confirmed | PTR-02…10 |
-| Rule                 | The partner calls our API **from its backend only**. The secret never reaches the partner's frontend or the customer's browser                                                                | Confirmed | API-05    |
+| Item                 | Detail                                                                                                                                                                                                                                                           | Tag                  | Refs         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ------------ |
+| Who                  | Admin creates the partner (e.g. `ABC Website`, code `ABC001`)                                                                                                                                                                                                    | Confirmed            | PTR-02       |
+| Generated/configured | Partner ID, partner code, API credentials, secret key, API version, allowed IPs, return URL, pay-in callback URL, pay-in webhook URL, payout webhook URL, enabled methods, commission, status                                                                    | Confirmed            | PTR-02…10    |
+| Rule                 | The partner calls our API **from its backend only**. The secret never reaches the partner's frontend or the customer's browser                                                                                                                                   | Confirmed            | API-05       |
 | Servers              | The partner integrates on **sandbox** (a27pay.tech, `pk_sb_` key), then is created again on **live** (a27pay.com, `pk_live_` key) with live URLs. Every answer / webhook says its server (`environment`); the Go-live check flags URLs that look like test sites | Confirmed 2026-11-23 | UX-37, UX-38 |
 
 ### 2.2 Create pay-in request
@@ -229,11 +229,11 @@ Customer ─8 pays─▶ Gateway ─9 verify / reconcile─▶ SUCCESS / FAILED 
 
 ### 2.3 Authentication & idempotency
 
-| Item        | Detail                                                                                                                         | Tag       | Refs                  |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | --------------------- |
+| Item        | Detail                                                                                                                                                    | Tag       | Refs                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | --------------------- |
 | Checks      | Key of this server's kind (else `wrong_environment`) → partner code → API credential → signature/secret → allowed IP → partner active → API version valid | Confirmed | API-01, API-03, UX-37 |
-| Errors      | 400 / 401 / 403 depending on the failure                                                                                       | Confirmed | API-09                |
-| Idempotency | A repeated `partner_transaction_id` (e.g. network retry) returns the **existing** transaction instead of creating a second one | Confirmed | API-07, C-07, Q-API-5 |
+| Errors      | 400 / 401 / 403 depending on the failure                                                                                                                  | Confirmed | API-09                |
+| Idempotency | A repeated `partner_transaction_id` (e.g. network retry) returns the **existing** transaction instead of creating a second one                            | Confirmed | API-07, C-07, Q-API-5 |
 
 ### 2.4 Transaction, session, response
 

@@ -200,7 +200,9 @@ class ApiEnvironmentTest extends TestCase
         $this->assertNull(GoLiveCheck::problem('https://contest.shop.in/x'));
 
         // Admin's partner drawer shows it.
-        $this->actingAs(User::factory()->admin()->withTwoFactor()->create())
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $this->actingAs($admin)->get(route('admin.partners.index'))->assertOk(); // sets the Inertia asset version
+        $this->actingAs($admin)
             ->get(route('admin.partners.index', ['partner' => $this->partner->id]), [
                 'X-Inertia' => 'true',
                 'X-Inertia-Partial-Component' => 'admin/partners/index',
@@ -215,9 +217,10 @@ class ApiEnvironmentTest extends TestCase
     public function test_on_live_a_test_looking_return_url_is_accepted_with_a_warning()
     {
         config(['paygate.environment' => 'live']);
+        $this->partner->update(['website_url' => 'https://atoz.in']);
         $issued = app(IssueApiKey::class)->handle($this->networkAdmin, $this->partner);
 
-        $this->api('POST', '/v1/payins', $this->payinBody(['return_url' => 'https://dev.atoz.example.com/done']), secret: $issued['secret'], keyId: $issued['key']->key_id)
+        $this->api('POST', '/v1/payins', $this->payinBody(['return_url' => 'https://dev.atoz.in/done']), secret: $issued['secret'], keyId: $issued['key']->key_id)
             ->assertCreated()
             ->assertJsonPath('warnings.0', 'return_url: The address contains "dev": looks like a test site.');
     }

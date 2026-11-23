@@ -197,8 +197,8 @@ export default function ApiDocs(props: Props) {
                     </li>
                     <li>
                         Set your live return, callback and webhook URLs there
-                        (API &amp; Webhooks). Its <b>Go-live check</b> flags
-                        any that still look like a test site.
+                        (API &amp; Webhooks). Its <b>Go-live check</b> flags any
+                        that still look like a test site.
                     </li>
                     <li>
                         In your configuration, change the base URL, key id,
@@ -206,11 +206,11 @@ export default function ApiDocs(props: Props) {
                     </li>
                     <li>
                         Make one test call and check the answer says{' '}
-                        <Code>&quot;environment&quot;: &quot;live&quot;</Code>
-                        . Check your webhook handler sees it too. On live,
-                        a pay-in whose <Code>return_url</Code> looks like a
-                        test site is accepted with a <Code>warnings</Code>{' '}
-                        list in the answer.
+                        <Code>&quot;environment&quot;: &quot;live&quot;</Code>.
+                        Check your webhook handler sees it too. On live, a
+                        pay-in whose <Code>return_url</Code> looks like a test
+                        site is accepted with a <Code>warnings</Code> list in
+                        the answer.
                     </li>
                 </ol>
             </Doc>
