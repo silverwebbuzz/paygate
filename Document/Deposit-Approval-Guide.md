@@ -25,7 +25,7 @@ You can stay on the tab you are on (All deposits or Manual Deposit): when the li
 In the **"New statement line · Credit received in the bank"** bar at the top, fill in:
 
 - **Branch** (Admin only)
-- **Bank account** (where the money came in)
+- **Bank account** (where the money came in). Only **active** bank / UPI accounts are listed (2026-11-23): a switched-off or deleted account takes no new lines. If money arrived after an account was switched off, switch it on, add the line, and switch it off again (or ask Admin).
 - **Date**
 - **UTR / reference**
 - **Credit ₹**

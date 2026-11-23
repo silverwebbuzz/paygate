@@ -15,6 +15,7 @@ import {
     Receipt,
     RotateCcw,
     Scale,
+    Server,
     ShieldCheck,
     Store,
     Tags,
@@ -613,7 +614,7 @@ export const GUIDE: GuideSection[] = [
                 title: 'Payments › Deposit › Manual Entry',
                 node: <StatementMock />,
                 marks: [
-                    'Type one bank line: bank account, date, UTR and credit amount → **Add line**. For many lines use **Import statement** (bank file).',
+                    'Type one bank line: bank account, date, UTR and credit amount → **Add line**. For many lines use **Import statement** (bank file). Only **active** bank / UPI accounts are offered: a switched-off or deleted account takes no new lines (switch it on, add the line, switch it off again).',
                     '**Unsettled** = the line did not match cleanly. Move the mouse over it to see why.',
                     'Admin: **Match** opens the line’s case, where you link it to the right deposit (next section).',
                     'Branch login: **Amount mismatch** → only **Decline** (Admin: **Decline** or **Edit** the line if it was typed wrong). After a decline the line shows **Deposit declined** under Amount mismatch. **Wrong bank account** → **Match** only changes the line’s bank account. **Wrong branch** → only Admin can move the deposit (the line shows “Admin will move it”). Any other unsettled line shows **Details**.',
@@ -635,7 +636,7 @@ export const GUIDE: GuideSection[] = [
                 kind: 'steps',
                 title: 'Importing a bank file (Import statement)',
                 items: [
-                    'Manual Entry › **Import statement** → choose the bank account and the file. **Excel (.xlsx) or CSV** only; PDF statements can’t be read (ask the bank or wallet for Excel / CSV).',
+                    'Manual Entry › **Import statement** → choose the bank account (active ones only) and the file. **Excel (.xlsx) or CSV** only; PDF statements can’t be read (ask the bank or wallet for Excel / CSV).',
                     '**Check the columns**: the system guesses which column is the date, UTR, description and amount. Fix any that are wrong → **Show lines**. If a chosen column breaks our rules in many rows (e.g. the “UTR” column has names), it stops and says which column (letter and header) and what it should contain.',
                     '**Choose the lines to import**: every line of the file is listed, **unticked**. Tick only the lines that belong in PayGate. Lines left unticked (personal transfers, salary…) are **never stored**.',
                     'The **Check** column says what will happen to each line before you tick it: ✓ matches a deposit / payout, or ⚠ goes to Unsettled UTR and why.',
@@ -1102,7 +1103,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         'Network › Branches',
-                        'Add and edit branches: deposit / withdrawal on or off, limits, commission.',
+                        'Add and edit branches: deposit / withdrawal on or off, limits, commission. **Today** columns show approved deposits / paid payouts only; amounts still waiting show underneath as “+₹X pending”. Daily limits count both.',
                     ],
                     [
                         'Network › Partner → branches / Branch → partners / Branch mapping',
@@ -1151,7 +1152,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         'System › IP Management',
-                        'Every partner’s allowed IPs, and which IPs called the API in the last 7 days (and how many were refused).',
+                        'Every partner’s allowed IPs, which IPs called the API in the last 7 days (and how many were refused), and calls made with **another server’s key or an unknown key** (a partner URL pointing at the wrong server).',
                     ],
                     [
                         'System › Audit Logs',
@@ -1304,7 +1305,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         'Developers › API & Webhooks',
-                        'API keys, webhook URLs, **Allowed IPs**',
+                        'API keys, webhook URLs, **Allowed IPs**, **Go-live check**',
                         '`/partner/developers`',
                     ],
                     [
@@ -1314,7 +1315,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         'Developers › API Logs',
-                        'Every API call it made and our answer',
+                        'Every API call it made to this server and our answer (error code, address called, key used)',
                         '`/partner/api-logs`',
                     ],
                     ['System › Users', 'Its own users', '`/partner/users`'],
@@ -1355,6 +1356,7 @@ export const GUIDE: GuideSection[] = [
                     'Ask the partner for its **server’s public IP** (not their office or mobile IP). Then go to **Network › Partners › Edit › API & security › Allowed IPs**, add it and Save. The partner can also add it under **Developers › API & Webhooks › Allowed IPs**.',
                     'One IP per line, or a range like `10.0.0.0/24`.',
                     'Ask the partner to try again. Check their **API Logs** with them for the error code.',
+                    'Error `wrong_environment` or “Unknown or revoked API key on the … server”: the partner is calling the **wrong server** (see “Servers: Testbox, Sandbox, Live”). IP Management lists these calls with the key id sent.',
                     'Check the partner is **Active** and that deposits / withdrawals are switched on for it.',
                 ],
             },
@@ -1456,7 +1458,7 @@ export const GUIDE: GuideSection[] = [
                 rows: [
                     [
                         'Generate key',
-                        'A new key and secret. The secret is shown **once**, with the partner file to download.',
+                        'A new key and secret. The secret is shown **once**, with the partner file to download. On live keys start `pk_live_`, on sandbox / testbox `pk_test_`.',
                         'A new partner, or after a revoke.',
                     ],
                     [
@@ -1479,6 +1481,80 @@ export const GUIDE: GuideSection[] = [
                     'If the partner’s server does not answer, we try again after 1, 5, 15, 60 minutes, 6 hours and 24 hours.',
                     'Admin can see each webhook on the transaction and **resend** it.',
                     'The partner’s webhook URLs are set under API & security (Admin) or API & Webhooks (partner).',
+                    'Every webhook and API answer says which server sent it: field `environment` and header X-PayGate-Environment (live, sandbox or testbox). Signatures are unchanged.',
+                ],
+            },
+        ],
+        links: [
+            link('IP Management', admin.ipManagement.index()),
+            link('Partners', adminPartners.index()),
+        ],
+    },
+    {
+        id: 'servers',
+        group: 'Partners & API',
+        title: 'Servers: Testbox, Sandbox, Live (and going live)',
+        icon: Server,
+        summary:
+            'We run three separate copies of the system, each with its own data. The pill at the top right shows which one you are on.',
+        blocks: [
+            {
+                kind: 'table',
+                head: ['Server', 'Address', 'For', 'Keys start'],
+                rows: [
+                    [
+                        '**Testbox**',
+                        'our internal testing server',
+                        'Our own testing. No real money.',
+                        '`pk_test_`',
+                    ],
+                    [
+                        '**Sandbox**',
+                        'a27pay.tech',
+                        'Partners build and test their connection. No real money.',
+                        '`pk_test_`',
+                    ],
+                    [
+                        '**Live**',
+                        'a27pay.com',
+                        'Real customers, real money.',
+                        '`pk_live_`',
+                    ],
+                ],
+            },
+            {
+                kind: 'points',
+                title: 'What to know',
+                items: [
+                    'Each server has its **own** partners, keys, users and data. A partner set up on sandbox must be set up again on live, with a new key.',
+                    'The pill at the top right says **Live** (purple) or **Sandbox / Testbox** (amber). Check it before approving anything.',
+                    'Every API answer and webhook says which server sent it: field `environment` and header X-PayGate-Environment.',
+                    'A test key (`pk_test_`) sent to live, or a live key (`pk_live_`) sent to sandbox / testbox, is refused with **wrong_environment**. The message names the server that was called.',
+                    'Test partners and test payments can’t be created on live.',
+                ],
+            },
+            {
+                kind: 'steps',
+                title: 'Taking a partner live',
+                items: [
+                    'On the **live** server: create the partner, add its server IPs, **Generate key** (starts `pk_live_`) and give it the partner file.',
+                    'Set its **live** return, callback and webhook URLs (Partners › Edit › API & security).',
+                    'Open the partner (Network › Partners) and read the **Go-live check**: ✓ = fine, ⚠ = looks like a test site (staging, test, dev, demo, localhost, http…), ✕ = missing. Fix every ⚠ and ✕.',
+                    'Ask the partner to change **base URL, key id, secret and URLs together**, then make one test call: the answer must say `"environment": "live"`.',
+                    'In the first days, check **System › IP Management** for calls with another server’s key: a URL somewhere still points at sandbox.',
+                ],
+            },
+            {
+                kind: 'note',
+                tone: 'warn',
+                text: 'On live, a pay-in whose return URL looks like a test site is still accepted, but our answer to the partner carries a **warnings** list. Tell the partner to fix the URL.',
+            },
+            {
+                kind: 'points',
+                title: 'For the person who deploys',
+                items: [
+                    'Each server’s `.env` sets `PAYGATE_ENVIRONMENT` = `testbox`, `sandbox` or `live`. If it is missing, a production server counts as **live**.',
+                    'Before switching the key check on (`PAYGATE_API_ENFORCE_KEY_ENVIRONMENT=true`), run `php artisan paygate:key-environments`: it lists keys this server would refuse. **Rotate** those keys first (the old one works 24 hours). The deploy script prints this list every time.',
                 ],
             },
         ],
@@ -1620,6 +1696,18 @@ export const GUIDE: GuideSection[] = [
                     [
                         '“Partner API gives an error.”',
                         'See the Partner API section. Most often: IP not in Allowed IPs.',
+                    ],
+                    [
+                        '“Partner gets wrong_environment” or “Unknown or revoked API key on the … server”.',
+                        'They are calling the wrong server, or using another server’s key. Each server has its own keys: base URL, key id, secret and URLs must all be for the same server. See “Servers: Testbox, Sandbox, Live”.',
+                    ],
+                    [
+                        '“Which server am I on?”',
+                        'The pill at the top right: Live (purple, real money) or Sandbox / Testbox (amber, testing).',
+                    ],
+                    [
+                        '“A bank account is missing in Manual Entry.”',
+                        'Only active accounts are offered. Switch the account on under Bank & UPI Accounts (or ask Admin), add the line, then switch it off again if needed.',
                     ],
                     [
                         '“Partner did not get the webhook.”',

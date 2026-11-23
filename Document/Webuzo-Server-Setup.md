@@ -416,6 +416,12 @@ HORIZON_PREFIX=paygate-aidemo-horizon:
 
 SESSION_SECURE_COOKIE=true
 
+# Which server this is (Developer-Guide: testbox / sandbox / live). aidemo.in is our testing server.
+PAYGATE_ENVIRONMENT=testbox
+# Refuse keys of the other kind (pk_live_ here). Keep false until `php artisan paygate:key-environments`
+# lists no key, then set true.
+PAYGATE_API_ENFORCE_KEY_ENVIRONMENT=false
+
 MAIL_MAILER=smtp
 MAIL_HOST=<mail.aidemo.in or your SMTP host>
 MAIL_PORT=587
@@ -428,6 +434,7 @@ MAIL_FROM_ADDRESS="no-reply@aidemo.in"
 - `REDIS_PASSWORD`: keep `null` if step 1 showed an empty `requirepass`; otherwise put that password.
 - `API_PATH`/`PAY_PATH`: the API lives under `/api`, payer pages under `/pay`.
 - Keep `PAYGATE_ENFORCE_2FA=true` and `PAYGATE_API_ENFORCE_IP=true`.
+- `PAYGATE_ENVIRONMENT` must be set: without it a server with `APP_ENV=production` counts as **live** (top-bar pill, API `environment` field, `pk_live_` keys, test partners refused).
 
 Generate the two secret keys (**only once, ever**; changing them later makes stored bank/UPI details unreadable):
 
@@ -653,7 +660,8 @@ nothing has to be created or edited on the server. It needs `.server/env.sh`, `.
 What it does, in order: refuses to run if files were changed by hand on the server; `git pull` (then restarts itself
 with the pulled copy); `composer install`; `npm ci` + `npm run build` (the screens); a database backup to
 `.server/backups/before-deploy-….dump`; maintenance page on; migrations as `paygate_owner`; the app-login privileges
-(`database/sql/app-privileges.sql`); Laravel caches; maintenance page off; restarts `paygate-web`, `paygate-horizon`
+(`database/sql/app-privileges.sql`); the list of API keys this server would refuse (`paygate:key-environments`,
+information only); Laravel caches; maintenance page off; restarts `paygate-web`, `paygate-horizon`
 and `paygate-scheduler`. If a step fails it takes the maintenance page down again and stops.
 
 (`.server/deploy.sh` from earlier versions of this guide can be deleted.)
@@ -683,6 +691,7 @@ page while migrations run. Don't run `git pull`, `composer`, `npm` or `php artis
 | `permission denied for table …` after release       | Re-run the `psql … app-privileges.sql` line from the deploy script                                                                                      |
 | `could not connect to server` (database)            | `systemctl status postgresql-18`; `.env` must have `DB_PORT=5433`                                                                                       |
 | `Connection refused … 6379` / `NOAUTH`              | Webuzo's Redis is stopped, or it has a password: set `REDIS_PASSWORD` in `.env`, then `config:cache`                                                    |
+| Partner gets `wrong_environment`                    | `php artisan paygate:key-environments`; rotate the listed keys (old one works 24 h), or check `PAYGATE_ENVIRONMENT`                                     |
 | `.env` change has no effect                         | As `silverwebbuzz_in` with `env.sh`: `php artisan config:cache`, then `sudo systemctl restart paygate-horizon`                                          |
 | `Call to undefined function proc_open()`            | `PHP_INI_SCAN_DIR` not set: use `source ~/public_html/aidemo.in/.server/env.sh` (by hand) or check `etc/services.env`                                   |
 | `git pull`: "Your local changes … public/.htaccess" | GitHub changed `public/.htaccess`: `git update-index --no-skip-worktree public/.htaccess`, `git stash`, pull, `git stash pop`, then skip-worktree again |
