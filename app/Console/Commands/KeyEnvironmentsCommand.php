@@ -19,7 +19,7 @@ class KeyEnvironmentsCommand extends Command
 
     public function handle(): int
     {
-        $this->info('This server: '.ApiEnvironment::label().'. Keys issued and accepted here: pk_'.ApiEnvironment::keyKind().'_…');
+        $this->info('This server: '.ApiEnvironment::label().'. Keys issued and accepted here: pk_'.ApiEnvironment::keyPrefix().'_…');
         $this->line('Key check (wrong_environment): '.(config('paygate.api.enforce_key_environment') ? 'on' : 'off'));
 
         $refused = PartnerApiKey::query()
@@ -29,12 +29,12 @@ class KeyEnvironmentsCommand extends Command
             ->filter(fn (PartnerApiKey $key) => ApiEnvironment::refuses($key->key_id));
 
         if ($refused->isEmpty()) {
-            $this->info('No usable key is of the other kind.');
+            $this->info('No usable key is another server\'s.');
 
             return self::SUCCESS;
         }
 
-        $this->warn("{$refused->count()} usable key(s) are of the other kind and will be refused. Rotate them here (new key), or check PAYGATE_ENVIRONMENT:");
+        $this->warn("{$refused->count()} usable key(s) are another server's and will be refused. Rotate them here (new key), or check PAYGATE_ENVIRONMENT:");
         $this->table(['Partner', 'Key id', 'Status', 'Last used'], $refused->map(fn (PartnerApiKey $key) => [
             $key->partner?->code.' '.$key->partner?->name,
             $key->key_id,

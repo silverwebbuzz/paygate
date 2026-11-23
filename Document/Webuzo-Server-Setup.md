@@ -418,7 +418,7 @@ SESSION_SECURE_COOKIE=true
 
 # Which server this is (Developer-Guide: testbox / sandbox / live). aidemo.in is our testing server.
 PAYGATE_ENVIRONMENT=testbox
-# Refuse keys of the other kind (pk_live_ here). Keep false until `php artisan paygate:key-environments`
+# Refuse keys of another server (pk_live_ / pk_sb_ here). Keep false until `php artisan paygate:key-environments`
 # lists no key, then set true.
 PAYGATE_API_ENFORCE_KEY_ENVIRONMENT=false
 

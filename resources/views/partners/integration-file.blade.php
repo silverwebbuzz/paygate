@@ -59,7 +59,7 @@
     <h2>Credentials</h2>
     <table class="facts">
         <tr><td class="k">Base URL</td><td class="url">{{ $base }}</td></tr>
-        <tr><td class="k">Server</td><td>{{ $environment === 'live' ? 'Live (real money)' : ($environment === 'sandbox' ? 'Sandbox (testing, no real money)' : 'Testbox (testing, no real money)') }}. Every path below is relative to the base URL. Every answer and webhook says which server sent it: header X-PayGate-Environment and field "environment". Keys start {{ $environment === 'live' ? 'pk_live_' : 'pk_test_' }}; a test key on live, or a live key on a test server, is refused with wrong_environment. When you go live, change the base URL, key, secret and webhook / return URLs together, then check that an answer says "live".</td></tr>
+        <tr><td class="k">Server</td><td>{{ $environment === 'live' ? 'Live (real money)' : ($environment === 'sandbox' ? 'Sandbox (testing, no real money)' : 'Testbox (testing, no real money)') }}. Every path below is relative to the base URL. Every answer and webhook says which server sent it: header X-PayGate-Environment and field "environment". Keys start {{ $environment === 'live' ? 'pk_live_' : ($environment === 'sandbox' ? 'pk_sb_' : 'pk_test_') }}; a key sent to another server is refused with wrong_environment. When you go live, change the base URL, key, secret and webhook / return URLs together, then check that an answer says "live".</td></tr>
         <tr><td class="k">Key ID</td><td class="mono">{{ $keyId ?? 'No key yet' }}</td></tr>
         <tr><td class="k">Allowed IPs</td><td>{{ $ips ?? 'None' }}</td></tr>
         <tr><td class="k">Rate limit</td><td>{{ $rateLimit }} requests per minute</td></tr>

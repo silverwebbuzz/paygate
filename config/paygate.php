@@ -4,8 +4,8 @@ return [
 
     // Which server this is for partners: "live" (real money), "sandbox"
     // (staging, for partners to integrate) or "testbox" (our own testing).
-    // Sent in every API answer and webhook; live issues pk_live_ keys, the
-    // others pk_test_. Unset: a production install is live, any other
+    // Sent in every API answer and webhook; keys are pk_live_ (live),
+    // pk_sb_ (sandbox) or pk_test_ (testbox). Unset: a production install is live, any other
     // testbox, so set it on every server. See App\Support\ApiEnvironment.
     'environment' => env('PAYGATE_ENVIRONMENT'),
 
@@ -34,15 +34,19 @@ return [
         // Requests per minute per partner.
         'rate_limit' => (int) env('PAYGATE_API_RATE_LIMIT', 300),
 
-        // Refuse a key of the other kind (a pk_test_ key on live, a pk_live_
-        // key on sandbox / testbox) with error `wrong_environment`, so a
-        // partner URL left on the wrong server fails at once. Check first
+        // Refuse a key of another server (e.g. a pk_sb_ key on live) with
+        // error `wrong_environment`, so a partner URL left on the wrong
+        // server fails at once. Check first
         // with `php artisan paygate:key-environments`.
         'enforce_key_environment' => (bool) env('PAYGATE_API_ENFORCE_KEY_ENVIRONMENT', true),
 
-        // Optional: the other server's API base URL (on live: the sandbox
-        // one; on sandbox / testbox: the live one), named in that error.
-        'other_environment_url' => env('PAYGATE_OTHER_API_URL'),
+        // Optional: each server's API base URL, named in that error (e.g.
+        // "send sandbox-key requests to https://…/api/v1").
+        'urls' => [
+            'live' => env('PAYGATE_LIVE_API_URL'),
+            'sandbox' => env('PAYGATE_SANDBOX_API_URL'),
+            'testbox' => env('PAYGATE_TESTBOX_API_URL'),
+        ],
     ],
 
     'webhooks' => [

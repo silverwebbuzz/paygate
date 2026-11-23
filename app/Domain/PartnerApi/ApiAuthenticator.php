@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Cache;
  * 2026-09-27: an empty list blocks the API; not enforced locally) and the
  * partner must be active.
  *
- * A key of the other kind (pk_test_ on live, pk_live_ on sandbox / testbox)
- * is refused with `wrong_environment` (client request 2026-11-23) before it
+ * A key of another server (prefix pk_live_ / pk_sb_ / pk_test_ of another
+ * server) is refused with `wrong_environment` (client request 2026-11-23) before it
  * is looked up: each server has its own database, so it is unknown here,
  * and "unknown key" wouldn't tell the partner they called the wrong server.
  * An unknown key's message also names this server.
@@ -104,19 +104,18 @@ class ApiAuthenticator
             return;
         }
 
-        $kind = (string) ApiEnvironment::kindOfKey($keyId);
-        $server = ApiEnvironment::current();
-        $other = ApiEnvironment::otherApiUrl();
-        $where = $kind === 'live' ? 'the live server' : 'the sandbox server';
+        $keyServer = (string) ApiEnvironment::ofKey($keyId);
+        $word = ApiEnvironment::KEY_WORDS[$keyServer];
+        $url = ApiEnvironment::apiUrl($keyServer);
 
         throw new ApiException('wrong_environment', sprintf(
             'This is a %s key (pk_%s_…), but this is the %s server. Use the key this server issued, or send %s-key requests to %s.',
-            $kind,
-            $kind,
+            $keyServer,
+            $word,
             ApiEnvironment::label(),
-            $kind,
-            $other ?? $where,
-        ), 401, ['key_kind' => $kind, 'server_environment' => $server]);
+            $keyServer,
+            $url ?? "the {$keyServer} server",
+        ), 401, ['key_environment' => $keyServer, 'server_environment' => ApiEnvironment::current()]);
     }
 
     private function ipAllowed(Partner $partner, ?string $ip): bool

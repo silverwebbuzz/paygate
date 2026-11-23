@@ -43,7 +43,7 @@ class ApiEnvironmentTest extends TestCase
 
     public function test_every_answer_says_which_server_gave_it()
     {
-        $this->assertStringStartsWith('pk_test_', $this->keyId);
+        $this->assertStringStartsWith('pk_sb_', $this->keyId);
 
         $this->getJson('http://api.paygate.local/v1/ping')
             ->assertHeader('X-PayGate-Environment', 'sandbox')
@@ -80,29 +80,29 @@ class ApiEnvironmentTest extends TestCase
             && $request['type'] === 'payin.submitted');
     }
 
-    public function test_a_test_key_on_the_live_server_is_refused_before_lookup_and_traced()
+    public function test_a_sandbox_key_on_the_live_server_is_refused_before_lookup_and_traced()
     {
-        config(['paygate.environment' => 'live', 'paygate.api.other_environment_url' => 'https://api.sandbox.example/v1/']);
+        config(['paygate.environment' => 'live', 'paygate.api.urls.sandbox' => 'https://sandbox.example/api/v1/']);
 
         // A sandbox key, unknown on live: still told it is the wrong server.
-        $this->api('POST', '/v1/payins', $this->payinBody(), keyId: 'pk_test_fromsandbox')
+        $this->api('POST', '/v1/payins', $this->payinBody(), keyId: 'pk_sb_fromsandbox')
             ->assertUnauthorized()
             ->assertHeader('X-PayGate-Environment', 'live')
             ->assertJsonPath('environment', 'live')
             ->assertJsonPath('error.code', 'wrong_environment')
-            ->assertJsonPath('error.key_kind', 'test')
+            ->assertJsonPath('error.key_environment', 'sandbox')
             ->assertJsonPath('error.server_environment', 'live')
-            ->assertJsonPath('error.message', 'This is a test key (pk_test_…), but this is the live server. Use the key this server issued, or send test-key requests to https://api.sandbox.example/v1.');
+            ->assertJsonPath('error.message', 'This is a sandbox key (pk_sb_…), but this is the live server. Use the key this server issued, or send sandbox-key requests to https://sandbox.example/api/v1.');
 
         $log = ApiRequestLog::query()->latest('created_at')->firstOrFail();
         $this->assertSame('wrong_environment', $log->error_code);
-        $this->assertSame('pk_test_fromsandbox', $log->key_id_sent);
+        $this->assertSame('pk_sb_fromsandbox', $log->key_id_sent);
         $this->assertSame('api.paygate.local', $log->host);
         $this->assertNull($log->partner_id);
 
         // Admin sees it on IP Management.
         $this->actingAs(User::factory()->admin()->withTwoFactor()->create())->get(route('admin.ip-management.index'))
-            ->assertInertia(fn (Assert $page) => $page->where('wrong_server.0.key_id', 'pk_test_fromsandbox')->where('wrong_server.0.error_code', 'wrong_environment'));
+            ->assertInertia(fn (Assert $page) => $page->where('wrong_server.0.key_id', 'pk_sb_fromsandbox')->where('wrong_server.0.error_code', 'wrong_environment'));
 
         // A key issued on live works there.
         $issued = app(IssueApiKey::class)->handle($this->networkAdmin, $this->partner);
@@ -111,18 +111,32 @@ class ApiEnvironmentTest extends TestCase
         $this->api('POST', '/v1/payins', $this->payinBody(), secret: $issued['secret'], keyId: $issued['key']->key_id)->assertCreated();
     }
 
-    public function test_a_live_key_on_a_test_server_is_refused_and_an_unknown_key_names_the_server()
+    public function test_a_key_of_another_server_is_refused_on_sandbox_and_an_unknown_key_names_the_server()
     {
         $this->api('GET', '/v1/balance', keyId: 'pk_live_abc')
             ->assertUnauthorized()
             ->assertJsonPath('error.code', 'wrong_environment')
             ->assertJsonPath('error.message', 'This is a live key (pk_live_…), but this is the sandbox (staging) server. Use the key this server issued, or send live-key requests to the live server.');
 
-        // A testbox key on sandbox: same kind, so unknown here, and the message names this server.
+        // Testbox and sandbox keys are told apart too.
         $this->api('GET', '/v1/balance', keyId: 'pk_test_fromtestbox')
+            ->assertUnauthorized()
+            ->assertJsonPath('error.code', 'wrong_environment')
+            ->assertJsonPath('error.key_environment', 'testbox');
+
+        // A sandbox-looking key unknown here: the message names this server.
+        $this->api('GET', '/v1/balance', keyId: 'pk_sb_unknown')
             ->assertUnauthorized()
             ->assertJsonPath('error.code', 'unauthenticated')
             ->assertJsonPath('error.message', 'Unknown or revoked API key on the sandbox (staging) server. Check that your base URL is the server that issued this key.');
+
+        // Each server issues its own prefix.
+        foreach (['testbox' => ['pk_test_', 'sk_test_'], 'sandbox' => ['pk_sb_', 'sk_sb_'], 'live' => ['pk_live_', 'sk_live_']] as $server => [$key, $secret]) {
+            config(['paygate.environment' => $server]);
+            $issued = app(IssueApiKey::class)->handle($this->networkAdmin, $this->partner);
+            $this->assertStringStartsWith($key, $issued['key']->key_id);
+            $this->assertStringStartsWith($secret, $issued['secret']);
+        }
     }
 
     public function test_a_refused_call_with_the_partners_key_shows_in_their_api_logs()
@@ -147,14 +161,14 @@ class ApiEnvironmentTest extends TestCase
 
         $this->artisan('paygate:key-environments')
             ->expectsOutputToContain('This server: live')
-            ->expectsOutputToContain('1 usable key(s) are of the other kind')
+            ->expectsOutputToContain('1 usable key(s) are another server\'s')
             ->assertSuccessful();
 
         config(['paygate.api.enforce_key_environment' => false]);
         $this->api('POST', '/v1/payins', $this->payinBody())->assertCreated();
 
         PartnerApiKey::query()->update(['status' => 'revoked']);
-        $this->artisan('paygate:key-environments')->expectsOutputToContain('No usable key is of the other kind.')->assertSuccessful();
+        $this->artisan('paygate:key-environments')->expectsOutputToContain('No usable key is another server\'s.')->assertSuccessful();
     }
 
     public function test_the_go_live_check_flags_test_urls_on_live_only()

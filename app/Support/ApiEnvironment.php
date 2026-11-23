@@ -14,11 +14,11 @@ namespace App\Support;
  * any other is testbox.
  *
  * Every Partner API answer and webhook carries it (field `environment`,
- * header X-PayGate-Environment). API keys carry their kind in the prefix:
- * pk_live_ / sk_live_ on live, pk_test_ / sk_test_ on sandbox and testbox.
- * A live key on a test server, or a test key on live, is refused before it
- * is looked up (ApiAuthenticator), so a URL left pointing at the wrong
- * server fails at once with a clear message instead of "unknown key".
+ * header X-PayGate-Environment). API keys carry their server in the prefix:
+ * pk_live_ / sk_live_ (live), pk_sb_ / sk_sb_ (sandbox), pk_test_ / sk_test_
+ * (testbox). A key of another server is refused before it is looked up
+ * (ApiAuthenticator), so a URL left pointing at the wrong server fails at
+ * once with a clear message instead of "unknown key".
  */
 final class ApiEnvironment
 {
@@ -48,37 +48,36 @@ final class ApiEnvironment
         return self::current() === self::LIVE;
     }
 
-    /** The kind of key this server issues and accepts: "live" or "test". */
-    public static function keyKind(): string
-    {
-        return self::isLive() ? 'live' : 'test';
-    }
+    /** Key prefix word of each server: pk_<word>_ / sk_<word>_. */
+    public const KEY_WORDS = [self::LIVE => 'live', self::SANDBOX => 'sb', self::TESTBOX => 'test'];
 
-    /** Kept for IssueApiKey: the word in new keys' prefix (pk_live_ / pk_test_). */
+    /** The prefix word of the keys this server issues and accepts. */
     public static function keyPrefix(): string
     {
-        return self::keyKind();
+        return self::KEY_WORDS[self::current()];
     }
 
     /**
-     * The kind of a key from its prefix ("live" / "test"); null for a key
-     * without one (never refused for it).
+     * The server a key was issued on, from its prefix; null for a key
+     * without a known prefix (never refused for it).
      */
-    public static function kindOfKey(string $keyId): ?string
+    public static function ofKey(string $keyId): ?string
     {
-        return match (true) {
-            str_starts_with($keyId, 'pk_live_') => 'live',
-            str_starts_with($keyId, 'pk_test_') => 'test',
-            default => null,
-        };
+        foreach (self::KEY_WORDS as $environment => $word) {
+            if (str_starts_with($keyId, "pk_{$word}_")) {
+                return $environment;
+            }
+        }
+
+        return null;
     }
 
-    /** A key this server would refuse as the other kind's. */
+    /** A key this server would refuse as another server's. */
     public static function refuses(string $keyId): bool
     {
-        $kind = self::kindOfKey($keyId);
+        $environment = self::ofKey($keyId);
 
-        return $kind !== null && $kind !== self::keyKind();
+        return $environment !== null && $environment !== self::current();
     }
 
     /** Human label, e.g. "sandbox (staging)". */
@@ -91,10 +90,13 @@ final class ApiEnvironment
         };
     }
 
-    /** The other servers' API base URL to name in errors, if set. */
-    public static function otherApiUrl(): ?string
+    /**
+     * A server's API base URL, if set (PAYGATE_<SERVER>_API_URL), named in
+     * the wrong_environment error.
+     */
+    public static function apiUrl(string $environment): ?string
     {
-        $url = trim((string) config('paygate.api.other_environment_url'));
+        $url = trim((string) config("paygate.api.urls.{$environment}"));
 
         return $url === '' ? null : rtrim($url, '/');
     }

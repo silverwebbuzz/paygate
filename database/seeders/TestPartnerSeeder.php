@@ -114,7 +114,9 @@ class TestPartnerSeeder extends Seeder
                 $this->rate('partner', $partner->id, 'partner', Direction::Withdrawal, '4');
                 $this->branches($partner, $branches);
                 $this->login($partner, $partnerRole, $entry['username'], UserType::Partner);
-                $this->key($partner, $entry['key_id'], $entry['secret']);
+                // pk_test_partner1 on testbox, pk_sb_partner1 on sandbox (each server's prefix).
+                $word = ApiEnvironment::keyPrefix();
+                $this->key($partner, str_replace('pk_test_', "pk_{$word}_", $entry['key_id']), str_replace('sk_test_', "sk_{$word}_", $entry['secret']));
             }
         });
 

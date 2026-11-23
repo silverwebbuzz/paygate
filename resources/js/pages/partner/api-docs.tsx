@@ -46,7 +46,7 @@ const ERRORS: [string, number, string][] = [
     [
         'wrong_environment',
         401,
-        'A test key (pk_test_) sent to live, or a live key (pk_live_) to a test server. Check the base URL and key in your settings.',
+        'The key belongs to another server (e.g. a sandbox key pk_sb_ sent to live). Check the base URL and key in your settings.',
     ],
     [
         'ip_not_allowed',
@@ -149,7 +149,9 @@ export default function ApiDocs(props: Props) {
                             'This server',
                             environment === 'live'
                                 ? 'Live: real money. Keys start pk_live_ / sk_live_.'
-                                : `${environment === 'sandbox' ? 'Sandbox' : 'Testbox'}: for testing, no real money. Keys start pk_test_ / sk_test_.`,
+                                : environment === 'sandbox'
+                                  ? 'Sandbox: for testing, no real money. Keys start pk_sb_ / sk_sb_.'
+                                  : 'Testbox: for testing, no real money. Keys start pk_test_ / sk_test_.',
                         ],
                         [
                             'One base URL',
@@ -157,7 +159,7 @@ export default function ApiDocs(props: Props) {
                         ],
                         [
                             'Which server answered',
-                            'Every answer and webhook says which server sent it: header X-PayGate-Environment and field "environment" (live, sandbox or testbox). A test key on live, or a live key on a test server, is refused with wrong_environment.',
+                            'Every answer and webhook says which server sent it: header X-PayGate-Environment and field "environment" (live, sandbox or testbox). Keys start pk_live_ (live), pk_sb_ (sandbox) or pk_test_ (testbox); a key sent to another server is refused with wrong_environment.',
                         ],
                         [
                             'Your key id',

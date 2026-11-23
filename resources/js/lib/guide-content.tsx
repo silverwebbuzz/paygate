@@ -1401,7 +1401,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         '`wrong_environment`',
-                        'A test key (pk_test_) sent to live, or a live key (pk_live_) to sandbox / testbox: a URL left pointing at the wrong server',
+                        'A key of another server (e.g. a sandbox key `pk_sb_` sent to live): a URL left pointing at the wrong server',
                         'Use the key of the server called: base URL, key, secret and webhook URLs change together. Every answer and webhook says its server in `environment` / X-PayGate-Environment. Admin › IP Management lists such calls; the partner page has a Go-live check.',
                     ],
                     [
@@ -1458,7 +1458,7 @@ export const GUIDE: GuideSection[] = [
                 rows: [
                     [
                         'Generate key',
-                        'A new key and secret. The secret is shown **once**, with the partner file to download. On live keys start `pk_live_`, on sandbox / testbox `pk_test_`.',
+                        'A new key and secret. The secret is shown **once**, with the partner file to download. Keys start `pk_live_` on live, `pk_sb_` on sandbox, `pk_test_` on testbox.',
                         'A new partner, or after a revoke.',
                     ],
                     [
@@ -1506,19 +1506,19 @@ export const GUIDE: GuideSection[] = [
                         '**Testbox**',
                         'our internal testing server',
                         'Our own testing. No real money.',
-                        '`pk_test_`',
+                        '`pk_test_` / `sk_test_`',
                     ],
                     [
                         '**Sandbox**',
                         'a27pay.tech',
                         'Partners build and test their connection. No real money.',
-                        '`pk_test_`',
+                        '`pk_sb_` / `sk_sb_`',
                     ],
                     [
                         '**Live**',
                         'a27pay.com',
                         'Real customers, real money.',
-                        '`pk_live_`',
+                        '`pk_live_` / `sk_live_`',
                     ],
                 ],
             },
@@ -1529,7 +1529,7 @@ export const GUIDE: GuideSection[] = [
                     'Each server has its **own** partners, keys, users and data. A partner set up on sandbox must be set up again on live, with a new key.',
                     'The pill at the top right says **Live** (purple) or **Sandbox / Testbox** (amber). Check it before approving anything.',
                     'Every API answer and webhook says which server sent it: field `environment` and header X-PayGate-Environment.',
-                    'A test key (`pk_test_`) sent to live, or a live key (`pk_live_`) sent to sandbox / testbox, is refused with **wrong_environment**. The message names the server that was called.',
+                    'A key works only on its own server: a key sent to another server (e.g. `pk_sb_` to live) is refused with **wrong_environment**. The message names both servers.',
                     'Test partners and test payments can’t be created on live.',
                 ],
             },

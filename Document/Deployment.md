@@ -102,11 +102,11 @@ SESSION_SECURE_COOKIE=true
 PAYGATE_ENFORCE_2FA=true      # never false outside a developer's own machine
 
 PAYGATE_ENVIRONMENT=live      # testbox (internal testing) / sandbox (staging, a27pay.tech) / live (a27pay.com)
-PAYGATE_API_ENFORCE_KEY_ENVIRONMENT=true   # refuse keys of the other kind (wrong_environment)
+PAYGATE_API_ENFORCE_KEY_ENVIRONMENT=true   # refuse keys of another server (wrong_environment)
 PAYGATE_OTHER_HOSTS=a27pay.tech            # live only: partner URLs on our test servers are flagged
 ```
 
-`PAYGATE_ENVIRONMENT` is shown in the top bar and in every Partner API answer and webhook, decides the key prefix (`pk_live_` on live, `pk_test_` elsewhere), and blocks test partners on live. Unset, a server with `APP_ENV=production` counts as **live**, so always set it. Before switching the key check on a server that already has partners, run `php artisan paygate:key-environments` and rotate the keys it lists.
+`PAYGATE_ENVIRONMENT` is shown in the top bar and in every Partner API answer and webhook, decides the key prefix (`pk_live_` live, `pk_sb_` sandbox, `pk_test_` testbox), and blocks test partners on live. Unset, a server with `APP_ENV=production` counts as **live**, so always set it. Before switching the key check on a server that already has partners, run `php artisan paygate:key-environments` and rotate the keys it lists.
 
 ### 3.3 Run the migrations as the owner
 
