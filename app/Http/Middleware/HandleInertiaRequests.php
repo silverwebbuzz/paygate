@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Platform\SectionRollout;
+use App\Support\ApiEnvironment;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -65,8 +66,9 @@ class HandleInertiaRequests extends Middleware
             // Section rollout: menu links of sections not open for this person.
             'rolloutLimited' => fn () => app(SectionRollout::class)->limits($request->user()),
             'rolloutHidden' => fn () => app(SectionRollout::class)->hiddenLinks($request->user()),
-            // Environment label for the top-bar pill ("Admin · Production").
-            'environment' => app()->environment(),
+            // Server for the top-bar pill ("Admin · Live" / "Sandbox" /
+            // "Testbox", client request 2026-11-23), as partners see it.
+            'environment' => ApiEnvironment::current(),
         ];
     }
 }

@@ -6,6 +6,7 @@ import { formatLimit } from '@/lib/money';
 
 type Props = {
     base_url: string;
+    environment: 'live' | 'sandbox' | 'testbox';
     key_id: string | null;
     clock_skew: number;
     rate_limit: number;
@@ -42,6 +43,11 @@ const ERRORS: [string, number, string][] = [
     ['invalid_signature', 401, 'The signature doesn’t match the request.'],
     ['timestamp_out_of_range', 401, 'X-Timestamp is too far from our clock.'],
     ['nonce_reused', 401, 'The X-Nonce was already used.'],
+    [
+        'wrong_environment',
+        401,
+        'A test key (pk_test_) sent to live, or a live key (pk_live_) to a test server. Check the base URL and key in your settings.',
+    ],
     [
         'ip_not_allowed',
         403,
@@ -99,7 +105,7 @@ const ERRORS: [string, number, string][] = [
  * Partner API documentation (v1), written for the partner's developer.
  */
 export default function ApiDocs(props: Props) {
-    const { base_url, key_id } = props;
+    const { base_url, key_id, environment } = props;
 
     return (
         <>
@@ -140,6 +146,20 @@ export default function ApiDocs(props: Props) {
                     rows={[
                         ['Base URL', <Code key="b">{base_url}</Code>],
                         [
+                            'This server',
+                            environment === 'live'
+                                ? 'Live: real money. Keys start pk_live_ / sk_live_.'
+                                : `${environment === 'sandbox' ? 'Sandbox' : 'Testbox'}: for testing, no real money. Keys start pk_test_ / sk_test_.`,
+                        ],
+                        [
+                            'One base URL',
+                            'Every path in this document is relative to the base URL. Keep the base URL, key id, secret and your webhook / return URLs in one configuration per server, so switching server is one change.',
+                        ],
+                        [
+                            'Which server answered',
+                            'Every answer and webhook says which server sent it: header X-PayGate-Environment and field "environment" (live, sandbox or testbox). A test key on live, or a live key on a test server, is refused with wrong_environment.',
+                        ],
+                        [
                             'Your key id',
                             key_id ? (
                                 <Code key="k">{key_id}</Code>
@@ -165,6 +185,32 @@ export default function ApiDocs(props: Props) {
                         ],
                     ]}
                 />
+            </Doc>
+
+            <Doc title="Going live">
+                <ol className="list-decimal space-y-1.5 pl-5">
+                    <li>
+                        On the live server, generate a live key (
+                        <Code>pk_live_…</Code>) and add your server&apos;s IPs.
+                    </li>
+                    <li>
+                        Set your live return, callback and webhook URLs there
+                        (API &amp; Webhooks). Its <b>Go-live check</b> flags
+                        any that still look like a test site.
+                    </li>
+                    <li>
+                        In your configuration, change the base URL, key id,
+                        secret and URLs together.
+                    </li>
+                    <li>
+                        Make one test call and check the answer says{' '}
+                        <Code>&quot;environment&quot;: &quot;live&quot;</Code>
+                        . Check your webhook handler sees it too. On live,
+                        a pay-in whose <Code>return_url</Code> looks like a
+                        test site is accepted with a <Code>warnings</Code>{' '}
+                        list in the answer.
+                    </li>
+                </ol>
             </Doc>
 
             <Doc title="3. Signing every request">
@@ -394,8 +440,9 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
 X-PayGate-Event-Id: 01J…            (unique per webhook — ignore ones you already processed)
 X-PayGate-Event: payin.success
 X-PayGate-Signature: t=1790521203,v1=5f2c…
+X-PayGate-Environment: live         (or sandbox / testbox: which server sent it)
 
-{ "id": "01J…", "type": "payin.success", "created_at": "…", "data": { "id": "PI260927K7QX4MZD", "status": "success", … } }`}</Pre>
+{ "id": "01J…", "type": "payin.success", "created_at": "…", "data": { "id": "PI260927K7QX4MZD", "status": "success", … }, "environment": "live" }`}</Pre>
                 <p>
                     <b>Late payments:</b> if a customer&apos;s money reaches the
                     bank after the pay-in expired or was declined, we may

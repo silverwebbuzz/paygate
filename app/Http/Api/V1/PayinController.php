@@ -2,6 +2,7 @@
 
 namespace App\Http\Api\V1;
 
+use App\Domain\Partner\GoLiveCheck;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\PartnerApi\Exceptions\ApiException;
@@ -28,8 +29,15 @@ class PayinController extends Controller
         $data = $request->validated();
         $result = $create->handle($this->partner($request), $data, $this->key($request)->id);
 
+        // On live, a return_url that looks like a test site is accepted
+        // but pointed out (client request 2026-11-23, GoLiveCheck).
+        $returnProblem = is_string($data['return_url'] ?? null) ? GoLiveCheck::problem($data['return_url']) : null;
+
         return response()->json(
-            ['data' => PayinResource::make($result['payin']->load('customer'), $result['session'])],
+            [
+                'data' => PayinResource::make($result['payin']->load('customer'), $result['session']),
+                ...($returnProblem === null ? [] : ['warnings' => ["return_url: {$returnProblem}"]]),
+            ],
             $result['created'] ? 201 : 200,
         );
     }

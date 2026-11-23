@@ -7,6 +7,7 @@ use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Webhook\Models\WebhookAttempt;
 use App\Domain\Webhook\Models\WebhookEvent;
 use App\Domain\Webhook\WebhookTarget;
+use App\Support\ApiEnvironment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,6 +23,7 @@ use Throwable;
  *   X-PayGate-Event-Id:  the event id (deduplicate on it)
  *   X-PayGate-Event:     e.g. payin.success
  *   X-PayGate-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, "<t>.<body>")>
+ *   X-PayGate-Environment: live / sandbox (also the body's "environment")
  *
  * signed with the partner's current API secret. Only a 2xx answer within
  * 10 s counts. Otherwise it is retried after 1 m, 5 m, 15 m, 1 h, 6 h and
@@ -73,7 +75,9 @@ class DeliverWebhook implements ShouldQueue
                 throw new \RuntimeException('The partner has no active API key to sign with.');
             }
 
-            $json = (string) json_encode($event->payload);
+            // Which server sent it (client request 2026-11-23); added when sent,
+            // so retries of events stored earlier carry it too.
+            $json = (string) json_encode([...$event->payload, 'environment' => ApiEnvironment::current()]);
             $timestamp = time();
 
             $response = Http::timeout(10)
@@ -85,6 +89,7 @@ class DeliverWebhook implements ShouldQueue
                     'User-Agent' => 'PayGate-Webhooks/1',
                     'X-PayGate-Event-Id' => $event->id,
                     'X-PayGate-Event' => $event->event_type,
+                    ApiEnvironment::HEADER => ApiEnvironment::current(),
                     'X-PayGate-Signature' => 't='.$timestamp.',v1='.hash_hmac('sha256', $timestamp.'.'.$json, $secret),
                 ])
                 ->withBody($json, 'application/json')

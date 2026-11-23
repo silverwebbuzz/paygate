@@ -17,6 +17,7 @@ use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\PaymentAccount\Enums\AccountStatus;
 use App\Domain\PaymentAccount\Enums\AccountVerification;
 use App\Domain\PaymentAccount\Models\PaymentAccount;
+use App\Support\ApiEnvironment;
 use App\Support\Crypto\BlindIndex;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
@@ -95,6 +96,11 @@ class TestPartnerSeeder extends Seeder
 
     public function run(): void
     {
+        // Test partners with fixed keys never go on the live server (2026-11-23).
+        if (ApiEnvironment::isLive()) {
+            throw new RuntimeException('TestPartnerSeeder is for sandbox / testbox only: this is the live server (PAYGATE_ENVIRONMENT).');
+        }
+
         $partnerRole = Role::bySlug(SystemRoles::PARTNER_OWNER);
         $branchRole = Role::bySlug(SystemRoles::BRANCH_OWNER);
 

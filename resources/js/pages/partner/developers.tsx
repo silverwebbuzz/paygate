@@ -9,6 +9,7 @@ import type { Credentials } from '@/components/pg/credentials-dialog';
 import { Panel } from '@/components/pg/data-table';
 import { EmptyState } from '@/components/pg/empty-state';
 import { Field, TextArea, TextInput } from '@/components/pg/field';
+import { GoLiveCheck, type GoLive } from '@/components/pg/go-live-check';
 import { PageHeader } from '@/components/pg/page-header';
 import { SecureActionDialog } from '@/components/pg/secure-action-dialog';
 import developers from '@/routes/partner/developers';
@@ -30,6 +31,8 @@ type Props = {
     };
     keys: ApiKey[] | null;
     endpoints: Endpoints | null;
+    /** This server and whether the URLs look right for it. */
+    go_live: GoLive | null;
     ips: string[] | null;
     can: {
         issue_keys: boolean;
@@ -59,6 +62,7 @@ export default function Developers({
     partner,
     keys,
     endpoints,
+    go_live,
     ips,
     can,
     overlap_hours,
@@ -236,6 +240,15 @@ export default function Developers({
                     </Card>
                 )}
             </div>
+
+            {go_live !== null && (
+                <Card
+                    title="Go-live check"
+                    description="Which server this is, and whether your URLs look right for it. When you go live, change the base URL, key, secret and all URLs together."
+                >
+                    <GoLiveCheck check={go_live} />
+                </Card>
+            )}
 
             <Card
                 title="Webhook logs"

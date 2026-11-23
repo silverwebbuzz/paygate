@@ -7,6 +7,7 @@ use App\Domain\Partner\Actions\ConfigurePartner;
 use App\Domain\Partner\Actions\IssueApiKey;
 use App\Domain\Partner\Actions\RevokeApiKey;
 use App\Domain\Partner\Actions\SyncIpRules;
+use App\Domain\Partner\GoLiveCheck;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Partner\Models\PartnerIpRule;
@@ -53,6 +54,8 @@ class DeveloperController extends Controller
                     'last_used_at' => $key->last_used_at?->toIso8601String(),
                 ]) : null,
             'endpoints' => $actor->can('webhooks.view') ? $partner->only(['return_url', 'callback_url', 'payin_webhook_url', 'payout_webhook_url']) : null,
+            // Client request 2026-11-23: which server this is and whether the URLs look right for it.
+            'go_live' => $actor->can('webhooks.view') ? app(GoLiveCheck::class)->check($partner) : null,
             'ips' => $actor->can('ip_rules.view') ? $partner->ipRules()->orderBy('created_at')->get()->map(fn (PartnerIpRule $rule) => $rule->display()) : null,
             'can' => [
                 'issue_keys' => $actor->can('api_keys.create'),

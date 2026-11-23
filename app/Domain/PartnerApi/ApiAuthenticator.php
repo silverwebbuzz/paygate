@@ -7,6 +7,7 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Partner\Models\PartnerIpRule;
 use App\Domain\PartnerApi\Exceptions\ApiException;
+use App\Support\ApiEnvironment;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -21,6 +22,12 @@ use Illuminate\Support\Facades\Cache;
  * Then the caller's IP must be on the partner's allowed list (decided
  * 2026-09-27: an empty list blocks the API; not enforced locally) and the
  * partner must be active.
+ *
+ * A key of the other kind (pk_test_ on live, pk_live_ on sandbox / testbox)
+ * is refused with `wrong_environment` (client request 2026-11-23) before it
+ * is looked up: each server has its own database, so it is unknown here,
+ * and "unknown key" wouldn't tell the partner they called the wrong server.
+ * An unknown key's message also names this server.
  */
 class ApiAuthenticator
 {
@@ -44,10 +51,12 @@ class ApiAuthenticator
             throw new ApiException('unauthenticated', 'Send X-Key-Id, X-Timestamp, X-Nonce and X-Signature headers.', 401);
         }
 
+        $this->ensureSameEnvironment($keyId);
+
         $key = PartnerApiKey::query()->with('partner')->where('key_id', $keyId)->first();
 
         if ($key === null || ! $key->isUsable()) {
-            throw new ApiException('unauthenticated', 'Unknown or revoked API key.', 401);
+            throw new ApiException('unauthenticated', 'Unknown or revoked API key on the '.ApiEnvironment::label().' server. Check that your base URL is the server that issued this key.', 401);
         }
 
         if (! ctype_digit($timestamp) || abs(time() - (int) $timestamp) > self::MAX_CLOCK_SKEW) {
@@ -87,6 +96,27 @@ class ApiAuthenticator
     public static function canonical(string $timestamp, string $nonce, string $method, string $pathWithQuery, string $body): string
     {
         return implode("\n", [$timestamp, $nonce, strtoupper($method), $pathWithQuery, hash('sha256', $body)]);
+    }
+
+    private function ensureSameEnvironment(string $keyId): void
+    {
+        if (! config('paygate.api.enforce_key_environment') || ! ApiEnvironment::refuses($keyId)) {
+            return;
+        }
+
+        $kind = (string) ApiEnvironment::kindOfKey($keyId);
+        $server = ApiEnvironment::current();
+        $other = ApiEnvironment::otherApiUrl();
+        $where = $kind === 'live' ? 'the live server' : 'the sandbox server';
+
+        throw new ApiException('wrong_environment', sprintf(
+            'This is a %s key (pk_%s_…), but this is the %s server. Use the key this server issued, or send %s-key requests to %s.',
+            $kind,
+            $kind,
+            ApiEnvironment::label(),
+            $kind,
+            $other ?? $where,
+        ), 401, ['key_kind' => $kind, 'server_environment' => $server]);
     }
 
     private function ipAllowed(Partner $partner, ?string $ip): bool

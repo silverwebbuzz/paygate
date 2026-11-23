@@ -2,6 +2,7 @@ import { Menu, Moon, PanelLeft, Rows3, Rows4, Search, Sun } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import { useAppearance } from '@/hooks/use-appearance';
 import type { Density } from '@/hooks/use-density';
+import { cn } from '@/lib/utils';
 import { AlertBell } from './alert-bell';
 
 export function PortalTopbar({
@@ -19,10 +20,8 @@ export function PortalTopbar({
 }) {
     const { environment } = usePage().props;
     const { resolvedAppearance, updateAppearance } = useAppearance();
-    const envLabel =
-        environment === 'production'
-            ? 'Production'
-            : environment.charAt(0).toUpperCase() + environment.slice(1);
+    // live / sandbox / testbox (ApiEnvironment).
+    const envLabel = environment.charAt(0).toUpperCase() + environment.slice(1);
     const iconButton =
         'grid size-8 flex-none place-items-center rounded-lg border border-ln bg-sf text-tx2 hover:bg-sf2';
 
@@ -78,8 +77,25 @@ export function PortalTopbar({
                 </kbd>
             </div>
 
-            <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-acs px-2.5 text-xs font-medium whitespace-nowrap text-act max-md:hidden">
-                <span className="size-1.5 rounded-full bg-ac" />
+            <span
+                className={cn(
+                    'inline-flex h-[26px] items-center gap-1.5 rounded-full px-2.5 text-xs font-medium whitespace-nowrap max-md:hidden',
+                    environment === 'live'
+                        ? 'bg-acs text-act'
+                        : 'bg-wnb text-wn',
+                )}
+                title={
+                    environment === 'live'
+                        ? 'Live server: real money'
+                        : 'Test server: no real money'
+                }
+            >
+                <span
+                    className={cn(
+                        'size-1.5 rounded-full',
+                        environment === 'live' ? 'bg-ac' : 'bg-wn',
+                    )}
+                />
                 {portalLabel} · {envLabel}
             </span>
 

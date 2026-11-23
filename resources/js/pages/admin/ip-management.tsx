@@ -25,12 +25,26 @@ type Partner = {
  * called in the last 7 days (refused calls = not on the list). Lists are
  * edited on the partner.
  */
+/** Calls with another server's key or an unknown key (last 7 days). */
+type WrongServerCall = {
+    key_id: string;
+    error_code: string;
+    ip: string | null;
+    host: string | null;
+    calls: number;
+    last_at: string;
+};
+
 export default function IpManagement({
     enforced,
     partners,
+    environment,
+    wrong_server,
 }: {
     enforced: boolean;
     partners: Partner[];
+    environment: string;
+    wrong_server: WrongServerCall[];
 }) {
     return (
         <>
@@ -47,6 +61,39 @@ export default function IpManagement({
                 {enforced
                     ? '. A partner without allowed IPs can’t call the API.'
                     : ' (PAYGATE_API_ENFORCE_IP=false). Never switch this off outside your own machine.'}
+            </Panel>
+            <Panel className="flex flex-col gap-2 p-4">
+                <div className="text-[13.5px] font-semibold">
+                    Calls with another server&apos;s key or an unknown key
+                    (last 7 days)
+                </div>
+                <p className="text-xs text-tx3">
+                    This is the <b>{environment}</b> server. A key of another
+                    server (wrong_environment) or an unknown key usually means
+                    a partner setting still points at the wrong server. Look
+                    the key id up on the server that issued it to find the
+                    partner.
+                </p>
+                <SimpleTable
+                    empty="None: every call used a key of this server."
+                    headers={['Key id sent', 'Error', 'Caller IP', 'Called', 'Calls', 'Last call']}
+                    rows={wrong_server.map((call) => [
+                        <span key="k" className="font-mono text-xs">
+                            {call.key_id}
+                        </span>,
+                        <span key="e" className="font-mono text-xs text-wn">
+                            {call.error_code}
+                        </span>,
+                        <span key="i" className="font-mono text-xs">
+                            {call.ip ?? '—'}
+                        </span>,
+                        <span key="h" className="font-mono text-xs">
+                            {call.host ?? '—'}
+                        </span>,
+                        call.calls.toLocaleString('en-IN'),
+                        formatDateTime(call.last_at),
+                    ])}
+                />
             </Panel>
             <div className="grid gap-3 lg:grid-cols-2">
                 {partners.map((partner) => {

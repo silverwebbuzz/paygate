@@ -1398,6 +1398,11 @@ export const GUIDE: GuideSection[] = [
                         'Send a new random nonce with every request.',
                     ],
                     [
+                        '`wrong_environment`',
+                        'A test key (pk_test_) sent to live, or a live key (pk_live_) to sandbox / testbox: a URL left pointing at the wrong server',
+                        'Use the key of the server called: base URL, key, secret and webhook URLs change together. Every answer and webhook says its server in `environment` / X-PayGate-Environment. Admin › IP Management lists such calls; the partner page has a Go-live check.',
+                    ],
+                    [
                         '`rate_limited`',
                         'Too many requests per minute',
                         'Slow down and retry after the given seconds.',

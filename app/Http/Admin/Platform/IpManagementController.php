@@ -6,6 +6,7 @@ use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerIpRule;
 use App\Domain\PartnerApi\Models\ApiRequestLog;
 use App\Http\Controller;
+use App\Support\ApiEnvironment;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,9 +55,33 @@ class IpManagementController extends Controller
             ];
         }
 
+        // Calls with a key of another server or an unknown key (client
+        // request 2026-11-23): a partner URL still pointing at the wrong server.
+        $wrongServer = ApiRequestLog::query()
+            ->where('created_at', '>=', $since)
+            ->whereIn('error_code', ['wrong_environment', 'unauthenticated'])
+            ->whereNotNull('key_id_sent')
+            ->toBase()
+            ->selectRaw('key_id_sent, error_code, ip, host, COUNT(*) AS calls, MAX(created_at) AS last_at')
+            ->groupBy('key_id_sent', 'error_code', 'ip', 'host')
+            ->orderByDesc('last_at')
+            ->limit(50)
+            ->get()
+            ->map(fn (object $row) => [
+                'key_id' => (string) $row->key_id_sent,
+                'error_code' => (string) $row->error_code,
+                'ip' => $row->ip,
+                'host' => $row->host,
+                'calls' => (int) $row->calls,
+                'last_at' => $row->last_at,
+            ])
+            ->all();
+
         return Inertia::render('admin/ip-management', [
             'enforced' => (bool) config('paygate.api.enforce_ip_allowlist', true),
             'partners' => $partners,
+            'environment' => ApiEnvironment::current(),
+            'wrong_server' => $wrongServer,
         ]);
     }
 }

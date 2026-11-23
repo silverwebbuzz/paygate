@@ -57,6 +57,9 @@ php artisan config:clear   # migrations must use the owner login below, not the 
 DB_USERNAME=paygate_owner DB_PASSWORD="$DB_OWNER_PASSWORD" php artisan migrate --force
 psql "host=127.0.0.1 port=5433 dbname=paygate user=paygate_owner" -q -v app_role=paygate_app -f database/sql/app-privileges.sql
 
+step "API keys this server would refuse (live / test)"
+php artisan paygate:key-environments || true
+
 step "Laravel caches"
 php artisan config:cache
 php artisan route:clear

@@ -18,6 +18,7 @@ import { ViewTabs } from '@/components/pg/filter-bar';
 import { PageHeader } from '@/components/pg/page-header';
 import { SecureActionDialog } from '@/components/pg/secure-action-dialog';
 import { SimpleTable } from '@/components/pg/simple-table';
+import { GoLiveCheck, type GoLive } from '@/components/pg/go-live-check';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { useClipboard } from '@/hooks/use-clipboard';
 import { formatDateTime, formatRelative } from '@/lib/dates';
@@ -44,6 +45,8 @@ type Row = {
 
 type Detail = {
     id: string;
+    /** This server and whether the partner's URLs look right for it. */
+    go_live: GoLive;
     website_url: string | null;
     callback_url: string | null;
     payin_webhook_url: string | null;
@@ -798,6 +801,9 @@ export default function PartnersIndex({
                                                 },
                                             ]}
                                         />
+                                    </Section>
+                                    <Section title="Go-live check">
+                                        <GoLiveCheck check={loaded.go_live} />
                                     </Section>
                                     <Section title="Allowed IPs">
                                         {loaded.ips.length ? (

@@ -12,6 +12,7 @@ use App\Domain\Network\Models\PartnerBranchMapping;
 use App\Domain\Partner\Actions\ChangePartnerStatus;
 use App\Domain\Partner\Actions\ConfigurePartner;
 use App\Domain\Partner\Actions\SetPartnerDirection;
+use App\Domain\Partner\GoLiveCheck;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
 use App\Domain\Partner\Models\PartnerIpRule;
@@ -271,6 +272,7 @@ class PartnerController extends Controller
     {
         return [
             'id' => $partner->id,
+            'go_live' => app(GoLiveCheck::class)->check($partner),
             'website_url' => $partner->website_url,
             'callback_url' => $partner->callback_url,
             'payin_webhook_url' => $partner->payin_webhook_url,

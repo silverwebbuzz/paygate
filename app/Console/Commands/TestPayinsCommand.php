@@ -11,6 +11,7 @@ use App\Domain\Transaction\Actions\CreatePayin;
 use App\Domain\Transaction\Actions\SubmitPayinProof;
 use App\Domain\Transaction\Enums\PayinStatus;
 use App\Domain\Transaction\Models\Transaction;
+use App\Support\ApiEnvironment;
 use Illuminate\Console\Command;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -25,6 +26,12 @@ class TestPayinsCommand extends Command
 
     public function handle(CreatePayin $create, AllocateAccount $allocate, SubmitPayinProof $proof): int
     {
+        if (ApiEnvironment::isLive()) {
+            $this->error('Test payments are for sandbox / testbox only: this is the live server (PAYGATE_ENVIRONMENT).');
+
+            return self::FAILURE;
+        }
+
         $paise = $this->paise();
         $limit = $this->limit();
 

@@ -16,6 +16,12 @@ type Log = {
     method: string;
     path: string;
     status_code: number;
+    /** API error code of a refused call, e.g. wrong_environment. */
+    error_code: string | null;
+    /** The address the call was sent to. */
+    host: string | null;
+    /** X-Key-Id as sent. */
+    key_id: string | null;
     duration_ms: number;
     ip: string | null;
     request_id: string | null;
@@ -33,9 +39,11 @@ type Props = {
     filters: { result: string | null; search: string };
     /** Sent in the period (Today by default). */
     period: PeriodValue;
+    /** This server: each server keeps its own log. */
+    server: { environment: string; base_url: string };
 };
 
-export default function ApiLogs({ logs, filters, period }: Props) {
+export default function ApiLogs({ logs, filters, period, server }: Props) {
     const [search, setSearch] = useState(filters.search);
 
     const visit = (next: Partial<Props['filters'] & PeriodQuery>) =>
@@ -69,6 +77,14 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                 title="API Logs"
                 description="Every call your servers made to the PayGate API, newest first. Request bodies are not stored."
             />
+            <p className="mb-3 text-[12.5px] text-tx2">
+                This is the <b>{server.environment}</b> server (
+                <span className="font-mono">{server.base_url}</span>). Calls
+                sent to another PayGate server are in that server&apos;s log.
+                Refused calls show their error code, e.g.{' '}
+                <span className="font-mono">wrong_environment</span> when a
+                key of another server was used.
+            </p>
             <Panel className="overflow-hidden">
                 <ViewTabs
                     views={[
@@ -91,7 +107,7 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Order id, request id or path"
+                            placeholder="Order id, request id, key id, error or path"
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
@@ -113,9 +129,16 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                             key: 'call',
                             header: 'Call',
                             cell: (l: Log) => (
-                                <span className="font-mono text-xs">
+                                <div className="font-mono text-xs">
                                     <b>{l.method}</b> {l.path}
-                                </span>
+                                    {(l.host || l.key_id) && (
+                                        <div className="text-[11px] text-tx3">
+                                            {l.host}
+                                            {l.host && l.key_id && ' · '}
+                                            {l.key_id}
+                                        </div>
+                                    )}
+                                </div>
                             ),
                         },
                         {
@@ -133,6 +156,11 @@ export default function ApiLogs({ logs, filters, period }: Props) {
                                     )}
                                 >
                                     {l.status_code}
+                                    {l.error_code && (
+                                        <span className="ml-1.5 font-normal">
+                                            {l.error_code}
+                                        </span>
+                                    )}
                                 </span>
                             ),
                         },

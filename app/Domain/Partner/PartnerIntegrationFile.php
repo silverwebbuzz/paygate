@@ -4,6 +4,7 @@ namespace App\Domain\Partner;
 
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PartnerApi\ApiAuthenticator;
+use App\Support\ApiEnvironment;
 use App\Support\Hosts;
 use App\Support\Money;
 use Dompdf\Dompdf;
@@ -75,6 +76,7 @@ class PartnerIntegrationFile
             'partnerCode' => 'All partners',
             'generatedAt' => now()->timezone((string) config('app.business_timezone'))->format('j M Y, H:i'),
             'base' => Hosts::url('api', '/v1'),
+            'environment' => ApiEnvironment::current(),
             'keyId' => 'Given to each partner',
             'secret' => null,
             'last4' => null,
@@ -123,6 +125,7 @@ class PartnerIntegrationFile
             'partnerCode' => $partner->code,
             'generatedAt' => now()->timezone((string) config('app.business_timezone'))->format('j M Y, H:i'),
             'base' => Hosts::url('api', '/v1'),
+            'environment' => ApiEnvironment::current(),
             'keyId' => $key?->key_id,
             'secret' => $secret,
             'last4' => $key?->secret_last4,

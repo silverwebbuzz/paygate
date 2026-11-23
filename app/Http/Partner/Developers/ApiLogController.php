@@ -9,6 +9,7 @@ use App\Domain\PartnerApi\ApiAuthenticator;
 use App\Domain\PartnerApi\Models\ApiRequestLog;
 use App\Domain\Reporting\Period;
 use App\Http\Controller;
+use App\Support\ApiEnvironment;
 use App\Support\Hosts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class ApiLogController extends Controller
 
         return Inertia::render('partner/api-docs', [
             'base_url' => Hosts::url('api', '/v1'),
+            'environment' => ApiEnvironment::current(),
             'key_id' => $partner->activeApiKey()->value('key_id'),
             'clock_skew' => ApiAuthenticator::MAX_CLOCK_SKEW,
             'rate_limit' => (int) config('paygate.api.rate_limit'),
@@ -61,6 +63,8 @@ class ApiLogController extends Controller
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('partner_transaction_id', $search)
                 ->orWhere('request_id', $search)
+                ->orWhere('key_id_sent', $search)
+                ->orWhere('error_code', $search)
                 ->orWhereLike('path', "%{$search}%")))
             ->latest('created_at')
             ->paginate(50)
@@ -70,6 +74,9 @@ class ApiLogController extends Controller
                 'method' => $log->method,
                 'path' => $log->path,
                 'status_code' => $log->status_code,
+                'error_code' => $log->error_code,
+                'host' => $log->host,
+                'key_id' => $log->key_id_sent,
                 'duration_ms' => $log->duration_ms,
                 'ip' => $log->ip,
                 'request_id' => $log->request_id,
@@ -79,6 +86,8 @@ class ApiLogController extends Controller
 
         return Inertia::render('partner/api-logs', [
             'logs' => $logs,
+            // Each server keeps its own log (client request 2026-11-23).
+            'server' => ['environment' => ApiEnvironment::current(), 'base_url' => Hosts::url('api', '/v1')],
             'filters' => ['result' => $result, 'search' => $search],
             'period' => $period->toArray(),
         ]);

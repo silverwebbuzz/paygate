@@ -6,6 +6,7 @@ use App\Domain\Core\Audit\Models\AuditLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\Partner\Models\PartnerApiKey;
+use App\Support\ApiEnvironment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -41,7 +42,7 @@ class IssueApiKey
             $previous = $keys->firstWhere('status', 'active');
             $previous?->update(['status' => 'rotating', 'expires_at' => now()->addHours(self::OVERLAP_HOURS)]);
 
-            $environment = app()->isProduction() ? 'live' : 'test';
+            $environment = ApiEnvironment::keyPrefix();
             $secret = "sk_{$environment}_".Str::random(48);
 
             $key = PartnerApiKey::create([

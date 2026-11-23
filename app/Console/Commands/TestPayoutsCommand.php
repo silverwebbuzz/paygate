@@ -6,6 +6,7 @@ use App\Console\TestCashierPartners;
 use App\Domain\Partner\Models\Partner;
 use App\Domain\PartnerApi\Exceptions\ApiException;
 use App\Domain\Payout\Actions\CreatePayout;
+use App\Support\ApiEnvironment;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -19,6 +20,12 @@ class TestPayoutsCommand extends Command
 
     public function handle(CreatePayout $create): int
     {
+        if (ApiEnvironment::isLive()) {
+            $this->error('Test payments are for sandbox / testbox only: this is the live server (PAYGATE_ENVIRONMENT).');
+
+            return self::FAILURE;
+        }
+
         $paise = $this->paise();
         $limit = $this->limit();
 
