@@ -84,9 +84,13 @@ class BranchController extends Controller
                 'withdrawal_max_amount' => $branch->withdrawal_max_amount,
                 'limits' => UpdateLimitsRequest::formValues($branch),
                 'rates' => $rates[$branch->id] ?? (object) [],
+                // Approved / paid only (client request 2026-11-23); what is
+                // still waiting (reserved) is shown apart as "pending".
                 'today' => [
-                    'deposit' => $deposits[$branch->id]['amount'] ?? 0,
-                    'withdrawal' => $withdrawals[$branch->id]['amount'] ?? 0,
+                    'deposit' => $deposits[$branch->id]['confirmed'] ?? 0,
+                    'withdrawal' => $withdrawals[$branch->id]['confirmed'] ?? 0,
+                    'deposit_pending' => $deposits[$branch->id]['reserved'] ?? 0,
+                    'withdrawal_pending' => $withdrawals[$branch->id]['reserved'] ?? 0,
                 ],
                 'active_accounts' => $branch->active_accounts_count,
                 'partners_count' => $branch->partners_count,

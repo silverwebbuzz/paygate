@@ -36,7 +36,13 @@ type Row = {
     withdrawal_max_amount: number | null;
     limits: LimitValues;
     rates: { deposit?: string; withdrawal?: string };
-    today: { deposit: number; withdrawal: number };
+    /** Approved only; pending = still waiting (reserved). */
+    today: {
+        deposit: number;
+        withdrawal: number;
+        deposit_pending: number;
+        withdrawal_pending: number;
+    };
     active_accounts: number;
     partners_count: number;
     admins: string[];
@@ -338,6 +344,15 @@ export default function BranchesIndex({
                                         <Td>{pct(b.rates.deposit)}</Td>
                                         <Td className="font-medium">
                                             {formatPaise(b.today.deposit, 0)}
+                                            {b.today.deposit_pending > 0 && (
+                                                <div className="text-[11px] font-normal whitespace-nowrap text-muted-foreground">
+                                                    +{formatPaise(
+                                                        b.today.deposit_pending,
+                                                        0,
+                                                    )}{' '}
+                                                    pending
+                                                </div>
+                                            )}
                                         </Td>
                                         <Td divider>
                                             {b.is_withdrawal_enabled ? (
@@ -357,6 +372,15 @@ export default function BranchesIndex({
                                         </Td>
                                         <Td className="font-medium">
                                             {formatPaise(b.today.withdrawal, 0)}
+                                            {b.today.withdrawal_pending > 0 && (
+                                                <div className="text-[11px] font-normal whitespace-nowrap text-muted-foreground">
+                                                    +{formatPaise(
+                                                        b.today.withdrawal_pending,
+                                                        0,
+                                                    )}{' '}
+                                                    pending
+                                                </div>
+                                            )}
                                         </Td>
                                         <Td divider>
                                             <span className="rounded-md bg-sf2 px-2 py-0.5 text-xs whitespace-nowrap">
@@ -510,7 +534,7 @@ export default function BranchesIndex({
                                   ),
                               }
                             : {
-                                  label: 'Deposits today',
+                                  label: 'Deposits approved today',
                                   value: formatPaise(open.today.deposit, 0),
                               },
                     ]}

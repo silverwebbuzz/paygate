@@ -23,7 +23,8 @@ class UsageCounters
 
     /**
      * @param  array<mixed>  $scopeIds
-     * @return array<string, array{amount: int, count: int, reserved: int, sessions: int}> scope id => usage today
+     * @return array<string, array{amount: int, count: int, confirmed: int, reserved: int, sessions: int}> scope id => usage today
+     *                                                                                          amount = confirmed + reserved (for limits); confirmed = approved only (for display)
      */
     public function today(string $scopeType, array $scopeIds, Direction $direction): array
     {
@@ -38,6 +39,7 @@ class UsageCounters
             ->mapWithKeys(fn (object $row) => [(string) $row->scope_id => [
                 'amount' => (int) $row->reserved_amount + (int) $row->confirmed_amount,
                 'count' => (int) $row->reserved_count + (int) $row->confirmed_count,
+                'confirmed' => (int) $row->confirmed_amount,
                 'reserved' => (int) $row->reserved_amount,
                 'sessions' => (int) $row->open_sessions,
             ]])
