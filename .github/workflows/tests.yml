@@ -52,6 +52,27 @@ jobs:
         with:
           node-version: '24'
 
+      # .env.example is not in the repository (it is public): write the
+      # few settings CI needs. composer setup then fills in APP_KEY.
+      - name: Write .env
+        run: |
+          cat > .env <<'ENV'
+          APP_NAME=PayGate
+          APP_ENV=testing
+          APP_KEY=
+          APP_URL=http://localhost
+          BUSINESS_TIMEZONE=Asia/Kolkata
+          PAYGATE_HASH_KEY=ci-only-hash-key
+          DB_CONNECTION=pgsql
+          DB_PORT=5432
+          DB_USERNAME=paygate
+          DB_PASSWORD=secret
+          CACHE_STORE=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          MAIL_MAILER=array
+          ENV
+
       - name: Setup Application
         run: composer setup
 
