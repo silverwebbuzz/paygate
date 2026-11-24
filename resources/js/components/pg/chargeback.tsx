@@ -113,6 +113,11 @@ export function ChargebackCell({
             <div>
                 Amount <b>{formatPaise(cb.amount)}</b>
             </div>
+            {cb.debited_at && (
+                <div className="whitespace-nowrap text-tx3">
+                    Bank debit {formatDateTime(cb.debited_at)}
+                </div>
+            )}
             {cb.requested_at && (
                 <div className="whitespace-nowrap text-tx3">
                     Raised {formatDateTime(cb.requested_at)}
@@ -143,10 +148,12 @@ export function RaiseChargebackDialog({
 }) {
     const form = useForm<{
         amount: string;
+        debited_at: string;
         reason: string;
         proof: File | null;
     }>({
         amount: (txn.amount / 100).toFixed(2).replace(/\.00$/, ''),
+        debited_at: '',
         reason: '',
         proof: null,
     });
@@ -200,6 +207,21 @@ export function RaiseChargebackDialog({
                     value={form.data.amount}
                     onChange={(event) =>
                         form.setData('amount', event.target.value)
+                    }
+                />
+            </Field>
+            <Field
+                label="Date the bank took it back"
+                required
+                error={errors.debited_at}
+                hint="As on the bank’s notice. It is booked on the day Admin approves either way."
+            >
+                <TextInput
+                    type="datetime-local"
+                    required
+                    value={form.data.debited_at}
+                    onChange={(event) =>
+                        form.setData('debited_at', event.target.value)
                     }
                 />
             </Field>

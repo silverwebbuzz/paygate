@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $branch_id
  * @property int $amount
  * @property string|null $utr no longer asked for (2026-10-26); kept on older chargebacks
+ * @property CarbonInterface|null $debited_at when the bank took it back, per its notice (2026-11-24; empty on older ones)
  * @property string|null $reason
  * @property string|null $proof_file_id
  * @property string $status requested / approved / rejected
@@ -52,7 +53,7 @@ class Chargeback extends Model
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'decided_at' => 'datetime'];
+        return ['amount' => 'integer', 'debited_at' => 'datetime', 'decided_at' => 'datetime'];
     }
 
     public static function newReference(): string

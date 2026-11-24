@@ -99,11 +99,19 @@ class TransactionController extends Controller
         // Created in the period (Today by default), strictly. The
         // Chargebacks and Payout returns pages are work queues: every open
         // case, any date.
+        // Those pages have their own date filter instead: which date, and
+        // All by default (client request 2026-11-24).
         $period = $page === null ? Period::fromRequest($request) : null;
+        $dates = $page === null ? null : ReversalDates::fromRequest($request);
 
         $unfiltered = fn () => self::filtered(self::scoped($actor)->where('direction', $direction), $filters);
         $base = fn () => $unfiltered()
-            ->when($period !== null, fn (Builder $query) => $query->where(fn (Builder $query) => $period->apply($query, 'created_at')));
+            ->when($period !== null, fn (Builder $query) => $query->where(fn (Builder $query) => $period->apply($query, 'created_at')))
+            ->when($dates !== null, fn (Builder $query) => $dates->applyToTransactions(
+                $query,
+                $chargebacks ? 'chargeback' : 'return',
+                $chargebacks && $actor->isType(UserType::Partner) ? fn (Builder $cases) => $cases->where('status', 'approved') : null,
+            ));
 
         // Open ones created before the period, in the tab shown.
         $openStatuses = $group === null ? self::WAITING[$direction] : array_values(array_intersect(self::WAITING[$direction], $groups[$group] ?? []));
@@ -134,6 +142,7 @@ class TransactionController extends Controller
             ],
             'filters' => ['status' => $group, 'search' => $search, ...$filters],
             'period' => $period?->toArray(),
+            'dates' => $dates?->toArray(),
             'older' => $older,
             ...self::filterOptions($actor),
             'summary' => collect($groups)->map(fn (array $statuses) => [
@@ -167,30 +176,37 @@ class TransactionController extends Controller
     }
 
     /**
-     * Partner and branches (Admin only). The period is separate (Period).
+     * Partners (Admin and branches) and branches (Admin only), one or more
+     * of each (client request 2026-11-24). ?partner= (one) still works for
+     * older links. The period is separate (Period).
      *
-     * @return array{partner: ?string, branches: list<string>}
+     * @return array{partners: list<string>, branches: list<string>}
      */
     public static function filters(Request $request, User $actor): array
     {
-        $partner = $request->query('partner');
-        $branches = $actor->isType(UserType::Admin) ? array_values(array_filter((array) $request->query('branches', []), 'is_string')) : [];
+        $list = fn (string $key) => array_values(array_unique(array_filter((array) $request->query($key, []), fn ($id) => is_string($id) && $id !== '')));
+        $partners = $actor->isType(UserType::Partner) ? [] : array_values(array_unique([...$list('partners'), ...$list('partner')]));
 
         return [
-            'partner' => is_string($partner) && $partner !== '' && ! $actor->isType(UserType::Partner) ? $partner : null,
-            'branches' => $branches,
+            'partners' => $partners,
+            'branches' => $actor->isType(UserType::Admin) ? $list('branches') : [],
         ];
     }
 
     /**
      * @param  Builder<Transaction>  $query
-     * @param  array{partner: ?string, branches: list<string>}  $filters
-     * @return Builder<Transaction>
+     *                                       Works on transactions, chargebacks and payout returns alike.
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @param  array{partners: list<string>, branches: list<string>}  $filters
+     * @return Builder<TModel>
      */
     public static function filtered(Builder $query, array $filters): Builder
     {
         return $query
-            ->when($filters['partner'] !== null, fn (Builder $query) => $query->where('partner_id', $filters['partner']))
+            ->when($filters['partners'] !== [], fn (Builder $query) => $query->whereIn('partner_id', $filters['partners']))
             ->when($filters['branches'] !== [], fn (Builder $query) => $query->whereIn('branch_id', $filters['branches']));
     }
 

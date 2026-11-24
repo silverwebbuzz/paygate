@@ -33,6 +33,14 @@ import {
 } from '@/components/pg/transaction-drawer';
 import type { TxnDetail, TxnRow } from '@/components/pg/transaction-drawer';
 import { TxnFilters } from '@/components/pg/txn-filters';
+import {
+    ReversalDateFilter,
+    reversalDatesQuery,
+} from '@/components/pg/reversal-date-filter';
+import type {
+    ReversalDatesQuery,
+    ReversalDatesValue,
+} from '@/components/pg/reversal-date-filter';
 import type { TxnFilterValues } from '@/components/pg/txn-filters';
 import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
@@ -67,6 +75,8 @@ type Props = {
     filters: TxnFilterValues & { status: Group | null; search: string };
     /** Null on the Chargebacks / Payout returns pages (every open case). */
     period: PeriodValue | null;
+    /** The Chargebacks / Payout returns pages: which date and the period (All by default). */
+    dates?: ReversalDatesValue | null;
     /** Open ones created before the period (shown in a banner). */
     older?: OlderOpen;
     partners: { id: string; code: string; name: string }[];
@@ -216,6 +226,7 @@ export default function Transactions({
     transactions,
     filters,
     period,
+    dates = null,
     older = null,
     partners,
     branch_options,
@@ -239,9 +250,14 @@ export default function Transactions({
     const chargebacksOpen =
         direction === 'payin' && summary.chargeback !== undefined;
 
-    const visit = (next: Partial<Props['filters'] & PeriodQuery>) => {
+    const visit = (
+        next: Partial<Props['filters'] & PeriodQuery> & ReversalDatesQuery,
+    ) => {
         const kept = period && !('range' in next) ? periodQuery(period) : {};
-        const merged = { ...filters, ...kept, search, ...next };
+        // A new date filter replaces the old one whole (e.g. custom → All).
+        const keptDates =
+            dates && !('date_by' in next) ? reversalDatesQuery(dates) : {};
+        const merged = { ...filters, ...kept, ...keptDates, search, ...next };
         const target =
             merged.status === 'chargeback' || merged.status === 'return'
                 ? (PAGE_ROUTE[merged.status][portal] ?? null)
@@ -250,7 +266,9 @@ export default function Transactions({
             Object.entries({
                 ...merged,
                 status: target ? null : merged.status,
-            }).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : v)),
+            }).filter(([, v]) =>
+                Array.isArray(v) ? v.length > 0 : v && v !== 'all',
+            ),
         );
 
         router.get(
@@ -582,6 +600,15 @@ export default function Transactions({
                         </div>
                     </div>
                 )}
+                {dates && page && (
+                    <div className="border-b border-ln2 px-3 py-2.5">
+                        <ReversalDateFilter
+                            kind={page}
+                            value={dates}
+                            onChange={visit}
+                        />
+                    </div>
+                )}
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
                     <label className="flex h-[30px] w-[320px] items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
@@ -622,9 +649,10 @@ export default function Transactions({
                             description={
                                 filters.search ||
                                 filters.status ||
-                                filters.partner ||
+                                filters.partners.length > 0 ||
                                 filters.branches.length > 0 ||
-                                period
+                                period ||
+                                dates?.period
                                     ? 'Try another search, filter, period or tab.'
                                     : 'Pay-ins appear here as soon as they are created.'
                             }

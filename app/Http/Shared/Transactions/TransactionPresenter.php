@@ -146,6 +146,7 @@ class TransactionPresenter
             'status' => $chargeback->status,
             'amount' => $chargeback->amount,
             'utr' => $partner ? null : $chargeback->utr,
+            'debited_at' => $chargeback->debited_at?->toIso8601String(),
             'reason' => $partner ? null : $chargeback->reason,
             'proof_file_id' => $partner ? null : $chargeback->proof_file_id,
             'requested_at' => $partner ? null : $chargeback->created_at?->toIso8601String(),

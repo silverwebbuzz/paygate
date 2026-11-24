@@ -11,6 +11,7 @@ use App\Domain\Transaction\Models\Chargeback;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionEvent;
 use App\Domain\Webhook\Actions\QueueWebhook;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +21,8 @@ use Illuminate\Validation\ValidationException;
  * approved deposit, a few days after it was settled.
  *
  * - request: the branch (or Admin) raises it on a successful deposit with
- *   the bank's notice (image / PDF). No UTR is asked for (decided
+ *   the bank's notice (image / PDF) and the date the bank took it back
+ *   (2026-11-24, for the date filters). No UTR is asked for (decided
  *   2026-10-26): the notice is the evidence. The amount starts as the
  *   deposit's and may be lowered. Nothing is booked.
  * - approve: Admin (reversals.approve, never the person who raised it)
@@ -36,9 +38,9 @@ class ManageChargeback
 {
     public function __construct(private Ledger $ledger, private QueueWebhook $webhooks, private AlertDispatcher $alerts) {}
 
-    public function request(User $actor, Transaction $txn, int $amount, UploadedFile $proof, ?string $reason = null): Chargeback
+    public function request(User $actor, Transaction $txn, int $amount, UploadedFile $proof, ?string $reason = null, ?CarbonImmutable $debitedAt = null): Chargeback
     {
-        $chargeback = DB::transaction(function () use ($actor, $txn, $amount, $proof, $reason) {
+        $chargeback = DB::transaction(function () use ($actor, $txn, $amount, $proof, $reason, $debitedAt) {
             /** @var Transaction $locked */
             $locked = Transaction::query()->whereKey($txn->id)->lockForUpdate()->firstOrFail();
 
@@ -56,12 +58,20 @@ class ManageChargeback
                 throw ValidationException::withMessages(['amount' => __('Enter an amount up to the deposit’s amount.')]);
             }
 
+            // Notices often give only the date: not before the day the deposit was approved (India time).
+            $approvedDay = $locked->succeeded_at?->copy()->setTimezone((string) config('app.business_timezone'))->startOfDay();
+
+            if ($debitedAt !== null && ($debitedAt->isFuture() || ($approvedDay !== null && $debitedAt->lt($approvedDay)))) {
+                throw ValidationException::withMessages(['debited_at' => __('Enter when the bank took it back: not before the day the deposit was approved, and not in the future.')]);
+            }
+
             $chargeback = Chargeback::create([
                 'reference' => Chargeback::newReference(),
                 'transaction_id' => $locked->id,
                 'partner_id' => $locked->partner_id,
                 'branch_id' => $locked->branch_id,
                 'amount' => $amount,
+                'debited_at' => $debitedAt?->utc(),
                 'reason' => $reason === null || trim($reason) === '' ? null : trim($reason),
                 'status' => 'requested',
                 'requested_by' => $actor->id,
@@ -76,7 +86,7 @@ class ManageChargeback
                 'chargeback' => $chargeback->reference,
                 'amount' => $amount,
             ]);
-            AuditLog::record('chargeback.requested', $chargeback, [], $chargeback->only(['reference', 'amount', 'reason']), $actor);
+            AuditLog::record('chargeback.requested', $chargeback, [], $chargeback->only(['reference', 'amount', 'debited_at', 'reason']), $actor);
 
             return $chargeback;
         });

@@ -202,6 +202,54 @@ class PayoutInPartsTest extends TestCase
         $this->assertSame(PayoutPayment::query()->orderBy('paid_at')->orderBy('created_at')->pluck('id')->all(), $lines->pluck('payout_payment_id')->all());
     }
 
+    public function test_admin_filters_payout_returns_by_partners_branches_and_each_date()
+    {
+        // Day 0 payout created and paid; day 1 it comes back per the bank;
+        // day 3 the partner raises it; day 4 the branch confirms it.
+        $this->travelTo(now()->setTimezone('Asia/Kolkata')->setTime(11, 0));
+        $start = now()->setTimezone('Asia/Kolkata')->startOfDay()->toImmutable();
+        $payout = $this->payout();
+        $this->pay($payout, 100000, '700000000001')->assertSessionHasNoErrors();
+        $this->travel(3)->days();
+        $this->actingAs($this->partnerUser)->post(route('partner.payouts.return', $payout), ['reason' => 'Bounced'])->assertSessionHasNoErrors();
+        $this->travel(1)->days();
+        $this->actingAs($this->operator)->post(route('branch.payout-returns.confirm', PayoutReturn::sole()), [
+            'amount' => '1000',
+            'returned_at' => $start->addDay()->format('Y-m-d\T10:00'),
+            'proof' => UploadedFile::fake()->create('credit.pdf', 40, 'application/pdf'),
+        ])->assertSessionHasNoErrors();
+        $admin = User::factory()->admin()->withTwoFactor()->create();
+        $otherBranch = Branch::factory()->create();
+
+        $count = function (array $query) use ($admin) {
+            $props = $this->actingAs($admin)->get(route('admin.payout-returns.index', $query))->assertOk()->viewData('page')['props'];
+
+            return [$props['transactions']['total'], $props['summary']['return']['count']];
+        };
+        $on = fn (string $by, int $n) => ['date_by' => $by, 'range' => 'custom', 'from' => $start->addDays($n)->toDateString(), 'to' => $start->addDays($n)->toDateString()];
+
+        $this->assertSame([1, 1], $count([]));
+        foreach (['transaction' => 0, 'bank' => 1, 'entered' => 3, 'decided' => 4] as $by => $n) {
+            $this->assertSame([1, 1], $count($on($by, $n)), "$by on day $n");
+            $this->assertSame([0, 0], $count($on($by, $n === 0 ? 2 : $n - 1)), "$by on another day");
+        }
+        $this->assertSame([1, 1], $count(['date_by' => 'decided', 'range' => 'today']));
+        $this->assertSame([0, 0], $count(['date_by' => 'bank', 'range' => '24h']));
+        $this->assertSame([1, 1], $count(['date_by' => 'bank', 'range' => '7d']));
+        $this->assertSame([1, 1], $count(['date_by' => 'bank', 'range' => '30d']));
+
+        $this->assertSame([1, 1], $count(['partners' => [$this->partner->id], 'branches' => [$this->branch->id, $otherBranch->id]]));
+        $this->assertSame([0, 0], $count(['branches' => [$otherBranch->id]]));
+
+        $this->actingAs($admin)->get(route('admin.payout-returns.index', ['partners' => [$this->partner->id], ...$on('bank', 1)]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('page', 'return')
+                ->where('period', null)
+                ->where('filters.partners', [$this->partner->id])
+                ->where('dates.by', 'bank')
+                ->where('dates.period.range', 'custom'));
+    }
+
     public function test_one_transfer_bounces_and_comes_back_and_later_the_other_too()
     {
         $payout = $this->payout();

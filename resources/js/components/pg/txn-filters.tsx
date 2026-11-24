@@ -1,16 +1,16 @@
-import { SelectInput } from '@/components/pg/field';
 import { MultiSelect } from '@/components/pg/multi-select';
 
 type Org = { id: string; code: string; name: string };
 
 export type TxnFilterValues = {
-    partner: string | null;
+    partners: string[];
     branches: string[];
 };
 
 /**
- * Partner and branches (Admin), shared by the Transactions and Manual
- * Deposit lists (TransactionController::filters()). The period is a
+ * Partners (Admin, branches) and branches (Admin), one or more of each,
+ * shared by the Transactions, Manual Deposit, Chargebacks and Payout
+ * returns lists (TransactionController::filters()). The period is a
  * separate PeriodFilter.
  */
 export function TxnFilters({
@@ -27,20 +27,13 @@ export function TxnFilters({
     return (
         <>
             {partners.length > 0 && (
-                <SelectInput
-                    className="h-[30px] w-[200px] text-[12.5px]"
-                    value={value.partner ?? ''}
-                    onChange={(event) =>
-                        onChange({ partner: event.target.value || null })
-                    }
-                >
-                    <option value="">All partners</option>
-                    {partners.map((partner) => (
-                        <option key={partner.id} value={partner.id}>
-                            {partner.name}
-                        </option>
-                    ))}
-                </SelectInput>
+                <MultiSelect
+                    noun="partners"
+                    items={partners}
+                    selected={value.partners}
+                    onChange={(ids) => onChange({ partners: ids })}
+                    className="h-[30px] w-[220px] flex-none rounded-[7px] text-[12.5px]"
+                />
             )}
             {branches.length > 0 && (
                 <MultiSelect

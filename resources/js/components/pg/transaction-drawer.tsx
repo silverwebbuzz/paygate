@@ -122,6 +122,8 @@ export type TxnChargeback = {
     status: 'requested' | 'approved' | 'rejected';
     amount: number;
     utr: string | null;
+    /** When the bank took it back, per its notice (empty before 2026-11-24). */
+    debited_at: string | null;
     reason: string | null;
     proof_file_id: string | null;
     requested_at: string | null;

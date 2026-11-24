@@ -10,6 +10,14 @@ import { EmptyState } from '@/components/pg/empty-state';
 import { ViewTabs } from '@/components/pg/filter-bar';
 import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
+import {
+    ReversalDateFilter,
+    reversalDatesQuery,
+} from '@/components/pg/reversal-date-filter';
+import type {
+    ReversalDatesQuery,
+    ReversalDatesValue,
+} from '@/components/pg/reversal-date-filter';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { METHOD_LABELS } from '@/components/pg/transaction-drawer';
 import { TxnFilters } from '@/components/pg/txn-filters';
@@ -27,6 +35,7 @@ type Row = {
     status: Tab;
     amount: number;
     utr: string | null;
+    debited_at: string | null;
     utr_also_on: string[];
     reason: string | null;
     proof: { id: string; name: string | null; mime: string } | null;
@@ -62,6 +71,7 @@ type Props = {
     tab: Tab;
     search: string;
     filters: TxnFilterValues;
+    dates: ReversalDatesValue;
     partners: Org[];
     branch_options: Org[];
     items: {
@@ -82,6 +92,7 @@ export default function Chargebacks({
     tab,
     search,
     filters,
+    dates,
     partners,
     branch_options,
     items,
@@ -94,7 +105,8 @@ export default function Chargebacks({
     } | null>(null);
 
     const visit = (
-        next: { tab?: Tab; search?: string } & Partial<TxnFilterValues>,
+        next: { tab?: Tab; search?: string } & Partial<TxnFilterValues> &
+            ReversalDatesQuery,
     ) =>
         router.get(
             adminChargebacks.index({
@@ -103,8 +115,12 @@ export default function Chargebacks({
                         tab,
                         search: query,
                         ...filters,
+                        // A new date filter replaces the old one whole (e.g. custom → All).
+                        ...('date_by' in next ? {} : reversalDatesQuery(dates)),
                         ...next,
-                    }).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : v)),
+                    }).filter(([, v]) =>
+                        Array.isArray(v) ? v.length > 0 : v && v !== 'all',
+                    ),
                 ),
             }).url,
             {},
@@ -198,13 +214,19 @@ export default function Chargebacks({
         },
         {
             key: 'utr',
-            header: 'UTR',
+            header: 'Bank debit · UTR',
             cell: (row) => (
                 <div className="text-xs">
-                    <div>
-                        <span className="text-tx3">Debit </span>
-                        <span className="font-mono">{row.utr ?? '—'}</span>
+                    <div className="whitespace-nowrap">
+                        <span className="text-tx3">Bank debit </span>
+                        {row.debited_at ? formatDateTime(row.debited_at) : '—'}
                     </div>
+                    {row.utr && (
+                        <div>
+                            <span className="text-tx3">Debit UTR </span>
+                            <span className="font-mono">{row.utr}</span>
+                        </div>
+                    )}
                     <div>
                         <span className="text-tx3">Deposit </span>
                         <span className="font-mono">
@@ -353,6 +375,13 @@ export default function Chargebacks({
                     active={tab}
                     onChange={(key) => visit({ tab: key as Tab })}
                 />
+                <div className="border-b border-ln2 px-3 py-2.5">
+                    <ReversalDateFilter
+                        kind="chargeback"
+                        value={dates}
+                        onChange={visit}
+                    />
+                </div>
                 <div className="flex flex-wrap items-center gap-2 border-b border-ln2 px-3 py-2.5">
                     <label className="flex h-[30px] w-[320px] max-w-full items-center gap-2 rounded-[7px] border border-ln px-2.5 text-tx3 focus-within:border-ac">
                         <Search className="size-3.5" />
@@ -383,9 +412,10 @@ export default function Chargebacks({
                                         : 'No chargebacks'
                                 }
                                 description={
-                                    filters.partner ||
-                                    filters.branches.length > 0
-                                        ? 'Try another partner or branch.'
+                                    filters.partners.length > 0 ||
+                                    filters.branches.length > 0 ||
+                                    dates.period
+                                        ? 'Try another partner, branch or period.'
                                         : 'Branches raise chargebacks from Deposit › All deposits.'
                                 }
                             />

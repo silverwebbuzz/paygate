@@ -7,6 +7,7 @@ use App\Domain\Transaction\Actions\ManageChargeback;
 use App\Domain\Transaction\Models\Chargeback;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
+use App\Http\Shared\Transactions\ReversalDates;
 use App\Http\Shared\Transactions\TransactionController;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -32,11 +33,11 @@ class ChargebackController extends Controller
         $actor = $request->user();
         $tab = in_array($request->query('tab'), self::TABS, true) ? (string) $request->query('tab') : 'requested';
         $search = trim((string) $request->query('search'));
-        // Partner and branches, as on the transaction lists (client request 2026-11-24).
+        // Partners, branches and a date (deposit / bank / entered / approved)
+        // with a period, All by default (client request 2026-11-24).
         $filters = TransactionController::filters($request, $actor);
-        $filtered = fn () => Chargeback::query()
-            ->when($filters['partner'] !== null, fn (Builder $query) => $query->where('partner_id', $filters['partner']))
-            ->when($filters['branches'] !== [], fn (Builder $query) => $query->whereIn('branch_id', $filters['branches']));
+        $dates = ReversalDates::fromRequest($request);
+        $filtered = fn () => $dates->applyToCases(TransactionController::filtered(Chargeback::query(), $filters));
 
         $items = $filtered()
             ->where('status', $tab)
@@ -67,6 +68,7 @@ class ChargebackController extends Controller
                 'status' => $chargeback->status,
                 'amount' => $chargeback->amount,
                 'utr' => $chargeback->utr,
+                'debited_at' => $chargeback->debited_at?->toIso8601String(),
                 // The debit's UTR on other chargebacks (one bank debit may cover two complaints, or be a mistake).
                 'utr_also_on' => $chargeback->utr === null ? [] : $sameUtr->get($chargeback->utr, collect())->reject(fn (string $reference) => $reference === $chargeback->reference)->values()->all(),
                 'reason' => $chargeback->reason,
@@ -106,6 +108,7 @@ class ChargebackController extends Controller
             'tab' => $tab,
             'search' => $search,
             'filters' => $filters,
+            'dates' => $dates->toArray(),
             ...TransactionController::filterOptions($actor),
             'items' => [...$items->toArray(), 'data' => $rows],
             'totals' => collect(self::TABS)->mapWithKeys(fn (string $status) => [$status => [

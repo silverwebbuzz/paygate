@@ -75,7 +75,7 @@ class SettlementDashboardTest extends TestCase
         // Raised two days later, approved a week after the deposit.
         $this->travel(2)->days();
         $this->actingAs($this->operator)->post(route('branch.payins.chargeback', $payin), [
-            'amount' => '10000', 'utr' => '626812820491', 'proof' => UploadedFile::fake()->create('notice.pdf', 50, 'application/pdf'),
+            'amount' => '10000', 'utr' => '626812820491', 'debited_at' => now()->setTimezone('Asia/Kolkata')->format('Y-m-d\TH:i'), 'proof' => UploadedFile::fake()->create('notice.pdf', 50, 'application/pdf'),
         ])->assertSessionHasNoErrors();
         $this->travel(5)->days();
         $this->actingAs($this->admin)->post(route('admin.chargebacks.approve', Chargeback::sole()))->assertSessionHasNoErrors();

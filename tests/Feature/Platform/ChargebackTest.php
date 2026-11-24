@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\Concerns\BuildsPayinNetwork;
 use Tests\TestCase;
 
@@ -65,6 +66,7 @@ class ChargebackTest extends TestCase
             'amount' => '10000',
             // The debit's own UTR: a new bank reference, not the deposit's.
             'utr' => '731904556120',
+            'debited_at' => now()->setTimezone('Asia/Kolkata')->format('Y-m-d\TH:i'),
             'reason' => 'UPI complaint 4471',
             'proof' => UploadedFile::fake()->create('npci-notice.pdf', 120, 'application/pdf'),
             ...$overrides,
@@ -183,7 +185,7 @@ class ChargebackTest extends TestCase
 
         // Admin may raise it for the branch, but someone else approves.
         $this->actingAs($this->admin)->post(route('admin.transactions.chargeback', $payin), [
-            'amount' => '10000', 'utr' => '731904556120', 'proof' => UploadedFile::fake()->image('notice.png'),
+            'amount' => '10000', 'utr' => '731904556120', 'debited_at' => now()->setTimezone('Asia/Kolkata')->format('Y-m-d\TH:i'), 'proof' => UploadedFile::fake()->image('notice.png'),
         ])->assertSessionHasNoErrors();
         $chargeback = Chargeback::sole();
         $this->actingAs($this->admin)->post(route('admin.chargebacks.approve', $chargeback))->assertSessionHasErrors('chargeback');
@@ -212,31 +214,76 @@ class ChargebackTest extends TestCase
                 ->where('summary.chargeback.amount', 1000000));
     }
 
-    public function test_admin_filters_chargebacks_and_payout_returns_by_partner_and_branch()
+    public function test_the_bank_date_is_asked_for_and_checked()
     {
-        $this->raise($this->approved())->assertSessionHasNoErrors();
+        $payin = $this->approved();
+        $day = fn (int $days) => now()->setTimezone('Asia/Kolkata')->addDays($days)->format('Y-m-d\TH:i');
+
+        $this->raise($payin, ['debited_at' => ''])->assertSessionHasErrors('debited_at');
+        $this->raise($payin, ['debited_at' => $day(1)])->assertSessionHasErrors('debited_at');
+        $this->raise($payin, ['debited_at' => $day(-2)])->assertSessionHasErrors('debited_at');
+        $this->assertSame(0, Chargeback::count());
+
+        $this->raise($payin, ['debited_at' => $day(0)])->assertSessionHasNoErrors();
+        $this->assertNotNull(Chargeback::sole()->debited_at);
+        $this->actingAs($this->admin)->get(route('admin.chargebacks.index'))
+            ->assertInertia(fn ($page) => $page->where('items.data.0.debited_at', Chargeback::sole()->debited_at->toIso8601String()));
+    }
+
+    public function test_admin_filters_chargebacks_by_partners_branches_and_each_date()
+    {
+        // Day 0 deposit approved; day 1 the bank takes it back; day 3 it is
+        // raised in PayGate; day 4 Admin approves it.
+        $this->travelTo(now()->setTimezone('Asia/Kolkata')->setTime(11, 0));
+        $day = fn (int $n) => now()->setTimezone('Asia/Kolkata')->startOfDay()->addDays($n);
+        $start = $day(0);
+        $payin = $this->approved();
+        $this->travel(3)->days();
+        $this->raise($payin, ['debited_at' => $start->addDay()->format('Y-m-d\T10:00')])->assertSessionHasNoErrors();
+        $this->travel(25)->hours();
+        $checker = User::factory()->admin(SystemRoles::ADMIN_FINANCE)->withTwoFactor()->create();
+        $this->actingAs($checker)->post(route('admin.chargebacks.approve', Chargeback::sole()))->assertSessionHasNoErrors();
         $otherBranch = Branch::factory()->create();
 
-        $list = fn (array $query) => $this->actingAs($this->admin)->get(route('admin.chargebacks.index', $query));
+        $count = function (array $query) {
+            $props = $this->actingAs($this->admin)->get(route('admin.chargebacks.index', ['tab' => 'approved', ...$query]))->assertOk()->viewData('page')['props'];
 
-        $list(['branches' => [$this->branch->id]])
+            return [$props['items']['total'], $props['totals']['approved']['count']];
+        };
+        $on = fn (string $by, int $n) => ['date_by' => $by, 'range' => 'custom', 'from' => $start->addDays($n)->toDateString(), 'to' => $start->addDays($n)->toDateString()];
+
+        // All (the default): any date.
+        $this->assertSame([1, 1], $count([]));
+        $this->assertSame([1, 1], $count(['range' => 'all', 'date_by' => 'bank']));
+        foreach (['transaction' => 0, 'bank' => 1, 'entered' => 3, 'decided' => 4] as $by => $n) {
+            $this->assertSame([1, 1], $count($on($by, $n)), "$by on day $n");
+            $this->assertSame([0, 0], $count($on($by, $n === 0 ? 2 : $n - 1)), "$by on another day");
+        }
+        // The range buttons: approved today, raised yesterday.
+        $this->assertSame([1, 1], $count(['date_by' => 'decided', 'range' => 'today']));
+        $this->assertSame([0, 0], $count(['date_by' => 'entered', 'range' => '24h']));
+        $this->assertSame([1, 1], $count(['date_by' => 'entered', 'range' => '7d']));
+        $this->assertSame([0, 0], $count(['date_by' => 'transaction', 'range' => '1h']));
+
+        // Partners and branches: one or more of each.
+        $this->assertSame([1, 1], $count(['partners' => [$this->partner->id, Str::uuid()->toString()], 'branches' => [$this->branch->id, $otherBranch->id]]));
+        $this->assertSame([0, 0], $count(['branches' => [$otherBranch->id]]));
+        $this->assertSame([0, 0], $count(['partners' => [Str::uuid()->toString()]]));
+        $this->assertSame([1, 1], $count(['partner' => $this->partner->id]));
+
+        $this->actingAs($this->admin)->get(route('admin.chargebacks.index', ['partners' => [$this->partner->id], ...$on('bank', 1)]))
             ->assertInertia(fn ($page) => $page
-                ->where('filters.branches', [$this->branch->id])
+                ->where('filters.partners', [$this->partner->id])
+                ->where('dates.by', 'bank')
+                ->where('dates.period.range', 'custom')
                 ->has('partners')
-                ->has('branch_options', 2)
-                ->where('items.total', 1)
-                ->where('totals.requested.count', 1));
-        $list(['partner' => $this->partner->id])->assertInertia(fn ($page) => $page->where('filters.partner', $this->partner->id)->where('items.total', 1));
-        // Another branch: nothing in the list or the figures.
-        $list(['branches' => [$otherBranch->id]])->assertInertia(fn ($page) => $page->where('items.total', 0)->where('totals.requested.count', 0));
-
-        // Payout returns: the same two filters.
-        $this->actingAs($this->admin)->get(route('admin.payout-returns.index', ['partner' => $this->partner->id, 'branches' => [$otherBranch->id]]))
-            ->assertInertia(fn ($page) => $page
-                ->where('page', 'return')
-                ->where('filters.partner', $this->partner->id)
-                ->where('filters.branches', [$otherBranch->id])
                 ->has('branch_options', 2));
+
+        // The branch's own Chargebacks page has the same date filter.
+        $this->actingAs($this->operator)->get(route('branch.chargebacks.index', $on('bank', 1)))
+            ->assertInertia(fn ($page) => $page->where('transactions.total', 1)->where('dates.by', 'bank'));
+        $this->actingAs($this->operator)->get(route('branch.chargebacks.index', $on('bank', 2)))
+            ->assertInertia(fn ($page) => $page->where('transactions.total', 0)->where('summary.chargeback.count', 0));
     }
 
     public function test_the_branch_list_offers_the_button_on_successful_deposits_only()

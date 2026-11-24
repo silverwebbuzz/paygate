@@ -229,6 +229,14 @@ class Transaction extends Model
     }
 
     /**
+     * @return HasMany<Chargeback, $this>
+     */
+    public function chargebacks(): HasMany
+    {
+        return $this->hasMany(Chargeback::class);
+    }
+
+    /**
      * The bank transfers of a payout (it may be paid in parts), oldest first.
      *
      * @return HasMany<PayoutPayment, $this>
@@ -246,6 +254,14 @@ class Transaction extends Model
     public function currentReturn(): HasOne
     {
         return $this->hasOne(PayoutReturn::class)->latest('created_at');
+    }
+
+    /**
+     * @return HasMany<PayoutReturn, $this>
+     */
+    public function payoutReturns(): HasMany
+    {
+        return $this->hasMany(PayoutReturn::class);
     }
 
     /**

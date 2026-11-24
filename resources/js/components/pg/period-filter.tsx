@@ -36,37 +36,48 @@ export function periodQuery(period: PeriodValue): PeriodQuery {
 /**
  * Period filter of the list pages, as on the Settlement Dashboard: range
  * buttons (Today by default), then a custom start / end and the period
- * shown in words.
+ * shown in words. With `allowAll`, an "All" button (no period, `period`
+ * null): the Chargebacks and Payout returns pages, where it is the default.
  */
 export function PeriodFilter({
     period,
     onChange,
+    allowAll = false,
     className,
 }: {
-    period: PeriodValue;
+    period: PeriodValue | null;
     onChange: (query: PeriodQuery) => void;
+    allowAll?: boolean;
     className?: string;
 }) {
     const [draft, setDraft] = useState({
-        from: local(period.from),
-        to: local(period.to),
+        from: period ? local(period.from) : '',
+        to: period ? local(period.to) : '',
     });
 
     useEffect(() => {
-        setDraft({ from: local(period.from), to: local(period.to) });
-    }, [period.from, period.to]);
+        setDraft({
+            from: period ? local(period.from) : '',
+            to: period ? local(period.to) : '',
+        });
+    }, [period?.from, period?.to]);
+
+    const ranges: [string, string][] = allowAll
+        ? [...PERIOD_RANGES, ['all', 'All']]
+        : PERIOD_RANGES;
+    const active = period?.range ?? 'all';
 
     return (
         <div className={cn('flex flex-col gap-2', className)}>
             <div className="flex flex-wrap items-center gap-1.5">
-                {PERIOD_RANGES.map(([key, label]) => (
+                {ranges.map(([key, label]) => (
                     <button
                         key={key}
                         type="button"
                         onClick={() => onChange({ range: key })}
                         className={cn(
                             'h-[30px] rounded-[7px] border px-3 text-[12.5px] font-medium transition-colors',
-                            period.range === key
+                            active === key
                                 ? 'border-transparent bg-brand text-white'
                                 : 'border-ln bg-sf text-tx2 hover:border-ac/40 hover:text-tx',
                         )}
@@ -108,14 +119,14 @@ export function PeriodFilter({
                     disabled={!draft.from || !draft.to}
                     className={cn(
                         'h-[30px] rounded-[7px] border px-3 text-[12.5px] font-medium disabled:opacity-50',
-                        period.range === 'custom'
+                        active === 'custom'
                             ? 'border-transparent bg-brand text-white'
                             : 'border-ln bg-sf text-tx2 hover:text-tx',
                     )}
                 >
                     Custom
                 </button>
-                <span>{period.label}</span>
+                <span>{period ? period.label : 'Any date'}</span>
             </form>
         </div>
     );
