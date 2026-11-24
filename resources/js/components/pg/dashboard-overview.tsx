@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Banknote, ListOrdered } from 'lucide-react';
 import { Component, Suspense, lazy, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -72,7 +72,9 @@ const local = (iso: string) => iso.slice(0, 16);
  * The top of the dashboard, laid out like the client's existing system:
  * range buttons, filters (admin: partners and branches) with a date-time
  * range, an Amount / Count switch, total / successful / failed cards and
- * four charts.
+ * four charts. Only super admins see the charts and the Amount / Count
+ * switch (it only changes the charts); other admin roles, branches and
+ * partners see the cards only (client requests 2026-11-24).
  */
 export function DashboardOverview({
     portal,
@@ -90,6 +92,10 @@ export function DashboardOverview({
     overview: Overview;
 }) {
     const [measure, setMeasure] = useState<'amount' | 'count'>('amount');
+    // Super admins only; other admins, branches and partners see the cards
+    // only (client requests 2026-11-24).
+    const { superAdmin } = usePage().props;
+    const showCharts = portal === 'admin' && superAdmin;
     const [draft, setDraft] = useState({
         partners: filters.partners,
         branches: filters.branches,
@@ -224,14 +230,16 @@ export function DashboardOverview({
                         })
                     }
                 />
-                <Toggle
-                    value={measure}
-                    options={[
-                        ['amount', 'Amount'],
-                        ['count', 'Count'],
-                    ]}
-                    onChange={setMeasure}
-                />
+                {showCharts && (
+                    <Toggle
+                        value={measure}
+                        options={[
+                            ['amount', 'Amount'],
+                            ['count', 'Count'],
+                        ]}
+                        onChange={setMeasure}
+                    />
+                )}
                 <span className="text-xs text-tx3">{period.label}</span>
             </div>
 
@@ -257,65 +265,77 @@ export function DashboardOverview({
                 />
             </div>
 
-            {/* Charts */}
-            <div className="grid gap-3 xl:grid-cols-2">
-                <ChartPanel title="Successful Transactions">
-                    <ApexChart
-                        type="area"
-                        name={`Successful (${measure})`}
-                        color={COLORS.success}
-                        categories={overview.points.map((p) => slot(p.at))}
-                        values={overview.points.map((p) => pick(p, 'success'))}
-                        xTitle="Time"
-                        yTitle={isAmount ? 'Amount' : 'Count'}
-                        format={format}
-                    />
-                </ChartPanel>
-                <ChartPanel title="Failed Transactions">
-                    <ApexChart
-                        type="area"
-                        name={`Failed (${measure})`}
-                        color={COLORS.failed}
-                        categories={overview.points.map((p) => slot(p.at))}
-                        values={overview.points.map((p) => pick(p, 'failed'))}
-                        xTitle="Time"
-                        yTitle={isAmount ? 'Amount' : 'Count'}
-                        format={format}
-                    />
-                </ChartPanel>
-                <ChartPanel title={`Total ${noun} Transactions`}>
-                    <ApexChart
-                        type="area"
-                        name={`Total (${measure})`}
-                        color={COLORS.total}
-                        categories={overview.points.map((p) => slot(p.at))}
-                        values={overview.points.map((p) => pick(p, 'total'))}
-                        xTitle="Time"
-                        yTitle={isAmount ? 'Amount' : 'Count'}
-                        format={format}
-                    />
-                </ChartPanel>
-                <ChartPanel title="Payment Method (successful)">
-                    {overview.methods.length === 0 ? (
-                        <div className="grid h-[300px] place-items-center text-[13px] text-tx3">
-                            No successful {noun.toLowerCase()}s in this period
-                            {portal === 'admin' ? ' for this selection' : ''}.
-                        </div>
-                    ) : (
+            {/* Charts (super admins only) */}
+            {showCharts && (
+                <div className="grid gap-3 xl:grid-cols-2">
+                    <ChartPanel title="Successful Transactions">
                         <ApexChart
-                            type="bar"
+                            type="area"
                             name={`Successful (${measure})`}
-                            color={COLORS.total}
-                            categories={overview.methods.map(
-                                (m) => METHODS[m.method] ?? m.method,
+                            color={COLORS.success}
+                            categories={overview.points.map((p) => slot(p.at))}
+                            values={overview.points.map((p) =>
+                                pick(p, 'success'),
                             )}
-                            values={overview.methods.map((m) => m[measure])}
+                            xTitle="Time"
                             yTitle={isAmount ? 'Amount' : 'Count'}
                             format={format}
                         />
-                    )}
-                </ChartPanel>
-            </div>
+                    </ChartPanel>
+                    <ChartPanel title="Failed Transactions">
+                        <ApexChart
+                            type="area"
+                            name={`Failed (${measure})`}
+                            color={COLORS.failed}
+                            categories={overview.points.map((p) => slot(p.at))}
+                            values={overview.points.map((p) =>
+                                pick(p, 'failed'),
+                            )}
+                            xTitle="Time"
+                            yTitle={isAmount ? 'Amount' : 'Count'}
+                            format={format}
+                        />
+                    </ChartPanel>
+                    <ChartPanel title={`Total ${noun} Transactions`}>
+                        <ApexChart
+                            type="area"
+                            name={`Total (${measure})`}
+                            color={COLORS.total}
+                            categories={overview.points.map((p) => slot(p.at))}
+                            values={overview.points.map((p) =>
+                                pick(p, 'total'),
+                            )}
+                            xTitle="Time"
+                            yTitle={isAmount ? 'Amount' : 'Count'}
+                            format={format}
+                        />
+                    </ChartPanel>
+                    <ChartPanel title="Payment Method (successful)">
+                        {overview.methods.length === 0 ? (
+                            <div className="grid h-[300px] place-items-center text-[13px] text-tx3">
+                                No successful {noun.toLowerCase()}s in this
+                                period
+                                {portal === 'admin'
+                                    ? ' for this selection'
+                                    : ''}
+                                .
+                            </div>
+                        ) : (
+                            <ApexChart
+                                type="bar"
+                                name={`Successful (${measure})`}
+                                color={COLORS.total}
+                                categories={overview.methods.map(
+                                    (m) => METHODS[m.method] ?? m.method,
+                                )}
+                                values={overview.methods.map((m) => m[measure])}
+                                yTitle={isAmount ? 'Amount' : 'Count'}
+                                format={format}
+                            />
+                        )}
+                    </ChartPanel>
+                </div>
+            )}
         </div>
     );
 }
