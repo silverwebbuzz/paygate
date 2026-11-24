@@ -77,9 +77,6 @@ const SUB_TONES = {
     neutral: 'text-tx3',
 };
 
-/** Payouts in amber: validated against each portal accent (Phase 11). */
-const PAYOUT_COLOR = '#d97706';
-
 /**
  * Where each "needs attention" item leads, per portal, and the permission
  * that screen needs: items the user cannot open stay plain text.
@@ -152,7 +149,8 @@ function duration(seconds: number | null): string {
 /**
  * The live dashboard of every portal: the client's familiar overview on top
  * (range buttons, filters, total / successful / failed, charts), then KPI
- * tiles, pay-in vs payout volume, outcome, needs attention and a table.
+ * tiles, outcome, needs attention and a table (the pay-in vs pay-out
+ * volume chart was removed 2026-11-24).
  * Figures refresh every 30 seconds.
  */
 export function LiveDashboard({
@@ -260,147 +258,153 @@ export function LiveDashboard({
                 ))}
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[1fr_340px]">
-                <VolumeChart chart={metrics.chart} period={period} />
-
-                <Panel className="flex flex-col gap-3.5 px-[18px] py-4">
-                    <div>
-                        <div className="text-sm font-semibold">
-                            Transaction outcome
-                        </div>
-                        <div className="text-xs text-tx3">
-                            {o.total.toLocaleString('en-IN')} created in the
-                            period
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-[18px]">
-                        <div
-                            className="grid size-32 flex-none place-items-center rounded-full"
-                            role="img"
-                            aria-label={`${o.success} successful, ${o.pending} pending, ${o.failed} failed`}
-                            style={{
-                                background:
-                                    decided === 0
-                                        ? 'var(--pg-sf2)'
-                                        : `conic-gradient(var(--pg-ok) 0 ${pct(o.success)}%, var(--pg-wn) ${pct(o.success)}% ${pct(o.success + o.pending)}%, var(--pg-er) ${pct(o.success + o.pending)}% 100%)`,
-                            }}
-                        >
-                            <div className="grid size-[94px] place-items-center rounded-full bg-sf text-center">
-                                <div>
-                                    <div className="text-[21px] font-semibold tracking-[-.02em]">
-                                        {o.rate === null ? '—' : `${o.rate}%`}
-                                    </div>
-                                    <div className="text-[11px] text-tx3">
-                                        success
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="flex flex-1 flex-col gap-2 text-[13px]">
-                            {(
-                                [
-                                    ['success', 'Success', o.success],
-                                    ['pending', 'Pending', o.pending],
-                                    ['failed', 'Failed', o.failed],
-                                ] as const
-                            ).map(([status, label, value]) => (
-                                <div
-                                    key={status}
-                                    className="flex items-center justify-between"
-                                >
-                                    <span className="flex items-center gap-1.5">
-                                        <span
-                                            className={cn(
-                                                'grid size-[18px] place-items-center rounded text-[10px]',
-                                                TONE_CLASSES[
-                                                    statusStyle(status).tone
-                                                ],
-                                            )}
-                                        >
-                                            {statusStyle(status).icon}
-                                        </span>
-                                        {label}
-                                    </span>
-                                    <b>{value.toLocaleString('en-IN')}</b>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 border-t border-ln2 pt-3 text-xs text-tx3">
-                        <div>
-                            <div>Avg. approval time</div>
-                            <div className="text-[15px] font-semibold text-tx">
-                                {duration(o.avg_approval_seconds)}
-                            </div>
-                        </div>
-                        <div>
-                            <div>Avg. ticket size</div>
-                            <div className="text-[15px] font-semibold text-tx">
-                                {o.avg_ticket === null
-                                    ? '—'
-                                    : formatPaise(o.avg_ticket, 0)}
-                            </div>
-                        </div>
-                    </div>
-                </Panel>
-            </div>
-
+            {/* The Pay-in vs Pay-out volume chart was removed from every
+                portal (client request 2026-11-24); the outcome sits above
+                Needs attention. */}
             <div className="grid gap-3 lg:grid-cols-[380px_1fr]">
-                <Panel className="flex flex-col overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-ln2 px-4 py-3">
-                        <span className="text-sm font-semibold">
-                            Needs attention
-                        </span>
-                        <span className="text-xs text-tx3">
-                            Operational queue
-                        </span>
-                    </div>
-                    {metrics.attention.map((item) => {
-                        const url = targetUrl(portal, item.target, permissions);
-                        const style = statusStyle(item.tone);
-                        const body = (
-                            <>
-                                <span
-                                    className={cn(
-                                        'grid size-7 flex-none place-items-center rounded-md text-xs',
-                                        TONE_CLASSES[style.tone],
-                                    )}
-                                >
-                                    {style.icon}
-                                </span>
-                                <span className="flex min-w-0 flex-1 flex-col">
-                                    <span className="text-[13px] font-medium">
-                                        {item.label}
-                                    </span>
-                                    <span className="truncate text-xs text-tx3">
-                                        {item.sub}
-                                    </span>
-                                </span>
-                                <span className="text-[13px] font-semibold whitespace-nowrap">
-                                    {item.value}
-                                </span>
-                                {url && <span className="text-tx3">›</span>}
-                            </>
-                        );
-
-                        return url ? (
-                            <Link
-                                key={item.key}
-                                href={url}
-                                className="flex items-center gap-3 border-b border-ln2 px-4 py-2.5 last:border-0 hover:bg-sf2"
-                            >
-                                {body}
-                            </Link>
-                        ) : (
-                            <div
-                                key={item.key}
-                                className="flex items-center gap-3 border-b border-ln2 px-4 py-2.5 last:border-0"
-                            >
-                                {body}
+                <div className="flex flex-col gap-3">
+                    <Panel className="flex flex-col gap-3.5 px-[18px] py-4">
+                        <div>
+                            <div className="text-sm font-semibold">
+                                Transaction outcome
                             </div>
-                        );
-                    })}
-                </Panel>
+                            <div className="text-xs text-tx3">
+                                {o.total.toLocaleString('en-IN')} created in the
+                                period
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-[18px]">
+                            <div
+                                className="grid size-32 flex-none place-items-center rounded-full"
+                                role="img"
+                                aria-label={`${o.success} successful, ${o.pending} pending, ${o.failed} failed`}
+                                style={{
+                                    background:
+                                        decided === 0
+                                            ? 'var(--pg-sf2)'
+                                            : `conic-gradient(var(--pg-ok) 0 ${pct(o.success)}%, var(--pg-wn) ${pct(o.success)}% ${pct(o.success + o.pending)}%, var(--pg-er) ${pct(o.success + o.pending)}% 100%)`,
+                                }}
+                            >
+                                <div className="grid size-[94px] place-items-center rounded-full bg-sf text-center">
+                                    <div>
+                                        <div className="text-[21px] font-semibold tracking-[-.02em]">
+                                            {o.rate === null
+                                                ? '—'
+                                                : `${o.rate}%`}
+                                        </div>
+                                        <div className="text-[11px] text-tx3">
+                                            success
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex flex-1 flex-col gap-2 text-[13px]">
+                                {(
+                                    [
+                                        ['success', 'Success', o.success],
+                                        ['pending', 'Pending', o.pending],
+                                        ['failed', 'Failed', o.failed],
+                                    ] as const
+                                ).map(([status, label, value]) => (
+                                    <div
+                                        key={status}
+                                        className="flex items-center justify-between"
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            <span
+                                                className={cn(
+                                                    'grid size-[18px] place-items-center rounded text-[10px]',
+                                                    TONE_CLASSES[
+                                                        statusStyle(status).tone
+                                                    ],
+                                                )}
+                                            >
+                                                {statusStyle(status).icon}
+                                            </span>
+                                            {label}
+                                        </span>
+                                        <b>{value.toLocaleString('en-IN')}</b>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 border-t border-ln2 pt-3 text-xs text-tx3">
+                            <div>
+                                <div>Avg. approval time</div>
+                                <div className="text-[15px] font-semibold text-tx">
+                                    {duration(o.avg_approval_seconds)}
+                                </div>
+                            </div>
+                            <div>
+                                <div>Avg. ticket size</div>
+                                <div className="text-[15px] font-semibold text-tx">
+                                    {o.avg_ticket === null
+                                        ? '—'
+                                        : formatPaise(o.avg_ticket, 0)}
+                                </div>
+                            </div>
+                        </div>
+                    </Panel>
+                    <Panel className="flex flex-col overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-ln2 px-4 py-3">
+                            <span className="text-sm font-semibold">
+                                Needs attention
+                            </span>
+                            <span className="text-xs text-tx3">
+                                Operational queue
+                            </span>
+                        </div>
+                        {metrics.attention.map((item) => {
+                            const url = targetUrl(
+                                portal,
+                                item.target,
+                                permissions,
+                            );
+                            const style = statusStyle(item.tone);
+                            const body = (
+                                <>
+                                    <span
+                                        className={cn(
+                                            'grid size-7 flex-none place-items-center rounded-md text-xs',
+                                            TONE_CLASSES[style.tone],
+                                        )}
+                                    >
+                                        {style.icon}
+                                    </span>
+                                    <span className="flex min-w-0 flex-1 flex-col">
+                                        <span className="text-[13px] font-medium">
+                                            {item.label}
+                                        </span>
+                                        <span className="truncate text-xs text-tx3">
+                                            {item.sub}
+                                        </span>
+                                    </span>
+                                    <span className="text-[13px] font-semibold whitespace-nowrap">
+                                        {item.value}
+                                    </span>
+                                    {url && <span className="text-tx3">›</span>}
+                                </>
+                            );
+
+                            return url ? (
+                                <Link
+                                    key={item.key}
+                                    href={url}
+                                    className="flex items-center gap-3 border-b border-ln2 px-4 py-2.5 last:border-0 hover:bg-sf2"
+                                >
+                                    {body}
+                                </Link>
+                            ) : (
+                                <div
+                                    key={item.key}
+                                    className="flex items-center gap-3 border-b border-ln2 px-4 py-2.5 last:border-0"
+                                >
+                                    {body}
+                                </div>
+                            );
+                        })}
+                    </Panel>
+                </div>
 
                 <Panel className="overflow-hidden">
                     <div className="flex items-center justify-between border-b border-ln2 px-4 py-3">
@@ -410,13 +414,13 @@ export function LiveDashboard({
                         {/* Reports are admin-only since 2026-11-14. */}
                         {portal === 'admin' &&
                             permissions.includes('reports.view') && (
-                            <Link
-                                href={admin.reports.index().url}
-                                className="text-xs font-medium text-ac"
-                            >
-                                View reports →
-                            </Link>
-                        )}
+                                <Link
+                                    href={admin.reports.index().url}
+                                    className="text-xs font-medium text-ac"
+                                >
+                                    View reports →
+                                </Link>
+                            )}
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-[13px]">
@@ -525,108 +529,4 @@ export function PercentCell({
 
 export function StatusCell({ status }: { status: string }) {
     return <StatusBadge status={status} />;
-}
-
-/**
- * Pay-in vs payout volume per hour or day: paired bars from a shared
- * baseline, a legend with totals, a tooltip on each bucket.
- */
-function VolumeChart({
-    chart,
-    period,
-}: {
-    chart: Metrics['chart'];
-    period: DashboardProps['period'];
-}) {
-    const [hover, setHover] = useState<number | null>(null);
-    const max = Math.max(
-        1,
-        ...chart.points.map((point) => Math.max(point.payin, point.payout)),
-    );
-    const every = Math.max(1, Math.ceil(chart.points.length / 12));
-    const label = (at: string) =>
-        chart.bucket === 'hour' ? at.slice(11, 13) : at.slice(8, 10);
-    const active = hover === null ? null : chart.points[hover];
-
-    return (
-        <Panel className="flex flex-col gap-3 px-[18px] py-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                    <div className="text-sm font-semibold">
-                        Pay-in vs Pay-out volume
-                    </div>
-                    <div className="text-xs text-tx3">
-                        {chart.bucket === 'hour' ? 'Hourly' : 'Daily'} ·{' '}
-                        {period.label} · INR, successful only
-                    </div>
-                </div>
-                <div className="flex gap-3 text-xs text-tx2">
-                    <span className="flex items-center gap-1.5">
-                        <span className="size-2.5 rounded-sm bg-ac" />
-                        Pay-in{' '}
-                        <b className="text-tx">{compact(chart.payin_total)}</b>
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                        <span
-                            className="size-2.5 rounded-sm"
-                            style={{ background: PAYOUT_COLOR }}
-                        />
-                        Pay-out{' '}
-                        <b className="text-tx">{compact(chart.payout_total)}</b>
-                    </span>
-                </div>
-            </div>
-            <div className="relative">
-                <div
-                    className="flex h-[180px] items-end gap-[3px] border-b border-ln"
-                    onMouseLeave={() => setHover(null)}
-                >
-                    {chart.points.map((point, index) => (
-                        <div
-                            key={point.at}
-                            onMouseEnter={() => setHover(index)}
-                            className={cn(
-                                'flex h-full flex-1 items-end gap-[2px] rounded-t-sm',
-                                hover === index && 'bg-sf2',
-                            )}
-                        >
-                            <div
-                                className="flex-1 rounded-t bg-ac"
-                                style={{
-                                    height: `${(point.payin / max) * 100}%`,
-                                    minHeight: point.payin > 0 ? 2 : 0,
-                                }}
-                            />
-                            <div
-                                className="flex-1 rounded-t"
-                                style={{
-                                    height: `${(point.payout / max) * 100}%`,
-                                    minHeight: point.payout > 0 ? 2 : 0,
-                                    background: PAYOUT_COLOR,
-                                }}
-                            />
-                        </div>
-                    ))}
-                </div>
-                {active && (
-                    <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 rounded-md border border-ln bg-sf px-2.5 py-1.5 text-xs shadow-sm">
-                        <div className="font-medium">
-                            {chart.bucket === 'hour'
-                                ? `${active.at.slice(0, 10)} ${active.at.slice(11, 16)}`
-                                : active.at.slice(0, 10)}
-                        </div>
-                        <div>Pay-in {formatPaise(active.payin)}</div>
-                        <div>Pay-out {formatPaise(active.payout)}</div>
-                    </div>
-                )}
-            </div>
-            <div className="flex gap-[3px] text-center text-[10.5px] text-tx3">
-                {chart.points.map((point, index) => (
-                    <div key={point.at} className="flex-1">
-                        {index % every === 0 ? label(point.at) : ''}
-                    </div>
-                ))}
-            </div>
-        </Panel>
-    );
 }
