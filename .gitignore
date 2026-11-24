@@ -18,6 +18,10 @@
 # Kept on the developer's machine only (the repository is public).
 .env.example
 /Document/
+# Local Docker setup (make setup): not used on the servers.
+/docker/
+/compose.yaml
+/Makefile
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
