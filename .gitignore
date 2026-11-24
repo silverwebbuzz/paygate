@@ -15,6 +15,9 @@
 .env
 .env.backup
 .env.production
+# Kept on the developer's machine only (the repository is public).
+.env.example
+/Document/
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
