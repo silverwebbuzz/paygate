@@ -7,6 +7,7 @@ use App\Domain\Transaction\Actions\ManageChargeback;
 use App\Domain\Transaction\Models\Chargeback;
 use App\Domain\Transaction\Models\Transaction;
 use App\Http\Controller;
+use App\Http\Shared\Transactions\TransactionController;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,8 +32,13 @@ class ChargebackController extends Controller
         $actor = $request->user();
         $tab = in_array($request->query('tab'), self::TABS, true) ? (string) $request->query('tab') : 'requested';
         $search = trim((string) $request->query('search'));
+        // Partner and branches, as on the transaction lists (client request 2026-11-24).
+        $filters = TransactionController::filters($request, $actor);
+        $filtered = fn () => Chargeback::query()
+            ->when($filters['partner'] !== null, fn (Builder $query) => $query->where('partner_id', $filters['partner']))
+            ->when($filters['branches'] !== [], fn (Builder $query) => $query->whereIn('branch_id', $filters['branches']));
 
-        $items = Chargeback::query()
+        $items = $filtered()
             ->where('status', $tab)
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->where('reference', strtoupper($search))
@@ -89,7 +95,7 @@ class ChargebackController extends Controller
             ];
         }
 
-        $totals = Chargeback::query()
+        $totals = $filtered()
             ->toBase()
             ->selectRaw('status, count(*) as total, coalesce(sum(amount), 0) as amount')
             ->groupBy('status')
@@ -99,6 +105,8 @@ class ChargebackController extends Controller
         return Inertia::render('admin/chargebacks', [
             'tab' => $tab,
             'search' => $search,
+            'filters' => $filters,
+            ...TransactionController::filterOptions($actor),
             'items' => [...$items->toArray(), 'data' => $rows],
             'totals' => collect(self::TABS)->mapWithKeys(fn (string $status) => [$status => [
                 'count' => (int) ($totals->get($status)->total ?? 0),

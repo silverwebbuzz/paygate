@@ -893,6 +893,7 @@ export const GUIDE: GuideSection[] = [
                     'If a request is rejected, nothing is booked and it can be raised again.',
                     'Deposit refunds are not used: a deposit is never refunded from PayGate.',
                     'Only one open payout return per payout at a time.',
+                    'Admin can filter both pages by **partner** and by one or more **branches**; the figures at the top follow the filter.',
                 ],
             },
         ],

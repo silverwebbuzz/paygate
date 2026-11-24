@@ -12,6 +12,8 @@ import { KpiGrid, StatTile } from '@/components/pg/kpi-card';
 import { PageHeader } from '@/components/pg/page-header';
 import { StatusBadge } from '@/components/pg/status-badge';
 import { METHOD_LABELS } from '@/components/pg/transaction-drawer';
+import { TxnFilters } from '@/components/pg/txn-filters';
+import type { TxnFilterValues } from '@/components/pg/txn-filters';
 import { formatDateTime } from '@/lib/dates';
 import { formatPaise } from '@/lib/money';
 import adminChargebacks from '@/routes/admin/chargebacks';
@@ -54,9 +56,14 @@ type Row = {
     can_decide: boolean;
 };
 
+type Org = { id: string; code: string; name: string };
+
 type Props = {
     tab: Tab;
     search: string;
+    filters: TxnFilterValues;
+    partners: Org[];
+    branch_options: Org[];
     items: {
         data: Row[];
         total: number;
@@ -71,20 +78,33 @@ type Props = {
  * deposits with the bank's notice; Admin approves (booked today: partner
  * −amount, branch +amount) or rejects. The deposit stays Success.
  */
-export default function Chargebacks({ tab, search, items, totals }: Props) {
+export default function Chargebacks({
+    tab,
+    search,
+    filters,
+    partners,
+    branch_options,
+    items,
+    totals,
+}: Props) {
     const [query, setQuery] = useState(search);
     const [deciding, setDeciding] = useState<{
         row: Row;
         approve: boolean;
     } | null>(null);
 
-    const visit = (next: { tab?: Tab; search?: string }) =>
+    const visit = (
+        next: { tab?: Tab; search?: string } & Partial<TxnFilterValues>,
+    ) =>
         router.get(
             adminChargebacks.index({
                 query: Object.fromEntries(
-                    Object.entries({ tab, search: query, ...next }).filter(
-                        ([, v]) => v,
-                    ),
+                    Object.entries({
+                        tab,
+                        search: query,
+                        ...filters,
+                        ...next,
+                    }).filter(([, v]) => (Array.isArray(v) ? v.length > 0 : v)),
                 ),
             }).url,
             {},
@@ -343,6 +363,12 @@ export default function Chargebacks({ tab, search, items, totals }: Props) {
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
+                    <TxnFilters
+                        value={filters}
+                        partners={partners}
+                        branches={branch_options}
+                        onChange={visit}
+                    />
                 </div>
                 <div className="overflow-x-auto">
                     <DataTable
@@ -356,7 +382,12 @@ export default function Chargebacks({ tab, search, items, totals }: Props) {
                                         ? 'Nothing waiting for approval'
                                         : 'No chargebacks'
                                 }
-                                description="Branches raise chargebacks from Deposit › All deposits."
+                                description={
+                                    filters.partner ||
+                                    filters.branches.length > 0
+                                        ? 'Try another partner or branch.'
+                                        : 'Branches raise chargebacks from Deposit › All deposits.'
+                                }
                             />
                         }
                     />

@@ -212,6 +212,33 @@ class ChargebackTest extends TestCase
                 ->where('summary.chargeback.amount', 1000000));
     }
 
+    public function test_admin_filters_chargebacks_and_payout_returns_by_partner_and_branch()
+    {
+        $this->raise($this->approved())->assertSessionHasNoErrors();
+        $otherBranch = Branch::factory()->create();
+
+        $list = fn (array $query) => $this->actingAs($this->admin)->get(route('admin.chargebacks.index', $query));
+
+        $list(['branches' => [$this->branch->id]])
+            ->assertInertia(fn ($page) => $page
+                ->where('filters.branches', [$this->branch->id])
+                ->has('partners')
+                ->has('branch_options', 2)
+                ->where('items.total', 1)
+                ->where('totals.requested.count', 1));
+        $list(['partner' => $this->partner->id])->assertInertia(fn ($page) => $page->where('filters.partner', $this->partner->id)->where('items.total', 1));
+        // Another branch: nothing in the list or the figures.
+        $list(['branches' => [$otherBranch->id]])->assertInertia(fn ($page) => $page->where('items.total', 0)->where('totals.requested.count', 0));
+
+        // Payout returns: the same two filters.
+        $this->actingAs($this->admin)->get(route('admin.payout-returns.index', ['partner' => $this->partner->id, 'branches' => [$otherBranch->id]]))
+            ->assertInertia(fn ($page) => $page
+                ->where('page', 'return')
+                ->where('filters.partner', $this->partner->id)
+                ->where('filters.branches', [$otherBranch->id])
+                ->has('branch_options', 2));
+    }
+
     public function test_the_branch_list_offers_the_button_on_successful_deposits_only()
     {
         $payin = $this->approved();
