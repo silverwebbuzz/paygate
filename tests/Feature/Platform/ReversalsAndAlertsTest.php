@@ -62,7 +62,7 @@ class ReversalsAndAlertsTest extends TestCase
         $this->assertSame('success', $payin->refresh()->status);
     }
 
-    public function test_alerts_reach_the_people_who_can_act_by_bell_and_email()
+    public function test_alerts_reach_the_people_who_can_act_in_the_bell()
     {
         Notification::fake();
         $owner = User::factory()->branch(SystemRoles::BRANCH_OWNER, $this->branch)->withTwoFactor()->create();
@@ -74,12 +74,12 @@ class ReversalsAndAlertsTest extends TestCase
         $this->assertSame(1, app(AlertDispatcher::class)->depositsWaiting());
         $this->assertSame(0, app(AlertDispatcher::class)->depositsWaiting());
 
-        Notification::assertSentTo([$this->operator, $owner], PortalAlert::class, fn (PortalAlert $alert, array $channels) => $alert->alert === Alert::DepositsWaiting && $channels === ['database', 'mail']);
+        Notification::assertSentTo([$this->operator, $owner], PortalAlert::class, fn (PortalAlert $alert, array $channels) => $alert->alert === Alert::DepositsWaiting && $channels === ['database']);
         Notification::assertNotSentTo($stranger, PortalAlert::class);
 
-        // Email off for that alert: the bell only.
+        // Turned off for that alert: not stored, so not in the bell (no email at all).
         $this->operator->forceFill(['notification_preferences' => ['deposits_waiting' => false]])->save();
-        $this->assertSame(['database'], (new PortalAlert(Alert::DepositsWaiting, 't', 'b'))->via($this->operator->refresh()));
+        $this->assertSame([], (new PortalAlert(Alert::DepositsWaiting, 't', 'b'))->via($this->operator->refresh()));
     }
 
     public function test_the_bell_shows_unread_alerts_and_preferences_are_saved()
@@ -97,10 +97,10 @@ class ReversalsAndAlertsTest extends TestCase
         $this->assertSame(0, $owner->unreadNotifications()->count());
 
         $this->actingAs($owner)->get(route('notifications.edit'))
-            ->assertInertia(fn ($page) => $page->component('settings/notifications')->where('events.0.key', 'deposits_waiting'));
-        $this->actingAs($owner)->put(route('notifications.update'), ['email' => ['deposits_waiting' => false, 'payout_assigned' => true]])->assertSessionHasNoErrors();
-        $this->assertFalse($owner->refresh()->wantsEmail(Alert::DepositsWaiting));
-        $this->assertTrue($owner->wantsEmail(Alert::PayoutAssigned));
-        $this->assertFalse($owner->wantsEmail(Alert::SettlementCalculated)); // unticked = off
+            ->assertInertia(fn ($page) => $page->component('settings/notifications')->where('events.0.key', 'deposits_waiting')->where('events.0.enabled', true));
+        $this->actingAs($owner)->put(route('notifications.update'), ['enabled' => ['deposits_waiting' => false, 'payout_assigned' => true]])->assertSessionHasNoErrors();
+        $this->assertFalse($owner->refresh()->wantsAlert(Alert::DepositsWaiting));
+        $this->assertTrue($owner->wantsAlert(Alert::PayoutAssigned));
+        $this->assertFalse($owner->wantsAlert(Alert::SettlementCalculated)); // switched off = off
     }
 }

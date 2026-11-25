@@ -4,6 +4,7 @@ use App\Domain\Core\Identity\Models\User;
 use App\Http\Shared\Files\FileController;
 use App\Http\Shared\Legal\LegalPageController;
 use App\Http\Shared\Notifications\NotificationController;
+use App\Http\Shared\Notifications\RequestPulseController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +34,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // The bell: mark alerts read.
     Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
+
+    // The deposit / withdrawal request sound: polled by every portal page.
+    Route::get('notifications/pulse', RequestPulseController::class)->name('notifications.pulse');
 });
 
 Route::middleware(['auth', 'verified', 'user.type:admin', 'two-factor.required'])

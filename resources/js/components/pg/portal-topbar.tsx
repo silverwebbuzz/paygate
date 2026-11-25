@@ -1,6 +1,17 @@
-import { Menu, Moon, PanelLeft, Rows3, Rows4, Search, Sun } from 'lucide-react';
+import {
+    Menu,
+    Moon,
+    PanelLeft,
+    Rows3,
+    Rows4,
+    Search,
+    Sun,
+    Volume2,
+    VolumeX,
+} from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import { useAppearance } from '@/hooks/use-appearance';
+import { useRequestSound } from '@/hooks/use-request-sound';
 import type { Density } from '@/hooks/use-density';
 import { cn } from '@/lib/utils';
 import { AlertBell } from './alert-bell';
@@ -20,6 +31,8 @@ export function PortalTopbar({
 }) {
     const { environment } = usePage().props;
     const { resolvedAppearance, updateAppearance } = useAppearance();
+    // Beeps on a new deposit / withdrawal request (client request 2026-11-25).
+    const { muted, toggleMuted } = useRequestSound();
     // live / sandbox / testbox (ApiEnvironment).
     const envLabel = environment.charAt(0).toUpperCase() + environment.slice(1);
     const iconButton =
@@ -127,6 +140,22 @@ export function PortalTopbar({
                     <Sun className="size-3.5" />
                 ) : (
                     <Moon className="size-3.5" />
+                )}
+            </button>
+            <button
+                type="button"
+                onClick={toggleMuted}
+                title={
+                    muted
+                        ? 'Request sound off: turn on'
+                        : 'Request sound on (deposit / withdrawal): turn off'
+                }
+                className={iconButton}
+            >
+                {muted ? (
+                    <VolumeX className="size-3.5" />
+                ) : (
+                    <Volume2 className="size-3.5" />
                 )}
             </button>
             <AlertBell className={iconButton} />

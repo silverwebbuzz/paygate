@@ -6,7 +6,8 @@ use App\Domain\Core\Identity\Enums\UserType;
 
 /**
  * The alerts people get (decided 2026-09-28, G-47): always in the portal's
- * bell, and by email unless the person turns that off for the event.
+ * bell, unless the person turns that alert off (client request 2026-11-25:
+ * no email in the system).
  */
 enum Alert: string
 {

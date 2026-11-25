@@ -12,7 +12,8 @@ use Inertia\Response;
 
 /**
  * The bell (read / read all) and Profile & settings › Notifications, where
- * a person chooses which alerts also come by email (G-47).
+ * a person turns each alert in the bell on or off (G-47; no email, client
+ * request 2026-11-25).
  */
 class NotificationController extends Controller
 {
@@ -39,7 +40,7 @@ class NotificationController extends Controller
             'events' => array_map(fn (Alert $alert) => [
                 'key' => $alert->value,
                 'label' => $alert->label(),
-                'email' => $actor->wantsEmail($alert),
+                'enabled' => $actor->wantsAlert($alert),
             ], Alert::for($actor->type)),
         ]);
     }
@@ -48,12 +49,12 @@ class NotificationController extends Controller
     {
         $actor = $this->actor($request);
         $keys = array_map(fn (Alert $alert) => $alert->value, Alert::for($actor->type));
-        $data = $request->validate(['email' => ['array'], 'email.*' => ['boolean']]);
+        $data = $request->validate(['enabled' => ['array'], 'enabled.*' => ['boolean']]);
 
         $preferences = [];
 
         foreach ($keys as $key) {
-            $preferences[$key] = (bool) ($data['email'][$key] ?? false);
+            $preferences[$key] = (bool) ($data['enabled'][$key] ?? false);
         }
 
         $actor->forceFill(['notification_preferences' => $preferences])->save();

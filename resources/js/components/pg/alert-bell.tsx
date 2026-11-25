@@ -101,7 +101,7 @@ export function AlertBell({ className }: { className: string }) {
                     href={notificationSettings().url}
                     className="block border-t border-ln2 px-3 py-2 text-center text-xs text-tx2 hover:bg-sf2"
                 >
-                    Email settings
+                    Notification settings
                 </Link>
             </DropdownMenuContent>
         </DropdownMenu>

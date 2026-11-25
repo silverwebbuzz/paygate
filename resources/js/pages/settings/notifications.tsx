@@ -1,18 +1,20 @@
 import { Head, useForm } from '@inertiajs/react';
 import Heading from '@/components/heading';
 import { PgButton } from '@/components/pg/button';
+import { SwitchField } from '@/components/pg/switch-field';
 import { update } from '@/routes/notifications';
 import { edit as editNotifications } from '@/routes/notifications';
 
-type Props = { events: { key: string; label: string; email: boolean }[] };
+type Props = { events: { key: string; label: string; enabled: boolean }[] };
 
 /**
- * Which alerts also come by email (G-47). The bell always shows them.
+ * Which alerts show under the bell in the top bar (G-47). No email: the
+ * system doesn't send any (client request 2026-11-25).
  */
 export default function NotificationSettings({ events: alerts }: Props) {
     const form = useForm({
-        email: Object.fromEntries(
-            alerts.map((alert) => [alert.key, alert.email]),
+        enabled: Object.fromEntries(
+            alerts.map((alert) => [alert.key, alert.enabled]),
         ) as Record<string, boolean>,
     });
 
@@ -25,7 +27,7 @@ export default function NotificationSettings({ events: alerts }: Props) {
                 <Heading
                     variant="small"
                     title="Notifications"
-                    description="Every alert appears under the bell in the top bar. Choose which ones you also get by email."
+                    description="Alerts appear under the bell in the top bar. Turn off the ones you don't want to see."
                 />
                 <form
                     className="flex flex-col gap-3"
@@ -35,26 +37,17 @@ export default function NotificationSettings({ events: alerts }: Props) {
                     }}
                 >
                     {alerts.map((alert) => (
-                        <label
+                        <SwitchField
                             key={alert.key}
-                            className="flex items-center justify-between gap-4 rounded-lg border border-ln px-3 py-2.5 text-[13px]"
-                        >
-                            {alert.label}
-                            <span className="flex items-center gap-2 text-xs text-tx2">
-                                Email
-                                <input
-                                    type="checkbox"
-                                    className="size-4 accent-[var(--pg-ac)]"
-                                    checked={form.data.email[alert.key]}
-                                    onChange={(event) =>
-                                        form.setData('email', {
-                                            ...form.data.email,
-                                            [alert.key]: event.target.checked,
-                                        })
-                                    }
-                                />
-                            </span>
-                        </label>
+                            label={alert.label}
+                            checked={form.data.enabled[alert.key]}
+                            onChange={(checked) =>
+                                form.setData('enabled', {
+                                    ...form.data.enabled,
+                                    [alert.key]: checked,
+                                })
+                            }
+                        />
                     ))}
                     {alerts.length === 0 && (
                         <p className="text-sm text-tx3">

@@ -46,7 +46,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $remember_token
  * @property Carbon|null $last_login_at
  * @property string|null $last_login_ip
- * @property array<string, bool>|null $notification_preferences alert => email on/off
+ * @property array<string, bool>|null $notification_preferences alert => shown in the bell on/off
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -150,9 +150,10 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
-     * Whether this person also wants an alert by email (on unless turned off).
+     * Whether this person wants this alert in the bell (on unless turned
+     * off under Profile & settings › Notifications).
      */
-    public function wantsEmail(Alert $alert): bool
+    public function wantsAlert(Alert $alert): bool
     {
         return ($this->notification_preferences[$alert->value] ?? true) !== false;
     }
