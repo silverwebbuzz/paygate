@@ -25,7 +25,7 @@ class PayinController extends Controller
      */
     public function store(CreatePayinRequest $request, CreatePayin $create): JsonResponse
     {
-        /** @var array{order_id: string, amount: int, customer: array{id: string, name?: string|null, email?: string|null, mobile?: string|null, username?: string|null}, return_url?: string|null, metadata?: array<string, mixed>|null} $data */
+        /** @var array{order_id: string, amount: int, customer: array{id: string, name?: string|null, mobile?: string|null, username?: string|null}, return_url?: string|null, metadata?: array<string, mixed>|null} $data */
         $data = $request->validated();
         $result = $create->handle($this->partner($request), $data, $this->key($request)->id);
 

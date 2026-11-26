@@ -23,7 +23,7 @@ type Props = {
     timezones: string[];
     alert_settings: { deposit_wait_minutes: number };
     deposits: { auto_approve: boolean; unmatched_alert_hours: number };
-    checkout: { email: string | null; phone: string | null };
+    checkout: { phone: string | null };
     reasons: Reason[];
     can: { update: boolean };
 };
@@ -47,7 +47,6 @@ export default function GlobalSettings(props: Props) {
         unmatched_alert_hours: String(props.deposits.unmatched_alert_hours),
     });
     const checkout = useForm({
-        email: props.checkout.email ?? '',
         phone: props.checkout.phone ?? '',
     });
 
@@ -171,7 +170,7 @@ export default function GlobalSettings(props: Props) {
 
                 <Section
                     title="Alerts"
-                    text="Branches are alerted (bell and email) when a customer's deposit has waited this long for approval."
+                    text="Branches are alerted in the bell when a customer's deposit has waited this long for approval."
                 >
                     <form
                         className="grid items-end gap-3 sm:grid-cols-[1fr_auto]"
@@ -210,7 +209,7 @@ export default function GlobalSettings(props: Props) {
                     text="Shown to customers on the payment page, so they know whom to ask. Leave empty to hide."
                 >
                     <form
-                        className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]"
+                        className="grid items-end gap-3 sm:grid-cols-[1fr_auto]"
                         onSubmit={(event) => {
                             event.preventDefault();
                             checkout.put(admin.settings.checkout().url, {
@@ -218,19 +217,6 @@ export default function GlobalSettings(props: Props) {
                             });
                         }}
                     >
-                        <Field label="Email" error={checkout.errors.email}>
-                            <TextInput
-                                type="email"
-                                disabled={!can.update}
-                                value={checkout.data.email}
-                                onChange={(event) =>
-                                    checkout.setData(
-                                        'email',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                        </Field>
                         <Field label="Phone" error={checkout.errors.phone}>
                             <TextInput
                                 disabled={!can.update}

@@ -53,12 +53,10 @@ class CreateAdminCommand extends Command
         $user = User::create([
             'name' => $username,
             'username' => $username,
-            'email' => null,
             'password' => Hash::make($password),
             'type' => UserType::Admin,
             'role_id' => Role::bySlug(SystemRoles::ADMIN_SUPER)->id,
         ]);
-        $user->forceFill(['email_verified_at' => now()])->save();
 
         AuditLog::record('user.created', $user, new: [
             'username' => $user->username,

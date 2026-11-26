@@ -42,7 +42,7 @@ class Settings
     private const DEFAULTS = [
         self::SETTLEMENT_CUTOFF => ['timezone' => 'Asia/Kolkata', 'time' => '00:00'],
         self::DEPOSIT_WAIT_MINUTES => 30,
-        self::CHECKOUT_SUPPORT => ['email' => null, 'phone' => null],
+        self::CHECKOUT_SUPPORT => ['phone' => null],
         self::AUTO_APPROVE_DEPOSITS => true,
         self::UNMATCHED_APPROVAL_HOURS => 24,
         self::SECURITY_REPORT => ['client' => null, 'round' => '1', 'environment' => null, 'prepared_by' => null, 'note' => null],
@@ -93,13 +93,13 @@ class Settings
     }
 
     /**
-     * @return array{email: string|null, phone: string|null}
+     * @return array{phone: string|null}
      */
     public function checkoutSupport(): array
     {
         $value = (array) $this->get(self::CHECKOUT_SUPPORT);
 
-        return ['email' => $value['email'] ?? null, 'phone' => $value['phone'] ?? null];
+        return ['phone' => $value['phone'] ?? null];
     }
 
     /**

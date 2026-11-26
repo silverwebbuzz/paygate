@@ -1150,7 +1150,7 @@ export const GUIDE: GuideSection[] = [
                     ],
                     [
                         'System › Global Settings',
-                        'Auto-approve deposits, alert times, settlement cut-off, checkout support email / phone.',
+                        'Auto-approve deposits, alert times, settlement cut-off, checkout support phone.',
                     ],
                     [
                         'System › IP Management',
@@ -1246,6 +1246,11 @@ export const GUIDE: GuideSection[] = [
                         'System › Users / Audit Logs',
                         'Its own users and history',
                         '`/branch/users` · `/branch/audit-logs`',
+                    ],
+                    [
+                        'Guide',
+                        'How to use the branch portal, step by step with screenshots (every branch user)',
+                        '`/branch/guide`',
                     ],
                 ],
             },

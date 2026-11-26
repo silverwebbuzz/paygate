@@ -22,7 +22,7 @@ class PayoutController extends Controller
 {
     public function store(CreatePayoutRequest $request, CreatePayout $create): JsonResponse
     {
-        /** @var array{order_id: string, amount: int, customer: array{id: string, name?: string|null, email?: string|null, mobile?: string|null}, beneficiary: array{type: string, name: string, account_number?: string|null, ifsc?: string|null, bank_name?: string|null, upi_id?: string|null, email?: string|null, phone?: string|null}, metadata?: array<string, mixed>|null} $data */
+        /** @var array{order_id: string, amount: int, customer: array{id: string, name?: string|null, mobile?: string|null}, beneficiary: array{type: string, name: string, account_number?: string|null, ifsc?: string|null, bank_name?: string|null, upi_id?: string|null, phone?: string|null}, metadata?: array<string, mixed>|null} $data */
         $data = $request->validated();
         $result = $create->handle($this->partner($request), $data, $this->key($request)->id);
 

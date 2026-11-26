@@ -240,8 +240,7 @@ class AccountLogController extends Controller
                     ->orWhere('upi_id_last4', $search))->select('id'))
                 ->orWhereIn('actor_id', User::query()->where(fn (Builder $query) => $query
                     ->whereLike('name', "%{$search}%")
-                    ->orWhereLike('username', "%{$search}%")
-                    ->orWhereLike('email', "%{$search}%"))->select('id'))
+                    ->orWhereLike('username', "%{$search}%"))->select('id'))
                 ->orWhere('ip_address', $search)
                 ->orWhereLike('new_values->reason', "%{$search}%")))
             ->latest('created_at')

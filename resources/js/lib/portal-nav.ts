@@ -168,7 +168,7 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
             items: [
                 // Manual Entry, UTR Reconciliation and Unsettled UTR
                 // are tabs of Payments › Deposit.
-                // Source not decided yet (bank API, email, SMS…; G-27).
+                // Source not decided yet (bank API, SMS…; G-27).
                 { label: 'Auto A/C Statement', soon: 'later' },
             ],
         },
@@ -402,6 +402,13 @@ export const PORTAL_NAV: Record<UserType, NavGroup[]> = {
                     permission: 'audit_logs.view',
                 },
             ],
+        },
+        {
+            // Every branch user (2026-11-26): how to use this portal, step
+            // by step with screenshots.
+            label: 'Guide',
+            icon: BookOpen,
+            items: [{ label: 'Guide', href: branch.guide() }],
         },
         account,
     ],

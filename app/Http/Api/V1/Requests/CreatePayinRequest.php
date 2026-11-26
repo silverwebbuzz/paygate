@@ -26,7 +26,6 @@ class CreatePayinRequest extends FormRequest
             'customer' => ['required', 'array'],
             'customer.id' => ['required', 'string', 'max:100'],
             'customer.name' => ['nullable', 'string', 'max:255'],
-            'customer.email' => ['nullable', 'email', 'max:255'],
             'customer.mobile' => ['nullable', 'string', 'regex:/^\+?[0-9]{10,15}$/'],
             'customer.username' => ['nullable', 'string', 'max:150'],
             'return_url' => ['nullable', 'string', 'max:255', app()->isLocal() ? 'url:http,https' : 'url:https'],

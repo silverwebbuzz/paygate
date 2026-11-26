@@ -21,7 +21,7 @@ type Method = 'upi' | 'qr' | 'bank_transfer';
 
 type Props = {
     /** Global Settings: support contact and published pages (G-48). */
-    support: { email: string | null; phone: string | null };
+    support: { phone: string | null };
     pages: { title: string; url: string }[];
     token: string;
     partner: { name: string; initials: string };
@@ -271,24 +271,10 @@ export default function Checkout(props: Props) {
                             Secured by <b className="text-[#0F172A]">PayGate</b>
                         </span>
                     </div>
-                    {(props.support.email ||
-                        props.support.phone ||
-                        props.pages.length > 0) && (
+                    {(props.support.phone || props.pages.length > 0) && (
                         <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
                             <span>
-                                {(props.support.email || props.support.phone) &&
-                                    'Help: '}
-                                {props.support.email && (
-                                    <a
-                                        href={`mailto:${props.support.email}`}
-                                        className="underline"
-                                    >
-                                        {props.support.email}
-                                    </a>
-                                )}
-                                {props.support.email &&
-                                    props.support.phone &&
-                                    ' · '}
+                                {props.support.phone && 'Help: '}
                                 {props.support.phone && (
                                     <a
                                         href={`tel:${props.support.phone}`}

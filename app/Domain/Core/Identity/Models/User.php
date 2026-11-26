@@ -11,7 +11,6 @@ use App\Domain\Core\Rbac\SystemRoles;
 use App\Domain\Notification\Enums\Alert;
 use App\Domain\Partner\Models\Partner;
 use Database\Factories\UserFactory;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
@@ -37,8 +36,6 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property UserStatus $status
  * @property string $name
  * @property string|null $username
- * @property string|null $email
- * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
@@ -51,9 +48,9 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $updated_at
  */
 #[UseFactory(UserFactory::class)]
-#[Fillable(['name', 'username', 'email', 'password', 'type', 'role_id', 'partner_id', 'branch_id', 'status'])]
+#[Fillable(['name', 'username', 'password', 'type', 'role_id', 'partner_id', 'branch_id', 'status'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
+class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasUuids, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
@@ -66,7 +63,6 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'last_login_at' => 'datetime',

@@ -9,9 +9,7 @@ export type User = {
     status: 'active' | 'suspended';
     name: string;
     username: string | null;
-    email: string | null;
     avatar?: string;
-    email_verified_at: string | null;
     two_factor_enabled?: boolean;
     created_at: string;
     updated_at: string;

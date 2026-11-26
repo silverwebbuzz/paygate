@@ -37,14 +37,14 @@ class AuditLogController extends Controller
             $items = SecurityLog::query()
                 ->with('user')
                 ->where(fn (Builder $query) => $period->apply($query, 'created_at'))
-                ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query->where('email', 'ilike', "%{$search}%")->orWhere('ip_address', $search)->orWhere('event', $search)))
+                ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query->where('login', 'ilike', "%{$search}%")->orWhere('ip_address', $search)->orWhere('event', $search)))
                 ->latest('created_at')
                 ->paginate(50)
                 ->withQueryString()
                 ->through(fn (SecurityLog $log) => [
                     'id' => $log->id,
                     'event' => $log->event->value,
-                    'who' => $log->user->name ?? $log->email,
+                    'who' => $log->user->name ?? $log->login,
                     'ip' => $log->ip_address,
                     'request_id' => $log->request_id,
                     'context' => $log->context,
@@ -57,7 +57,7 @@ class AuditLogController extends Controller
                 ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                     ->where('action', 'ilike', "%{$search}%")
                     ->orWhere('request_id', $search)
-                    ->orWhereHas('actor', fn (Builder $query) => $query->where('name', 'ilike', "%{$search}%")->orWhere('email', 'ilike', "%{$search}%"))))
+                    ->orWhereHas('actor', fn (Builder $query) => $query->where('name', 'ilike', "%{$search}%")->orWhere('username', 'ilike', "%{$search}%"))))
                 ->latest('created_at')
                 ->paginate(50)
                 ->withQueryString()

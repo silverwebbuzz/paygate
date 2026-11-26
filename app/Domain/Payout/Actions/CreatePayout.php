@@ -30,7 +30,7 @@ class CreatePayout
     public function __construct(private PayoutRouter $router) {}
 
     /**
-     * @param  array{order_id: string, amount: int, customer: array{id: string, name?: string|null, email?: string|null, mobile?: string|null}, beneficiary: array{type: string, name: string, account_number?: string|null, ifsc?: string|null, bank_name?: string|null, upi_id?: string|null, email?: string|null, phone?: string|null}, metadata?: array<string, mixed>|null}  $data
+     * @param  array{order_id: string, amount: int, customer: array{id: string, name?: string|null, mobile?: string|null}, beneficiary: array{type: string, name: string, account_number?: string|null, ifsc?: string|null, bank_name?: string|null, upi_id?: string|null, phone?: string|null}, metadata?: array<string, mixed>|null}  $data
      * @return array{payout: Transaction, created: bool}
      */
     public function handle(Partner $partner, array $data, ?string $apiKeyId = null): array
@@ -88,7 +88,6 @@ class CreatePayout
                     'ifsc' => $beneficiary['type'] === 'bank' ? strtoupper((string) ($beneficiary['ifsc'] ?? '')) : null,
                     'bank_name' => $beneficiary['bank_name'] ?? null,
                     'upi_id_encrypted' => $beneficiary['type'] === 'upi' ? strtolower(trim((string) ($beneficiary['upi_id'] ?? ''))) : null,
-                    'email' => $beneficiary['email'] ?? null,
                     'phone' => $beneficiary['phone'] ?? null,
                 ]);
 

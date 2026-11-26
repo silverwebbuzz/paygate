@@ -79,7 +79,6 @@ class UserManagementTest extends TestCase
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $user = User::where('username', 'ravi')->firstOrFail();
-        $this->assertNull($user->email);
         $this->assertSame('ravi', $user->username);
         $this->assertSame(UserType::Branch, $user->type);
         $this->assertSame($branch->id, $user->branch_id);
@@ -367,7 +366,6 @@ class UserManagementTest extends TestCase
     {
         $admin = $this->superAdmin();
         $user = User::factory()->branch(SystemRoles::BRANCH_OPERATOR)->create(['last_login_at' => now()]);
-        $email = $user->email;
 
         $this->actingAs($admin)->put(route('admin.users.update', $user), [
             'username' => 'changed',
@@ -376,9 +374,7 @@ class UserManagementTest extends TestCase
 
         $user->refresh();
         $this->assertSame('changed', $user->username);
-        $this->assertSame($email, $user->email);
         $this->assertSame(SystemRoles::BRANCH_OWNER, $user->role->slug);
-        $this->assertNotNull($user->email_verified_at);
         Notification::assertNothingSent();
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.updated', 'subject_id' => $user->id]);
 

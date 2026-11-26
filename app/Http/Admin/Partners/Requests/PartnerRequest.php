@@ -42,7 +42,6 @@ class PartnerRequest extends FormRequest
             // 1. Basic information
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:30', 'regex:/^[A-Z0-9][A-Z0-9_-]*$/', Rule::unique('partners', 'code')->ignore($this->partner()?->id)],
-            'email' => ['required', 'email', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'website_url' => $url,
 
@@ -144,7 +143,6 @@ class PartnerRequest extends FormRequest
         return [
             ...$data,
             'code' => $this->string('code')->value(),
-            'email' => $this->string('email')->lower()->value(),
             'website_url' => $this->filled('website_url') ? $this->string('website_url')->value() : null,
         ];
     }

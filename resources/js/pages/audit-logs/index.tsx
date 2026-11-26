@@ -189,7 +189,7 @@ export default function AuditLogs({
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder={
                                 tab === 'security'
-                                    ? 'Email, IP or event'
+                                    ? 'Username, IP or event'
                                     : 'Action, person or request id'
                             }
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"

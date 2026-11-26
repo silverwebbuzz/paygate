@@ -17,7 +17,6 @@ class PartnerFactory extends Factory
         return [
             'code' => 'P'.fake()->unique()->numerify('#####'),
             'name' => fake()->company(),
-            'email' => fake()->companyEmail(),
             'website_url' => 'https://'.fake()->domainName(),
             'status' => 'active',
             'is_payin_enabled' => true,

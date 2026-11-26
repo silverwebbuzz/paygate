@@ -145,7 +145,7 @@ class SectionRolloutTest extends TestCase
     public function test_every_portal_page_belongs_to_a_section_or_is_always_open()
     {
         // Dashboards (exact), the Guide and the super-admin tools are never closed.
-        $alwaysOpen = ['/admin', '/branch', '/partner', '/admin/guide', '/admin/qa-checklist', '/admin/security-report', '/admin/section-rollout', '/admin/ui-kit'];
+        $alwaysOpen = ['/admin', '/branch', '/partner', '/admin/guide', '/branch/guide', '/admin/qa-checklist', '/admin/security-report', '/admin/section-rollout', '/admin/ui-kit'];
         $paths = [];
 
         foreach (SectionRollout::SECTIONS as $portal => $groups) {

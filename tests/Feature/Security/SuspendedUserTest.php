@@ -33,7 +33,8 @@ class SuspendedUserTest extends TestCase
 
         $user->update(['status' => UserStatus::Suspended]);
 
-        $this->get(route('partner.dashboard'))->assertRedirect(route('login'));
+        // The message shows under the login page's Username field.
+        $this->get(route('partner.dashboard'))->assertRedirect(route('login'))->assertSessionHasErrors('login');
         $this->assertGuest();
         $this->assertDatabaseHas('security_logs', [
             'event' => SecurityEvent::SessionTerminatedSuspended->value,

@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $ifsc
  * @property string|null $bank_name
  * @property string|null $upi_id_encrypted plain value (encrypted cast)
- * @property string|null $email
  * @property string|null $phone
  */
 class PayoutBeneficiary extends Model

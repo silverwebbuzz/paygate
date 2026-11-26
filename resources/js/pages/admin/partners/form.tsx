@@ -26,7 +26,6 @@ type Branch = {
 type PartnerForm = {
     name: string;
     code: string;
-    email: string;
     description: string;
     website_url: string;
     return_url: string;
@@ -79,7 +78,7 @@ const STEPS: {
     {
         title: 'Basic information',
         description: 'Who the partner is.',
-        fields: ['name', 'code', 'email', 'description', 'website_url'],
+        fields: ['name', 'code', 'description', 'website_url'],
     },
     {
         title: 'API & security',
@@ -161,7 +160,6 @@ function initial(partner: ExistingPartner | null): PartnerForm {
     return {
         name: text(p.name),
         code: text(p.code),
-        email: text(p.email),
         description: text(p.description),
         website_url: text(p.website_url),
         return_url: text(p.return_url),
@@ -422,14 +420,12 @@ export default function PartnerFormPage({ partner, branches, can }: Props) {
                                         ? 'Unique. Capitals, digits, - and _. Used in the API and reports; fixed once live.'
                                         : 'Fixed: the partner is live.',
                                 })}
-                                {input('email', 'Email', {
-                                    type: 'email',
-                                    required: true,
-                                })}
-                                {input('website_url', 'Website URL', {
-                                    type: 'url',
-                                    placeholder: 'https://',
-                                })}
+                                <div className="sm:col-span-2">
+                                    {input('website_url', 'Website URL', {
+                                        type: 'url',
+                                        placeholder: 'https://',
+                                    })}
+                                </div>
                                 <div className="sm:col-span-2">
                                     <Field
                                         label="Description"
@@ -951,9 +947,7 @@ function MarginTable({
                 <tbody>
                     {branches.map((branch) => (
                         <tr key={branch.id} className="border-t border-ln2">
-                            <td className="px-3 py-1.5">
-                                {branch.name}
-                            </td>
+                            <td className="px-3 py-1.5">{branch.name}</td>
                             <td className="px-3 py-1.5">
                                 {cell(deposit, branch.rates.deposit)}
                             </td>

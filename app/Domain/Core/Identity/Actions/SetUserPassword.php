@@ -18,7 +18,6 @@ class SetUserPassword
         DB::transaction(function () use ($actor, $user, $password) {
             $user->forceFill([
                 'password' => $password,
-                'email_verified_at' => $user->email_verified_at ?? now(),
                 'remember_token' => Str::random(60),
             ])->save();
 

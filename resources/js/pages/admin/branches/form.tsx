@@ -5,6 +5,7 @@ import { PgButton } from '@/components/pg/button';
 import { Panel } from '@/components/pg/data-table';
 import {
     Field,
+    noAutofill,
     PasswordTextInput,
     SelectInput,
     TextInput,
@@ -320,7 +321,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                             maxLength: 50,
                             pattern: '[a-z0-9._\\-]+',
                             autoCapitalize: 'none',
-                            autoComplete: 'off',
+                            ...noAutofill,
                             hint: '3–50 characters: lowercase letters, numbers, dot, underscore or hyphen.',
                             onChange: (event) =>
                                 setData(
@@ -334,6 +335,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                             error={errors.admin_password}
                         >
                             <PasswordTextInput
+                                {...noAutofill}
                                 autoComplete="new-password"
                                 value={data.admin_password}
                                 invalid={!!errors.admin_password}
@@ -347,6 +349,7 @@ export default function BranchFormPage({ branch, partners, can }: Props) {
                         </Field>
                         <Field label="Confirm password">
                             <PasswordTextInput
+                                {...noAutofill}
                                 autoComplete="new-password"
                                 value={data.admin_password_confirmation}
                                 onChange={(event) =>

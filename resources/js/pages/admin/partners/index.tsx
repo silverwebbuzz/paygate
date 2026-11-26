@@ -30,7 +30,6 @@ type Row = {
     id: string;
     name: string;
     code: string;
-    email: string;
     return_url: string | null;
     status: string;
     is_payin_enabled: boolean;
@@ -267,7 +266,9 @@ export default function PartnersIndex({
                     </span>
                     <div className="min-w-0">
                         <div className="font-medium">{p.name}</div>
-                        <div className="text-xs text-tx3">{p.email}</div>
+                        <div className="font-mono text-xs text-tx3">
+                            {p.code}
+                        </div>
                     </div>
                 </div>
             ),
@@ -487,7 +488,7 @@ export default function PartnersIndex({
                         <input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
-                            placeholder="Search name, code or email"
+                            placeholder="Search name or code"
                             className="w-full bg-transparent text-[12.5px] text-tx outline-none placeholder:text-tx3"
                         />
                     </label>
@@ -547,7 +548,7 @@ export default function PartnersIndex({
                     kind="Partner"
                     title={open.name}
                     status={<StatusBadge status={open.status} />}
-                    subtitle={open.email}
+                    subtitle={open.code}
                     actions={
                         <div className="flex gap-2">
                             {can.users && (

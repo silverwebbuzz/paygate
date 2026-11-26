@@ -20,8 +20,7 @@ class CreateAdminCommandTest extends TestCase
         $user = User::where('username', 'root')->firstOrFail();
 
         $this->assertSame(SystemRoles::ADMIN_SUPER, $user->role->slug);
-        $this->assertNull($user->email);
-        $this->assertNotNull($user->email_verified_at);
+        $this->assertArrayNotHasKey('email', $user->getAttributes());
         $this->assertDatabaseHas('audit_logs', ['action' => 'user.created', 'subject_id' => $user->id]);
     }
 

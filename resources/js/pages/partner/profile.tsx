@@ -10,7 +10,6 @@ type Props = {
     partner: {
         name: string;
         code: string;
-        email: string;
         description: string | null;
         website_url: string | null;
         api_version: string;
@@ -63,7 +62,6 @@ export default function BusinessProfile({ partner, rates }: Props) {
                 </div>
                 <KeyValues
                     items={[
-                        { label: 'Email', value: partner.email },
                         { label: 'Website', value: partner.website_url },
                         { label: 'API version', value: partner.api_version },
                         {

@@ -40,13 +40,13 @@ class RecordSecurityEvents
         SecurityLog::record(
             SecurityEvent::LoginFailed,
             $event->user instanceof User ? $event->user : null,
-            email: isset($event->credentials[Fortify::username()]) ? (string) $event->credentials[Fortify::username()] : null,
+            login: isset($event->credentials[Fortify::username()]) ? (string) $event->credentials[Fortify::username()] : null,
         );
     }
 
     public function handleLockout(Lockout $event): void
     {
-        SecurityLog::record(SecurityEvent::LoginLockedOut, email: (string) $event->request->input(Fortify::username()));
+        SecurityLog::record(SecurityEvent::LoginLockedOut, login: (string) $event->request->input(Fortify::username()));
     }
 
     public function handleLogout(Logout $event): void

@@ -8,6 +8,22 @@ import type {
 } from 'react';
 import { cn } from '@/lib/utils';
 
+/**
+ * Spread on a field where an admin types a NEW user's username or password.
+ * autoComplete="off" alone is ignored by password-manager extensions
+ * (Bitwarden, Proton Pass, 1Password, LastPass, Dashlane…), which then offer
+ * to fill saved logins or pop up "New email alias". These attributes ask
+ * each of them to leave the field alone. Not for the login page.
+ */
+export const noAutofill = {
+    autoComplete: 'off',
+    'data-1p-ignore': 'true',
+    'data-lpignore': 'true',
+    'data-bwignore': 'true',
+    'data-protonpass-ignore': 'true',
+    'data-form-type': 'other',
+} as const;
+
 const control =
     'w-full rounded-lg border border-ln bg-sf px-3 text-sm text-tx outline-none placeholder:text-tx3 focus:border-ac focus:ring-[3px] focus:ring-acs disabled:bg-sf2 disabled:text-tx3 aria-invalid:border-er';
 

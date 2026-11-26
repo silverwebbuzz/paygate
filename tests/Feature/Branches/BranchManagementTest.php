@@ -82,7 +82,6 @@ class BranchManagementTest extends TestCase
         $this->assertTrue($branch->partners()->whereKey($partner->id)->exists());
 
         $branchAdmin = User::where('username', 'delux.admin')->firstOrFail();
-        $this->assertNull($branchAdmin->email);
         $this->assertSame($branch->id, $branchAdmin->branch_id);
         $this->assertSame(SystemRoles::BRANCH_OWNER, $branchAdmin->role->slug);
         $this->assertSame('active', $branchAdmin->displayStatus());

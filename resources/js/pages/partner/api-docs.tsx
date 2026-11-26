@@ -281,7 +281,6 @@ const signature = crypto.createHmac('sha256', secret).update(toSign).digest('hex
     "id": "user-5521",                   // required: your customer id
     "name": "Ravi Kumar",                 // optional
     "mobile": "9876543210",              // optional
-    "email": "ravi@example.com",         // optional
     "username": "ravi_k"                  // optional
   },
   "return_url": "https://shop.example.com/deposit/done",  // optional, must be on your domain

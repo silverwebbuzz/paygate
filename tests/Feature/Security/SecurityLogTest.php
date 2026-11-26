@@ -15,13 +15,13 @@ class SecurityLogTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_failed_login_is_logged_with_the_attempted_email()
+    public function test_failed_login_is_logged_with_the_attempted_username()
     {
-        $this->post(route('login.store'), ['login' => 'nobody@example.com', 'password' => 'wrong']);
+        $this->post(route('login.store'), ['login' => 'nobody', 'password' => 'wrong']);
 
         $this->assertDatabaseHas('security_logs', [
             'event' => SecurityEvent::LoginFailed->value,
-            'email' => 'nobody@example.com',
+            'login' => 'nobody',
             'ip_address' => '127.0.0.1',
         ]);
     }
@@ -43,7 +43,7 @@ class SecurityLogTest extends TestCase
 
     public function test_log_entries_carry_the_request_id()
     {
-        $this->post(route('login.store'), ['login' => 'nobody@example.com', 'password' => 'wrong'], [
+        $this->post(route('login.store'), ['login' => 'nobody', 'password' => 'wrong'], [
             'X-Request-Id' => 'test-request-0001',
         ])->assertHeader('X-Request-Id', 'test-request-0001');
 
@@ -52,16 +52,16 @@ class SecurityLogTest extends TestCase
 
     public function test_security_logs_cannot_be_changed_or_deleted()
     {
-        $log = SecurityLog::record(SecurityEvent::LoginFailed, email: 'someone@example.com');
+        $log = SecurityLog::record(SecurityEvent::LoginFailed, login: 'someone');
 
-        $this->assertThrowsAppendOnly(fn () => $log->update(['email' => 'changed@example.com']));
+        $this->assertThrowsAppendOnly(fn () => $log->update(['login' => 'changed']));
         $this->assertThrowsAppendOnly(fn () => $log->delete());
     }
 
     public function test_audit_logs_cannot_be_changed_or_deleted()
     {
         $user = User::factory()->create();
-        $log = AuditLog::record('user.created', $user, new: ['email' => $user->email], actor: $user);
+        $log = AuditLog::record('user.created', $user, new: ['username' => $user->username], actor: $user);
 
         $this->assertThrowsAppendOnly(fn () => $log->update(['action' => 'something.else']));
         $this->assertThrowsAppendOnly(fn () => $log->delete());

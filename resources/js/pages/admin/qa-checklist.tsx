@@ -52,7 +52,7 @@ type Result = {
 
 type Props = {
     sections: Section[];
-    logins: Record<string, { label: string; email: string | null }>;
+    logins: Record<string, { label: string; username: string | null }>;
     results: Record<string, Result>;
     runner: { problem: string | null };
     partners: { id: string; code: string; name: string }[];
@@ -377,9 +377,9 @@ function Row({
                     {item.login.map((key) => (
                         <div key={key} className="leading-tight">
                             <div>{logins[key]?.label ?? key}</div>
-                            {logins[key]?.email && (
+                            {logins[key]?.username && (
                                 <div className="font-mono text-[11.5px] text-tx3">
-                                    {logins[key].email}
+                                    {logins[key].username}
                                 </div>
                             )}
                         </div>

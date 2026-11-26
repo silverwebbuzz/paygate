@@ -77,10 +77,9 @@ class GlobalSettingsController extends Controller
         Gate::authorize('settings.update');
 
         $data = $request->validate([
-            'email' => ['nullable', 'email', 'max:150'],
             'phone' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+\-\s()]{6,30}$/'],
         ]);
-        $settings->set(Settings::CHECKOUT_SUPPORT, ['email' => $data['email'] ?? null, 'phone' => $data['phone'] ?? null], $this->actor($request));
+        $settings->set(Settings::CHECKOUT_SUPPORT, ['phone' => $data['phone'] ?? null], $this->actor($request));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Payment page support contact saved.')]);
 

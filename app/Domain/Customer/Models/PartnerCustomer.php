@@ -18,7 +18,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $external_id
  * @property string|null $username
  * @property string|null $name
- * @property string|null $email
  * @property string|null $mobile
  * @property bool $is_blocked
  * @property CarbonInterface $first_seen_at
@@ -43,14 +42,15 @@ class PartnerCustomer extends Model
 
     /**
      * Records (or refreshes) the customer; details only overwrite when given.
+     * No email is kept, even if a partner sends one (client request 2026-11-25).
      *
-     * @param  array{id: string, name?: string|null, email?: string|null, mobile?: string|null, username?: string|null}  $details
+     * @param  array{id: string, name?: string|null, mobile?: string|null, username?: string|null}  $details
      */
     public static function remember(Partner $partner, array $details): self
     {
         $customer = self::query()->firstOrNew(['partner_id' => $partner->id, 'external_id' => $details['id']]);
 
-        foreach (['name', 'email', 'mobile', 'username'] as $field) {
+        foreach (['name', 'mobile', 'username'] as $field) {
             if (isset($details[$field]) && $details[$field] !== '') {
                 $customer->{$field} = $details[$field];
             }

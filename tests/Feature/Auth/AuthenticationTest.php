@@ -74,7 +74,7 @@ class AuthenticationTest extends TestCase
 
     public function test_an_email_address_does_not_log_anyone_in()
     {
-        $user = User::factory()->create(['username' => 'ravi', 'email' => 'someone@example.com']);
+        $user = User::factory()->create(['username' => 'ravi']);
 
         $this->post(route('login.store'), [
             'login' => 'someone@example.com',

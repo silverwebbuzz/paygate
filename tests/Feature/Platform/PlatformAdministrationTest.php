@@ -36,11 +36,12 @@ class PlatformAdministrationTest extends TestCase
 
         $settings = app(Settings::class);
         $this->assertSame(45, $settings->depositWaitMinutes());
-        $this->assertSame(['email' => 'help@paygate.example', 'phone' => '+91 98765 43210'], $settings->checkoutSupport());
+        // No email is kept, even if one is sent.
+        $this->assertSame(['phone' => '+91 98765 43210'], $settings->checkoutSupport());
 
         // The customer payment page shows the contact.
         [, $token] = $this->createPayin();
-        $this->get("http://pay.paygate.local/p/{$token}")->assertInertia(fn ($page) => $page->where('support.email', 'help@paygate.example'));
+        $this->get("http://pay.paygate.local/p/{$token}")->assertInertia(fn ($page) => $page->where('support', ['phone' => '+91 98765 43210']));
 
         // Reasons: add one, rename one; "other" can't be switched off.
         $this->actingAs($this->admin)->post(route('admin.settings.reasons.store'), ['context' => 'payin_reject', 'code' => 'customer_cancelled', 'label' => 'Customer cancelled', 'is_active' => true])->assertSessionHasNoErrors();

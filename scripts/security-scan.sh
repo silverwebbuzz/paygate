@@ -166,7 +166,7 @@ LOGIN=$(curl -s -A "$UA" --max-time 20 "$PORTAL/login")
 if echo "$LOGIN" | grep -qiE 'csrf|XSRF|_token' || echo "$H" | grep -qi 'XSRF-TOKEN'; then
     row PASS "Login" "CSRF protection present" "token issued"
 else row WARN "Login" "CSRF protection present" "no CSRF token seen"; fi
-code=$(status -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' -d '{"email":"a@b.c","password":"x"}' "$PORTAL/login")
+code=$(status -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' -d '{"login":"scan","password":"x"}' "$PORTAL/login")
 [[ "$code" =~ ^(419|422|302)$ ]] && row PASS "Login" "Login POST without CSRF token refused" "HTTP $code" || row WARN "Login" "Login POST without CSRF token refused" "HTTP $code"
 
 # ── 9. Performance (light load) ────────────────────────────────────────────

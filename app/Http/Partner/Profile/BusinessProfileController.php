@@ -26,7 +26,7 @@ class BusinessProfileController extends Controller
         return Inertia::render('partner/profile', [
             'partner' => [
                 ...$partner->only([
-                    'name', 'code', 'email', 'description', 'website_url', 'api_version',
+                    'name', 'code', 'description', 'website_url', 'api_version',
                     'is_payin_enabled', 'is_payout_enabled', 'allow_qr', 'allow_upi', 'allow_bank_transfer', 'is_h2h_enabled',
                     'manual_payment_type', 'session_ttl_minutes', 'is_auto_withdrawal', 'is_partial_withdrawal',
                     'deposit_min_amount', 'deposit_max_amount', 'deposit_daily_limit',

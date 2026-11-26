@@ -36,7 +36,6 @@ class LocalDemoUserSeeder extends Seeder
 
         $partner = Partner::updateOrCreate(['code' => 'DEMO-P'], [
             'name' => 'Demo Partner',
-            'email' => 'partner@paygate.local',
             'website_url' => 'https://demo-merchant.local',
             'status' => 'active',
             'is_payin_enabled' => true,
@@ -76,27 +75,25 @@ class LocalDemoUserSeeder extends Seeder
         }
 
         $users = [
-            'admin@paygate.local' => SystemRoles::ADMIN_SUPER,
-            'ops@paygate.local' => SystemRoles::ADMIN_OPS,
-            'finance@paygate.local' => SystemRoles::ADMIN_FINANCE,
-            'partner@paygate.local' => SystemRoles::PARTNER_OWNER,
-            'developer@paygate.local' => SystemRoles::PARTNER_DEVELOPER,
-            'branch@paygate.local' => SystemRoles::BRANCH_OWNER,
-            'operator@paygate.local' => SystemRoles::BRANCH_OPERATOR,
+            'admin' => SystemRoles::ADMIN_SUPER,
+            'ops' => SystemRoles::ADMIN_OPS,
+            'finance' => SystemRoles::ADMIN_FINANCE,
+            'partner' => SystemRoles::PARTNER_OWNER,
+            'developer' => SystemRoles::PARTNER_DEVELOPER,
+            'branch' => SystemRoles::BRANCH_OWNER,
+            'operator' => SystemRoles::BRANCH_OPERATOR,
         ];
 
-        foreach ($users as $email => $slug) {
+        foreach ($users as $username => $slug) {
             $role = Role::bySlug($slug);
 
-            User::updateOrCreate(['email' => $email], [
+            User::updateOrCreate(['username' => $username], [
                 'name' => $role->user_type->label().' '.$role->name,
-                'username' => strstr($email, '@', true),
                 'type' => $role->user_type,
                 'role_id' => $role->id,
                 'partner_id' => $role->user_type->value === 'partner' ? $partner->id : null,
                 'branch_id' => $role->user_type->value === 'branch' ? $branch->id : null,
                 'password' => Hash::make('password'),
-                'email_verified_at' => now(),
             ]);
         }
 
@@ -109,7 +106,7 @@ class LocalDemoUserSeeder extends Seeder
             return;
         }
 
-        $admin = User::query()->where('email', 'admin@paygate.local')->firstOrFail();
+        $admin = User::query()->where('username', 'admin')->firstOrFail();
         $account = app(SavePaymentAccount::class)->handle($admin, $branch, null, [
             'label' => 'Demo HDFC current',
             'account_holder_name' => 'Demo Branch Pvt Ltd',

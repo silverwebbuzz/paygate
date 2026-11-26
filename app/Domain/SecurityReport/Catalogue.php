@@ -114,7 +114,7 @@ final class Catalogue
                 self::test('auth.password_throttle', 'Six wrong passwords in a minute; six wrong 2FA codes', 'Asked to wait (rate limit)'),
                 self::test('auth.deactivated', 'Deactivate a user who is logged in; they click anything', 'Signed out'),
                 self::test('auth.back_button', 'Log out, press Back and resubmit a form', 'Login page / expired'),
-                self::test('auth.reset_link', 'A password reset link used twice or after 60 minutes', 'Refused'),
+                self::test('auth.reset_link', 'Opening /forgot-password or /reset-password (no e-mail resets exist; an admin sets a new password)', 'Not found'),
             ]],
             ['key' => 'api', 'title' => 'Partner API', 'tests' => [
                 self::test('api.replay', 'Send a captured signed request again', 'Refused: nonce_reused'),

@@ -32,7 +32,6 @@ final class ConfigChecks
             ['2FA is enforced for Admin and Branch', (bool) config('paygate.auth.enforce_two_factor'), 'Set PAYGATE_ENFORCE_2FA=true.'],
             ['Partner API IP allowlist is enforced', (bool) config('paygate.api.enforce_ip_allowlist'), 'Set PAYGATE_API_ENFORCE_IP=true.'],
             ['Webhooks to private networks are refused', ! config('paygate.webhooks.allow_private_targets'), 'Set PAYGATE_WEBHOOKS_ALLOW_PRIVATE=false (SSRF).'],
-            ['Mail is not the log driver', config('mail.default') !== 'log', 'Password resets and alerts would only go to the log file.'],
         ];
 
         $advised = [

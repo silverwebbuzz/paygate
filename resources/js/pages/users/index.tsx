@@ -10,6 +10,7 @@ import { Drawer, KeyValues } from '@/components/pg/drawer';
 import { EmptyState } from '@/components/pg/empty-state';
 import {
     Field,
+    noAutofill,
     PasswordTextInput,
     SelectInput,
     TextInput,
@@ -646,7 +647,7 @@ function UserFormDialog({
                     maxLength={50}
                     pattern="[a-z0-9._\-]+"
                     autoCapitalize="none"
-                    autoComplete="off"
+                    {...noAutofill}
                     value={form.data.username}
                     invalid={!!errors.username}
                     onChange={(event) =>
@@ -752,6 +753,7 @@ function PasswordFields({
             >
                 <PasswordTextInput
                     required
+                    {...noAutofill}
                     autoComplete="new-password"
                     value={password}
                     invalid={!!error}
@@ -763,6 +765,7 @@ function PasswordFields({
             <Field label="Confirm password" required>
                 <PasswordTextInput
                     required
+                    {...noAutofill}
                     autoComplete="new-password"
                     value={confirmation}
                     onChange={(event) =>

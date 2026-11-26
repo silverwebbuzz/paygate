@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Context;
  * @property string $id
  * @property SecurityEvent $event
  * @property string|null $user_id
- * @property string|null $email
+ * @property string|null $login the username typed at sign-in
  * @property string|null $ip_address
  * @property string|null $user_agent
  * @property string|null $request_id
@@ -42,14 +42,14 @@ class SecurityLog extends Model
     /**
      * @param  array<string, mixed>  $context
      */
-    public static function record(SecurityEvent $event, ?User $user = null, ?string $email = null, array $context = []): self
+    public static function record(SecurityEvent $event, ?User $user = null, ?string $login = null, array $context = []): self
     {
         $request = app()->runningInConsole() && ! app()->runningUnitTests() ? null : request();
 
         return self::create([
             'event' => $event,
             'user_id' => $user?->getKey(),
-            'email' => $email ?? $user?->email,
+            'login' => $login ?? $user?->username,
             'ip_address' => $request?->ip(),
             'user_agent' => $request?->userAgent(),
             'request_id' => Context::get('request_id'),

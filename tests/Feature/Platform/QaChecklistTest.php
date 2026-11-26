@@ -34,7 +34,7 @@ class QaChecklistTest extends TestCase
             ->assertInertia(fn ($page) => $page->component('admin/qa-checklist')
                 ->where('sections.0.items.0.key', 'access.login')
                 ->where('sections.0.items.0.address', 'http://'.config('app.domains.app').'/login')
-                ->where('logins.admin.email', 'admin@paygate.local')
+                ->where('logins.admin.username', 'admin')
                 ->where('qaChecklist', true));
 
         $branch = User::factory()->branch(SystemRoles::BRANCH_OWNER)->withTwoFactor()->create();

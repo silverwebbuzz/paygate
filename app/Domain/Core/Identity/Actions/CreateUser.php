@@ -43,7 +43,6 @@ class CreateUser
             $user = User::create([
                 'name' => $username,
                 'username' => $username,
-                'email' => null,
                 'password' => $password,
                 'type' => $type,
                 'role_id' => $role->id,
@@ -51,7 +50,6 @@ class CreateUser
                 'branch_id' => $type === UserType::Branch ? $organisationId : null,
                 'status' => UserStatus::Active,
             ]);
-            $user->forceFill(['email_verified_at' => now()])->save();
 
             AuditLog::record('user.created', $user, [], [
                 'username' => $user->username,

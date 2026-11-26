@@ -32,7 +32,7 @@ use Illuminate\Support\Facades\DB;
 class CreatePayin
 {
     /**
-     * @param  array{order_id: string, amount: int, customer: array{id: string, name?: string|null, email?: string|null, mobile?: string|null, username?: string|null}, return_url?: string|null, metadata?: array<string, mixed>|null}  $data
+     * @param  array{order_id: string, amount: int, customer: array{id: string, name?: string|null, mobile?: string|null, username?: string|null}, return_url?: string|null, metadata?: array<string, mixed>|null}  $data
      * @return array{payin: Transaction, session: PaymentSession, created: bool}
      */
     public function handle(Partner $partner, array $data, ?string $apiKeyId = null): array

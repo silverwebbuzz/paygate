@@ -64,7 +64,7 @@ export default function PasskeyVerify({
                     className="flex-1 data-[orientation=horizontal]:w-auto"
                 />
                 <span className="text-xs text-muted-foreground uppercase">
-                    {separator ?? 'Or continue with email'}
+                    {separator ?? 'Or use your password'}
                 </span>
                 <Separator
                     className="flex-1 data-[orientation=horizontal]:w-auto"

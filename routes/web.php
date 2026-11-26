@@ -18,7 +18,7 @@ Route::redirect('/', '/dashboard')->name('home');
 // Published content pages (terms, privacy, help): public.
 Route::get('legal/{slug}', [LegalPageController::class, 'show'])->name('legal.show');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     // Sends each user to their own portal.
     Route::get('dashboard', function (Request $request) {
         /** @var User $user */
@@ -39,17 +39,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('notifications/pulse', RequestPulseController::class)->name('notifications.pulse');
 });
 
-Route::middleware(['auth', 'verified', 'user.type:admin', 'two-factor.required'])
+Route::middleware(['auth', 'user.type:admin', 'two-factor.required'])
     ->prefix('admin')
     ->name('admin.')
     ->group(base_path('routes/portals/admin.php'));
 
-Route::middleware(['auth', 'verified', 'user.type:partner', 'two-factor.required'])
+Route::middleware(['auth', 'user.type:partner', 'two-factor.required'])
     ->prefix('partner')
     ->name('partner.')
     ->group(base_path('routes/portals/partner.php'));
 
-Route::middleware(['auth', 'verified', 'user.type:branch', 'two-factor.required'])
+Route::middleware(['auth', 'user.type:branch', 'two-factor.required'])
     ->prefix('branch')
     ->name('branch.')
     ->group(base_path('routes/portals/branch.php'));

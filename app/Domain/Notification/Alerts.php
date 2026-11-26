@@ -50,7 +50,7 @@ class Alerts
     }
 
     /**
-     * A portal link for the alert (absolute, for emails).
+     * A portal link for the alert (absolute).
      *
      * @param  array<string, mixed>  $parameters
      */

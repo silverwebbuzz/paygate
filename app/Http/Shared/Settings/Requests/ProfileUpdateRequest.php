@@ -17,8 +17,8 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
-        // Users may change their name only. Email is the login identity, so it is
-        // changed by an administrator (audited), never self-service.
+        // Users may change their name only. The username is the login identity, so
+        // it is changed by an administrator (audited), never self-service.
         return ['name' => $this->nameRules()];
     }
 }

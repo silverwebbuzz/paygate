@@ -54,8 +54,7 @@ class PartnerController extends Controller
             ->when($filter, fn (Builder $query) => $query->where('status', $filter))
             ->when($search !== '', fn (Builder $query) => $query->where(fn (Builder $query) => $query
                 ->whereLike('name', "%{$search}%")
-                ->orWhereLike('code', "%{$search}%")
-                ->orWhereLike('email', "%{$search}%")))
+                ->orWhereLike('code', "%{$search}%")))
             ->orderBy('name')
             ->paginate(25)
             ->withQueryString();
@@ -69,7 +68,6 @@ class PartnerController extends Controller
                 'id' => $partner->id,
                 'name' => $partner->name,
                 'code' => $partner->code,
-                'email' => $partner->email,
                 'return_url' => $partner->return_url,
                 'status' => $partner->status->value,
                 'is_payin_enabled' => $partner->is_payin_enabled,
@@ -242,7 +240,7 @@ class PartnerController extends Controller
     private function formData(Partner $partner): array
     {
         $data = $partner->only([
-            'id', 'name', 'code', 'email', 'description', 'website_url', 'return_url', 'callback_url',
+            'id', 'name', 'code', 'description', 'website_url', 'return_url', 'callback_url',
             'payin_webhook_url', 'payout_webhook_url', 'api_version', 'is_payin_enabled', 'manual_payment_type',
             'allow_qr', 'allow_upi', 'allow_bank_transfer', 'is_h2h_enabled', 'session_ttl_minutes',
             'payout_limit_type', 'is_payout_enabled', 'withdraw_url', 'payout_group', 'is_auto_withdrawal',

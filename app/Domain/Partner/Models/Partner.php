@@ -24,7 +24,6 @@ use Illuminate\Support\Carbon;
  * @property string $id
  * @property string $code
  * @property string $name
- * @property string $email
  * @property string|null $description
  * @property string|null $website_url
  * @property string|null $return_url

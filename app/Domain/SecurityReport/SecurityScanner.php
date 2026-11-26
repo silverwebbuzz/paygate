@@ -249,7 +249,7 @@ class SecurityScanner
         $csrf = $response !== null && (str_contains((string) $response->header('Set-Cookie'), 'XSRF-TOKEN') || preg_match('/csrf|_token/i', $response->body()) === 1);
         $this->add($csrf ? 'pass' : 'warn', 'Login', 'CSRF protection present', $csrf ? 'token issued' : 'no CSRF token seen');
 
-        $status = $this->send('post', $portal.'/login', fn ($request) => $request->acceptJson()->asJson()->withBody('{"email":"scan@example.com","password":"x"}', 'application/json'))?->status();
+        $status = $this->send('post', $portal.'/login', fn ($request) => $request->acceptJson()->asJson()->withBody('{"login":"scan","password":"x"}', 'application/json'))?->status();
         $this->add(in_array($status, [419, 422, 302], true) ? 'pass' : 'warn', 'Login', 'Login without CSRF token refused', 'HTTP '.($status ?? 'no answer'));
     }
 

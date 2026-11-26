@@ -34,7 +34,6 @@ class PartnerManagementTest extends TestCase
         return [
             'name' => 'Atoz Gaming',
             'code' => 'ATOZ',
-            'email' => 'Ops@Atoz.example',
             'website_url' => 'https://atoz.example',
             'return_url' => 'https://atoz.example/return',
             'callback_url' => 'https://atoz.example/callback',
@@ -92,7 +91,6 @@ class PartnerManagementTest extends TestCase
         $response->assertRedirect(route('admin.partners.index', ['partner' => $partner->id]));
 
         $this->assertSame(OrganisationStatus::Draft, $partner->status);
-        $this->assertSame('ops@atoz.example', $partner->email);
         $this->assertSame(10000, $partner->deposit_min_amount);
         $this->assertSame(5000050, $partner->deposit_max_amount);
         $this->assertNull($partner->deposit_daily_limit);

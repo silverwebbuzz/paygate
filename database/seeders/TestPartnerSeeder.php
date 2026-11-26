@@ -30,7 +30,6 @@ class TestPartnerSeeder extends Seeder
         [
             'code' => 'ECLINIC',
             'name' => 'Eclinic Pro',
-            'email' => 'pay@eclinicpro.com',
             'username' => 'partner1',
             'website_url' => 'https://eclinicpro.com',
             'return_url' => 'https://eclinicpro.com/partner1/return.php',
@@ -43,7 +42,6 @@ class TestPartnerSeeder extends Seeder
         [
             'code' => 'TRILOK',
             'name' => 'Trilok Export',
-            'email' => 'pay@trilokexport.com',
             'username' => 'partner2',
             'website_url' => 'https://trilokexport.com',
             'return_url' => 'https://trilokexport.com/partner2/return.php',
@@ -56,7 +54,6 @@ class TestPartnerSeeder extends Seeder
         [
             'code' => 'MENET',
             'name' => 'Menet Zero',
-            'email' => 'pay@menetzero.com',
             'username' => 'partner3',
             'website_url' => 'https://menetzero.com',
             'return_url' => 'https://menetzero.com/partner3/return.php',
@@ -69,7 +66,6 @@ class TestPartnerSeeder extends Seeder
         [
             'code' => 'SWBUZZIN',
             'name' => 'Silver Web Buzz IN',
-            'email' => 'pay@silverwebbuzz.in',
             'username' => 'partner4',
             'website_url' => 'https://silverwebbuzz.in',
             'return_url' => 'https://silverwebbuzz.in/partner4/return.php',
@@ -82,7 +78,6 @@ class TestPartnerSeeder extends Seeder
         [
             'code' => 'SWBUZZ',
             'name' => 'Silver Web Buzz',
-            'email' => 'pay@silverwebbuzz.com',
             'username' => 'partner5',
             'website_url' => 'https://www.silverwebbuzz.com',
             'return_url' => 'https://www.silverwebbuzz.com/partner5/return.php',
@@ -130,7 +125,6 @@ class TestPartnerSeeder extends Seeder
     {
         return Partner::query()->updateOrCreate(['code' => $entry['code']], [
             'name' => $entry['name'],
-            'email' => $entry['email'],
             'website_url' => $entry['website_url'],
             'return_url' => $entry['return_url'],
             'callback_url' => $entry['callback_url'],
@@ -208,14 +202,12 @@ class TestPartnerSeeder extends Seeder
 
         User::query()->updateOrCreate(['username' => $username], [
             'name' => $username,
-            'email' => null,
             'password' => $username,
             'type' => $type,
             'role_id' => $role->id,
             'partner_id' => $type === UserType::Partner ? $organisation->id : null,
             'branch_id' => $type === UserType::Branch ? $organisation->id : null,
             'status' => UserStatus::Active,
-            'email_verified_at' => now(),
         ]);
     }
 

@@ -2,6 +2,7 @@
 
 use App\Http\Branch\Accounts\AccountController;
 use App\Http\Branch\Balance\BranchBalanceController;
+use App\Http\Branch\Guide\GuideController;
 use App\Http\Shared\Accounts\AccountLogController;
 use App\Http\Shared\Audit\AuditLogController;
 use App\Http\Shared\Dashboard\DashboardController;
@@ -25,6 +26,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', [DashboardController::class, 'show'])->name('dashboard');
+
+// Guide: how to use the branch portal, step by step with screenshots (every branch user).
+Route::get('guide', [GuideController::class, 'show'])->name('guide');
 
 // Reports: preview and CSV / Excel exports prepared in the background.
 Route::get('reports', [ReportController::class, 'index'])->name('reports.index');

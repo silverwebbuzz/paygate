@@ -17,24 +17,24 @@ use App\Support\Hosts;
 final class Checklist
 {
     /**
-     * Who to log in as. The demo e-mails exist only on a local machine
+     * Who to log in as. The demo usernames exist only on a local machine
      * (LocalDemoUserSeeder, password "password"); on staging, use a user
      * with the same role.
      *
-     * @var array<string, array{label: string, email: string|null}>
+     * @var array<string, array{label: string, username: string|null}>
      */
     public const LOGINS = [
-        'admin' => ['label' => 'Super admin', 'email' => 'admin@paygate.local'],
-        'ops' => ['label' => 'Admin · Operations', 'email' => 'ops@paygate.local'],
-        'finance' => ['label' => 'Admin · Finance', 'email' => 'finance@paygate.local'],
-        'partner' => ['label' => 'Partner owner', 'email' => 'partner@paygate.local'],
-        'developer' => ['label' => 'Partner developer', 'email' => 'developer@paygate.local'],
-        'branch' => ['label' => 'Branch owner', 'email' => 'branch@paygate.local'],
-        'operator' => ['label' => 'Branch operator', 'email' => 'operator@paygate.local'],
-        'guest' => ['label' => 'Not signed in', 'email' => null],
-        'customer' => ['label' => 'Customer (payment link, no login)', 'email' => null],
-        'api' => ['label' => 'Partner API key (signed call)', 'email' => null],
-        'system' => ['label' => 'Nobody: automated only', 'email' => null],
+        'admin' => ['label' => 'Super admin', 'username' => 'admin'],
+        'ops' => ['label' => 'Admin · Operations', 'username' => 'ops'],
+        'finance' => ['label' => 'Admin · Finance', 'username' => 'finance'],
+        'partner' => ['label' => 'Partner owner', 'username' => 'partner'],
+        'developer' => ['label' => 'Partner developer', 'username' => 'developer'],
+        'branch' => ['label' => 'Branch owner', 'username' => 'branch'],
+        'operator' => ['label' => 'Branch operator', 'username' => 'operator'],
+        'guest' => ['label' => 'Not signed in', 'username' => null],
+        'customer' => ['label' => 'Customer (payment link, no login)', 'username' => null],
+        'api' => ['label' => 'Partner API key (signed call)', 'username' => null],
+        'system' => ['label' => 'Nobody: automated only', 'username' => null],
     ];
 
     /**
@@ -54,11 +54,11 @@ final class Checklist
                     ['Log in as a new admin or branch user: you are sent to set up 2FA first.', 'Scan the QR code, enter the code, keep the recovery codes.', 'Sign out and in again: the 6-digit code is asked.', 'A partner user can use the portal without 2FA.'],
                     ['admin', 'branch'],
                     ['TwoFactorEnforcementTest', 'TwoFactorChallengeTest']),
-                self::item('access.password_reset', 'Forgot password', '/forgot-password',
-                    'A user who forgot the password gets a reset link by e-mail.',
-                    ['Click "Forgot password" on the login page and enter a demo e-mail.', 'Open Mailpit (http://localhost:8025) and follow the link.', 'Set a new password and log in with it (set it back to "password" afterwards).'],
-                    ['guest'],
-                    ['PasswordResetTest', 'PasswordConfirmationTest']),
+                self::item('access.password_reset', 'Forgot password', '/admin/users',
+                    'There is no e-mail in the system, so there is no reset link: an admin (or the branch / partner owner for their own users) sets a new password from the Users screen.',
+                    ['Open /forgot-password: not found.', 'As admin@, open Users and use "Set password" on a user.', 'Log in as that user with the new password; the old one is refused.'],
+                    ['guest', 'admin'],
+                    ['UserManagementTest', 'PasswordConfirmationTest']),
                 self::item('access.portals', 'Portal separation', '/admin',
                     'Each user only reaches their own portal; each domain (portal, API, payment page) only answers its own pages.',
                     ['Log in as branch@ and open /admin and /partner: both are refused (403).', 'Check Audit Logs › Security as admin: the refusal is recorded.', 'Open http://api.paygate.local/login: not found.', 'Open /horizon as ops@ (no Horizon permission): refused; as admin@: opens.'],
@@ -80,8 +80,8 @@ final class Checklist
                     ['admin'],
                     ['SuspendedUserTest']),
                 self::item('access.profile', 'Profile, password & appearance', '/settings/profile',
-                    'Everyone can change their name, password and appearance (light / dark); the e-mail is changed only by an admin.',
-                    ['Change your name and save: it shows in the sidebar.', 'Change your password under Security (asks the current one).', 'Switch Appearance to dark and back.', 'The e-mail field can’t be edited.'],
+                    'Everyone can change their name, password and appearance (light / dark); the username is changed only by an admin.',
+                    ['Change your name and save: it shows in the sidebar.', 'Change your password under Security (asks the current one).', 'Switch Appearance to dark and back.', 'The username field can’t be edited, and there is no e-mail field.'],
                     ['admin', 'partner', 'branch'],
                     ['ProfileUpdateTest', 'SecurityTest']),
                 self::item('access.audit_trail', 'Logs can’t be changed', null,
@@ -103,7 +103,7 @@ final class Checklist
                     ['admin'],
                     ['RoleManagementTest', 'RolePermissionTest']),
                 self::item('users.admin_users', 'Users (Admin)', '/admin/users',
-                    'All users of all portals (Active / Inactive). "Add admin user" adds admin users only; set a new password, change role or e-mail, deactivate, reset 2FA. The Admin role does everything except the super-admin tools and can’t manage super admins.',
+                    'All users of all portals (Active / Inactive). "Add admin user" adds admin users only; set a new password, change role or username, deactivate, reset 2FA. The Admin role does everything except the super-admin tools and can’t manage super admins.',
                     ['Add an admin user with a password; log in as them in a private window.', 'The role list only offers admin roles.', 'Set password on a user: the old one stops working.', 'Change a user’s role: recorded in Audit Logs.', 'Deactivate with a reason, then activate.', 'Reset 2FA of a user: they must set it up again.', 'You can’t deactivate yourself or the last super admin.', 'As an Admin-role user: Testing and Developer are not in the menu, and Super admin is not in the role list.'],
                     ['admin'],
                     ['UserManagementTest']),
@@ -150,7 +150,7 @@ final class Checklist
             self::section('branches', 'Branches, mapping & accounts', [
                 self::item('branches.list', 'Branch list & form', '/admin/branches',
                     'Branches with limits (daily reset or top-up allowance), commission rates, mapped partners and the branch admin, who is invited on save.',
-                    ['Click "New branch", fill limits and rates, map a partner, add the branch admin’s e-mail and password.', 'Save: the branch admin can log in at once.', 'Activate a branch without rates for an enabled direction: refused.', 'A branch rate above the partner’s rate is saved with a warning.', 'Click "Edit limits" on a row: only the deposit and withdrawal limits change. A top-up branch does not show the daily deposit limit. Name, rates and allowance stay as they are.'],
+                    ['Click "New branch", fill limits and rates, map a partner, add the branch admin’s username and password.', 'Save: the branch admin can log in at once.', 'Activate a branch without rates for an enabled direction: refused.', 'A branch rate above the partner’s rate is saved with a warning.', 'Click "Edit limits" on a row: only the deposit and withdrawal limits change. A top-up branch does not show the daily deposit limit. Name, rates and allowance stay as they are.'],
                     ['admin'],
                     ['BranchManagementTest::test_branch_list_and_form_open_for_admins_only', 'BranchManagementTest::test_creating_a_branch_saves_limits_rates_partners_and_its_admin', 'BranchManagementTest::test_activation_needs_rates_for_enabled_directions', 'BranchManagementTest::test_a_branch_rate_above_a_partner_rate_is_allowed_but_flagged', 'BranchManagementTest::test_limits_from_the_list_change_only_deposit_and_withdrawal_limits']),
                 self::item('branches.topups', 'Deposit allowance top-ups', '/admin/branches',
@@ -173,6 +173,11 @@ final class Checklist
                     ['As branch@, click "Add account", enter bank details and a UPI ID with limits.', 'It shows "Pending verification".', 'Add the same account number again (even from another branch): refused.', 'Limits above the branch limits are refused.', 'As operator@: you can see the list but not add.'],
                     ['branch', 'operator'],
                     ['PaymentAccountTest::test_a_branch_adds_an_account_stored_encrypted_and_waiting_for_verification', 'PaymentAccountTest::test_the_same_account_or_upi_id_cannot_be_registered_twice_even_by_another_branch', 'PaymentAccountTest::test_limits_must_sit_inside_the_branch_limits', 'PaymentAccountTest::test_operators_can_view_but_not_add_accounts', 'PaymentAccountTest::test_branches_only_see_and_change_their_own_accounts']),
+                self::item('branches.guide', 'Branch Guide', '/branch/guide',
+                    'Every branch user (Branch admin and Operator) has a Guide menu: how to use the branch portal step by step, with screenshots. Menus an Operator does not see are marked “Branch admin only”.',
+                    ['As branch@, click Guide in the menu: sections from Log in to Quick answers, each with pictures.', 'Click a picture: it opens full size in a new tab.', 'Search “approve”: only the matching sections stay.', 'As operator@ the Guide opens too; admin-only sections are dimmed in the side list.'],
+                    ['branch'],
+                    ['GuideTest']),
                 self::item('branches.accounts_admin', 'Account verification (Admin)', '/admin/accounts',
                     'Admin sees the full bank and UPI details. Verification is a dropdown: verified, pending or unverified. Status is a switch: active or inactive. An account can be switched on only after it is verified.',
                     ['As ops@, open Bank & UPI Accounts: each row shows the branch, limits, full account number, IFSC, UPI and a verification dropdown.', 'Set verification to Verified, then switch the account to Active: it receives customers.', 'Switch it back to Inactive, then set verification to Unverified: it cannot be switched on.', 'Click "Review" on a pending account and verify it.', 'Reject another one with a reason; the branch edits and resubmits.'],
@@ -263,7 +268,7 @@ final class Checklist
                     ['customer'],
                     ['CheckoutTest::test_expiry_releases_capacity_and_the_page_expires_on_the_spot', 'CheckoutTest::test_submitted_payins_do_not_expire']),
                 self::item('checkout.support', 'Support contact & legal pages', 'pay:/legal/{slug}',
-                    'The payment page footer shows the support e-mail / phone from Global Settings and links to published content pages.',
+                    'The payment page footer shows the support phone from Global Settings and links to published content pages.',
                     ['Set the support contact in Global Settings and publish a page in Content pages.', 'Open a payment link: the footer shows the contact and the page link; the page opens without login.'],
                     ['customer', 'admin'],
                     ['PlatformAdministrationTest::test_global_settings_hold_alerts_the_payment_page_contact_and_reasons', 'PlatformAdministrationTest::test_published_pages_are_public_and_never_run_html']),
@@ -320,7 +325,7 @@ final class Checklist
             self::section('payouts', 'Payouts', [
                 self::item('payouts.queue', 'Manual Payout (branch)', '/branch/payouts',
                     'Payouts assigned to the branch: start, record each bank transfer (amount, UTR, date, proof image/PDF; a payout may be paid in parts, hours or days apart) — it is Success and booked once the transfers add up — or "can’t pay" with a reason (releases the hold; the partner may retry).',
-                    ['Create a test payout (top of this page); as operator@ it appears in Manual Payout.', 'Click Start, then Record transfer for half the amount with a UTR and a screenshot: it stays in To pay with “Paid … left to pay”, Can’t pay is gone, no ledger booking yet.', 'Record the next transfer for the rest (another UTR): status Success, drawer › Transfers lists both with Preview / Download, drawer › Ledger shows one booking per transfer (the last with the fees).', 'Pay half before midnight and the rest after: each day’s settlement / Settlement Dashboard shows the half sent that day; the fees are on the second day.', 'Reusing a UTR, a future date, no proof or more than what is left is refused.', 'As partner@, the payout drawer shows both transfers and their proofs but no branch; the webhook log shows payout.partial after the first transfer and payout.success after the last.', 'Leave a payout half paid for over 24 hours: operator@ and ops@ get a “partly paid” alert (bell + email), once until another transfer is recorded.', 'On another payout, "Can’t pay" with a reason: status Failed.', 'A started payout stays in the "To pay" list.'],
+                    ['Create a test payout (top of this page); as operator@ it appears in Manual Payout.', 'Click Start, then Record transfer for half the amount with a UTR and a screenshot: it stays in To pay with “Paid … left to pay”, Can’t pay is gone, no ledger booking yet.', 'Record the next transfer for the rest (another UTR): status Success, drawer › Transfers lists both with Preview / Download, drawer › Ledger shows one booking per transfer (the last with the fees).', 'Pay half before midnight and the rest after: each day’s settlement / Settlement Dashboard shows the half sent that day; the fees are on the second day.', 'Reusing a UTR, a future date, no proof or more than what is left is refused.', 'As partner@, the payout drawer shows both transfers and their proofs but no branch; the webhook log shows payout.partial after the first transfer and payout.success after the last.', 'Leave a payout half paid for over 24 hours: operator@ and ops@ get a “partly paid” alert (bell), once until another transfer is recorded.', 'On another payout, "Can’t pay" with a reason: status Failed.', 'A started payout stays in the "To pay" list.'],
                     ['operator'],
                     ['PayoutTest::test_paying_books_the_ledger_and_releases_the_hold', 'PayoutInPartsTest::test_a_payout_paid_in_two_parts_is_booked_once_when_they_add_up', 'PayoutInPartsTest::test_each_transfer_needs_a_proof_and_a_past_date', 'PayoutInPartsTest::test_the_partner_sees_each_transfer_and_its_proof_but_not_the_branch', 'PayoutInPartsTest::test_each_transfer_links_its_own_bank_line', 'PayoutInPartsTest::test_each_days_settlement_shows_what_was_sent_that_day', 'PayoutInPartsTest::test_parts_either_side_of_midnight', 'PayoutInPartsTest::test_the_partner_hears_of_each_part_by_webhook', 'PayoutInPartsTest::test_a_payout_left_half_paid_for_a_day_alerts_the_branch_and_admin_once', 'PayoutTest::test_a_failed_payout_releases_the_hold_and_the_partner_can_retry', 'PayoutTest::test_a_started_payout_stays_in_the_to_pay_list', 'PayoutTest::test_only_the_assigned_branch_or_admin_can_process_and_sees_the_full_details']),
                 self::item('payouts.admin', 'Manual Payout (Admin) & reassign', '/admin/payouts',

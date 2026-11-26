@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Domain\Core\Audit\Enums\SecurityEvent;
 use App\Domain\Core\Audit\Models\SecurityLog;
-use App\Domain\Core\Identity\Actions\ResetUserPassword;
 use App\Domain\Core\Identity\Models\User;
 use App\Http\Responses\PortalLoginResponse;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -13,12 +12,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Contracts\LoginResponse;
 use Laravel\Fortify\Contracts\TwoFactorLoginResponse;
-use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
@@ -47,8 +44,6 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureActions(): void
     {
-        Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
-
         Fortify::confirmPasswordsUsing(function (User $user, ?string $password): bool {
             return is_string($password) && Hash::check($password, $user->password);
         });
@@ -79,22 +74,10 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureViews(): void
     {
+        // No email in the system (client request 2026-11-25): no reset-link or
+        // email-verification screens. A forgotten password is set again by an
+        // administrator from the Users screen.
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
-            'canResetPassword' => Features::enabled(Features::resetPasswords()),
-            'status' => $request->session()->get('status'),
-        ]));
-
-        Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
-            'email' => $request->email,
-            'token' => $request->route('token'),
-            'passwordRules' => Password::defaults()->toPasswordRulesString(),
-        ]));
-
-        Fortify::requestPasswordResetLinkView(fn (Request $request) => Inertia::render('auth/forgot-password', [
-            'status' => $request->session()->get('status'),
-        ]));
-
-        Fortify::verifyEmailView(fn (Request $request) => Inertia::render('auth/verify-email', [
             'status' => $request->session()->get('status'),
         ]));
 

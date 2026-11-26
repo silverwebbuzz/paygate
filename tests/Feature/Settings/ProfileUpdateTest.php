@@ -38,16 +38,16 @@ class ProfileUpdateTest extends TestCase
         ]);
     }
 
-    public function test_email_cannot_be_changed_by_the_user()
+    public function test_username_cannot_be_changed_by_the_user()
     {
-        $user = User::factory()->create(['email' => 'original@example.com']);
+        $user = User::factory()->create(['username' => 'original']);
 
         $this->actingAs($user)
-            ->patch(route('profile.update'), ['name' => $user->name, 'email' => 'attacker@example.com'])
+            ->patch(route('profile.update'), ['name' => $user->name, 'username' => 'attacker', 'email' => 'attacker@example.com'])
             ->assertRedirect(route('profile.edit'));
 
-        $this->assertSame('original@example.com', $user->refresh()->email);
-        $this->assertNotNull($user->email_verified_at);
+        $this->assertSame('original', $user->refresh()->username);
+        $this->assertArrayNotHasKey('email', $user->getAttributes());
     }
 
     public function test_users_cannot_delete_their_own_account()
