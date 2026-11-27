@@ -66,8 +66,37 @@ const METHOD_INFO: Record<
         icon: '₹',
         sub: 'IMPS / NEFT / RTGS · 2–10 min',
     },
-    qr: { label: 'QR code', icon: 'QR', sub: 'Scan with any UPI app' },
+    qr: {
+        label: 'UPI & QR code',
+        icon: 'UPI',
+        sub: 'Scan the QR or pay to the UPI ID · instant',
+    },
 };
+
+/**
+ * The customer sees UPI and QR code as one choice, "UPI & QR code" (client
+ * request 2026-11-27): the QR code first, then the UPI details. The QR carries
+ * the exact amount, so scanning it can't pay a wrong amount. Behind it the
+ * pay-in still records 'qr' when the QR is offered, otherwise 'upi'.
+ */
+function choices(methods: Method[]): Method[] {
+    const upi = methods.includes('qr')
+        ? 'qr'
+        : methods.includes('upi')
+          ? 'upi'
+          : null;
+
+    return methods.filter(
+        (method) => method === 'bank_transfer' || method === upi,
+    );
+}
+
+/** The same choice: UPI and QR code are one. */
+function sameChoice(a: Method | null, b: Method): boolean {
+    const group = (method: Method | null) => (method === 'qr' ? 'upi' : method);
+
+    return group(a) === group(b);
+}
 
 /**
  * Logos under the QR code (public/images/checkout/upi), each at its own
@@ -452,7 +481,7 @@ function ChooseMethod({
                     <Clock className="mt-0.5 size-4 flex-none" /> {error}
                 </div>
             )}
-            {methods.map((method) => (
+            {choices(methods).map((method) => (
                 <button
                     key={method}
                     type="button"
@@ -460,7 +489,7 @@ function ChooseMethod({
                     onClick={() => choose(method)}
                     className={cn(
                         'flex items-center gap-3 rounded-[14px] border px-4 py-3.5 text-left hover:border-ac disabled:opacity-60',
-                        payin.method === method
+                        sameChoice(payin.method, method)
                             ? 'border-ac bg-acs'
                             : 'border-[#E4E7EC]',
                     )}
@@ -554,11 +583,16 @@ function PayView({
         form.setData('photo', file);
     };
     const switcher = useForm({ method: '' as string });
-    const tabs = methods.filter((method) => account!.supports.includes(method));
+    const offered = methods.filter((method) =>
+        account!.supports.includes(method),
+    );
+    const tabs = choices(offered);
     const current = (payin.method ?? tabs[0]) as Method;
+    const upiTab = current === 'upi' || current === 'qr';
+    const showQr = upiTab && offered.includes('qr') && account!.qr_svg;
 
     const switchTo = (method: Method) => {
-        if (method === current) return;
+        if (sameChoice(current, method)) return;
         switcher.transform(() => ({ method }));
         switcher.post(checkout.method(token).url, { preserveScroll: true });
     };
@@ -574,7 +608,7 @@ function PayView({
                             onClick={() => switchTo(method)}
                             className={cn(
                                 'h-8 rounded-lg text-[13px]',
-                                method === current
+                                sameChoice(current, method)
                                     ? 'bg-white font-semibold shadow-[0_1px_2px_rgba(15,23,42,.1)]'
                                     : 'font-medium text-[#475569]',
                             )}
@@ -622,59 +656,59 @@ function PayView({
                 </>
             )}
 
-            {current === 'upi' && account!.upi_id && (
+            {upiTab && (showQr || account!.upi_id) && (
                 <>
                     <YonoWarning />
-                    <div className="overflow-hidden rounded-[14px] border border-[#E4E7EC]">
-                        <CopyRow
-                            label="Pay to UPI ID"
-                            value={account!.upi_id}
-                            mono
-                            big
-                        />
-                        <CopyRow
-                            label="Name"
-                            value={account!.upi_name}
-                            copyable={false}
-                        />
-                        <CopyRow
-                            label="Amount"
-                            value={formatPaise(payin.amount)}
-                            copyValue={(payin.amount / 100).toFixed(2)}
-                        />
-                    </div>
-                    <Note>
-                        Pay the exact amount. Your UPI app will show a 12-digit
-                        UTR / reference number after paying.
-                    </Note>
-                </>
-            )}
-
-            {current === 'qr' && account!.qr_svg && (
-                <>
-                    <YonoWarning />
-                    <div className="flex flex-col items-center gap-2 rounded-[14px] border border-[#E4E7EC] p-4">
-                        <div
-                            className="size-[220px] [&_svg]:size-full"
-                            dangerouslySetInnerHTML={{
-                                __html: account!.qr_svg,
-                            }}
-                        />
-                        <div className="text-center text-xs text-[#64748B]">
-                            Scan with any UPI app. The amount is filled in for
-                            you.
+                    {showQr && (
+                        <div className="flex flex-col items-center gap-2 rounded-[14px] border border-[#E4E7EC] p-4">
+                            <div
+                                className="size-[220px] [&_svg]:size-full"
+                                dangerouslySetInnerHTML={{
+                                    __html: account!.qr_svg!,
+                                }}
+                            />
+                            <div className="text-center text-xs text-[#64748B]">
+                                Scan with any UPI app. The amount is filled in
+                                for you.
+                            </div>
+                            <div className="flex items-center gap-4">
+                                {UPI_LOGOS.map(([file, name]) => (
+                                    <img
+                                        key={file}
+                                        src={`/images/checkout/upi/${file}.png`}
+                                        alt={name}
+                                        className="h-8 w-auto"
+                                    />
+                                ))}
+                            </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            {UPI_LOGOS.map(([file, name]) => (
-                                <img
-                                    key={file}
-                                    src={`/images/checkout/upi/${file}.png`}
-                                    alt={name}
-                                    className="h-8 w-auto"
+                    )}
+                    {account!.upi_id && (
+                        <>
+                            <div className="overflow-hidden rounded-[14px] border border-[#E4E7EC]">
+                                <CopyRow
+                                    label="Pay to UPI ID"
+                                    value={account!.upi_id}
+                                    mono
+                                    big
                                 />
-                            ))}
-                        </div>
-                    </div>
+                                <CopyRow
+                                    label="Name"
+                                    value={account!.upi_name}
+                                    copyable={false}
+                                />
+                                <CopyRow
+                                    label="Amount"
+                                    value={formatPaise(payin.amount)}
+                                    copyValue={(payin.amount / 100).toFixed(2)}
+                                />
+                            </div>
+                            <Note>
+                                Pay the exact amount. Your UPI app will show a
+                                12-digit UTR / reference number after paying.
+                            </Note>
+                        </>
+                    )}
                 </>
             )}
 

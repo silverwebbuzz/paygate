@@ -2,6 +2,8 @@
 
 namespace App\Domain\SecurityReport;
 
+use App\Support\ApiEnvironment;
+use App\Support\TwoFactor;
 use Illuminate\Support\Str;
 
 /**
@@ -29,7 +31,7 @@ final class ConfigChecks
             ['Session cookie is https-only', (bool) config('session.secure'), 'Set SESSION_SECURE_COOKIE=true.'],
             ['Session cookie is HttpOnly', (bool) config('session.http_only'), 'Remove SESSION_HTTP_ONLY=false.'],
             ['Session data is encrypted', (bool) config('session.encrypt'), 'Set SESSION_ENCRYPT=true.'],
-            ['2FA is enforced for Admin and Branch', (bool) config('paygate.auth.enforce_two_factor'), 'Set PAYGATE_ENFORCE_2FA=true.'],
+            ['2FA is enforced for Admin and Branch', ! ApiEnvironment::isLive() || (TwoFactor::on() && config('paygate.auth.enforce_two_factor')), 'On live set PAYGATE_ENFORCE_2FA=true and remove PAYGATE_TWO_FACTOR=false.'],
             ['Partner API IP allowlist is enforced', (bool) config('paygate.api.enforce_ip_allowlist'), 'Set PAYGATE_API_ENFORCE_IP=true.'],
             ['Webhooks to private networks are refused', ! config('paygate.webhooks.allow_private_targets'), 'Set PAYGATE_WEBHOOKS_ALLOW_PRIVATE=false (SSRF).'],
         ];

@@ -123,7 +123,6 @@ export const BRANCH_GUIDE: BranchGuideSection[] = [
                 items: [
                     'Open the branch portal link you were given.',
                     'Type your **Username** and **Password** (your Branch admin gives you both).',
-                    'Tick **Remember me** only on your own computer, never on a shared one.',
                     'Click **Log in**. You land on the **Dashboard**.',
                     'If a **6-digit code** is asked, open your authenticator app (Google Authenticator, Microsoft Authenticator…) and type the code shown for this portal.',
                 ],
@@ -135,6 +134,7 @@ export const BRANCH_GUIDE: BranchGuideSection[] = [
                     '**Forgot your password?** There is no reset link. Ask your **Branch admin** to set a new one for you (Users › View details › Set password). A Branch admin who forgot theirs asks PayGate.',
                     'After 5 wrong tries the login waits a minute. Wait and try again.',
                     'An inactive (deactivated) user can’t log in. Ask your Branch admin.',
+                    '**One browser at a time.** If you log in on another browser or computer with the same username, the older one is logged out with a message.',
                 ],
             },
         ],
@@ -146,7 +146,7 @@ export const BRANCH_GUIDE: BranchGuideSection[] = [
         icon: ShieldCheck,
         who: 'everyone',
         summary:
-            'On the live server every branch user must turn on 2FA before using the portal. It protects the branch’s money if a password leaks.',
+            'On the live server every branch user must turn on 2FA before using the portal. It protects the branch’s money if a password leaks. The testing and sandbox servers don’t use 2FA.',
         blocks: [
             shot(
                 '35-security',
@@ -176,7 +176,7 @@ export const BRANCH_GUIDE: BranchGuideSection[] = [
             {
                 kind: 'note',
                 tone: 'warn',
-                text: 'Lost your phone and your recovery codes? Ask your **Branch admin** to **Reset 2FA** for you (Users), then set it up again.',
+                text: 'Lost your phone and your recovery codes? Ask **PayGate (Admin)** to **Reset 2FA** for you, then set it up again at your next login. Only Admin can reset 2FA, so even a Branch admin who lost their phone can get back in.',
             },
         ],
     },
@@ -334,7 +334,7 @@ export const BRANCH_GUIDE: BranchGuideSection[] = [
                     'Open **Bank & UPI Accounts** and click **Add account**.',
                     '**Label**: your own name for it, e.g. “SBI current 2”.',
                     '**Bank transfer** on: type the **Account holder name** exactly as in the bank, the **Bank name**, **IFSC** and **Account number**.',
-                    '**UPI** on (optional): type the **UPI ID** and name. Customers can then pay by UPI and by QR code.',
+                    '**UPI** on (optional): type the **UPI ID** and name. Customers can then pay by UPI and by QR code (the QR code comes with UPI automatically and carries the exact amount).',
                     '**Limits**: set minimum, maximum, daily amount and daily count. **−1 means unlimited**.',
                     'Click **Add account**. It shows **Waiting for PayGate**.',
                     'When PayGate verifies it you get a bell alert “… verified”. Click **Activate** on the account. It now gets customers.',
@@ -917,7 +917,7 @@ export const BRANCH_GUIDE: BranchGuideSection[] = [
                     '**Set password**: when someone forgot theirs. Their old password stops working.',
                     '**Change role or username**.',
                     '**Deactivate** (with a reason) when someone leaves. They are logged out and can’t log in. **Activate** brings them back.',
-                    '**Reset 2FA**: when someone lost their phone. They set it up again at the next login.',
+                    '**Lost phone (2FA)?** Only **PayGate (Admin)** can reset 2FA. Ask them; the user sets it up again at the next login.',
                 ],
             },
         ],
@@ -1004,7 +1004,7 @@ export const BRANCH_GUIDE: BranchGuideSection[] = [
                     ],
                     [
                         'I lost my phone (2FA).',
-                        'Use a recovery code, or ask your Branch admin to **Reset 2FA**.',
+                        'Use a recovery code, or ask **PayGate (Admin)** to **Reset 2FA**. A Branch admin can’t reset it.',
                     ],
                     [
                         'I approved by mistake.',

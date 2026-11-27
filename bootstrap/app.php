@@ -3,6 +3,7 @@
 use App\Domain\PartnerApi\Exceptions\ApiException;
 use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnforceSectionRollout;
+use App\Http\Middleware\EnsureSingleSession;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserType;
 use App\Http\Middleware\HandleAppearance;
@@ -67,6 +68,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             RestrictToPortalHost::class,
             EnsureUserIsActive::class,
+            EnsureSingleSession::class,
             EnforceSectionRollout::class,
             HandleAppearance::class,
             HandleInertiaRequests::class,

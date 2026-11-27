@@ -90,6 +90,16 @@ class PaymentAccountTest extends TestCase
         $this->assertStringNotContainsString('account_number_encrypted', (string) $audit->new_values);
     }
 
+    public function test_the_qr_code_comes_with_upi()
+    {
+        $account = $this->add(['is_qr_enabled' => false]);
+        $this->assertTrue($account->is_qr_enabled);
+
+        $this->add(['label' => 'No UPI', 'account_number' => '50100482716641', 'is_upi_enabled' => false, 'upi_id' => null, 'is_qr_enabled' => true]);
+        $noUpi = PaymentAccount::query()->where('label', 'No UPI')->firstOrFail();
+        $this->assertFalse($noUpi->is_qr_enabled);
+    }
+
     public function test_minus_one_means_the_account_has_no_limit()
     {
         $account = $this->add([

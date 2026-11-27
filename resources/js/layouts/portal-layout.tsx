@@ -175,48 +175,53 @@ export default function PortalLayout({
         <div
             data-portal={portal}
             data-density={density}
-            className="flex min-h-screen bg-bg text-tx"
+            className="flex min-h-screen bg-bg text-tx print:block print:min-h-0 print:bg-white"
         >
-            {isMobile ? (
-                menuOpen && (
-                    <div className="fixed inset-0 z-40 flex">
-                        <PortalSidebar
-                            groups={groups}
-                            activeKey={activeKey}
-                            portalLabel={PORTAL_LABELS[portal]}
-                            collapsed={false}
-                        />
-                        <button
-                            type="button"
-                            aria-label="Close menu"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex-1 bg-black/40"
-                        />
-                    </div>
-                )
-            ) : (
-                <PortalSidebar
-                    groups={groups}
-                    activeKey={activeKey}
-                    portalLabel={PORTAL_LABELS[portal]}
-                    collapsed={collapsed}
-                />
-            )}
-            <main className="flex min-w-0 flex-1 flex-col">
-                <PortalTopbar
-                    portalLabel={PORTAL_LABELS[portal]}
-                    crumbs={
-                        current
-                            ? current.group === current.item.label
-                                ? [current.item.label]
-                                : [current.group, current.item.label]
-                            : []
-                    }
-                    onToggleSidebar={toggleSidebar}
-                    density={density}
-                    onToggleDensity={toggleDensity}
-                />
-                <div className="flex flex-1 flex-col gap-4 p-3 md:p-5">
+            {/* Printing (e.g. a guide's Download PDF) shows the page only. */}
+            <div className="contents print:hidden">
+                {isMobile ? (
+                    menuOpen && (
+                        <div className="fixed inset-0 z-40 flex">
+                            <PortalSidebar
+                                groups={groups}
+                                activeKey={activeKey}
+                                portalLabel={PORTAL_LABELS[portal]}
+                                collapsed={false}
+                            />
+                            <button
+                                type="button"
+                                aria-label="Close menu"
+                                onClick={() => setMenuOpen(false)}
+                                className="flex-1 bg-black/40"
+                            />
+                        </div>
+                    )
+                ) : (
+                    <PortalSidebar
+                        groups={groups}
+                        activeKey={activeKey}
+                        portalLabel={PORTAL_LABELS[portal]}
+                        collapsed={collapsed}
+                    />
+                )}
+            </div>
+            <main className="flex min-w-0 flex-1 flex-col print:block">
+                <div className="contents print:hidden">
+                    <PortalTopbar
+                        portalLabel={PORTAL_LABELS[portal]}
+                        crumbs={
+                            current
+                                ? current.group === current.item.label
+                                    ? [current.item.label]
+                                    : [current.group, current.item.label]
+                                : []
+                        }
+                        onToggleSidebar={toggleSidebar}
+                        density={density}
+                        onToggleDensity={toggleDensity}
+                    />
+                </div>
+                <div className="flex flex-1 flex-col gap-4 p-3 md:p-5 print:p-0">
                     {children}
                 </div>
             </main>

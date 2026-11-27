@@ -10,6 +10,7 @@ enum SecurityEvent: string
     case LoginBlockedSuspended = 'login.blocked_suspended';
     case Logout = 'logout';
     case SessionTerminatedSuspended = 'session.terminated_suspended';
+    case SessionReplaced = 'session.replaced';
     case TwoFactorFailed = 'two_factor.failed';
     case TwoFactorEnabled = 'two_factor.enabled';
     case TwoFactorDisabled = 'two_factor.disabled';

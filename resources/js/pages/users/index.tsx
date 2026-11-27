@@ -434,7 +434,10 @@ export default function UsersIndex({
                             <PgButton onClick={() => setDialog('password')}>
                                 Set password
                             </PgButton>
-                            {open.two_factor && (
+                            {/* Reset 2FA is Admin only, so a branch or
+                                partner admin who loses their phone still has
+                                someone to ask. */}
+                            {isAdmin && open.two_factor && (
                                 <PgButton
                                     onClick={() => setDialog('two-factor')}
                                 >
@@ -545,7 +548,7 @@ export default function UsersIndex({
                         }}
                         processing={processing}
                         onConfirm={(reason) =>
-                            act('delete', routes.twoFactor(open.id).url, {
+                            act('delete', adminUsers.twoFactor(open.id).url, {
                                 reason,
                             })
                         }

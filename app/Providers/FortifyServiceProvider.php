@@ -6,6 +6,7 @@ use App\Domain\Core\Audit\Enums\SecurityEvent;
 use App\Domain\Core\Audit\Models\SecurityLog;
 use App\Domain\Core\Identity\Models\User;
 use App\Http\Responses\PortalLoginResponse;
+use App\Support\TwoFactor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +15,10 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Laravel\Fortify\Actions\AttemptToAuthenticate;
+use Laravel\Fortify\Actions\CanonicalizeUsername;
+use Laravel\Fortify\Actions\EnsureLoginIsNotThrottled;
+use Laravel\Fortify\Actions\PrepareAuthenticatedSession;
 use Laravel\Fortify\Contracts\LoginResponse;
 use Laravel\Fortify\Contracts\TwoFactorLoginResponse;
 use Laravel\Fortify\Fortify;
@@ -27,6 +32,19 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $this->app->singleton(LoginResponse::class, PortalLoginResponse::class);
         $this->app->singleton(TwoFactorLoginResponse::class, PortalLoginResponse::class);
+
+        // 2FA is on live only (App\Support\TwoFactor). Elsewhere the login
+        // skips the 2FA code step, even for users who had set it up. Fortify's
+        // 2FA routes stay registered, so the frontend route helpers build the
+        // same on every server.
+        if (! TwoFactor::on()) {
+            config(['fortify.pipelines.login' => [
+                config('fortify.limiters.login') ? null : EnsureLoginIsNotThrottled::class,
+                config('fortify.lowercase_usernames') ? CanonicalizeUsername::class : null,
+                AttemptToAuthenticate::class,
+                PrepareAuthenticatedSession::class,
+            ]]);
+        }
     }
 
     /**

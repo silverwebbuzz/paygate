@@ -3,13 +3,15 @@
 namespace App\Http\Middleware;
 
 use App\Domain\Core\Identity\Models\User;
+use App\Support\TwoFactor;
 use Closure;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Admin and Branch users must set up two-factor authentication before using their portal.
+ * Admin and Branch users must set up two-factor authentication before using
+ * their portal (on live only: App\Support\TwoFactor).
  */
 class RequireTwoFactor
 {
@@ -18,7 +20,8 @@ class RequireTwoFactor
         $user = $request->user();
 
         if (
-            config('paygate.auth.enforce_two_factor')
+            TwoFactor::on()
+            && config('paygate.auth.enforce_two_factor')
             && $user instanceof User
             && $user->type->requiresTwoFactor()
             && ! $user->hasEnabledTwoFactorAuthentication()

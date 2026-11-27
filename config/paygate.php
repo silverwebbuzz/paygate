@@ -15,6 +15,12 @@ return [
     'other_hosts' => env('PAYGATE_OTHER_HOSTS', ''),
 
     'auth' => [
+        // Two-factor authentication (client request 2026-11-27): on live
+        // only. Unset: on when PAYGATE_ENVIRONMENT is live, off on testbox
+        // and sandbox. Off means no 2FA code at login, no 2FA section in
+        // Profile & settings and no forced setup. See App\Support\TwoFactor.
+        'two_factor' => env('PAYGATE_TWO_FACTOR'),
+
         // Require Admin and Branch users to set up 2FA before using their portal.
         // Keep this on everywhere except, optionally, your own local machine.
         'enforce_two_factor' => (bool) env('PAYGATE_ENFORCE_2FA', true),

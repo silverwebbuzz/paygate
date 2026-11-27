@@ -5,11 +5,14 @@ namespace App\Domain\Core\Audit\Listeners;
 use App\Domain\Core\Audit\Enums\SecurityEvent;
 use App\Domain\Core\Audit\Models\SecurityLog;
 use App\Domain\Core\Identity\Models\User;
+use App\Support\SingleSession;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed;
 use Laravel\Fortify\Events\TwoFactorAuthenticationDisabled;
 use Laravel\Fortify\Events\TwoFactorAuthenticationFailed;
@@ -27,10 +30,29 @@ class RecordSecurityEvents
             return;
         }
 
+        // One login per user at a time: this sign-in gets a new token, so
+        // every other browser's session ends on its next request
+        // (EnsureSingleSession). An old "remember me" cookie can't take the
+        // place of a real sign-in: the remember token cycles here, and a
+        // login through such a cookie gets no session token.
+        if (Auth::guard('web')->viaRemember()) {
+            SecurityLog::record(SecurityEvent::LoginSucceeded, $event->user, context: ['remember' => true]);
+
+            return;
+        }
+
+        $token = Str::random(64);
+
         $event->user->forceFill([
             'last_login_at' => now(),
             'last_login_ip' => request()->ip(),
+            'session_token' => $token,
+            'remember_token' => Str::random(60),
         ])->saveQuietly();
+
+        if (request()->hasSession()) {
+            request()->session()->put(SingleSession::SESSION_KEY, $token);
+        }
 
         SecurityLog::record(SecurityEvent::LoginSucceeded, $event->user, context: ['remember' => $event->remember]);
     }

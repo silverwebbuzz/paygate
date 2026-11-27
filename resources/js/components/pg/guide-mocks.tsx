@@ -179,7 +179,7 @@ export function CheckoutMock() {
                     <Mark n={1} className="absolute top-2 right-2" />
                 </div>
                 <div className="relative flex gap-1">
-                    {['UPI', 'QR code', 'Bank transfer'].map((method, i) => (
+                    {['UPI & QR code', 'Bank transfer'].map((method, i) => (
                         <span
                             key={method}
                             className={cn(

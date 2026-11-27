@@ -78,7 +78,6 @@ export function AccountFormDialog({
         is_upi_enabled: account?.is_upi_enabled ?? false,
         upi_id: '',
         upi_display_name: account?.upi_display_name ?? account?.holder ?? '',
-        is_qr_enabled: account?.is_qr_enabled ?? false,
         min_amount: account ? rupees(account.min_amount) : '1',
         max_amount: rupees(account?.max_amount ?? null),
         daily_amount_limit: rupees(account?.daily_amount_limit ?? null),
@@ -243,13 +242,6 @@ export function AccountFormDialog({
                             required: true,
                             hint: 'The name the UPI ID is registered to; customers paying by UPI see it. It may differ from the bank holder name.',
                         })}
-                        <SwitchField
-                            label="QR code"
-                            checked={data.is_qr_enabled}
-                            onChange={(checked) =>
-                                setData('is_qr_enabled', checked)
-                            }
-                        />
                     </>
                 )}
                 {errors.is_bank_enabled && (

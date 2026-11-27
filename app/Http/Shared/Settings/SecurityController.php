@@ -7,6 +7,7 @@ use App\Domain\Core\Audit\Models\SecurityLog;
 use App\Http\Controller;
 use App\Http\Shared\Settings\Requests\PasswordUpdateRequest;
 use App\Http\Shared\Settings\Requests\TwoFactorAuthenticationRequest;
+use App\Support\TwoFactor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -21,7 +22,8 @@ class SecurityController extends Controller
     public function edit(TwoFactorAuthenticationRequest $request): Response
     {
         $props = [
-            'canManageTwoFactor' => Features::canManageTwoFactorAuthentication(),
+            // 2FA is on live only (App\Support\TwoFactor).
+            'canManageTwoFactor' => TwoFactor::on() && Features::canManageTwoFactorAuthentication(),
             'canManagePasskeys' => Features::canManagePasskeys(),
             'passkeys' => Features::canManagePasskeys()
                 ? $request->user()
@@ -42,7 +44,7 @@ class SecurityController extends Controller
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
         ];
 
-        if (Features::canManageTwoFactorAuthentication()) {
+        if (TwoFactor::on() && Features::canManageTwoFactorAuthentication()) {
             $request->ensureStateIsValid();
 
             $props['twoFactorEnabled'] = $request->user()->hasEnabledTwoFactorAuthentication();

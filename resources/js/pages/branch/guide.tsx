@@ -3,6 +3,7 @@ import { Info, Search, TriangleAlert } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Panel } from '@/components/pg/data-table';
+import { DownloadPdfButton } from '@/components/pg/download-pdf-button';
 import { PageHeader } from '@/components/pg/page-header';
 import { BRANCH_GUIDE, BRANCH_GUIDE_GROUPS } from '@/lib/branch-guide-content';
 import type {
@@ -38,10 +39,16 @@ export default function BranchGuide() {
             <PageHeader
                 title="Guide"
                 description="How to use the branch portal, step by step with pictures. Start at the top if you are new; search for a word if you have a question."
+                actions={
+                    <DownloadPdfButton
+                        fileName="Branch portal guide"
+                        prepare={() => setQuery('')}
+                    />
+                }
             />
 
-            <div className="grid items-start gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-                <nav className="flex flex-col gap-3 lg:sticky lg:top-4">
+            <div className="grid items-start gap-4 lg:grid-cols-[240px_minmax(0,1fr)] print:block">
+                <nav className="flex flex-col gap-3 lg:sticky lg:top-4 print:hidden">
                     <label className="relative block">
                         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-tx3" />
                         <input
@@ -106,7 +113,7 @@ export default function BranchGuide() {
 
 function SectionCard({ section }: { section: BranchGuideSection }) {
     return (
-        <Panel className="scroll-mt-4 p-4 sm:p-5">
+        <Panel className="scroll-mt-4 p-4 sm:p-5 print:shadow-none">
             <section id={section.id} className="flex flex-col gap-4">
                 <header className="flex items-start gap-3">
                     <span className="flex size-9 flex-none items-center justify-center rounded-[10px] bg-acs text-ac">

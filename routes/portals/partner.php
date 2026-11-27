@@ -70,5 +70,5 @@ Route::controller(UserController::class)->prefix('users')->name('users.')->group
     Route::put('{user}', 'update')->name('update');
     Route::put('{user}/status', 'status')->name('status');
     Route::put('{user}/password', 'setPassword')->name('password');
-    Route::delete('{user}/two-factor', 'resetTwoFactor')->name('two-factor');
+    // Reset 2FA is Admin only (client request 2026-11-27): see routes/portals/admin.php.
 });

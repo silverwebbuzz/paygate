@@ -4,6 +4,7 @@ import { Fragment, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Panel } from '@/components/pg/data-table';
 import { Mark } from '@/components/pg/guide-mocks';
+import { DownloadPdfButton } from '@/components/pg/download-pdf-button';
 import { PageHeader } from '@/components/pg/page-header';
 import { GUIDE, GUIDE_GROUPS } from '@/lib/guide-content';
 import type { GuideBlock, GuideSection } from '@/lib/guide-content';
@@ -33,10 +34,16 @@ export default function Guide() {
             <PageHeader
                 title="Guide"
                 description="Everything about our system in simple words: IDs, menus, flows, rules and what to do when something is stuck. Use it to answer any branch or partner question. Links open the real page in a new tab."
+                actions={
+                    <DownloadPdfButton
+                        fileName="Admin guide"
+                        prepare={() => setQuery('')}
+                    />
+                }
             />
 
-            <div className="grid items-start gap-4 lg:grid-cols-[230px_minmax(0,1fr)]">
-                <nav className="flex flex-col gap-3 lg:sticky lg:top-4">
+            <div className="grid items-start gap-4 lg:grid-cols-[230px_minmax(0,1fr)] print:block">
+                <nav className="flex flex-col gap-3 lg:sticky lg:top-4 print:hidden">
                     <label className="relative block">
                         <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-tx3" />
                         <input
@@ -96,7 +103,7 @@ export default function Guide() {
 
 function SectionCard({ section }: { section: GuideSection }) {
     return (
-        <Panel className="scroll-mt-4 p-4 sm:p-5">
+        <Panel className="scroll-mt-4 p-4 sm:p-5 print:shadow-none">
             <section id={section.id} className="flex flex-col gap-4">
                 <header className="flex items-start gap-3">
                     <span className="flex size-9 flex-none items-center justify-center rounded-[10px] bg-acs text-ac">

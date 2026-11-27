@@ -44,7 +44,6 @@ class PaymentAccountRequest extends FormRequest
             'is_upi_enabled' => ['boolean'],
             'upi_id' => ['nullable', 'string', 'max:100', 'regex:/^[A-Za-z0-9._-]{2,256}@[A-Za-z][A-Za-z0-9.-]{1,63}$/'],
             'upi_display_name' => ['nullable', 'required_if_accepted:is_upi_enabled', 'string', 'max:255'],
-            'is_qr_enabled' => ['boolean'],
             'min_amount' => $this->limitRules(),
             'max_amount' => $this->limitRules(),
             'daily_amount_limit' => $this->limitRules(),
@@ -120,7 +119,8 @@ class PaymentAccountRequest extends FormRequest
             'is_upi_enabled' => $this->boolean('is_upi_enabled'),
             'upi_id' => $this->input('upi_id'),
             'upi_display_name' => $upi ? $this->string('upi_display_name')->trim()->value() : $this->account()?->upi_display_name,
-            'is_qr_enabled' => $this->boolean('is_qr_enabled'),
+            // The QR code comes with UPI: it is always on when UPI is on.
+            'is_qr_enabled' => $upi,
             'min_amount' => $this->paise('min_amount'),
             'max_amount' => $this->paise('max_amount'),
             'daily_amount_limit' => $this->paise('daily_amount_limit'),

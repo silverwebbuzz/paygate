@@ -137,7 +137,7 @@ export const GUIDE: GuideSection[] = [
                     [
                         '4',
                         'Customer',
-                        'Opens the page, picks UPI / QR / bank, pays, enters the **UTR**',
+                        'Opens the page, picks UPI & QR code or bank, pays, enters the **UTR**',
                     ],
                     [
                         '5',
@@ -469,7 +469,7 @@ export const GUIDE: GuideSection[] = [
                 items: [
                     'The partner calls our API with the amount, its Order ID and its customer’s ID.',
                     'We create the deposit (Transaction ID `PI…`) and send back a **payment link**. The status is “Awaiting payment”.',
-                    'The customer opens the link and picks **UPI**, **QR code** or **Bank transfer**.',
+                    'The customer opens the link and picks **UPI & QR code** or **Bank transfer**.',
                     'Our system picks a bank or UPI account of a branch mapped to that partner. Branches take turns (round robin), and only accounts within their limits are used.',
                     'The customer pays from their bank app.',
                     'The customer enters the **UTR** and uploads a **payment screenshot** (both required). The status becomes **Pending**.',
@@ -483,7 +483,7 @@ export const GUIDE: GuideSection[] = [
                 node: <CheckoutMock />,
                 marks: [
                     'The amount to pay. The customer must pay exactly this.',
-                    'Choose how to pay: UPI, QR code or Bank transfer. Only methods the partner allows are shown.',
+                    'Choose how to pay: UPI & QR code (QR first, then the UPI ID) or Bank transfer. Only methods the partner allows are shown.',
                     'The account to pay into. “Having trouble paying? Get different details” gives another account for the same payment.',
                     'The UTR from the bank app, and a screenshot. Both are required.',
                 ],
@@ -495,7 +495,7 @@ export const GUIDE: GuideSection[] = [
                     'If the customer refreshes the page, they get the same account again.',
                     'If the same customer clicks twice for the same amount within about 2 minutes, only one deposit is made.',
                     'The payment page has a time limit (set per partner). After that the deposit becomes **Expired**.',
-                    'The page warns customers not to pay with the Yono SBI app on the UPI and QR tabs.',
+                    'The page warns customers not to pay with the Yono SBI app on the UPI & QR code tab.',
                 ],
             },
         ],
@@ -1620,7 +1620,9 @@ export const GUIDE: GuideSection[] = [
             {
                 kind: 'points',
                 items: [
-                    'Every user needs two-factor login (an authenticator app code).',
+                    'On live, every Admin and Branch user needs two-factor login (an authenticator app code). The testbox and sandbox servers don’t use 2FA.',
+                    'Only Admin can **Reset two-factor** (Users › View details), for any user, including partner and branch users who lost their phone.',
+                    'One login at a time: signing in on another browser or computer logs the older one out.',
                     'Some actions need a second person, e.g. a chargeback is approved by someone other than the person who raised it.',
                 ],
             },

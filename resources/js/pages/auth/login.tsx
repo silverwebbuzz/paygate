@@ -2,7 +2,6 @@ import { Form, Head } from '@inertiajs/react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
@@ -66,24 +65,10 @@ export default function Login({ status }: Props) {
                                 <InputError message={errors.password} />
                             </div>
 
-                            <div className="flex items-center space-x-3">
-                                <Checkbox
-                                    id="remember"
-                                    name="remember"
-                                    tabIndex={3}
-                                />
-                                <Label
-                                    htmlFor="remember"
-                                    className="text-[14px] font-medium"
-                                >
-                                    Remember me
-                                </Label>
-                            </div>
-
                             <Button
                                 type="submit"
                                 className="mt-2 h-11 w-full bg-linear-to-r from-[#e0287d] via-[#8e2479] to-[#3e1264] text-[15px] shadow-lg shadow-[#e0287d]/25 transition-[filter,box-shadow] hover:bg-transparent hover:brightness-110"
-                                tabIndex={4}
+                                tabIndex={3}
                                 disabled={processing}
                                 data-test="login-button"
                             >

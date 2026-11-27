@@ -239,3 +239,36 @@
             'cv11' 1;
     }
 }
+
+/*
+ * Printing / "Download PDF" (guides): A4 with a small margin, colours and
+ * backgrounds kept, and pictures, tables and section titles not split
+ * across pages. Menu, top bar and side menus hide themselves (print:hidden).
+ */
+@media print {
+    @page {
+        size: A4;
+        margin: 12mm;
+    }
+
+    html,
+    body {
+        background: #fff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    figure,
+    img,
+    table,
+    tr,
+    header {
+        break-inside: avoid;
+    }
+
+    h1,
+    h2,
+    h3 {
+        break-after: avoid;
+    }
+}

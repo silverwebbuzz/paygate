@@ -41,6 +41,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
  * @property string|null $remember_token
+ * @property string|null $session_token the current sign-in (one session per user)
  * @property Carbon|null $last_login_at
  * @property string|null $last_login_ip
  * @property array<string, bool>|null $notification_preferences alert => shown in the bell on/off
@@ -49,7 +50,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  */
 #[UseFactory(UserFactory::class)]
 #[Fillable(['name', 'username', 'password', 'type', 'role_id', 'partner_id', 'branch_id', 'status'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
+#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token', 'session_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
